@@ -1,0 +1,51 @@
+# Builds the desktop app's installer for Debian (npm run dist → dist/penfold_<version>_amd64.deb)
+appId: io.github.ibanurq.Penfold
+productName: Penfold
+copyright: © 2026 ibanurq
+
+directories:
+  output: dist
+
+# Penfold does not update itself (no update server, no update files)
+publish: null
+
+# Only what the app needs at run time (no tests, documentation or tools)
+files:
+  - index.html
+  - css/**
+  - js/**
+  - vendor/**
+  - assets/penfold.svg
+  - assets/icons/**
+  - electron/**
+  - LICENSE
+  - THIRD-PARTY-NOTICES.md
+  - package.json
+
+linux:
+  target: deb
+  executableName: penfold
+  icon: assets/icons
+  category: Office
+  synopsis: Read, annotate and organise PDFs
+  # Used both as the package description and as the menu entry's comment (the long text is in the AppStream card)
+  description: Read, annotate and organise your PDFs
+  mimeTypes:
+    - application/pdf
+  desktop:
+    entry:
+      Name: Penfold
+      GenericName: PDF Editor
+      GenericName[es]: Editor de PDF
+      Comment: Read, annotate and organise your PDFs
+      Comment[es]: Lee, anota y organiza tus PDF
+      Keywords: PDF;annotate;highlight;merge;bookmarks;form;
+      Keywords[es]: PDF;anotar;resaltar;combinar;marcadores;formulario;
+
+deb:
+  packageCategory: graphics
+  priority: optional
+  recommends: []
+  # GNOME Software card (AppStream)
+  fpm:
+    - build/penfold.metainfo.xml=/usr/share/metainfo/penfold.metainfo.xml

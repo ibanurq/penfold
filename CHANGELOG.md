@@ -1,0 +1,58 @@
+# Changelog
+
+All notable changes to Penfold are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+Version numbers: while features are frozen in 0.5, the third number (0.5.1, 0.5.2…) only goes up for visual polish
+and bug fixes.
+
+## 0.5.2 — 2026-11-12
+
+### Added
+- Desktop app for Linux, built with Electron: opens PDFs from the file manager (“Open with”), from the command line or
+  dropped on the window, in a single instance; “Save” writes back to the opened file; remembers the window; shows the
+  document’s name in the title; no browser behaviour; no network use. Installed from a Debian package (`npm run dist`)
+  with a menu entry, “Open with” for PDFs and a card for GNOME Software.
+- App icon in colour (`assets/penfold.svg`, with PNG sizes from 16 to 512 px in `assets/icons/`, made by
+  `npm run icons`).
+
+### Changed
+- The About dialogue shows the colour icon instead of the grey welcome-screen icon. Its credit line is now “Created by
+  ibanurq, with AI assistance”, and the line “Everything happens on your computer…” is gone.
+- The protected-PDF reminder in the viewer is 1.5 times bigger (48 px).
+
+## 0.5.1 — 2026-11-12
+
+### Security
+- Every PDF is opened with `isEvalSupported: false`, the documented mitigation for CVE-2024-4367 in pdf.js 3.11
+  (a crafted font could run JavaScript inside the page).
+
+### Fixed
+- Forms: in radio groups whose buttons have export values different from their options (`/Opt`), the chosen option
+  is now saved. It used to be lost, with the message “1 form field(s) could not be saved”.
+- Opened by double-clicking the file (`file://`), the app no longer leaves an error in the browser console when it
+  loads the pdf.js worker.
+
+### Changed
+- Works offline: pdf.js 3.11.174 and pdf-lib 1.17.1 are included in `vendor/`, unchanged, instead of being loaded
+  from cdnjs.
+- The single HTML file is now `index.html`, `css/penfold.css` and `js/penfold.js`, cut as they were; behaviour and
+  look are unchanged.
+
+### Added
+- Automatic tests with Playwright: 35 tests that drive the real app, check the saved PDFs and compare 21 reference
+  screenshots pixel by pixel, with the network blocked.
+- Licence file, third-party notices, README in English and Spanish, specification and working method in `docs/`.
+
+## 0.5.0 — 2026-11-11
+
+The starting point of this history: the whole app in a single HTML file, loading its libraries from cdnjs.
+
+- Reading: continuous scrolling and two pages, zoom and fitting, thumbnails, find (ignores case and accents).
+- Annotations: highlight, underline, strikethrough, comment, text box, rectangle, circle and arrow, all saved with
+  their own appearance (`/AP`); annotations from other programs shown read-only and kept on save.
+- Side panel with Pages, Bookmarks and Annotations; page reordering, rotation, deletion, blank pages and pages from
+  another PDF; bookmark editing.
+- Merge, extract pages, print with a choice of annotations.
+- Forms (AcroForm): kept on save, filled in on screen, saved editable, optionally flattened.
+- Protected PDFs detected: notice and fixed reminder; save, print and extract disabled.
+- English and Spanish interface; light and dark mode; About dialogue.

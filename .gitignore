@@ -1,0 +1,23 @@
+# Private notes (internal version of the specification, research, ideas): never saved by git
+notas_privadas/
+
+# Dependencies installed by npm
+node_modules/
+
+# Test results and reports (Playwright)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Build output (desktop packages)
+dist/
+out/
+
+# Editor and system files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
