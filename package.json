@@ -14,8 +14,7 @@
     "start": "electron .",
     "icons": "node tools/make-icons.mjs",
     "dist": "electron-builder --linux deb",
-    "test:dist": "PENFOLD_APP=dist/linux-unpacked/penfold playwright test tests/electron.spec.mjs",
-    "screenshots": "node tools/make-screenshots.mjs"
+    "test:dist": "PENFOLD_APP=dist/linux-unpacked/penfold playwright test tests/electron.spec.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

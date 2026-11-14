@@ -1,72 +1,106 @@
-# Penfold — editor de PDF
+<img src="assets/penfold.svg" width="96" alt="Icono de Penfold">
+
+# Penfold
 
 [English](README.md) · **Español**
 
-Lee, anota y organiza tus PDF, como app de escritorio o en el navegador. Todo se hace en tu equipo: tus documentos no
-salen de él, y Penfold funciona sin conexión a internet.
+Un lector sencillo de archivos PDF con capacidad para añadir anotaciones y manipular páginas.
 
-![Penfold con un PDF abierto y el panel de Anotaciones](docs/images/annotations-light.png)
+<p align="center">
+  <img src="docs/images/start_screen.png" width="720" alt="Pantalla inicial de Penfold">
+</p>
 
 ## Funciones
 
-- **Marcadores**: edita el índice del documento — añadir, renombrar, sangrar, reordenar arrastrando, negrita, cursiva
-  y color.
-- **Anotaciones**: resaltados, subrayados y tachados sobre el texto.
+- **Páginas**: reordenar, extraer, eliminar y girar.
+- **Añadir archivos** y páginas en blanco.
+- **Combinar archivos** en un único archivo.
+- **Marcadores**: añadir, renombrar y reordenar.
+- **Anotaciones**: resaltados, subrayados y tachados.
 - **Elementos gráficos**: comentarios, cuadros de texto, cuadros, círculos y flechas.
-- **Páginas**: combinar varios PDF, extraer, eliminar y girar páginas; también reordenarlas arrastrando y añadir
-  páginas en blanco o de otro PDF.
+- **Formularios**.
 
 Y además:
 
-- Seis colores, y cada anotación guardada con su propio dibujo, para que se vea igual en cualquier visor de PDF.
-- Un panel de Anotaciones que las reúne todas, agrupadas por tipo, para editar su texto, cambiar su color o borrarlas.
-- Las anotaciones hechas con otros programas se muestran en solo lectura y se conservan intactas al guardar.
-- Lectura con desplazamiento continuo o dos páginas enfrentadas, zoom, miniaturas y búsqueda (sin distinguir
-  mayúsculas ni acentos).
-- Formularios: rellenar los campos, guardarlos editables o aplanarlos.
-- Imprimir, eligiendo qué tipos de anotación se imprimen.
-- PDF protegidos (con contraseña de propietario): se pueden leer y anotar en pantalla; Penfold avisa de que todavía
-  no puede guardarlos, imprimirlos ni extraer páginas.
-- Interfaz en castellano e inglés, según el idioma del sistema; modo claro y oscuro, según el sistema.
+- Arrastrar y soltar con el ratón funciona para cambiar el orden de los archivos que se van a combinar, y para
+  reordenar páginas en la vista de miniaturas y marcadores.
+- Selección múltiple (Mayús o Ctrl) de páginas en la vista de miniaturas y de marcadores.
+- Idiomas: inglés y castellano (según el idioma del sistema).
+- Modo claro y oscuro (según el tema del sistema).
+- Paleta de 6 colores para las anotaciones y de 8 para los marcadores.
+- Panel izquierdo redimensionable.
+- La vista de miniaturas adapta su tamaño, de 1 a 4 columnas, según la anchura del panel.
+- Lectura con desplazamiento continuo o dos páginas enfrentadas.
+- Formularios: se pueden guardar para seguir editándolos, o aplanarlos para enviarlos a terceros.
+- Al imprimir se puede elegir qué tipos de anotación se imprimen.
+- Aviso en pantalla cuando un archivo está protegido.
 
-| | |
-|---|---|
-| ![Pantalla inicial](docs/images/welcome.png) | ![Interfaz en castellano, modo oscuro](docs/images/spanish-dark.png) |
+Notas importantes:
 
-## Cómo usar Penfold
+- Las anotaciones hechas con otros programas son de solo lectura y se conservan intactas al guardar.
+- Las anotaciones de tipos no soportados no se muestran, pero se conservan al guardar.
 
-### Como app de escritorio (Debian, Ubuntu y derivadas)
+## Capturas
 
-Instala el paquete `penfold_<versión>_amd64.deb` (de las versiones publicadas del proyecto, o construido como se
-explica en la parte para desarrolladores):
+<p align="center">
+  <img src="docs/images/bookmarks.png" width="720" alt="Panel de marcadores y vista de dos páginas">
+</p>
+
+<p align="center">
+  <img src="docs/images/pages.png" width="720" alt="Vista de miniaturas con anotaciones y elementos gráficos">
+</p>
+
+<p align="center">
+  <img src="docs/images/annotations.png" width="720" alt="Panel de anotaciones y búsqueda">
+</p>
+
+<p align="center">
+  <img src="docs/images/merge_dialog.png" width="320" alt="Ventana de Combinar PDF">
+  <img src="docs/images/extract_dialog.png" width="229" alt="Ventana de Extraer páginas">
+</p>
+
+## Instalación
+
+### App de escritorio
+
+Descarga el paquete `penfold_<versión>_amd64.deb` desde la página de
+[versiones publicadas](https://github.com/ibanurq/penfold/releases/latest) e instálalo con:
 
 ```bash
 sudo apt install ./penfold_<versión>_amd64.deb
 ```
 
-Penfold aparece entonces en el menú de aplicaciones y en «Abrir con…» para los PDF, y se puede poner como programa
-predeterminado para PDF. Abre los PDF desde el gestor de archivos, desde la terminal o soltándolos en su ventana, y
-«Guardar» escribe en el archivo abierto. Para desinstalarlo: `sudo apt remove penfold`.
+La aplicación se ha construido y probado en Debian 13.
 
 ### En el navegador
 
-1. Descarga el proyecto (botón verde **Code** → **Download ZIP**) y descomprímelo, o clónalo con git.
-2. Abre `index.html` en el navegador (doble clic).
+Penfold funciona directamente en el navegador, sin necesidad de conexión a la red.
 
-Eso es todo: no hay nada que instalar ni ningún servidor que poner en marcha.
+Descarga el código fuente desde la página de [versiones publicadas](https://github.com/ibanurq/penfold/releases/latest)
+y usa:
 
-**Navegadores.** Penfold se desarrolla y se prueba con navegadores basados en Chromium (Chrome, Chromium, Edge,
-Brave…). En ellos, «Guardar» sobrescribe el archivo abierto y «Extraer páginas» puede escribir en la carpeta que
-elijas. En los navegadores que no tienen esas funciones de archivos, como Firefox, Penfold descarga una copia; ahí no
-se prueba de forma habitual.
+- `index.html`: el archivo que se abre en el navegador;
+- carpeta `css`: aspecto visual;
+- carpeta `js`: scripts;
+- carpeta `assets`: icono de la aplicación;
+- carpeta `vendor`: librerías externas.
+
+Penfold se ha desarrollado y probado en Google Chrome y Firefox. En los navegadores basados en Chromium, «Guardar»
+sobrescribe el archivo abierto y «Extraer páginas» puede escribir en la carpeta que elijas. En los navegadores que no
+tienen esas funciones de archivos, como Firefox, se descarga una copia.
 
 Para forzar un idioma, añade `?lang=es` o `?lang=en` a la dirección.
 
-## Para desarrolladores
+## Notas
 
-La documentación técnica está en inglés: [README](README.md#for-developers),
-[especificación](docs/specification.md), [método de trabajo con IA](docs/working-with-ai.md),
-[pruebas](tests/README.md) y [registro de cambios](CHANGELOG.md).
+- La motivación para su desarrollo ha sido contar con una herramienta sencilla y con licencia libre que me permita
+  hacer todo lo que he necesitado hacer con archivos PDF a lo largo de unos cuantos años en mi ordenador personal.
+- Hoy en día es mi lector de PDF predeterminado (Debian 13 con GNOME).
+- No sé programar, por lo que me he apoyado en la IA para su desarrollo. En el archivo
+  [docs/working-with-ai.md](docs/working-with-ai.md) explico la metodología seguida.
+- Aunque en su estado actual cumple mis requisitos para usarla en casa, la he probado con archivos reales del trabajo,
+  replicando el flujo que empleamos, y el resultado ha sido satisfactorio: combinación de varios archivos, con textos,
+  imágenes y planos, con un tamaño final de 50-60 MB y unas 800 páginas.
 
 ## Licencia
 
