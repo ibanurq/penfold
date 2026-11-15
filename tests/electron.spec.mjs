@@ -38,12 +38,42 @@ const tempCopy = (name) => {
 };
 const title = (app) => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle());
 const loaded = (win, n) => win.waitForFunction((n) => pages.length === n && pages.every((p) => p.loaded), n);
-// Answers the next native question (“Open …? The open document will be closed…”) with the given button
-const answerDialog = (app, response) =>
-  app.evaluate(({ dialog }, response) => {
-    globalThis.__asked = [];
-    dialog.showMessageBox = async (w, o) => (globalThis.__asked.push(o.message), { response });
-  }, response);
+// Starts Penfold a second time, as the file manager or the dock does; it hands its request to the running one and exits
+async function secondLaunch(config, args) {
+  const p = spawn(ELECTRON, [...APP_ARGS, ...args], {
+    cwd: ROOT,
+    env: { ...process.env, ...EN, PENFOLD_USER_DATA: config },
+  });
+  return new Promise((r) => p.on('exit', r));
+}
+const titles = (app) =>
+  app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()
+      .map((w) => w.getTitle())
+      .sort(),
+  );
+// Presses a keyboard shortcut in a window as a real key press. (Playwright's own key presses do not reach Electron's
+// shortcut handling, so they are sent through Electron.)
+async function press(app, win, keyCode, modifiers = ['control']) {
+  const bw = await app.browserWindow(win);
+  await bw.evaluate(
+    (w, [keyCode, modifiers]) => {
+      w.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
+      w.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
+    },
+    [keyCode, modifiers],
+  );
+}
+// Draws a rectangle on the first page: an unsaved change
+async function drawRect(win) {
+  await win.click('#bar .ib[data-t="sq"]');
+  const b = await win.locator('#view .page').first().boundingBox();
+  await win.mouse.move(b.x + 100, b.y + 300);
+  await win.mouse.down();
+  await win.mouse.move(b.x + 250, b.y + 380);
+  await win.mouse.up();
+  await win.click('#bar .ib[data-t="sel"]');
+}
 
 // Drops a file from the disk on the viewer, as from the file manager. (It is picked with a hidden file input so that it
 // has a real path, which is what the desktop layer needs.)
@@ -97,8 +127,8 @@ test('no menu, links go to the default browser, and browser shortcuts do nothing
   await expect.poll(() => title(app)).toBe('Penfold');
   // Reload (Ctrl+R, F5) must not reload: a marker set in the page survives
   await win.evaluate(() => (window.__marker = 1));
-  await win.keyboard.press('Control+r');
-  await win.keyboard.press('F5');
+  await press(app, win, 'R');
+  await press(app, win, 'F5', []);
   await win.waitForTimeout(500);
   expect(await win.evaluate(() => window.__marker)).toBe(1);
   // The Website link is handed to the system, and no new window appears
@@ -113,21 +143,98 @@ test('no menu, links go to the default browser, and browser shortcuts do nothing
   await app.close();
 });
 
-test('a PDF dropped on the window opens, after asking when a document is already open', async () => {
+test('a PDF dropped on a window opens in it; with unsaved changes Penfold asks first', async () => {
   const { app, win } = await launch({ files: [tempCopy('text.pdf')] });
   await loaded(win, 3);
-  await answerDialog(app, 1); // “Open”
+  // No changes: it opens straight away
   await dropFile(win, tempCopy('outline.pdf'));
   await loaded(win, 4);
-  expect(await app.evaluate(() => globalThis.__asked)).toEqual(['Open “outline.pdf”?']);
+  await expect(win.locator('#dlg2')).toHaveCount(0);
   await expect.poll(() => title(app)).toBe('outline.pdf — Penfold');
-  // Answering Cancel keeps the open document
-  await answerDialog(app, 0);
+  // Unsaved changes: Penfold's own question; Cancel keeps the document, Discard opens the new one
+  await waitRendered(win);
+  await drawRect(win);
+  await expect.poll(() => title(app)).toBe('• outline.pdf — Penfold');
   await dropFile(win, tempCopy('form.pdf'));
-  await expect.poll(() => app.evaluate(() => globalThis.__asked)).toEqual(['Open “form.pdf”?']);
-  await win.waitForTimeout(500);
-  expect(await win.evaluate(() => pages.length)).toBe(4);
+  await expect(win.locator('#dlg2 h3')).toHaveText('Save changes to “outline.pdf”?');
+  await win.click('#dlg2 button:text("Cancel")');
+  expect(await win.evaluate(() => fname)).toBe('outline.pdf');
+  await dropFile(win, tempCopy('form.pdf'));
+  await win.click('#dlg2 button:text("Discard")');
+  await loaded(win, 1);
+  await expect.poll(() => title(app)).toBe('form.pdf — Penfold');
+  expect(app.windows()).toHaveLength(1);
   await app.close();
+});
+
+test('a PDF from the desktop opens in a new window when the open one has a document', async () => {
+  const { app, win, config } = await launch({ files: [tempCopy('text.pdf')] });
+  await loaded(win, 3);
+  const newWindow = app.waitForEvent('window');
+  expect(await secondLaunch(config, [pathToFileURL(tempCopy('outline.pdf')).href])).toBe(0);
+  const win2 = await newWindow;
+  await loaded(win2, 4);
+  await expect.poll(() => titles(app)).toEqual(['outline.pdf — Penfold', 'text.pdf — Penfold']);
+  expect(await win.evaluate(() => fname)).toBe('text.pdf');
+  await app.close();
+});
+
+test('“New Window” opens an empty window', async () => {
+  const { app, config } = await launch();
+  const newWindow = app.waitForEvent('window');
+  expect(await secondLaunch(config, ['--new-window'])).toBe(0);
+  const win2 = await newWindow;
+  await expect(win2.locator('#empty h2')).toHaveText('Get started');
+  expect(app.windows()).toHaveLength(2);
+  await app.close();
+});
+
+test('closing a window with unsaved changes asks: Cancel keeps it open, Discard closes it', async () => {
+  const { app, win } = await launch({ files: [tempCopy('text.pdf')] });
+  await loaded(win, 3);
+  await waitRendered(win);
+  await drawRect(win);
+  await press(app, win, 'W');
+  await expect(win.locator('#dlg2 h3')).toHaveText('Save changes to “text.pdf”?');
+  await win.click('#dlg2 button:text("Cancel")');
+  await win.waitForTimeout(300);
+  expect(app.windows()).toHaveLength(1);
+  // The window's close button (as from the title bar) asks too
+  const exited = app.waitForEvent('close');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  await expect(win.locator('#dlg2 h3')).toHaveText('Save changes to “text.pdf”?');
+  await win.click('#dlg2 button:text("Discard")');
+  await exited; // it was the only window, so the app ends
+});
+
+test('a window without changes closes without asking', async () => {
+  const { app, win } = await launch({ files: [tempCopy('text.pdf')] });
+  await loaded(win, 3);
+  const exited = app.waitForEvent('close');
+  await press(app, win, 'W');
+  await exited;
+});
+
+test('Ctrl+Q asks in each window with unsaved changes', async () => {
+  const { app, win, config } = await launch({ files: [tempCopy('text.pdf')] });
+  await loaded(win, 3);
+  await waitRendered(win);
+  await drawRect(win);
+  const newWindow = app.waitForEvent('window');
+  await secondLaunch(config, [tempCopy('outline.pdf')]);
+  const win2 = await newWindow;
+  await loaded(win2, 4);
+  await press(app, win2, 'Q');
+  // Only the window with changes asks; Cancel stops quitting
+  await expect(win.locator('#dlg2 h3')).toHaveText('Save changes to “text.pdf”?');
+  await expect(win2.locator('#dlg2')).toHaveCount(0);
+  await win.click('#dlg2 button:text("Cancel")');
+  await win.waitForTimeout(300);
+  expect(app.windows()).toHaveLength(2);
+  const exited = app.waitForEvent('close');
+  await press(app, win2, 'Q');
+  await win.click('#dlg2 button:text("Discard")');
+  await exited;
 });
 
 test('files dropped on the Merge list are added to it, not opened', async () => {
@@ -147,15 +254,10 @@ test('files dropped on the Merge list are added to it, not opened', async () => 
   await app.close();
 });
 
-test('a second launch hands its PDF to the open window and exits', async () => {
+test('a second launch hands its PDF to an empty window and exits', async () => {
   const { app, win, config } = await launch();
   // Given as a file:// address, as the menu entry (“%U”) does
-  const second = spawn(ELECTRON, [...APP_ARGS, pathToFileURL(tempCopy('outline.pdf')).href], {
-    cwd: ROOT,
-    env: { ...process.env, ...EN, PENFOLD_USER_DATA: config },
-  });
-  const code = await new Promise((r) => second.on('exit', r));
-  expect(code).toBe(0);
+  expect(await secondLaunch(config, [pathToFileURL(tempCopy('outline.pdf')).href])).toBe(0);
   await loaded(win, 4);
   expect(app.windows()).toHaveLength(1);
   await expect.poll(() => title(app)).toBe('outline.pdf — Penfold');
@@ -202,7 +304,6 @@ test('opening and painting a PDF makes no network request and leaves no console 
   });
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.reload());
   await win.waitForFunction(() => window.pdfjsLib && window.PDFLib && document.getElementById('empty'));
-  await answerDialog(app, 1);
   await dropFile(win, tempCopy('form.pdf'));
   await loaded(win, 1);
   await waitRendered(win);

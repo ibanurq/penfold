@@ -23,7 +23,7 @@ extracted: Penfold warns and blocks those actions (see “Protected PDFs”).
 - **Name: Penfold.** *Pen* + *fold* (a folded sheet of pages): the two halves of the app, annotating and organising
   pages. Always use it with a descriptive subtitle, e.g. “Penfold — PDF editor”. Penfold recognises its own
   annotations only by the author `Penfold`.
-- **Version: 0.5.2** (tab title “Penfold 0.5.2”). Features are frozen in 0.5: the third number only goes up for
+- **Version: 0.5.3** (tab title “Penfold 0.5.3”). Features are frozen in 0.5: the third number only goes up for
   visual polish and bug fixes.
 - **Licence: GPL-3.0.** Compatible with the libraries used: pdf.js (Apache-2.0), pdf-lib (MIT) and Lucide icons (ISC).
 - **Repository:** `https://github.com/ibanurq/penfold` (GitHub user `ibanurq`). Planned app ID:
@@ -88,7 +88,7 @@ All text in the code is British English; Spanish lives in the `ES` dictionary (s
 
 | English | Spanish | Notes |
 |---|---|---|
-| Penfold | Penfold | App name. Tab title: “Penfold 0.5.2”. |
+| Penfold | Penfold | App name. Tab title: “Penfold 0.5.3”. |
 | Highlight text | Resaltador | Highlight tool. In lists the item is “Highlight” / “Resaltado”. |
 | Comment | Comentario | Note shown as an icon on the page (speech bubble). |
 | Text box | Cuadro de texto | Text shown directly on the page. |
@@ -223,7 +223,8 @@ Penfold annotations are removed and written anew (no duplicates).
 
 The app **never uses the browser’s native dialogues** (`alert`, `confirm`, `prompt`). It uses its own (`#dlg2`):
 `confirmDialog(title, text, okLabel)` returns a promise with `true`/`false`; `promptDialog(title, label, initial,
-okLabel)` returns the text or `null`; `choiceDialog` offers several options. Enter confirms, Esc cancels. Short notices
+okLabel)` returns the text or `null`; `choiceDialog` offers several options (each button: label, value, primary, an
+extra class such as `danger`). Enter confirms, Esc cancels. Short notices
 use `msg()` (a toast at the bottom for 4.5 s). Callers must `await` them.
 
 ### Languages (English and Spanish)
@@ -257,7 +258,7 @@ everything centred):
 
 - **Icon:** the app’s colour icon, `assets/penfold.svg`, 96 px (`APP_ICON`). The welcome screen keeps its own
   monochrome symbolic version.
-- **Texts, in order:** “Penfold” (22 px, bold); “Version 0.5.2”; “Read, annotate and organise your PDFs.”; the links
+- **Texts, in order:** “Penfold” (22 px, bold); “Version 0.5.3”; “Read, annotate and organise your PDFs.”; the links
   “Website” (repository) and “Report an issue” (`/issues`), in the accent colour, opening in a new tab; “Created by
   ibanurq, with AI assistance”; “Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)”; “© 2026 ibanurq ·
   Licence GPL-3.0” (the licence links to gnu.org). The last three lines are small and dimmed.
@@ -320,6 +321,43 @@ everything centred):
 - **`build(options)`** builds every output (save, print, extract): copies the pages, applies rotations, writes own
   annotations (all or `types`, or none with `noAnnots`), the form and the bookmarks (`/Outlines`, with `/Count`, open
   state, colour and bold/italic flags, `PageMode /UseOutlines`).
+
+### Unsaved changes
+
+- **How Penfold knows:** it remembers how the document was when it was opened or last saved, and compares it with how
+  it is now. `docShape()` covers page order and rotation, bookmarks (title, page, destination, colour, bold, italic;
+  not whether they are expanded) and form values; each of Penfold’s own annotations keeps a snapshot of itself (`_o`)
+  and each page how many there were (`_nOwn`), so new, edited, recoloured and deleted annotations all count.
+  `markSaved()` runs after opening and after a successful save; annotations read from the file are marked as they load
+  (`markPageSaved`). Undoing a change by hand leaves nothing to save. A merged document is unsaved until it is saved
+  (`markSaved(true)`). A flattened copy is an export: the document keeps its unsaved changes. A form field set back to
+  its value in the PDF counts as untouched again (it is left as it is on save).
+- **`hasUnsavedChanges()`** answers the question; **`confirmUnsaved()`** asks it before the document is replaced (Open,
+  Merge, a PDF handed over by the desktop app) or the desktop window is closed: “Save changes to “name”?” / “If you
+  don’t save, your changes will be lost.” with **Cancel**, **Discard** and **Save** (primary, focused). The text is
+  centred and Discard is a destructive action (red, `button.danger`, colour `--danger`), as in GNOME. Save saves (or
+  asks where, as Save As…) and then goes ahead; if saving fails or is cancelled, nothing is replaced. A protected PDF
+  cannot be saved: “Discard the changes to “name”?” with Cancel and Discard. Without unsaved changes nothing is asked.
+- **Browser tab:** closing it with unsaved changes makes the browser ask with its own generic message (`beforeunload`).
+
+### Desktop app (Electron)
+
+`electron/main.js` shows `index.html`, unchanged, in one or more windows; `electron/preload.js` is the only bridge to the
+system (take the file the desktop asked to open; write back to that file only).
+
+- **One process, several windows.** A PDF from the desktop (file manager “Open with”, command line, a second launch)
+  opens in an empty window if there is one (the focused one first), otherwise in a new window. A PDF dropped on a window
+  opens in that window (with the unsaved-changes question if needed). “New Window” in the dock’s menu (desktop action,
+  `--new-window`) opens an empty window; launching Penfold again without files brings the open window forward.
+- **Saving** a PDF opened from the desktop writes back to that file (via a temporary file and a rename).
+- **Closing** a window (title bar, Ctrl+W) or quitting (Ctrl+Q, every window in turn) asks only when there are unsaved
+  changes; Cancel in any window stops quitting.
+- **Title:** “file.pdf — Penfold”, with “• ” in front while there are unsaved changes; “Penfold” with no document.
+- **Like a desktop app, not a browser:** no menu, no navigation, no reload or developer tools, links in the default
+  browser, no spell-check downloads, sandboxed page; the window size, position and maximised state are remembered;
+  settings in `~/.config/Penfold`.
+- **Package:** `npm run dist` builds a Debian package with the menu entry (Office, “Open with” for PDFs, English and
+  Spanish texts), the icon in every size and an AppStream card.
 
 ### Find and print
 

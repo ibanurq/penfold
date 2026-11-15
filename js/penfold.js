@@ -162,6 +162,13 @@ const ES = {
   // Generic dialogs
   'Cancel': 'Cancelar',
   'OK': 'Aceptar',
+  // Unsaved changes
+  'Save changes to “{name}”?': '¿Guardar los cambios de «{name}»?',
+  'If you don’t save, your changes will be lost.': 'Si no los guardas, se perderán.',
+  'Discard the changes to “{name}”?': '¿Descartar los cambios de «{name}»?',
+  'This PDF is protected: its changes cannot be saved and will be lost.':
+    'Este PDF está protegido: sus cambios no se pueden guardar y se perderán.',
+  'Discard': 'Descartar',
   // Merge
   'Add PDFs…': 'Añadir PDFs…',
   'Create a bookmark for each file': 'Generar marcador asociado a cada archivo',
@@ -176,9 +183,6 @@ const ES = {
   '{n} page in total': '{n} página en total',
   '{n} pages in total': '{n} páginas en total',
   'Could not read “{name}”: {m}': 'No se pudo leer «{name}»: {m}',
-  'The open document will be closed without saving its changes. Continue?':
-    'Se cerrará el documento abierto sin guardar sus cambios. ¿Continuar?',
-  'Continue': 'Continuar',
   'Merging…': 'Combinando…',
   'PDF merged: {n} pages. Use “Save As…” to save it.':
     'PDF combinado: {n} páginas. Usa «Guardar como…» para guardarlo.',
@@ -618,6 +622,7 @@ async function load(f) {
 $('#bOpen').onclick = async () => {
   try {
     const { h, f } = await pickFile();
+    if (!(await confirmUnsaved())) return;
     docs = [];
     pages = [];
     selPages.clear();
@@ -628,6 +633,7 @@ $('#bOpen').onclick = async () => {
     fname = f.name;
     const di = await load(f);
     bms = prune(await convert((await docs[di].pdf.getOutline()) || [], di));
+    markSaved();
     tab = bms.length ? 'bm' : 'th';
     ready();
     if (docs[di].enc) protectedNotice();
@@ -1553,6 +1559,8 @@ function loadAnnots(p) {
           }
         }
       });
+      // Annotations read from the file are the saved state of this page (see “Unsaved changes”)
+      markPageSaved(p);
       p.loaded = true;
     })().catch((e) => {
       p.annP = null;
@@ -1604,9 +1612,15 @@ function formLayer(el) {
         });
   };
   const set = (a, val, src) => {
-    fv[a.fieldName] = val;
     if (!doc.fvDirty) doc.fvDirty = new Set();
-    doc.fvDirty.add(a.fieldName);
+    // Back to the value it has in the PDF: the field counts as untouched again (and is left as it is on save)
+    if (JSON.stringify(val) === JSON.stringify(fvInit(a))) {
+      delete fv[a.fieldName];
+      doc.fvDirty.delete(a.fieldName);
+    } else {
+      fv[a.fieldName] = val;
+      doc.fvDirty.add(a.fieldName);
+    }
     sync(a.fieldName, val, src);
   };
   ws.forEach((a) => {
@@ -2798,6 +2812,8 @@ async function save(h, flat) {
     w = await h.createWritable();
   await w.write(bytes);
   await w.close();
+  // A flattened copy is an export: the working document still has its changes unsaved
+  if (!flat) markSaved();
   msg(flat ? _t('Saved ✔ (form flattened)') : _t('Saved ✔'));
 }
 // Does the open document have fillable form fields?
@@ -2856,21 +2872,29 @@ $('#bSave').onclick = async () => {
     if (e.name != 'AbortError') msg('Error: ' + e.message);
   }
 };
+// “Save As…”: returns true if a file was written (false if cancelled)
+async function saveAs() {
+  let flat = false;
+  if (hasForm()) {
+    flat = await flattenDialog();
+    if (flat === null) return false;
+  }
+  if (!window.showSaveFilePicker) {
+    await download(flat);
+    return true;
+  }
+  const h = await showSaveFilePicker({ suggestedName: fname, types: [{ accept: { 'application/pdf': ['.pdf'] } }] });
+  await save(h, flat);
+  // A flattened copy is an export: it does not become the working file (so that “Save” never overwrites it with the editable version)
+  if (!flat) {
+    handle = h;
+    fname = h.name;
+  }
+  return true;
+}
 $('#bSaveAs').onclick = async () => {
   try {
-    let flat = false;
-    if (hasForm()) {
-      flat = await flattenDialog();
-      if (flat === null) return;
-    }
-    if (!window.showSaveFilePicker) return download(flat);
-    const h = await showSaveFilePicker({ suggestedName: fname, types: [{ accept: { 'application/pdf': ['.pdf'] } }] });
-    await save(h, flat);
-    // A flattened copy is an export: it does not become the working file (so that “Save” never overwrites it with the editable version)
-    if (!flat) {
-      handle = h;
-      fname = h.name;
-    }
+    await saveAs();
   } catch (e) {
     if (e.name != 'AbortError') msg('Error: ' + e.message);
   }
@@ -2881,7 +2905,89 @@ async function download(flat) {
   a.href = URL.createObjectURL(b);
   a.download = fname.replace(/\.pdf$/i, '') + (flat ? _t('_flattened.pdf') : _t('_annotated.pdf'));
   a.click();
+  if (!flat) markSaved();
 }
+// ---- Unsaved changes. Penfold remembers how the document was when it was opened or last saved, and compares it with
+// how it is now: page order and rotation, bookmarks and form values (docShape), and each of Penfold's own annotations
+// (a snapshot in a._o, and how many there were per page in p._nOwn). Undoing a change by hand leaves nothing to save.
+// A merged document has never been saved (savedShape = null).
+let savedShape = '';
+const annSnap = (a) => JSON.stringify(a, (k, v) => (k == '_o' ? undefined : v));
+const ownAnnots = (p) => p.annots.filter((a) => !a.ro && a.type != 'link');
+function docShape() {
+  const bm = (l) =>
+    l.map((b) => [b.title, pages.indexOf(b.page), b.dd || null, b.color || null, !!b.bold, !!b.italic, bm(b.items)]);
+  return JSON.stringify([pages.map((p) => [p.doc, p.idx, p.rot || 0]), bm(bms), docs.map((d) => (d && d.fv) || {})]);
+}
+function markPageSaved(p) {
+  const own = ownAnnots(p);
+  own.forEach((a) => (a._o = annSnap(a)));
+  p._nOwn = own.length;
+}
+// After opening or saving, the current state becomes the saved one (never = a document that has not been saved yet)
+function markSaved(never) {
+  savedShape = never ? null : docShape();
+  pages.forEach(markPageSaved);
+}
+function hasUnsavedChanges() {
+  if (!pages.length) return false;
+  if (savedShape === null || docShape() !== savedShape) return true;
+  return pages.some((p) => {
+    const own = ownAnnots(p);
+    return own.some((a) => a._o !== annSnap(a)) || own.filter((a) => a._o).length !== (p._nOwn || 0);
+  });
+}
+// What to do with unsaved changes: 'save', 'discard' or 'cancel'. A protected PDF cannot be saved: Discard or Cancel.
+// As in GNOME, the text is centred and Discard, which loses the changes, is shown in red.
+function unsavedDialog() {
+  const locked = isLocked(),
+    pr = locked
+      ? choiceDialog(
+          _t('Discard the changes to “{name}”?', { name: fname }),
+          _t('This PDF is protected: its changes cannot be saved and will be lost.'),
+          [
+            [_t('Cancel'), 'cancel'],
+            [_t('Discard'), 'discard', false, 'danger'],
+          ],
+        )
+      : choiceDialog(
+          _t('Save changes to “{name}”?', { name: fname }),
+          _t('If you don’t save, your changes will be lost.'),
+          [
+            [_t('Cancel'), 'cancel'],
+            [_t('Discard'), 'discard', false, 'danger'],
+            [_t('Save'), 'save', true],
+          ],
+        );
+  document.querySelector('#dlg2 .box>div').style.textAlign = 'center';
+  const b = document.querySelector('#dlg2 button.on') || document.querySelector('#dlg2 button.danger');
+  if (b) b.focus();
+  return pr;
+}
+// Before the document is replaced (Open, Merge, a PDF from the desktop) or the window is closed.
+// true = go ahead (nothing to save, discarded or saved); false = stop.
+async function confirmUnsaved() {
+  if (!hasUnsavedChanges()) return true;
+  const v = await unsavedDialog();
+  if (v == 'discard') return true;
+  if (v != 'save') return false;
+  try {
+    if (handle) {
+      await save(handle);
+      return true;
+    }
+    return await saveAs();
+  } catch (e) {
+    if (e.name != 'AbortError') msg('Error: ' + e.message);
+    return false;
+  }
+}
+// Closing the browser tab with unsaved changes: the browser asks with its own (generic) message
+window.addEventListener('beforeunload', (e) => {
+  if (!hasUnsavedChanges()) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 // Places the imported bookmarks according to the insertion point (at = position of the first new page)
 function placeBms(list, at, nodes) {
   let x = null,
@@ -3395,7 +3501,7 @@ $('#bPrint').onclick = printDialog;
 // ---- About dialog (Information button): name, version, links, credits and licence. Change these values here only.
 const APP = {
   name: 'Penfold',
-  version: '0.5.2',
+  version: '0.5.3',
   author: 'ibanurq',
   year: 2026,
   repo: 'https://github.com/ibanurq/penfold',
@@ -3526,6 +3632,8 @@ async function mergeInto(items, genBm, keepBm) {
       bms.push(...sub);
     }
   }
+  // The merged document exists only on screen until it is saved
+  markSaved(true);
   tab = 'bm';
   ready();
 }
@@ -3664,15 +3772,7 @@ function mergeDialog() {
   };
   q('#mCancel').onclick = close;
   q('#mOk').onclick = async () => {
-    if (
-      pages.length &&
-      !(await confirmDialog(
-        _t('Merge PDF'),
-        _t('The open document will be closed without saving its changes. Continue?'),
-        _t('Continue'),
-      ))
-    )
-      return;
+    if (!(await confirmUnsaved())) return;
     const genBm = q('#mGen').checked;
     const keepBm = q('#mKeep').checked;
     close();
@@ -3875,10 +3975,11 @@ function choiceDialog(title, text, btns) {
       esc = (e) => {
         if (e.key == 'Escape') fin('cancel');
       };
-    btns.forEach(([l, v, on]) => {
+    btns.forEach(([l, v, on, cls]) => {
       const b = document.createElement('button');
       b.textContent = l;
       if (on) b.className = 'on';
+      if (cls) b.classList.add(cls);
       b.onclick = () => fin(v);
       o.querySelector('.row').appendChild(b);
     });

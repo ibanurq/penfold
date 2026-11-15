@@ -1,6 +1,6 @@
 {
   "name": "penfold",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Penfold — PDF editor: read, annotate and organise PDFs in the browser",
   "private": true,
   "license": "GPL-3.0-only",

@@ -47,6 +47,8 @@ export default [
         handle: 'readonly',
         annBusy: 'readonly',
         prnFrame: 'readonly',
+        fname: 'readonly',
+        hasUnsavedChanges: 'readonly',
       },
     },
   },

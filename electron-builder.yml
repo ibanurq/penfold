@@ -41,6 +41,13 @@ linux:
       Comment[es]: Lee, anota y organiza tus PDF
       Keywords: PDF;annotate;highlight;merge;bookmarks;form;
       Keywords[es]: PDF;anotar;resaltar;combinar;marcadores;formulario;
+      Actions: new-window;
+    # “New Window” in the dock's menu (right-click on the icon)
+    desktopActions:
+      new-window:
+        Name: New Window
+        Name[es]: Nueva ventana
+        Exec: /opt/Penfold/penfold --new-window
 
 deb:
   packageCategory: graphics

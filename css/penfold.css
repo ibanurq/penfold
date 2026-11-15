@@ -6,6 +6,7 @@
   --ink: #000000;
   --line: #cdc7c2;
   --acc: #3584e4;
+  --danger: #c01c28;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -16,6 +17,7 @@
     --ink: #ffffff;
     --line: rgba(255, 255, 255, 0.15);
     --acc: #78aeed;
+    --danger: #ff938c;
   }
 }
 
@@ -445,6 +447,16 @@ button.on {
   color: #fff;
   border-color: var(--acc);
   font-weight: 600;
+}
+/* Destructive action (e.g. Discard in the unsaved-changes question): red text on a faint red background, as in libadwaita */
+button.danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  border-color: transparent;
+  font-weight: 600;
+}
+button.danger:hover {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
 }
 .sep {
   width: 1px;

@@ -5,6 +5,22 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: while features are frozen in 0.5, the third number (0.5.1, 0.5.2…) only goes up for visual polish
 and bug fixes.
 
+## 0.5.3 — 2026-11-15
+
+### Fixed
+- Unsaved changes are no longer lost without warning. Penfold now knows when a document has unsaved changes (pages,
+  bookmarks, forms and annotations; undoing a change by hand leaves nothing to save) and, only then, asks “Save
+  changes to …?” with Cancel, Discard and Save before opening another PDF, merging, or closing the window. Closing the
+  browser tab makes the browser ask.
+- Desktop app: opening a PDF from the file manager no longer asks, with a system dialogue, about changes that did not
+  exist.
+
+### Changed
+- Desktop app: several windows. A PDF from the file manager opens in an empty window, or in a new one, so the open
+  document stays; a PDF dropped on a window opens in it. “New Window” in the dock’s menu. The title shows “•” while
+  there are unsaved changes.
+- The unsaved-changes question has its text centred and a red Discard button, as in GNOME apps.
+
 ## 0.5.2 — 2026-11-12
 
 ### Added
