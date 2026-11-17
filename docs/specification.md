@@ -23,7 +23,7 @@ extracted: Penfold warns and blocks those actions (see “Protected PDFs”).
 - **Name: Penfold.** *Pen* + *fold* (a folded sheet of pages): the two halves of the app, annotating and organising
   pages. Always use it with a descriptive subtitle, e.g. “Penfold — PDF editor”. Penfold recognises its own
   annotations only by the author `Penfold`.
-- **Version: 0.5.3** (tab title “Penfold 0.5.3”). Features are frozen in 0.5: the third number only goes up for
+- **Version: 0.5.4** (tab title “Penfold 0.5.4”). Features are frozen in 0.5: the third number only goes up for
   visual polish and bug fixes.
 - **Licence: GPL-3.0.** Compatible with the libraries used: pdf.js (Apache-2.0), pdf-lib (MIT) and Lucide icons (ISC).
 - **Repository:** `https://github.com/ibanurq/penfold` (GitHub user `ibanurq`). Planned app ID:
@@ -35,6 +35,7 @@ extracted: Penfold warns and blocks those actions (see “Protected PDFs”).
 index.html          page structure: toolbar, side panel, welcome screen
 css/penfold.css     all styles
 js/penfold.js       the whole application (plain JavaScript, a classic script, no modules)
+js/i18n/            translations, one file per language (es.js, eu.js…)
 vendor/             pdf.js 3.11.174 (with worker and stylesheet) and pdf-lib 1.17.1, unchanged
 tests/              Playwright tests, test PDFs and reference screenshots
 ```
@@ -57,7 +58,17 @@ The look follows the GNOME Human Interface Guidelines and libadwaita: minimal, w
 - **Type:** Cantarell, then Inter and the system font. Primary buttons (`.on`) are semibold (600).
 - **Top bar:** padding `8px 12px` and an inner highlight. Flat buttons with a translucent background on hover.
 - **PDF pages:** soft multi-layer shadow that imitates paper.
-- **Dialogues (`#dlg`, `#dlg2`):** dark backdrop with `backdrop-filter: blur(2px)`, box with 24 px padding, 400 px wide.
+- **Dialogues (`#dlg`, `#dlg2`), in the style of libadwaita** (values taken from its stylesheet): dialogue background
+  `--dlg-bg` (#fafafb light, #36363a dark) and text `--dlg-fg`; a dimmed backdrop (`--dim`, no blur); libadwaita’s
+  shadow; 11 pt text; title at 136 %, weight 800, centred. Buttons have no border, a translucent fill
+  (`currentColor` at 10 %, 15 % on hover, 30 % pressed) and bold text; the main one has the accent background
+  (`--acc-bg`, #3584e4) and white text; destructive ones (`.danger`) red text (`--danger`, #c30000 / #ff938c) on a
+  fill of the same red. Text fields, lists and number fields are filled, borderless, 9 px corners, 34 px high, with a
+  half-transparent accent focus ring. Links use `--acc-text` (#0461be / #81d0ff).
+  - **Dialogues with content (`#dlg`):** 400 px wide (560 px with `.wide`), 15 px corners, 24 px padding; the answers at
+    the bottom are 44 px high with 12 px corners, a common minimum width of 120 px, centred.
+  - **Alerts (`#dlg2`, AdwAlertDialog):** 372 px wide, 18 px corners, padding 32 px top and 24 px elsewhere; title and
+    text centred; the answers share the row’s width (and wrap if they do not fit).
 - **Controls:** fields with 8 px corners; round search field; pure-CSS checkboxes and radio buttons; GNOME-style thin
   rounded scrollbars and focus rings.
 - **Icons:** Lucide, stroke 1.8, round caps and joins, 20 px in the main toolbar and 18 px in the panel bars.
@@ -84,11 +95,11 @@ The initial colour is Yellow (`#f9f06b`).
 
 ## Interface terms
 
-All text in the code is British English; Spanish lives in the `ES` dictionary (see “Languages”).
+All text in the code is British English; translations live in `js/i18n/`, one file per language (see “Languages”).
 
 | English | Spanish | Notes |
 |---|---|---|
-| Penfold | Penfold | App name. Tab title: “Penfold 0.5.3”. |
+| Penfold | Penfold | App name. Tab title: “Penfold 0.5.4”. |
 | Highlight text | Resaltador | Highlight tool. In lists the item is “Highlight” / “Resaltado”. |
 | Comment | Comentario | Note shown as an icon on the page (speech bubble). |
 | Text box | Cuadro de texto | Text shown directly on the page. |
@@ -227,29 +238,37 @@ okLabel)` returns the text or `null`; `choiceDialog` offers several options (eac
 extra class such as `danger`). Enter confirms, Esc cancels. Short notices
 use `msg()` (a toast at the bottom for 4.5 s). Callers must `await` them.
 
-### Languages (English and Spanish)
+### Languages
 
 English is the base language: every string in the code is British English (*colour*, *anticlockwise*, *grey*…).
-Spanish comes from the `ES` dictionary at the top of `js/penfold.js`: the key is the English string and the value the
-Spanish text.
+Translations live in `js/i18n/`, **one file per language** (`es.js` complete; `eu.js`, Basque, a template to fill in),
+loaded with `<script>` before `js/penfold.js`. Each file adds `PENFOLD_LANGS.<code> = { 'English text': 'translation' }`.
+They are `.js` files, not `.json`, because a page opened as a file (`file://`) cannot read `.json` files. The desktop
+app reads the same files (`electron/i18n.js`) for its own few texts. `js/i18n/README.md` explains how to translate.
 
-- **Choosing the language (`LANG`):** first `?lang=en` or `?lang=es` in the address; otherwise `navigator.languages`
-  in order of preference (the first `es` or `en` wins); if the browser only has Basque, Catalan or Galician, Spanish;
-  otherwise English. It is also set on `<html lang>`.
+- **Choosing the language (`LANG`):** first `?lang=<code>` in the address, if that language has a file; otherwise
+  `navigator.languages` in order of preference: the first one that is English or has a file wins. If none does, a
+  language’s fallback is used (`LANG_FALLBACK`: Basque, Catalan and Galician → Spanish); otherwise English. It is also
+  set on `<html lang>`.
+- **`tKey(key)`** looks a text up in the chosen language and then in its fallback; an empty translation (`''`) counts
+  as missing, so a file can be translated little by little. With nothing found, the English text is shown.
 - **`_t(text, values, context)`:** translates a string; `{name}` placeholders are filled from `values`. The context
-  separates two uses of the same English string with different Spanish: its key is `context + "\u0004" + text` (today
-  `page\u0004Delete` and `dialog\u0004Delete bookmark`).
+  separates two uses of the same English string with different translations: its key is `context + "\u0004" + text`
+  (today `page\u0004Delete` and `dialog\u0004Delete bookmark`).
 - **`_n(n, singular, plural)`:** picks the singular or plural form; the strings contain `{n}`.
 - **`i18nApply(element)`:** translates static text (text nodes and `title` / `placeholder` attributes) by looking each
   one up in the dictionary. It runs once on the whole page at start-up and on every dialogue built with `innerHTML`
   right after it is built, so static HTML and dialogue templates carry plain English.
 - **With English nothing is done:** `i18nApply` returns at once and `_t` returns the string as it is.
-- **Adding text:** write it in English in the code (through `_t` if JavaScript builds it) and add its pair to `ES`. A
-  string missing from `ES` shows in English in the Spanish version: it breaks nothing, but it shows.
+- **Adding text:** write it in English in the code (through `_t` if JavaScript builds it) and add its pair to every
+  file in `js/i18n/` (translated in `es.js`, empty `''` in the others until translated). The tests check that every
+  file has exactly the texts of `es.js` and that every text is still used. `npm run i18n` shows what is left to
+  translate in each language.
 - **Not translated:** identifiers stored in the PDF, such as the author `Penfold`. A new bookmark’s default title
   (“Page 3” / “Página 3”) is translated **when it is created** and stays in the PDF in that language. Default file
   names (`document.pdf`, `merged.pdf`, `extracted_01.pdf`, `_annotated.pdf`, `_flattened.pdf`) also go through `_t`.
-- **More languages:** another dictionary (`FR={…}`) and a wider `LANG` would be enough.
+- **More languages:** a new file in `js/i18n/`, loaded in `index.html`; nothing else in the code changes (the menu
+  entry and the AppStream card have their own short texts per language).
 
 ### About dialogue
 
@@ -258,7 +277,7 @@ everything centred):
 
 - **Icon:** the app’s colour icon, `assets/penfold.svg`, 96 px (`APP_ICON`). The welcome screen keeps its own
   monochrome symbolic version.
-- **Texts, in order:** “Penfold” (22 px, bold); “Version 0.5.3”; “Read, annotate and organise your PDFs.”; the links
+- **Texts, in order:** “Penfold” (22 px, bold); “Version 0.5.4”; “Read, annotate and organise your PDFs.”; the links
   “Website” (repository) and “Report an issue” (`/issues`), in the accent colour, opening in a new tab; “Created by
   ibanurq, with AI assistance”; “Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)”; “© 2026 ibanurq ·
   Licence GPL-3.0” (the licence links to gnu.org). The last three lines are small and dimmed.
@@ -332,8 +351,10 @@ everything centred):
   (`markPageSaved`). Undoing a change by hand leaves nothing to save. A merged document is unsaved until it is saved
   (`markSaved(true)`). A flattened copy is an export: the document keeps its unsaved changes. A form field set back to
   its value in the PDF counts as untouched again (it is left as it is on save).
-- **`hasUnsavedChanges()`** answers the question; **`confirmUnsaved()`** asks it before the document is replaced (Open,
-  Merge, a PDF handed over by the desktop app) or the desktop window is closed: “Save changes to “name”?” / “If you
+- **`hasUnsavedChanges()`** answers the question; **`confirmUnsaved()`** asks it before the document is replaced or the
+  desktop window is closed, and **first**, so no work is done twice: Open asks before the file chooser, Merge when its
+  toolbar button is pressed (before its dialogue), a PDF handed over by the desktop app before it is loaded
+  (`openFromDesktop`); `openFile(handle, file)` then replaces the document. The question: “Save changes to “name”?” / “If you
   don’t save, your changes will be lost.” with **Cancel**, **Discard** and **Save** (primary, focused). The text is
   centred and Discard is a destructive action (red, `button.danger`, colour `--danger`), as in GNOME. Save saves (or
   asks where, as Save As…) and then goes ahead; if saving fails or is cancelled, nothing is replaced. A protected PDF
@@ -357,11 +378,14 @@ system (take the file the desktop asked to open; write back to that file only).
   browser, no spell-check downloads, sandboxed page; the window size, position and maximised state are remembered;
   settings in `~/.config/Penfold`.
 - **Package:** `npm run dist` builds a Debian package with the menu entry (Office, “Open with” for PDFs, English and
-  Spanish texts), the icon in every size and an AppStream card.
+  Spanish texts), the icon in every size and an AppStream card. It also builds the browser version,
+  `penfold_<version>-web.zip` (`npm run dist:web` on its own): a folder with `index.html`, `css/`, `js/`, `vendor/`,
+  `assets/` and the licence files, which opens with a double click on `index.html` once unzipped.
 
 ### Find and print
 
-- **Find (Ctrl+F):** floating bar at the top right. Reads each page’s text without painting it (fast on large PDFs),
+- **Find (Ctrl+F):** floating bar at the top right, in the style of a libadwaita popover (popover colours, 15 px
+  corners) with a search entry (filled, 9 px corners, a magnifier inside) and flat buttons. Reads each page’s text without painting it (fast on large PDFs),
   ignores case, accents and irregular line breaks, starts from the current page and puts the match in the top third
   of the viewer. Enter / Shift+Enter go to the next / previous match; Esc closes. It does not search inside
   annotation text.
@@ -394,7 +418,7 @@ decrypt them**: saving them produced broken files. Penfold detects them and bloc
 ## Technical details
 
 - **Libraries:** pdf.js 3.11.174 (reading, painting, text) and pdf-lib 1.17.1 (writing), in `vendor/`.
-- **Languages:** `ES`, `LANG`, `_t`, `_n` and `i18nApply`. The name `_t` is deliberate: `t` is a local variable in
+- **Languages:** `js/i18n/<code>.js` (`PENFOLD_LANGS`), `LANG`, `LANG_FALLBACK`, `tKey`, `_t`, `_n` and `i18nApply`. The name `_t` is deliberate: `t` is a local variable in
   many functions.
 - **Memory model:**
   - `docs`: one entry per loaded PDF (`bytes`, pdf.js `pdf`, form `fv`/`fvDirty`, `enc` if protected).

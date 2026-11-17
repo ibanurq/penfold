@@ -112,17 +112,24 @@ test('changes to annotations saved earlier count: colour, text, deleting', async
   expect(await dirty(page)).toBe(true);
 });
 
-test('Open with unsaved changes asks: Cancel keeps the document, Discard opens the other one', async ({ page }) => {
+test('Open with unsaved changes asks first, before the file is chosen: Cancel keeps the document, Discard opens the other one', async ({
+  page,
+}) => {
   await openApp(page);
   await openPdf(page, 'text.pdf');
   await drawRect(page);
   await startOpening(page, 'outline.pdf');
   await expect(page.locator('#dlg2 h3')).toHaveText('Save changes to “text.pdf”?');
+  // The question comes before the file chooser: the file waiting to be chosen has not been taken yet
+  expect(await page.evaluate(() => window.__pt.open.length)).toBe(1);
   await expect(page.locator('#dlg2 button')).toHaveText(['Cancel', 'Discard', 'Save']);
   await expect(page.locator('#dlg2 button.on')).toBeFocused();
   await expect(page).toHaveScreenshot('unsaved-dialog.png', SHOT);
   await page.click('#dlg2 button:text("Cancel")');
   expect(await page.evaluate(() => [fname, pages.length, pages[0].annots.length])).toEqual(['text.pdf', 3, 1]);
+  // Cancel does not open the file chooser at all
+  expect(await page.evaluate(() => window.__pt.open.length)).toBe(1);
+  await page.evaluate(() => (window.__pt.open = []));
   await startOpening(page, 'outline.pdf');
   await page.click('#dlg2 button:text("Discard")');
   await page.waitForFunction(() => fname == 'outline.pdf' && pages.length == 4);
@@ -153,13 +160,19 @@ test('Merge asks only with unsaved changes, and a merged document is unsaved unt
   await openApp(page, { lang: 'es' });
   await openPdf(page, 'text.pdf');
   await drawRect(page);
+  // The question comes when Merge is pressed, before its dialogue: Cancel does not open it
   await page.click('#bMerge');
+  await expect(page.locator('#dlg2 h3')).toHaveText('¿Guardar los cambios de «text.pdf»?');
+  await expect(page.locator('#dlg2 button')).toHaveText(['Cancelar', 'Descartar', 'Guardar']);
+  await expect(page.locator('#dlg')).toHaveCount(0);
+  await page.click('#dlg2 button:text("Cancelar")');
+  await expect(page.locator('#dlg')).toHaveCount(0);
+  // Discard: the Merge dialogue opens, and merging asks nothing more
+  await page.click('#bMerge');
+  await page.click('#dlg2 button:text("Descartar")');
   await dropOnMergeList(page, ['text.pdf', 'outline.pdf']);
   await expect(page.locator('#mList .mrow')).toHaveCount(2);
   await page.click('#mOk');
-  await expect(page.locator('#dlg2 h3')).toHaveText('¿Guardar los cambios de «text.pdf»?');
-  await expect(page.locator('#dlg2 button')).toHaveText(['Cancelar', 'Descartar', 'Guardar']);
-  await page.click('#dlg2 button:text("Descartar")');
   await page.waitForFunction(() => pages.length == 7);
   await waitRendered(page);
   expect(await dirty(page)).toBe(true);

@@ -8,251 +8,37 @@ else
     .then((b) => (pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(b)))
     .catch(() => (pdfjsLib.GlobalWorkerOptions.workerSrc = W));
 // ---- Language ----
-// English is the source language: every string in this file is English, and the Spanish text lives in the ES dictionary below
-// (key = the English string; a key may carry a context prefix, "ctx\u0004text", when two uses need different Spanish).
-// The language comes from ?lang=en|es, otherwise from the browser's preferred languages (Basque, Catalan and Galician fall back to Spanish).
-const ES = {
-  // Toolbar, side panel and welcome screen
-  'Show / hide side panel': 'Mostrar / ocultar panel lateral',
-  'Open PDF': 'Abrir PDF',
-  'Merge PDF': 'Combinar PDF',
-  'Save': 'Guardar',
-  'Save As…': 'Guardar como…',
-  'Print (Ctrl+P)': 'Imprimir (Ctrl+P)',
-  'Select text': 'Seleccionar texto',
-  'Highlight text': 'Resaltador',
-  'Underline text': 'Subrayar',
-  'Strike through text': 'Tachar',
-  'Comment': 'Comentario',
-  'Text box': 'Cuadro de texto',
-  'Rectangle': 'Cuadro',
-  'Circle': 'Círculo',
-  'Arrow': 'Flecha',
-  'Go to page': 'Ir a la página',
-  'of': 'de',
-  'Find (Ctrl+F)': 'Buscar (Ctrl+F)',
-  'Zoom out': 'Alejar',
-  'Zoom in': 'Acercar',
-  'Fit to page width': 'Ajustar al ancho de página',
-  'Whole page': 'Página entera',
-  'Two pages': 'Dos páginas',
-  'Information': 'Información',
-  'Find in document': 'Buscar en el documento',
-  'Previous (Shift+Enter)': 'Anterior (Mayús+Intro)',
-  'Next (Enter)': 'Siguiente (Intro)',
-  'Close (Esc)': 'Cerrar (Esc)',
-  'Pages': 'Páginas',
-  'Bookmarks': 'Marcadores',
-  'Annotations': 'Anotaciones',
-  'Drag to change the width': 'Arrastra para cambiar la anchura',
-  'Get started': 'Comenzar a trabajar',
-  'Open a PDF, or merge several': 'Abra un PDF, o combine varios',
-  'Open…': 'Abrir…',
-  'Merge…': 'Combinar…',
-  // Colours
-  'Yellow': 'Amarillo',
-  'Green': 'Verde',
-  'Blue': 'Azul',
-  'Orange': 'Naranja',
-  'Red': 'Rojo',
-  'Lilac': 'Lila',
-  'Grey': 'Gris',
-  'Burgundy': 'Granate',
-  // Annotations panel
-  'Highlights': 'Resaltados',
-  'Underlines': 'Subrayados',
-  'Strikethroughs': 'Tachados',
-  'Comments': 'Comentarios',
-  'Text boxes': 'Cuadros de texto',
-  'Rectangles': 'Cuadros',
-  'Circles': 'Círculos',
-  'Arrows': 'Flechas',
-  'Highlight': 'Resaltado',
-  'Underline': 'Subrayado',
-  'Strikethrough': 'Tachado',
-  'External': 'Externo',
-  'Delete': 'Borrar',
-  'page\u0004Delete': 'Eliminar',
-  'Delete annotation': 'Borrar anotación',
-  'Delete this annotation?': '¿Borrar esta anotación?',
-  'Edit text': 'Editar texto',
-  'Change colour': 'Cambiar color',
-  'Turn on at least one annotation type.': 'Activa algún tipo de anotación.',
-  'Loading annotations…': 'Cargando anotaciones…',
-  'No annotations': 'Sin anotaciones',
-  // Bookmarks panel
-  'Add bookmark': 'Añadir marcador',
-  'Bookmark title:': 'Título del marcador:',
-  'Page {n}': 'Página {n}',
-  'Add': 'Añadir',
-  'Delete bookmark': 'Eliminar marcador',
-  'dialog\u0004Delete bookmark': 'Borrar marcador',
-  'Delete bookmarks': 'Borrar marcadores',
-  'Delete {n} bookmarks?': '¿Borrar {n} marcadores?',
-  'Delete the bookmark “{title}”?': '¿Borrar el marcador «{title}»?',
-  'Bold': 'Negrita',
-  'Italic': 'Cursiva',
-  'Clear formatting (bold, italic and colour)': 'Quitar formato (negrita, cursiva y color)',
-  'Expand / collapse bookmarks': 'Expandir / colapsar marcadores',
-  'No bookmarks': 'Sin marcadores',
-  'Edit bookmark': 'Editar marcador',
-  'Title:': 'Título:',
-  'Decrease indent (move up a level)': 'Disminuir sangría (subir de nivel)',
-  'Increase indent (make a sub-item of the previous one)': 'Aumentar sangría (hacer subapartado del anterior)',
-  'Point to the current page': 'Apuntar a la página actual',
-  // Pages panel
-  'Delete page': 'Eliminar página',
-  'Delete pages': 'Eliminar páginas',
-  'You can’t delete all the pages.': 'No puedes borrar todas las páginas.',
-  'Delete {n} pages?': '¿Eliminar {n} páginas?',
-  'Delete page {n}?': '¿Eliminar la página {n}?',
-  'Add pages': 'Añadir páginas',
-  'Extract pages': 'Extraer páginas',
-  'Rotate 90° anticlockwise': 'Girar 90° a la izquierda',
-  'Rotate 90° clockwise': 'Girar 90° a la derecha',
-  // Saving
-  'Flatten the form': 'Aplanar el formulario',
-  'The data becomes part of the page and the fields can no longer be edited in the saved file.':
-    'Los datos pasan a ser parte de la página y los campos dejan de ser editables en el archivo guardado.',
-  '{n} form field(s) could not be saved.': 'No se han podido guardar {n} campo(s) del formulario.',
-  'Could not flatten the form: {m}': 'No se pudo aplanar el formulario: {m}',
-  'The form data could not be saved.': 'No se han podido guardar los datos del formulario.',
-  'Saved ✔': 'Guardado ✔',
-  'Saved ✔ (form flattened)': 'Guardado ✔ (formulario aplanado)',
-  'Overwrite file': 'Sobrescribir archivo',
-  'Do you want to overwrite “{name}”?': '¿Desea sobrescribir «{name}»?',
-  'Overwrite': 'Sobrescribir',
-  'This browser cannot overwrite files: a copy is being downloaded.':
-    'Este navegador no puede sobrescribir: se descarga una copia.',
-  'document.pdf': 'documento.pdf',
-  'merged.pdf': 'combinado.pdf',
-  '_flattened.pdf': '_aplanado.pdf',
-  '_annotated.pdf': '_anotado.pdf',
-  // Adding pages
-  '{n} page': '{n} página',
-  '{n} pages': '{n} páginas',
-  'Blank page added.': 'Página en blanco añadida.',
-  'PDF added: {pn} and its bookmarks.': 'PDF añadido: {pn} y sus marcadores.',
-  'PDF added: {pn}.': 'PDF añadido: {pn}.',
-  'From a PDF': 'Desde un PDF',
-  'Choose PDF…': 'Elegir PDF…',
-  'No file chosen': 'Ningún archivo elegido',
-  'Blank page': 'Página en blanco',
-  'Size:': 'Tamaño:',
-  'Letter': 'Carta (Letter)',
-  'Where should they be added?': '¿Dónde se añade?',
-  'At the start': 'Al principio',
-  'At the end': 'Al final',
-  'After page': 'Después de la página',
-  'The page must be between 1 and {n}.': 'La página debe estar entre 1 y {n}.',
-  'Adding…': 'Añadiendo…',
-  'Error adding: {m}': 'Error al añadir: {m}',
-  // Find
-  'Searching…': 'Buscando…',
-  'No results': 'Sin resultados',
-  '{n} result': '{n} resultado',
-  '{n} results': '{n} resultados',
-  '{i} of {n}': '{i} de {n}',
-  // Print
-  'Print': 'Imprimir',
-  'Annotations to print:': 'Anotaciones que se imprimirán:',
-  'Preparing to print…': 'Preparando la impresión…',
-  'This browser does not allow printing from here: the PDF has been opened in another tab; print it from there.':
-    'Este navegador no permite imprimir desde aquí: se ha abierto el PDF en otra pestaña; imprímelo desde ella.',
-  // Generic dialogs
-  'Cancel': 'Cancelar',
-  'OK': 'Aceptar',
-  // Unsaved changes
-  'Save changes to “{name}”?': '¿Guardar los cambios de «{name}»?',
-  'If you don’t save, your changes will be lost.': 'Si no los guardas, se perderán.',
-  'Discard the changes to “{name}”?': '¿Descartar los cambios de «{name}»?',
-  'This PDF is protected: its changes cannot be saved and will be lost.':
-    'Este PDF está protegido: sus cambios no se pueden guardar y se perderán.',
-  'Discard': 'Descartar',
-  // Merge
-  'Add PDFs…': 'Añadir PDFs…',
-  'Create a bookmark for each file': 'Generar marcador asociado a cada archivo',
-  'Keep the files’ bookmarks': 'Conservar marcadores de los archivos',
-  'Merge': 'Combinar',
-  'Drag PDFs here or click “Add PDFs…”': 'Arrastra aquí los PDF o pulsa «Añadir PDFs…»',
-  '{n} p.': '{n} pág.',
-  '{n} pp.': '{n} págs.',
-  'Remove from list': 'Quitar de la lista',
-  '{n} file': '{n} archivo',
-  '{n} files': '{n} archivos',
-  '{n} page in total': '{n} página en total',
-  '{n} pages in total': '{n} páginas en total',
-  'Could not read “{name}”: {m}': 'No se pudo leer «{name}»: {m}',
-  'Merging…': 'Combinando…',
-  'PDF merged: {n} pages. Use “Save As…” to save it.':
-    'PDF combinado: {n} páginas. Usa «Guardar como…» para guardarlo.',
-  'Error merging: {m}': 'Error al combinar: {m}',
-  // Zoom, pages and extraction
-  'Enter at least one page.': 'Indica al menos una página.',
-  'Invalid format: “{t}”.': 'Formato no válido: «{t}».',
-  'Page {p} does not exist (the document has {n}).': 'La página {p} no existe (el documento tiene {n}).',
-  'Invalid range: “{t}”.': 'Rango no válido: «{t}».',
-  'Open a PDF first.': 'Abre un PDF primero.',
-  'Pages to extract:': 'Páginas a extraer:',
-  'Examples:': 'Ejemplos:',
-  '→ page 5 only': '→ solo la página 5',
-  '→ pages 5 and 9': '→ páginas 5 y 9',
-  '→ pages 5 to 10': '→ de la 5 a la 10',
-  '→ page 5 to the end': '→ de la 5 hasta el final',
-  '→ pages 1 and 5, 10 to 12, and 56 to the end': '→ las páginas 1 y 5, de la 10 a la 12 y de la 56 hasta el final',
-  'Extract as separate pages': 'Extraer como páginas independientes',
-  'Delete pages after extraction': 'Eliminar páginas tras extracción',
-  'Delete bookmarks and annotations': 'Eliminar marcadores y anotaciones',
-  'You can’t delete all the pages: untick “Delete pages after extraction”.':
-    'No puedes eliminar todas las páginas: desmarca «Eliminar páginas tras extracción».',
-  'extracted': 'extraidas',
-  'Existing files': 'Archivos existentes',
-  'Already in the folder:': 'Ya existe en la carpeta:',
-  '…and {n} more': '…y {n} más',
-  'Do you want to overwrite them or rename the new ones?': '¿Quieres sobrescribir o renombrar los nuevos?',
-  'Rename': 'Renombrar',
-  'This browser does not allow choosing a folder: the files will be downloaded.':
-    'Este navegador no permite elegir carpeta: se descargarán los archivos.',
-  '{x} into {f}': '{x} en {f}',
-  '{n} page extracted': '{n} página extraída',
-  '{n} pages extracted': '{n} páginas extraídas',
-  ' and removed from the document': ' y eliminadas del documento',
-  // Protected PDFs
-  'Protected PDF': 'PDF protegido',
-  'This PDF is protected. Any changes made to it cannot be saved. It cannot be printed and pages cannot be extracted either.':
-    'Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser guardado. Tampoco se podrá imprimir ni extraer páginas.',
-  'This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.':
-    'Este PDF está protegido contra cambios: Penfold todavía no puede guardarlo, imprimirlo ni extraer páginas.',
-  '“{name}” is protected against changes and cannot be added yet.':
-    '«{name}» está protegido contra cambios y todavía no se puede añadir.',
-  'Cannot be merged': 'No combinable',
-  // About dialog (Information button)
-  'Version {v}': 'Versión {v}',
-  'Read, annotate and organise your PDFs.': 'Lee, anota y organiza tus PDF.',
-  'Website': 'Sitio web',
-  'Report an issue': 'Informar de un error',
-  'Created by {a}, with AI assistance': 'Creado por {a}, con ayuda de IA',
-  'Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)':
-    'Usa pdf.js (Apache-2.0) · pdf-lib (MIT) · iconos Lucide (ISC)',
-  'Licence {l}': 'Licencia {l}',
-  'Close': 'Cerrar',
-};
+// English is the source language: every string in this file is English. The translations live in js/i18n/, one file
+// per language, loaded before this script: each one adds PENFOLD_LANGS.<code> = { 'English text': 'translation' } (a
+// key may carry a context prefix, "ctx\u0004text", when two uses of one English text need different translations).
+// The language comes from ?lang=<code>, otherwise from the browser's preferred languages: the first one that is English
+// or has a file. A missing or empty translation falls back to the language's fallback (Basque, Catalan and Galician
+// fall back to Spanish), and then to English.
+const LANGS = window.PENFOLD_LANGS || {},
+  LANG_FALLBACK = { eu: 'es', ca: 'es', gl: 'es' },
+  hasLang = (x) => x === 'en' || Object.prototype.hasOwnProperty.call(LANGS, x);
 const LANG = (() => {
   try {
     const q = new URLSearchParams(location.search).get('lang');
-    if (q === 'es' || q === 'en') return q;
+    if (q && hasLang(q)) return q;
   } catch (e) {}
   const ls = (
     navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']
   ).map((x) => String(x).toLowerCase().split('-')[0]);
-  return (
-    ls.find((x) => x === 'es' || x === 'en') || (ls.some((x) => x === 'eu' || x === 'ca' || x === 'gl') ? 'es' : 'en')
-  );
+  return ls.find(hasLang) || ls.map((x) => LANG_FALLBACK[x]).find((x) => x && hasLang(x)) || 'en';
 })();
 document.documentElement.lang = LANG;
+// The translation of a key in the chosen language, or in its fallback; undefined when there is none (English is shown)
+function tKey(k) {
+  for (let l = LANG; l && l !== 'en'; l = LANG_FALLBACK[l]) {
+    const d = LANGS[l],
+      v = d && Object.prototype.hasOwnProperty.call(d, k) ? d[k] : undefined;
+    if (typeof v === 'string' && v !== '') return v;
+  }
+}
 // _t translates a string ({name} placeholders are filled from v; c is the optional context). _n picks the singular or plural form for n.
 const _t = (s, v, c) => {
-  const r = LANG == 'es' && ES[c ? c + '\u0004' + s : s] !== undefined ? ES[c ? c + '\u0004' + s : s] : s;
+  const r = tKey(c ? c + '\u0004' + s : s) ?? s;
   return v ? r.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m)) : r;
 };
 const _n = (n, one, many) => _t(n == 1 ? one : many, { n });
@@ -261,13 +47,15 @@ function i18nApply(root) {
   if (LANG == 'en') return;
   const tr = (x) => {
     const m = x.match(/^(\s*)([\s\S]*?)(\s*)$/);
-    return m[2] && ES[m[2]] !== undefined ? m[1] + ES[m[2]] + m[3] : x;
+    const t = m[2] && tKey(m[2]);
+    return t !== undefined && t !== '' ? m[1] + t + m[3] : x;
   };
   [root, ...root.querySelectorAll('*')].forEach((el) => {
     if (/^(SCRIPT|STYLE)$/.test(el.tagName)) return;
     ['title', 'placeholder'].forEach((a) => {
       const v = el.getAttribute(a);
-      if (v !== null && ES[v] !== undefined) el.setAttribute(a, ES[v]);
+      const t = v !== null ? tKey(v) : undefined;
+      if (t !== undefined) el.setAttribute(a, t);
     });
     el.childNodes.forEach((n) => {
       if (n.nodeType == 3) {
@@ -619,28 +407,44 @@ async function load(f) {
     pages.push({ doc: di, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
   return di;
 }
+// Replaces the open document with file f (h: its handle for “Save”, or null)
+async function openFile(h, f) {
+  docs = [];
+  pages = [];
+  selPages.clear();
+  selBms.clear();
+  anchor = -1;
+  anchorBm = null;
+  handle = h;
+  fname = f.name;
+  const di = await load(f);
+  bms = prune(await convert((await docs[di].pdf.getOutline()) || [], di));
+  markSaved();
+  tab = bms.length ? 'bm' : 'th';
+  ready();
+  if (docs[di].enc) protectedNotice();
+}
+// Open PDF: the question about unsaved changes comes first, before choosing the file, so no work is done twice
 $('#bOpen').onclick = async () => {
   try {
-    const { h, f } = await pickFile();
     if (!(await confirmUnsaved())) return;
-    docs = [];
-    pages = [];
-    selPages.clear();
-    selBms.clear();
-    anchor = -1;
-    anchorBm = null;
-    handle = h;
-    fname = f.name;
-    const di = await load(f);
-    bms = prune(await convert((await docs[di].pdf.getOutline()) || [], di));
-    markSaved();
-    tab = bms.length ? 'bm' : 'th';
-    ready();
-    if (docs[di].enc) protectedNotice();
+    const { h, f } = await pickFile();
+    await openFile(h, f);
   } catch (e) {
     if (e.name != 'AbortError') msg('Error: ' + e.message);
   }
 };
+// A PDF handed over by the desktop app (“Open with”, or dropped on the window): the same question, then it opens.
+// Called from electron/main.js.
+/* exported openFromDesktop */
+async function openFromDesktop(h) {
+  try {
+    if (!(await confirmUnsaved())) return;
+    await openFile(h, await h.getFile());
+  } catch (e) {
+    msg('Error: ' + e.message);
+  }
+}
 function setPanel(v) {
   $('#side').style.display = $('#rs').style.display = v ? '' : 'none';
   $('#bPanel').classList.toggle('on', v);
@@ -3501,7 +3305,7 @@ $('#bPrint').onclick = printDialog;
 // ---- About dialog (Information button): name, version, links, credits and licence. Change these values here only.
 const APP = {
   name: 'Penfold',
-  version: '0.5.3',
+  version: '0.5.4',
   author: 'ibanurq',
   year: 2026,
   repo: 'https://github.com/ibanurq/penfold',
@@ -3675,6 +3479,11 @@ function mergeDialog() {
       const r = document.createElement('div');
       r.className = 'mrow' + (it.enc ? ' enc' : '');
       r.draggable = true;
+      // Drag handle (Lucide grip-vertical), as in GNOME's reorderable lists: it shows that the rows can be moved
+      const grip = document.createElement('span');
+      grip.className = 'grip';
+      grip.innerHTML =
+        '<svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>';
       const nm = document.createElement('span');
       nm.className = 'nm';
       nm.textContent = it.file.name;
@@ -3728,7 +3537,7 @@ function mergeDialog() {
         dragIdx = -1;
         draw();
       };
-      r.append(nm, pg, x);
+      r.append(grip, nm, pg, x);
       list.appendChild(r);
     });
     const ok = items.filter((it) => !it.enc),
@@ -3772,7 +3581,6 @@ function mergeDialog() {
   };
   q('#mCancel').onclick = close;
   q('#mOk').onclick = async () => {
-    if (!(await confirmUnsaved())) return;
     const genBm = q('#mGen').checked;
     const keepBm = q('#mKeep').checked;
     close();
@@ -3927,7 +3735,10 @@ $('#pg').onkeydown = (e) => {
   else updPg();
   e.target.blur();
 };
-$('#bMerge').onclick = mergeDialog;
+// Merge PDF: the question about unsaved changes comes first, before the files are chosen
+$('#bMerge').onclick = async () => {
+  if (await confirmUnsaved()) mergeDialog();
+};
 $('#eOpen').onclick = () => $('#bOpen').click();
 $('#eMerge').onclick = () => $('#bMerge').click();
 // ---- Extract pages ----

@@ -1,4 +1,6 @@
-<img src="assets/penfold.svg" width="96" alt="Icono de Penfold">
+<p align="center">
+<img src="assets/penfold.svg" width="128" alt="Icono de Penfold">
+</p>
 
 # Penfold
 
@@ -6,8 +8,10 @@
 
 Un lector sencillo de archivos PDF con capacidad para añadir anotaciones y manipular páginas.
 
+La motivación para su desarrollo ha sido contar con una única herramienta, sencilla, y con licencia libre que me permita hacer todo lo que he necesitado con archivos PDF a lo largo de unos cuantos años en mi ordenador personal.
+
 <p align="center">
-  <img src="docs/images/start_screen.png" width="720" alt="Pantalla inicial de Penfold">
+  <img src="docs/images/start_screen.png" width="90%" alt="Pantalla inicial de Penfold">
 </p>
 
 ## Funciones
@@ -20,7 +24,31 @@ Un lector sencillo de archivos PDF con capacidad para añadir anotaciones y mani
 - **Elementos gráficos**: comentarios, cuadros de texto, cuadros, círculos y flechas.
 - **Formularios**.
 
-Y además:
+## Capturas
+
+<p align="center">
+  <img src="docs/images/bookmarks.png" width="90%" alt="Panel de marcadores y vista de dos páginas">
+</p>
+
+<p align="center">
+  <img src="docs/images/pages.png" width="90%" alt="Vista de miniaturas">
+</p>
+
+<p align="center">
+  <img src="docs/images/annotations.png" width="90%" alt="Panel de anotaciones">
+</p>
+
+<p align="center">
+  <img src="docs/images/forms.png" width="90%" alt="Formularios">
+</p>
+
+<p align="center">
+  <img src="docs/images/merge_dialog.png" width="32%" alt="Ventana de Combinar PDF">
+  <img src="docs/images/extract_dialog.png" width="32%" alt="Ventana de Extraer páginas">
+  <img src="docs/images/print_dialog.png" width="32%" alt="Ventana de selección de anotaciones a imprimir">
+</p>
+
+## Detalles
 
 - Arrastrar y soltar con el ratón funciona para cambiar el orden de los archivos que se van a combinar, y para
   reordenar páginas en la vista de miniaturas y marcadores.
@@ -40,25 +68,6 @@ Notas importantes:
 - Las anotaciones hechas con otros programas son de solo lectura y se conservan intactas al guardar.
 - Las anotaciones de tipos no soportados no se muestran, pero se conservan al guardar.
 
-## Capturas
-
-<p align="center">
-  <img src="docs/images/bookmarks.png" width="720" alt="Panel de marcadores y vista de dos páginas">
-</p>
-
-<p align="center">
-  <img src="docs/images/pages.png" width="720" alt="Vista de miniaturas con anotaciones y elementos gráficos">
-</p>
-
-<p align="center">
-  <img src="docs/images/annotations.png" width="720" alt="Panel de anotaciones y búsqueda">
-</p>
-
-<p align="center">
-  <img src="docs/images/merge_dialog.png" width="320" alt="Ventana de Combinar PDF">
-  <img src="docs/images/extract_dialog.png" width="229" alt="Ventana de Extraer páginas">
-</p>
-
 ## Instalación
 
 ### App de escritorio
@@ -76,14 +85,7 @@ La aplicación se ha construido y probado en Debian 13.
 
 Penfold funciona directamente en el navegador, sin necesidad de conexión a la red.
 
-Descarga el código fuente desde la página de [versiones publicadas](https://github.com/ibanurq/penfold/releases/latest)
-y usa:
-
-- `index.html`: el archivo que se abre en el navegador;
-- carpeta `css`: aspecto visual;
-- carpeta `js`: scripts;
-- carpeta `assets`: icono de la aplicación;
-- carpeta `vendor`: librerías externas.
+Descarga el archivo `penfold_<versión>-web.zip` desde la página de [versiones publicadas](https://github.com/ibanurq/penfold/releases/latest), descomprímelo y abre `index.html`.
 
 Penfold se ha desarrollado y probado en Google Chrome y Firefox. En los navegadores basados en Chromium, «Guardar»
 sobrescribe el archivo abierto y «Extraer páginas» puede escribir en la carpeta que elijas. En los navegadores que no
@@ -93,9 +95,6 @@ Para forzar un idioma, añade `?lang=es` o `?lang=en` a la dirección.
 
 ## Notas
 
-- La motivación para su desarrollo ha sido contar con una herramienta sencilla y con licencia libre que me permita
-  hacer todo lo que he necesitado hacer con archivos PDF a lo largo de unos cuantos años en mi ordenador personal.
-- Hoy en día es mi lector de PDF predeterminado (Debian 13 con GNOME).
 - No sé programar, por lo que me he apoyado en la IA para su desarrollo. En el archivo
   [docs/working-with-ai.md](docs/working-with-ai.md) explico la metodología seguida.
 - Aunque en su estado actual cumple mis requisitos para usarla en casa, la he probado con archivos reales del trabajo,

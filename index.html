@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Penfold 0.5.3</title>
+    <title>Penfold 0.5.4</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="vendor/pdf.js-3.11.174/pdf_viewer.min.css" />
     <link rel="stylesheet" href="css/penfold.css" />
@@ -165,9 +165,12 @@
     <div id="msg"></div>
     <div id="lockw" tabindex="0" style="display: none"></div>
     <div id="sb" style="display: none">
-      <input id="sq" type="text" placeholder="Find in document" autocomplete="off" spellcheck="false" /><span
-        id="sc"
-      ></span>
+      <label class="sfield"
+        ><svg viewBox="0 0 24 24">
+          <path d="m21 21-4.34-4.34" />
+          <circle cx="11" cy="11" r="8" /></svg
+        ><input id="sq" type="text" placeholder="Find in document" autocomplete="off" spellcheck="false" /></label
+      ><span id="sc"></span>
       <button class="ib" id="sPrev" title="Previous (Shift+Enter)">
         <svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></svg>
       </button>
@@ -259,6 +262,8 @@
     </div>
     <script src="vendor/pdf.js-3.11.174/pdf.min.js"></script>
     <script src="vendor/pdf-lib-1.17.1/pdf-lib.min.js"></script>
+    <script src="js/i18n/es.js"></script>
+    <script src="js/i18n/eu.js"></script>
     <script src="js/penfold.js"></script>
   </body>
 </html>

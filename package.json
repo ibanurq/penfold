@@ -1,6 +1,6 @@
 {
   "name": "penfold",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Penfold — PDF editor: read, annotate and organise PDFs in the browser",
   "private": true,
   "license": "GPL-3.0-only",
@@ -13,8 +13,10 @@
     "lint": "eslint .",
     "start": "electron .",
     "icons": "node tools/make-icons.mjs",
-    "dist": "electron-builder --linux deb",
-    "test:dist": "PENFOLD_APP=dist/linux-unpacked/penfold playwright test tests/electron.spec.mjs"
+    "dist": "electron-builder --linux deb && node tools/make-web-zip.mjs",
+    "test:dist": "PENFOLD_APP=dist/linux-unpacked/penfold playwright test tests/electron.spec.mjs",
+    "i18n": "node tools/i18n-check.mjs",
+    "dist:web": "node tools/make-web-zip.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

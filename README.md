@@ -1,4 +1,6 @@
-<img src="assets/penfold.svg" width="96" alt="Penfold icon">
+<p align="center">
+<img src="assets/penfold.svg" width="128" alt="Penfold icon">
+</p>
 
 # Penfold
 
@@ -6,8 +8,11 @@
 
 A simple PDF reader that can also add annotations and work with pages.
 
+I made it because I wanted a single, simple, free-licensed tool that lets me do everything I have needed to do with PDF
+files on my personal computer over quite a few years.
+
 <p align="center">
-  <img src="docs/images/start_screen.png" width="720" alt="Penfold's start screen">
+  <img src="docs/images/start_screen.png" width="90%" alt="Penfold's start screen">
 </p>
 
 ## Features
@@ -20,7 +25,31 @@ A simple PDF reader that can also add annotations and work with pages.
 - **Graphic elements**: comments, text boxes, rectangles, circles and arrows.
 - **Forms**.
 
-And also:
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/bookmarks.png" width="90%" alt="Bookmarks panel and two-page view">
+</p>
+
+<p align="center">
+  <img src="docs/images/pages.png" width="90%" alt="Thumbnail view">
+</p>
+
+<p align="center">
+  <img src="docs/images/annotations.png" width="90%" alt="Annotations panel">
+</p>
+
+<p align="center">
+  <img src="docs/images/forms.png" width="90%" alt="Forms">
+</p>
+
+<p align="center">
+  <img src="docs/images/merge_dialog.png" width="32%" alt="Merge PDF dialogue">
+  <img src="docs/images/extract_dialog.png" width="32%" alt="Extract pages dialogue">
+  <img src="docs/images/print_dialog.png" width="32%" alt="Dialogue to choose which annotations to print">
+</p>
+
+## Details
 
 - Drag and drop with the mouse to change the order of the files to merge, and to reorder pages in the thumbnail view
   and bookmarks.
@@ -40,25 +69,6 @@ Important notes:
 - Annotations made with other programs are read-only and are kept intact when saving.
 - Annotations of unsupported types are not shown, but they are kept when saving.
 
-## Screenshots
-
-<p align="center">
-  <img src="docs/images/bookmarks.png" width="720" alt="Bookmarks panel and two-page view">
-</p>
-
-<p align="center">
-  <img src="docs/images/pages.png" width="720" alt="Thumbnail view with annotations and graphic elements">
-</p>
-
-<p align="center">
-  <img src="docs/images/annotations.png" width="720" alt="Annotations panel and find">
-</p>
-
-<p align="center">
-  <img src="docs/images/merge_dialog.png" width="320" alt="Merge PDF dialogue">
-  <img src="docs/images/extract_dialog.png" width="229" alt="Extract pages dialogue">
-</p>
-
 ## Installation
 
 ### Desktop app
@@ -76,13 +86,8 @@ The app has been built and tested on Debian 13.
 
 Penfold works directly in the browser, without a network connection.
 
-Download the source code from the [releases page](https://github.com/ibanurq/penfold/releases/latest) and use:
-
-- `index.html`: the file to open in the browser;
-- the `css` folder: the look;
-- the `js` folder: scripts;
-- the `assets` folder: the app icon;
-- the `vendor` folder: external libraries.
+Download the file `penfold_<version>-web.zip` from the [releases page](https://github.com/ibanurq/penfold/releases/latest),
+unzip it and open `index.html`.
 
 Penfold has been developed and tested in Google Chrome and Firefox. In Chromium-based browsers, “Save” overwrites the
 opened file and “Extract pages” can write into a folder you choose. In browsers without those file features, such as
@@ -92,9 +97,6 @@ To force a language, add `?lang=en` or `?lang=es` to the address.
 
 ## Notes
 
-- I made it because I wanted a simple, free-licensed tool that lets me do everything I have needed to do with PDF
-  files on my personal computer over quite a few years.
-- Today it is my default PDF reader (Debian 13 with GNOME).
 - I cannot program, so I relied on AI to develop it. The file [docs/working-with-ai.md](docs/working-with-ai.md)
   explains the method I followed.
 - Although in its current state it meets my needs for home use, I have tested it with real files from work,

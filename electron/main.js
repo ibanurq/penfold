@@ -16,17 +16,23 @@ const INDEX = path.join(__dirname, '..', 'index.html');
 app.setName('Penfold');
 if (process.env.PENFOLD_USER_DATA) app.setPath('userData', process.env.PENFOLD_USER_DATA);
 
-// ---- Texts of this layer (the app itself has its own dictionary). Same rule as the app: Spanish for Spanish, Basque,
-// Catalan and Galician, otherwise English.
-const TEXTS = {
-  en: { cannotRead: 'Could not open “{name}”' },
-  es: { cannotRead: 'No se pudo abrir «{name}»' },
-};
-function t(key, values = {}) {
-  const langs = app.getPreferredSystemLanguages().map((l) => l.toLowerCase().split('-')[0]);
-  const lang =
-    langs.find((l) => l === 'es' || l === 'en') || (langs.some((l) => ['eu', 'ca', 'gl'].includes(l)) ? 'es' : 'en');
-  return TEXTS[lang][key].replace(/\{(\w+)\}/g, (m, k) => (k in values ? values[k] : m));
+// ---- Texts of this layer: in English here, translated with the app's own files (js/i18n/), with the same rule as the
+// page: the system's first language that is English or has a file, then its fallback language, then English.
+const { FALLBACK, loadLangs } = require('./i18n');
+const LANGS = loadLangs();
+function t(text, values = {}) {
+  const has = (l) => l === 'en' || Object.prototype.hasOwnProperty.call(LANGS, l),
+    prefs = app.getPreferredSystemLanguages().map((l) => l.toLowerCase().split('-')[0]),
+    lang = prefs.find(has) || prefs.map((l) => FALLBACK[l]).find((l) => l && has(l)) || 'en';
+  let r = text;
+  for (let l = lang; l && l !== 'en'; l = FALLBACK[l]) {
+    const v = LANGS[l] && LANGS[l][text];
+    if (typeof v === 'string' && v !== '') {
+      r = v;
+      break;
+    }
+  }
+  return r.replace(/\{(\w+)\}/g, (m, k) => (k in values ? values[k] : m));
 }
 
 // ---- One process for every window: a second launch (“Open with Penfold”, “New Window”) hands its request to this one
@@ -75,9 +81,9 @@ if (!app.requestSingleInstanceLock()) {
     }
   }
 
-  // ---- Opening a file in a window: it is read here and handed to the page as if it had been chosen with “Open PDF”
-  // (the page asks penfoldDesktop.take() for it; see preload.js). The page asks first if its document has unsaved
-  // changes. “Save” then writes back to the same file.
+  // ---- Opening a file in a window: it is read here and handed to the page's openFromDesktop() (the page asks
+  // penfoldDesktop.take() for it; see preload.js), which first asks if its document has unsaved changes. “Save” then
+  // writes back to the same file.
   const OPEN_IN_PAGE = `(async () => {
     const f = await window.penfoldDesktop.take();
     if (!f) return;
@@ -94,12 +100,7 @@ if (!app.requestSingleInstanceLock()) {
         };
       },
     };
-    const picker = window.showOpenFilePicker;
-    window.showOpenFilePicker = async () => {
-      window.showOpenFilePicker = picker;
-      return [handle];
-    };
-    document.getElementById('bOpen').click();
+    await openFromDesktop(handle);
   })()`;
 
   async function openNext(w) {
@@ -112,7 +113,11 @@ if (!app.requestSingleInstanceLock()) {
       try {
         bytes = await fs.promises.readFile(file);
       } catch (err) {
-        await dialog.showMessageBox(w.win, { type: 'error', message: t('cannotRead', { name }), detail: err.message });
+        await dialog.showMessageBox(w.win, {
+          type: 'error',
+          message: t('Could not open “{name}”', { name }),
+          detail: err.message,
+        });
         continue;
       }
       const id = nextId++;

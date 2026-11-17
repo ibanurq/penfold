@@ -17,7 +17,7 @@ and the specification should be corrected.
 ## Rules of conversation
 
 - **Language:** the person and the assistant talk in Spanish. **Everything inside the app is British English** (interface
-  text, comments, console messages); Spanish lives only in the `ES` dictionary (see the specification, “Languages”).
+  text, comments, console messages); translations live only in the language files in `js/i18n/` (see the specification, “Languages”).
   The public documentation is in English, with a Spanish README.
 - **Explain first.** Before running a command or changing a file, the assistant explains in plain words what it will
   do and why. The person is not expected to know git, npm or programming terms.
@@ -65,7 +65,8 @@ automatically, not by eye:
   licence and its checksum in `vendor/README.md`. Only free licences compatible with the GPL-3.0.
 - No native browser dialogues (`alert`, `confirm`, `prompt`): use `confirmDialog`, `promptDialog`, `choiceDialog` and
   `msg`.
-- New text: in English in the code (through `_t` when JavaScript builds it), with its Spanish pair in `ES`.
+- New text: in English in the code (through `_t` when JavaScript builds it), with its pair in every language file in
+  `js/i18n/` (translated in `es.js`, empty in the others until someone translates it; see `js/i18n/README.md`).
 - New toolbar controls that need a PDF go into the `NEED_PDF` list.
 - Icons from Lucide, in the same style as the rest (stroke 1.8, round caps and joins, 20 px in the toolbar and 18 px
   in the panel bars).

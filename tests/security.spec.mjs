@@ -30,6 +30,8 @@ test('Open, Add pages and Merge all open PDFs with isEvalSupported:false', async
   await page.click('#dOk');
   await expect(page.locator('#msg')).toHaveText('PDF added: 4 pages and its bookmarks.');
   await page.click('#bMerge');
+  // The pages just added are an unsaved change: Penfold asks first
+  await page.click('#dlg2 button:text("Discard")');
   await dropOnMergeList(page, ['text.pdf', 'form.pdf']);
   await expect(page.locator('#mList .mrow')).toHaveCount(2);
   const calls = await page.evaluate(() => window.__gd);

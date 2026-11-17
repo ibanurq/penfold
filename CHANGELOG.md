@@ -5,6 +5,36 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: while features are frozen in 0.5, the third number (0.5.1, 0.5.2…) only goes up for visual polish
 and bug fixes.
 
+## 0.5.4 — 2026-11-17
+
+### Fixed
+- The question about unsaved changes now comes first: before choosing the file to open, and when Merge is pressed
+  (before choosing the files to merge), so no work is done twice.
+
+### Changed
+- App icon in livelier colours from the GNOME palette (yellow and green sheets, blue pen), with a darker edge under
+  each sheet and a thin border, so the white sheet can be seen on a white background.
+- Dialogues in the style of GNOME (libadwaita), with values taken from its stylesheet: dialogue background and dimmed
+  backdrop, rounded corners, 11 pt text and a larger title, borderless filled buttons, tall rounded answer buttons,
+  filled text fields. Questions such as “Save changes to …?” look like GNOME’s alerts: everything centred and answers
+  sharing the width. In dialogues with content, the answers keep a common width and are centred.
+- The Merge list looks like a GNOME list (a card with rows), with a drag handle on each row to show that the files can
+  be reordered, and an accent border while files are dragged over it.
+- Checkboxes and radio buttons in the dialogues look like libadwaita’s (a thin outline; checked, the accent colour with
+  a white tick or dot). The PDF form fields drawn over the page keep their own look.
+- The find bar looks like a libadwaita popover with a search entry (a magnifier inside, as in GNOME’s document viewer)
+  and flat buttons.
+- README in English and Spanish rewritten, with new screenshots (forms and the print dialogue added) and image widths
+  that adapt to the screen. The browser version is now described as a zip to download from the releases page.
+- Translations are now in `js/i18n/`, one file per language (`es.js`), instead of inside the app’s code; the desktop
+  app reads its few texts from the same files. Spanish looks exactly as before.
+
+### Added
+- Browser version as a zip, `penfold_<version>-web.zip`, built by `npm run dist` next to the Debian package (or alone
+  with `npm run dist:web`): unzip it and open `index.html`.
+- A Basque translation file to fill in (`js/i18n/eu.js`): untranslated texts are shown in Spanish, as before.
+  `npm run i18n` shows what is left to translate; `js/i18n/README.md` explains how to translate or add a language.
+
 ## 0.5.3 — 2026-11-15
 
 ### Fixed
