@@ -53,8 +53,8 @@ files on my personal computer over quite a few years.
 
 - Drag and drop with the mouse to change the order of the files to merge, and to reorder pages in the thumbnail view
   and bookmarks.
+- Keyboard shortcuts (listed with `Ctrl + ?`).
 - Multiple selection (Shift or Ctrl) of pages in the thumbnail view and of bookmarks.
-- Languages: English and Spanish (following the system’s language).
 - Light and dark mode (following the system’s theme).
 - A palette of 6 colours for annotations and 8 for bookmarks.
 - Resizable left panel.
@@ -68,6 +68,11 @@ Important notes:
 
 - Annotations made with other programs are read-only and are kept intact when saving.
 - Annotations of unsupported types are not shown, but they are kept when saving.
+
+## Languages
+
+- English
+- Spanish
 
 ## Installation
 

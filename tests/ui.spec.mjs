@@ -18,9 +18,9 @@ for (const lang of ['en', 'es'])
     });
   }
 
-test('without a PDF only Open, Merge and Information are enabled', async ({ page }) => {
+test('without a PDF only Open, Merge and the main menu are enabled', async ({ page }) => {
   await openApp(page);
-  for (const s of ['#bOpen', '#bMerge', '#bInfo', '#eOpen', '#eMerge']) await expect(page.locator(s)).toBeEnabled();
+  for (const s of ['#bOpen', '#bMerge', '#bMenu', '#eOpen', '#eMerge']) await expect(page.locator(s)).toBeEnabled();
   for (const s of ['#bPanel', '#bSave', '#bSaveAs', '#bPrint', '#bFind', '#zo', '#zi', '#fw', '#fp', '#two', '#pg'])
     await expect(page.locator(s)).toBeDisabled();
   await expect(page.locator('#bar .ib[data-t]')).toHaveCount(9);
@@ -34,7 +34,9 @@ for (const [lang, scheme] of [
 ]) {
   test(`About dialog (${lang}, ${scheme})`, async ({ page }) => {
     await openApp(page, { lang, scheme });
-    await page.click('#bInfo');
+    // Main menu → About Penfold
+    await page.click('#bMenu');
+    await page.click('#menu button:nth-child(2)');
     const box = page.locator('#dlg .box.about');
     await expect(box.locator('h3')).toHaveText('Penfold');
     await expect(box.locator('.ver')).toHaveText((lang == 'es' ? 'Versión ' : 'Version ') + VERSION);

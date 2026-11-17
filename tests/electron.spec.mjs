@@ -136,7 +136,8 @@ test('no menu, links go to the default browser, and browser shortcuts do nothing
     globalThis.__opened = [];
     shell.openExternal = async (u) => globalThis.__opened.push(u);
   });
-  await win.click('#bInfo');
+  await win.click('#bMenu');
+  await win.click('#menu button:nth-child(2)');
   await win.click('#dlg a.web');
   await expect.poll(() => app.evaluate(() => globalThis.__opened)).toEqual(['https://github.com/ibanurq/penfold']);
   expect(app.windows()).toHaveLength(1);
@@ -158,7 +159,7 @@ test('a PDF dropped on a window opens in it; with unsaved changes Penfold asks f
   await dropFile(win, tempCopy('form.pdf'));
   await expect(win.locator('#dlg2 h3')).toHaveText('Save changes to “outline.pdf”?');
   await win.click('#dlg2 button:text("Cancel")');
-  expect(await win.evaluate(() => fname)).toBe('outline.pdf');
+  expect(await win.evaluate(() => fileName)).toBe('outline.pdf');
   await dropFile(win, tempCopy('form.pdf'));
   await win.click('#dlg2 button:text("Discard")');
   await loaded(win, 1);
@@ -175,7 +176,7 @@ test('a PDF from the desktop opens in a new window when the open one has a docum
   const win2 = await newWindow;
   await loaded(win2, 4);
   await expect.poll(() => titles(app)).toEqual(['outline.pdf — Penfold', 'text.pdf — Penfold']);
-  expect(await win.evaluate(() => fname)).toBe('text.pdf');
+  expect(await win.evaluate(() => fileName)).toBe('text.pdf');
   await app.close();
 });
 

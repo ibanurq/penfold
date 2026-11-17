@@ -1,12 +1,17 @@
+// Penfold: a PDF reader and editor that runs in the browser (and, wrapped by Electron, as a desktop app).
+// pdf.js (pdfjsLib) reads and draws the PDFs; pdf-lib (PDFLib) writes the saved files. No build step: this is a
+// classic script loaded by index.html after the libraries and the translations.
+//
+// $ finds an element by CSS selector; WORKER_SRC is pdf.js's worker, which parses PDFs in the background
 const $ = (s) => document.querySelector(s),
-  W = 'vendor/pdf.js-3.11.174/pdf.worker.min.js';
+  WORKER_SRC = 'vendor/pdf.js-3.11.174/pdf.worker.min.js';
 // Opened as a file (file://) the browser refuses fetch(), so the worker is given by its path straight away
-if (location.protocol == 'file:') pdfjsLib.GlobalWorkerOptions.workerSrc = W;
+if (location.protocol == 'file:') pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
 else
-  fetch(W)
+  fetch(WORKER_SRC)
     .then((r) => r.blob())
     .then((b) => (pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(b)))
-    .catch(() => (pdfjsLib.GlobalWorkerOptions.workerSrc = W));
+    .catch(() => (pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC));
 // ---- Language ----
 // English is the source language: every string in this file is English. The translations live in js/i18n/, one file
 // per language, loaded before this script: each one adds PENFOLD_LANGS.<code> = { 'English text': 'translation' } (a
@@ -66,27 +71,35 @@ function i18nApply(root) {
   });
 }
 i18nApply(document.body);
+// ---- App state ----
+// docs: the open PDF files ({ bytes, pdf, enc }); pages: every page shown, in order ({ doc, idx, annots, rot… }), so
+// pages from several files can be mixed and reordered. fileHandle/fileName: where “Save” writes. tool: the active
+// toolbar tool (sel, hl, ul, so, note, ft, sq, ci, ar); annotColor: the chosen colour; scale: the zoom;
+// panelTab: the side panel's tab (th = pages, bm = bookmarks, an = annotations); currentPage: the page in view
 let docs = [],
   pages = [],
-  handle = null,
-  fname = _t('document.pdf'),
+  fileHandle = null,
+  fileName = _t('document.pdf'),
   tool = 'sel',
-  color = '#f9f06b',
+  annotColor = '#f9f06b',
   scale = 1.3,
-  tab = 'th',
-  lastTab = 'th',
-  bms = [],
-  cur = 0;
-let dragBms = [],
-  dragPgs = [],
-  flashBm = null,
-  twoUp = false;
-const selPages = new Set(),
-  selBms = new Set();
-let anchor = -1,
-  anchorBm = null;
+  panelTab = 'th',
+  lastPanelTab = 'th',
+  bookmarks = [],
+  currentPage = 0;
+// Drag and drop in the side panel, the bookmark just added (shown highlighted once) and the two-page view
+let draggedBookmarks = [],
+  draggedPages = [],
+  flashBookmark = null,
+  twoPageView = false;
+// Multiple selection in the side panel; the anchors are where a Shift+click range starts
+const selectedPages = new Set(),
+  selectedBookmarks = new Set();
+let pageAnchor = -1,
+  bookmarkAnchor = null;
 
-const PAL = [
+// Annotation colours (GNOME palette): n is the name shown as tooltip, p the colour
+const PALETTE = [
   { n: 'Yellow', p: '#f9f06b' },
   { n: 'Green', p: '#8ff0a4' },
   { n: 'Blue', p: '#99c1f1' },
@@ -95,31 +108,33 @@ const PAL = [
   { n: 'Lilac', p: '#dc8add' },
 ];
 // Palette for bookmarks: the 6 colours plus 2 more (4 columns × 2 rows, the extra one on the right of each row)
-const BM_PAL = [
-  PAL[0],
-  PAL[1],
-  PAL[2],
+const BOOKMARK_PALETTE = [
+  PALETTE[0],
+  PALETTE[1],
+  PALETTE[2],
   { n: 'Grey', p: '#606971' },
-  PAL[3],
-  PAL[4],
-  PAL[5],
+  PALETTE[3],
+  PALETTE[4],
+  PALETTE[5],
   { n: 'Burgundy', p: '#ad182e' },
 ];
 // Single palette: there is no separate deep tone any more. The function is kept so existing uses stay untouched.
 const deep = (c) => c;
 // Text box: measurements in PDF units (fs = font size, pad = inner padding, bw = border width, w = default width)
-const FT = { fs: 11, pad: 6, bw: 1, lh: 1.2, w: 200 };
-const SW = 1;
+const TEXT_BOX = { fs: 11, pad: 6, bw: 1, lh: 1.2, w: 200 };
+// Line width of rectangles, circles and arrows, in PDF units
+const SHAPE_STROKE = 1;
 // Comment icon (Lucide message-square-text): black outline, filled with the annotation's colour. Same drawing on screen and in the PDF.
-const NOTE_SW = 1.5;
-const noteSvg = (c) =>
+const NOTE_STROKE = 1.5;
+const noteIconSvg = (c) =>
   '<svg viewBox="2 2 20 20"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="' +
   c +
   '" stroke="#000" stroke-width="' +
-  NOTE_SW +
+  NOTE_STROKE +
   '" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 8H7M17 12H7" fill="none" stroke="#000" stroke-width="' +
-  NOTE_SW +
+  NOTE_STROKE +
   '" stroke-linecap="round"/></svg>';
+// Mixes colour c with white: t = 1 keeps the colour, t = 0 gives white
 const tint = (c, t) =>
   '#' +
   [1, 3, 5]
@@ -129,38 +144,22 @@ const tint = (c, t) =>
         .padStart(2, '0'),
     )
     .join('');
-function ftH(a) {
-  const m = document.createElement('div');
-  m.style.cssText =
-    'position:absolute;left:-9999px;top:0;visibility:hidden;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word;width:' +
-    (a.w || FT.w) +
-    'px;font:' +
-    FT.fs +
-    'px/' +
-    FT.lh +
-    ' Helvetica,Arial,sans-serif;padding:' +
-    FT.pad +
-    'px;border:' +
-    FT.bw +
-    'px solid';
-  m.textContent = a.text;
-  document.body.appendChild(m);
-  const h = m.offsetHeight;
-  m.remove();
-  return h;
-}
-$('#sws').innerHTML = PAL.map(
+// The colour buttons of the toolbar
+$('#sws').innerHTML = PALETTE.map(
   (x) =>
-    `<button class="sw${x.p == color ? ' on' : ''}" data-c="${x.p}" title="${_t(x.n)}" style="background:${x.p}"></button>`,
+    `<button class="sw${x.p == annotColor ? ' on' : ''}" data-c="${x.p}" title="${_t(x.n)}" style="background:${x.p}"></button>`,
 ).join('');
-let mt;
-const msg = (t) => {
-  const m = $('#msg');
-  m.textContent = t;
-  m.style.display = 'block';
-  clearTimeout(mt);
-  mt = setTimeout(() => (m.style.display = 'none'), 4500);
+// Short message at the bottom of the window, hidden after 4.5 s
+let messageTimer;
+const showMessage = (text) => {
+  const box = $('#msg');
+  box.textContent = text;
+  box.style.display = 'block';
+  clearTimeout(messageTimer);
+  messageTimer = setTimeout(() => (box.style.display = 'none'), 4500);
 };
+// ---- Toolbar ----
+// Tool buttons: the chosen tool is marked and set as a class on <body> (the CSS changes the cursor and what can be clicked)
 document.querySelectorAll('[data-t]').forEach(
   (b) =>
     (b.onclick = () => {
@@ -169,13 +168,15 @@ document.querySelectorAll('[data-t]').forEach(
       document.body.className = 'tool-' + tool;
     }),
 );
+// Colour buttons: the chosen colour is used by the next annotation
 document.querySelectorAll('.sw').forEach(
   (b) =>
     (b.onclick = () => {
-      color = b.dataset.c;
+      annotColor = b.dataset.c;
       document.querySelectorAll('.sw').forEach((x) => x.classList.toggle('on', x == b));
     }),
 );
+// Zoom in and out by 20 %, between 30 % and 400 %
 $('#zi').onclick = () =>
   zoomTo(() => {
     scale = Math.min(4, scale + 0.2);
@@ -184,15 +185,18 @@ $('#zo').onclick = () =>
   zoomTo(() => {
     scale = Math.max(0.3, scale - 0.2);
   });
+// Side panel tabs (Pages, Bookmarks, Annotations)
 document.querySelectorAll('#tabs button').forEach(
   (b) =>
     (b.onclick = () => {
-      tab = b.dataset.tab;
+      panelTab = b.dataset.tab;
       renderSide();
       followThumb(true);
     }),
 );
 
+// ---- Pages and bookmarks ----
+// Rotates the pages in list by dir degrees (90 or -90); thumbnails are redrawn
 function rotatePages(list, dir) {
   list.forEach((p) => {
     p.rot = ((p.rot || 0) + dir + 360) % 360;
@@ -201,18 +205,23 @@ function rotatePages(list, dir) {
   renderSide();
   zoomTo(() => {});
 }
-const pathTo = (l, t) => {
-  for (const x of l) {
-    if (x === t) return [x];
-    const r = pathTo(x.items, t);
-    if (r) return [x, ...r];
+// Bookmarks form a tree: each one is { title, page, dd, color, bold, italic, open, items: [sub-bookmarks] }.
+// bookmarkPath gives the chain of bookmarks from the top level down to target (null if it is not in list)
+const bookmarkPath = (list, target) => {
+  for (const x of list) {
+    if (x === target) return [x];
+    const rest = bookmarkPath(x.items, target);
+    if (rest) return [x, ...rest];
   }
   return null;
 };
-const openAnc = (t) => (pathTo(bms, t) || []).slice(0, -1).forEach((x) => (x.open = true));
+// Expands every bookmark above target, so it can be seen
+const openAncestors = (target) => (bookmarkPath(bookmarks, target) || []).slice(0, -1).forEach((x) => (x.open = true));
+// Adds a bookmark: titled with the selected text (and pointing to its page) or, with nothing selected, asked for and
+// pointing to the current page. It goes after the last bookmark that points to an earlier or the same page
 async function addBookmark() {
   let title = null,
-    pi = cur;
+    pageIndex = currentPage;
   const sel = getSelection();
   if (sel && sel.rangeCount && !sel.isCollapsed) {
     const n = sel.getRangeAt(0).startContainer,
@@ -221,132 +230,159 @@ async function addBookmark() {
       const t = sel.toString().replace(/\s+/g, ' ').trim();
       if (t) {
         title = t.length > 150 ? t.slice(0, 150) + '…' : t;
-        pi = +el.dataset.i;
+        pageIndex = +el.dataset.i;
       }
     }
   }
   if (!title) {
-    title = await promptDialog(_t('Add bookmark'), _t('Bookmark title:'), _t('Page {n}', { n: pi + 1 }), _t('Add'));
+    title = await promptDialog(
+      _t('Add bookmark'),
+      _t('Bookmark title:'),
+      _t('Page {n}', { n: pageIndex + 1 }),
+      _t('Add'),
+    );
     if (!title) return;
   }
-  const nb = { title, page: pages[pi], items: [] },
+  const newBm = { title, page: pages[pageIndex], items: [] },
     flat = [];
-  const fl = (l) =>
+  const collect = (l) =>
     l.forEach((x) => {
       flat.push(x);
-      fl(x.items);
+      collect(x.items);
     });
-  fl(bms);
-  let ref = null;
+  collect(bookmarks);
+  let prevBm = null;
   flat.forEach((x) => {
-    if (pages.indexOf(x.page) <= pi) ref = x;
+    if (pages.indexOf(x.page) <= pageIndex) prevBm = x;
   });
-  if (!ref) bms.unshift(nb);
-  else if (ref.items.length) {
-    ref.items.unshift(nb);
-    ref.open = true;
-    openAnc(ref);
+  if (!prevBm) bookmarks.unshift(newBm);
+  else if (prevBm.items.length) {
+    prevBm.items.unshift(newBm);
+    prevBm.open = true;
+    openAncestors(prevBm);
   } else {
-    const f = locate(bms, ref);
-    f.list.splice(f.i + 1, 0, nb);
-    openAnc(ref);
+    const place = findBookmark(bookmarks, prevBm);
+    place.list.splice(place.i + 1, 0, newBm);
+    openAncestors(prevBm);
   }
-  flashBm = nb;
+  flashBookmark = newBm;
   renderSide();
 }
-const inTree = (a, b) => a === b || a.items.some((c) => inTree(c, b));
-const dragSet = (it) => {
-  if (!(selBms.has(it) && selBms.size > 1)) return [it];
+// True if bookmark b is a or is under a (a bookmark cannot be dropped inside itself)
+const isInSubtree = (a, b) => a === b || a.items.some((c) => isInSubtree(c, b));
+// The bookmarks dragged together with bm: the selected ones if bm is selected (without those whose parent is also
+// selected, as they move with it), otherwise bm alone
+const bookmarksToDrag = (bm) => {
+  if (!(selectedBookmarks.has(bm) && selectedBookmarks.size > 1)) return [bm];
   const flat = [];
-  const fl = (l) =>
+  const collect = (l) =>
     l.forEach((x) => {
       flat.push(x);
-      fl(x.items);
+      collect(x.items);
     });
-  fl(bms);
-  return flat.filter((n) => selBms.has(n) && !(pathTo(bms, n) || []).slice(0, -1).some((a) => selBms.has(a)));
+  collect(bookmarks);
+  return flat.filter(
+    (n) =>
+      selectedBookmarks.has(n) &&
+      !(bookmarkPath(bookmarks, n) || []).slice(0, -1).some((a) => selectedBookmarks.has(a)),
+  );
 };
-const detach = (l, n) => {
-  const i = l.indexOf(n);
+// Takes bookmark bm out of the tree; true if it was found
+const removeBookmark = (list, bm) => {
+  const i = list.indexOf(bm);
   if (i >= 0) {
-    l.splice(i, 1);
+    list.splice(i, 1);
     return true;
   }
-  return l.some((x) => detach(x.items, n));
+  return list.some((x) => removeBookmark(x.items, bm));
 };
-const locate = (l, t) => {
-  const i = l.indexOf(t);
-  if (i >= 0) return { list: l, i };
-  for (const x of l) {
-    const r = locate(x.items, t);
+// Where bookmark target is: { list, i } with list being the array that holds it
+const findBookmark = (list, target) => {
+  const i = list.indexOf(target);
+  if (i >= 0) return { list: list, i };
+  for (const x of list) {
+    const r = findBookmark(x.items, target);
     if (r) return r;
   }
 };
 // PDF destinations (/XYZ, /FitH…): name + numeric arguments (null = no value). Kept when the outline is read and written back unchanged on save.
-const DD_N = { XYZ: 3, Fit: 0, FitH: 1, FitV: 1, FitR: 4, FitB: 0, FitBH: 1, FitBV: 1 };
-const ddOk = (dd) =>
-  !!dd &&
-  Object.prototype.hasOwnProperty.call(DD_N, dd.n) &&
-  Array.isArray(dd.a) &&
-  dd.a.length == DD_N[dd.n] &&
-  dd.a.every((v) => v === null || (typeof v == 'number' && isFinite(v)));
-const ddFrom = (d) => {
-  const n = d && d[1] && d[1].name;
-  if (typeof n != 'string' || !Object.prototype.hasOwnProperty.call(DD_N, n)) return null;
-  const a = d.slice(2, 2 + DD_N[n]).map((v) => (typeof v == 'number' && isFinite(v) ? v : null));
-  while (a.length < DD_N[n]) a.push(null);
-  return { n, a };
+const DEST_ARGS = { XYZ: 3, Fit: 0, FitH: 1, FitV: 1, FitR: 4, FitB: 0, FitBH: 1, FitBV: 1 };
+const isValidDest = (dest) =>
+  !!dest &&
+  Object.prototype.hasOwnProperty.call(DEST_ARGS, dest.n) &&
+  Array.isArray(dest.a) &&
+  dest.a.length == DEST_ARGS[dest.n] &&
+  dest.a.every((v) => v === null || (typeof v == 'number' && isFinite(v)));
+const destFromPdfJs = (pdfDest) => {
+  const kind = pdfDest && pdfDest[1] && pdfDest[1].name;
+  if (typeof kind != 'string' || !Object.prototype.hasOwnProperty.call(DEST_ARGS, kind)) return null;
+  const args = pdfDest.slice(2, 2 + DEST_ARGS[kind]).map((v) => (typeof v == 'number' && isFinite(v) ? v : null));
+  while (args.length < DEST_ARGS[kind]) args.push(null);
+  return { n: kind, a: args };
 };
 // Height (in PDF points) a destination points to; null if it only names the page
-const ddY = (dd) =>
-  !ddOk(dd)
+const destY = (dest) =>
+  !isValidDest(dest)
     ? null
-    : dd.n == 'XYZ'
-      ? dd.a[1]
-      : dd.n == 'FitH' || dd.n == 'FitBH'
-        ? dd.a[0]
-        : dd.n == 'FitR'
-          ? dd.a[3]
+    : dest.n == 'XYZ'
+      ? dest.a[1]
+      : dest.n == 'FitH' || dest.n == 'FitBH'
+        ? dest.a[0]
+        : dest.n == 'FitR'
+          ? dest.a[3]
           : null;
-const prune = (l, ps = pages) =>
-  l.flatMap((i) => (i.page && ps.includes(i.page) ? [{ ...i, items: prune(i.items, ps) }] : prune(i.items, ps)));
-const toHex = (c) =>
-  c && (c[0] || c[1] || c[2]) ? '#' + [c[0], c[1], c[2]].map((v) => v.toString(16).padStart(2, '0')).join('') : null;
-async function convert(items, di) {
-  const r = [];
+// Copy of a bookmark tree with only the bookmarks that point to one of the pages in keep; the sub-bookmarks of a
+// removed one move up into its place
+const pruneBookmarks = (list, keep = pages) =>
+  list.flatMap((bm) =>
+    bm.page && keep.includes(bm.page)
+      ? [{ ...bm, items: pruneBookmarks(bm.items, keep) }]
+      : pruneBookmarks(bm.items, keep),
+  );
+// Colour of a bookmark from pdf.js ([r, g, b], 0-255) as #rrggbb; black or none gives null (the default colour)
+const rgbToHex = (rgb) =>
+  rgb && (rgb[0] || rgb[1] || rgb[2])
+    ? '#' + [rgb[0], rgb[1], rgb[2]].map((v) => v.toString(16).padStart(2, '0')).join('')
+    : null;
+// Converts the outline (bookmarks) that pdf.js reads from document docIndex into Penfold's bookmark tree
+async function convertOutline(items, docIndex) {
+  const out = [];
   for (const it of items) {
-    let pg = null,
-      dd = null;
+    let page = null,
+      dest = null;
     try {
-      let d = it.dest;
-      if (typeof d == 'string') d = await docs[di].pdf.getDestination(d);
-      const n = await docs[di].pdf.getPageIndex(d[0]);
-      pg = pages.find((p) => p.doc == di && p.idx == n) || null;
-      dd = ddFrom(d);
+      let pdfDest = it.dest;
+      if (typeof pdfDest == 'string') pdfDest = await docs[docIndex].pdf.getDestination(pdfDest);
+      const pageIdx = await docs[docIndex].pdf.getPageIndex(pdfDest[0]);
+      page = pages.find((p) => p.doc == docIndex && p.idx == pageIdx) || null;
+      dest = destFromPdfJs(pdfDest);
     } catch (e) {}
-    r.push({
+    out.push({
       title: it.title,
-      page: pg,
-      dd,
-      color: toHex(it.color),
+      page: page,
+      dd: dest,
+      color: rgbToHex(it.color),
       bold: !!it.bold,
       italic: !!it.italic,
-      items: await convert(it.items || [], di),
+      items: await convertOutline(it.items || [], docIndex),
     });
   }
-  return r;
+  return out;
 }
+// ---- Opening files ----
+// Asks for a PDF. Chromium-based browsers give a handle, so “Save” can write back into the same file; other browsers
+// give only the file (handle = null)
 async function pickFile() {
   if (window.showOpenFilePicker) {
-    const [h] = await showOpenFilePicker({ types: [{ accept: { 'application/pdf': ['.pdf'] } }] });
-    return { h, f: await h.getFile() };
+    const [handle] = await showOpenFilePicker({ types: [{ accept: { 'application/pdf': ['.pdf'] } }] });
+    return { h: handle, f: await handle.getFile() };
   }
-  return new Promise((res) => {
-    const i = document.createElement('input');
-    i.type = 'file';
-    i.accept = '.pdf';
-    i.onchange = () => res({ h: null, f: i.files[0] });
-    i.click();
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.onchange = () => resolve({ h: null, f: input.files[0] });
+    input.click();
   });
 }
 // Protected (encrypted) PDFs: pdf.js can read them, but pdf-lib cannot decrypt them, so anything built from them comes out broken.
@@ -369,100 +405,106 @@ const WARN_SVG =
   '<svg viewBox="0 0 24 24" role="img" aria-label="' +
   _t('Protected PDF') +
   '"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" fill="#f6d32d" stroke="#000" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v4M12 17h.01" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round"/></svg>';
-const LOCK_TXT = () =>
+// Text of the protected-PDF notice
+const lockText = () =>
   _t(
     'This PDF is protected. Any changes made to it cannot be saved. It cannot be printed and pages cannot be extracted either.',
   );
+// The notice shown when a protected PDF is opened: a dialogue with the warning sign as its title
 function protectedNotice() {
-  choiceDialog('', LOCK_TXT(), [[_t('OK'), 'ok', true]]);
-  const h = document.querySelector('#dlg2 h3');
-  if (h) {
-    h.innerHTML = WARN_SVG;
-    h.className = 'warn';
+  choiceDialog('', lockText(), [[_t('OK'), 'ok', true]]);
+  const title = document.querySelector('#dlg2 h3');
+  if (title) {
+    title.innerHTML = WARN_SVG;
+    title.className = 'warn';
   }
-  const t = document.querySelector('#dlg2 .box>div');
-  if (t) t.style.textAlign = 'center';
-  const b = document.querySelector('#dlg2 button.on');
-  if (b) b.focus();
+  const text = document.querySelector('#dlg2 .box>div');
+  if (text) text.style.textAlign = 'center';
+  const okButton = document.querySelector('#dlg2 button.on');
+  if (okButton) okButton.focus();
 }
 // Reminder while a protected PDF is open: the warning sign stays fixed at the top-left corner of the viewer; hovering it shows the notice
 function lockBadge() {
-  const w = $('#lockw'),
+  const badge = $('#lockw'),
     on = isLocked();
-  w.style.display = on ? '' : 'none';
+  badge.style.display = on ? '' : 'none';
   if (!on) return;
-  if (!w.firstChild) w.innerHTML = WARN_SVG;
-  w.dataset.text = LOCK_TXT();
-  const r = $('#view').getBoundingClientRect();
-  w.style.left = r.left + 10 + 'px';
-  w.style.top = r.top + 10 + 'px';
+  if (!badge.firstChild) badge.innerHTML = WARN_SVG;
+  badge.dataset.text = lockText();
+  const view = $('#view').getBoundingClientRect();
+  badge.style.left = view.left + 10 + 'px';
+  badge.style.top = view.top + 10 + 'px';
 }
 // Every PDF is opened with isEvalSupported:false (here, in insertPdf and in the Merge dialogue): pdf.js 3.11 could
 // otherwise run JavaScript hidden in a crafted font (CVE-2024-4367). Glyphs are then drawn without compiled code; same result.
-async function load(f) {
-  const bytes = await f.arrayBuffer(),
+// Reads a PDF file and adds it to docs, and its pages at the end of pages; gives its index in docs
+async function loadPdf(file) {
+  const bytes = await file.arrayBuffer(),
     pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
-  const di = docs.push({ bytes, pdf, enc: await isProtected(pdf, bytes) }) - 1;
+  const docIndex = docs.push({ bytes, pdf, enc: await isProtected(pdf, bytes) }) - 1;
   for (let i = 0; i < pdf.numPages; i++)
-    pages.push({ doc: di, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
-  return di;
+    pages.push({ doc: docIndex, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
+  return docIndex;
 }
-// Replaces the open document with file f (h: its handle for “Save”, or null)
-async function openFile(h, f) {
+// Replaces the open document with file (handle: where “Save” writes, or null)
+async function openFile(handle, file) {
   docs = [];
   pages = [];
-  selPages.clear();
-  selBms.clear();
-  anchor = -1;
-  anchorBm = null;
-  handle = h;
-  fname = f.name;
-  const di = await load(f);
-  bms = prune(await convert((await docs[di].pdf.getOutline()) || [], di));
+  selectedPages.clear();
+  selectedBookmarks.clear();
+  pageAnchor = -1;
+  bookmarkAnchor = null;
+  fileHandle = handle;
+  fileName = file.name;
+  const docIndex = await loadPdf(file);
+  bookmarks = pruneBookmarks(await convertOutline((await docs[docIndex].pdf.getOutline()) || [], docIndex));
   markSaved();
-  tab = bms.length ? 'bm' : 'th';
-  ready();
-  if (docs[di].enc) protectedNotice();
+  panelTab = bookmarks.length ? 'bm' : 'th';
+  onDocumentReady();
+  if (docs[docIndex].enc) protectedNotice();
 }
 // Open PDF: the question about unsaved changes comes first, before choosing the file, so no work is done twice
 $('#bOpen').onclick = async () => {
   try {
     if (!(await confirmUnsaved())) return;
-    const { h, f } = await pickFile();
-    await openFile(h, f);
+    const { h: handle, f: file } = await pickFile();
+    await openFile(handle, file);
   } catch (e) {
-    if (e.name != 'AbortError') msg('Error: ' + e.message);
+    if (e.name != 'AbortError') showMessage('Error: ' + e.message);
   }
 };
 // A PDF handed over by the desktop app (“Open with”, or dropped on the window): the same question, then it opens.
 // Called from electron/main.js.
 /* exported openFromDesktop */
-async function openFromDesktop(h) {
+async function openFromDesktop(handle) {
   try {
     if (!(await confirmUnsaved())) return;
-    await openFile(h, await h.getFile());
+    await openFile(handle, await handle.getFile());
   } catch (e) {
-    msg('Error: ' + e.message);
+    showMessage('Error: ' + e.message);
   }
 }
-function setPanel(v) {
-  $('#side').style.display = $('#rs').style.display = v ? '' : 'none';
-  $('#bPanel').classList.toggle('on', v);
-  if (v) followThumb(true);
+// Shows or hides the side panel (and the bar that resizes it)
+function showPanel(visible) {
+  $('#side').style.display = $('#rs').style.display = visible ? '' : 'none';
+  $('#bPanel').classList.toggle('on', visible);
+  if (visible) followThumb(true);
 }
+// Panel button: the pages keep their zoom relative to the new width of the viewer
 $('#bPanel').onclick = () => {
   const w0 = $('#view').clientWidth;
-  setPanel($('#side').style.display == 'none');
+  showPanel($('#side').style.display == 'none');
   reflowOnWidth(w0);
 };
-setPanel(false);
-// Toolbar controls that are no use until a PDF is open (Open, Merge and Information are always enabled)
+showPanel(false);
+// Toolbar controls that are no use until a PDF is open (Open, Merge and the main menu are always enabled)
 const NEED_PDF = '#bPanel,.ib[data-t],.sw,#pg,#zo,#zi,#fw,#fp,#two';
 document.querySelectorAll(NEED_PDF).forEach((b) => (b.disabled = true));
-function ready() {
+// Called once a document is open: enables the toolbar, shows the panel and the pages, and loads the annotations
+function onDocumentReady() {
   ['#bSave', '#bSaveAs', '#bPrint', '#bFind'].forEach((s) => ($(s).disabled = s != '#bFind' && isLocked()));
   document.querySelectorAll(NEED_PDF).forEach((b) => (b.disabled = false));
-  setPanel(true);
+  showPanel(true);
   lockBadge();
   renderSide();
   fitOnOpen();
@@ -470,20 +512,23 @@ function ready() {
   if ($('#sb').style.display == 'flex') runFind();
 }
 
-async function thumb(p) {
-  if (p.thumb) return p.thumb;
-  const pg = await docs[p.doc].pdf.getPage(p.idx + 1),
-    vp = pg.getViewport({ scale: 0.3, rotation: (pg.rotate + (p.rot || 0)) % 360 }),
-    c = document.createElement('canvas');
-  c.width = vp.width;
-  c.height = vp.height;
-  await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-  return (p.thumb = c.toDataURL());
+// ---- Pages panel (thumbnails) ----
+// Draws a small image of the page (once; kept in page.thumb until the page is rotated)
+async function thumbnail(page) {
+  if (page.thumb) return page.thumb;
+  const pdfPage = await docs[page.doc].pdf.getPage(page.idx + 1),
+    viewport = pdfPage.getViewport({ scale: 0.3, rotation: (pdfPage.rotate + (page.rot || 0)) % 360 }),
+    canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+  return (page.thumb = canvas.toDataURL());
 }
 
-const io = new IntersectionObserver(
-  (es) =>
-    es.forEach((e) => {
+// Pages are drawn only when they come near the visible area (600 px before), so long PDFs open fast
+const pageObserver = new IntersectionObserver(
+  (entries) =>
+    entries.forEach((e) => {
       if (e.isIntersecting && !e.target._done) {
         e.target._done = 1;
         paint(e.target);
@@ -491,49 +536,52 @@ const io = new IntersectionObserver(
     }),
   { root: null, rootMargin: '600px' },
 );
-const thIo = new IntersectionObserver(
-  (es) =>
-    es.forEach((e) => {
+// Same for thumbnails; pages in portrait get the class pt and their aspect ratio, to keep the cells even
+const thumbObserver = new IntersectionObserver(
+  (entries) =>
+    entries.forEach((e) => {
       if (e.isIntersecting && !e.target._done) {
         e.target._done = 1;
-        thumb(e.target._p).then((u) => {
+        thumbnail(e.target._p).then((url) => {
           const el = e.target,
-            im = el.querySelector('img');
-          im.onload = () => {
-            const ar = im.naturalWidth / im.naturalHeight;
-            if (ar > 0 && ar < 0.999) {
-              el.style.setProperty('--ar', ar.toFixed(4));
+            img = el.querySelector('img');
+          img.onload = () => {
+            const ratio = img.naturalWidth / img.naturalHeight;
+            if (ratio > 0 && ratio < 0.999) {
+              el.style.setProperty('--ar', ratio.toFixed(4));
               el.classList.add('pt');
             }
           };
-          im.src = u;
+          img.src = url;
         });
       }
     }),
   { root: null, rootMargin: '600px' },
 );
 
-// Thumbnails: a cell never exceeds TH_W px in width (the same maximum zoom with 1, 2, 3 or 4 columns).
-// Just enough columns are used to satisfy that, up to TH_C at most; the panel's maximum width follows from that cap.
-const TH_W = 310,
-  TH_G = 10,
-  TH_C = 4,
-  TH_SB = 14;
+// Thumbnails: a cell never exceeds THUMB_MAX_W px in width (the same maximum zoom with 1, 2, 3 or 4 columns).
+// Just enough columns are used to satisfy that, up to THUMB_MAX_COLS at most; the panel's maximum width follows from that cap.
+const THUMB_MAX_W = 310,
+  THUMB_GAP = 10,
+  THUMB_MAX_COLS = 4,
+  SCROLLBAR_W = 14;
 // Minimum width of the side panel: so the Bookmarks tab bar (left 54 + centre 120 + right 54, symmetrical, + 6) always fits on one row
-const SIDE_MIN = 2 * 54 + 120 + 6 + 16 + 1 + TH_SB;
-const thMaxPanel = () => Math.min(TH_C * TH_W + (TH_C - 1) * TH_G + 16 + TH_SB + 1, innerWidth - 160);
-function thCols() {
-  const sb = $('#sbody'),
-    a = sb.clientWidth - 16;
-  if (a <= 0) return;
-  const n = Math.max(1, Math.min(TH_C, Math.ceil((a + TH_G) / (TH_W + TH_G))));
-  if (sb.dataset.cols != n) {
-    sb.dataset.cols = n;
-    sb.style.setProperty('--cols', n);
+const SIDE_MIN = 2 * 54 + 120 + 6 + 16 + 1 + SCROLLBAR_W;
+const panelMaxWidth = () =>
+  Math.min(THUMB_MAX_COLS * THUMB_MAX_W + (THUMB_MAX_COLS - 1) * THUMB_GAP + 16 + SCROLLBAR_W + 1, innerWidth - 160);
+// Number of thumbnail columns for the current panel width
+function updateThumbColumns() {
+  const body = $('#sbody'),
+    avail = body.clientWidth - 16;
+  if (avail <= 0) return;
+  const cols = Math.max(1, Math.min(THUMB_MAX_COLS, Math.ceil((avail + THUMB_GAP) / (THUMB_MAX_W + THUMB_GAP))));
+  if (body.dataset.cols != cols) {
+    body.dataset.cols = cols;
+    body.style.setProperty('--cols', cols);
   }
 }
 // Top bar shared by the panels (Bookmarks, Pages and Annotations): grey background and three zones (left, centre, right)
-function sbar() {
+function panelBar() {
   const row = document.createElement('div');
   row.className = 'sbw';
   row.style.cssText =
@@ -541,7 +589,7 @@ function sbar() {
   const bar = document.createElement('div');
   bar.className = 'sbar';
   row.appendChild(bar);
-  const mkb = (ico, tip, fn) => {
+  const makeButton = (ico, tip, fn) => {
     const b = document.createElement('button');
     b.className = 'ib';
     b.title = tip;
@@ -553,29 +601,32 @@ function sbar() {
     };
     return b;
   };
-  const grp = (cls, ...bs) => {
+  const addGroup = (cls, ...buttons) => {
     const g = document.createElement('div');
     g.className = 'g' + (cls ? ' ' + cls : '');
-    g.append(...bs);
+    g.append(...buttons);
     bar.appendChild(g);
   };
-  return { row, mkb, grp };
+  return { row, makeButton, addGroup };
 }
 // Annotations: which types are listed (comments and text boxes by default)
-const anOn = { note: true, ft: true, hl: false, ul: false, so: false, sq: false, ci: false, ar: false };
+const listedAnnotTypes = { note: true, ft: true, hl: false, ul: false, so: false, sq: false, ci: false, ar: false };
 // Pages: updates the state of the bar buttons when the selection changes, without redrawing the panel
-let thBar = null;
+let updatePagesBar = null;
+// ---- Side panel ----
+// Redraws the side panel for the current tab: annotations (an), bookmarks (bm) or pages (th)
 function renderSide() {
-  const sb = $('#sbody');
-  const isSameTab = lastTab === tab;
-  const prevScroll = isSameTab ? sb.scrollTop : 0;
-  lastTab = tab;
-  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab == tab));
-  sb.innerHTML = '';
-  sb.style.scrollbarGutter = tab == 'th' ? 'stable' : '';
-  thCols();
-  if (tab == 'an') {
-    const T = [
+  const body = $('#sbody');
+  const isSameTab = lastPanelTab === panelTab;
+  const prevScroll = isSameTab ? body.scrollTop : 0;
+  lastPanelTab = panelTab;
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab == panelTab));
+  body.innerHTML = '';
+  body.style.scrollbarGutter = panelTab == 'th' ? 'stable' : '';
+  updateThumbColumns();
+  // Annotations tab: a list grouped by type, each item with its colour, text and page; a click goes to it
+  if (panelTab == 'an') {
+    const TYPES = [
         ['hl', _t('Highlights')],
         ['ul', _t('Underlines')],
         ['so', _t('Strikethroughs')],
@@ -585,8 +636,8 @@ function renderSide() {
         ['ci', _t('Circles')],
         ['ar', _t('Arrows')],
       ],
-      G = { note: [], ft: [], hl: [], ul: [], so: [], sq: [], ci: [], ar: [] };
-    const IC = {
+      groups = { note: [], ft: [], hl: [], ul: [], so: [], sq: [], ci: [], ar: [] };
+    const ICONS = {
       note: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/>',
       ft: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m8 17 4-10 4 10"/><path d="M9.5 14h5"/>',
       hl: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
@@ -597,25 +648,26 @@ function renderSide() {
       ar: '<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',
     };
     // Top bar: one button per annotation type (active = listed)
-    const B = sbar();
-    const mBtns = [];
-    T.forEach(([t, title], i) => {
+    const bar = panelBar();
+    const typeButtons = [];
+    TYPES.forEach(([t, title], i) => {
       if (i == 3 || i == 5) {
         const s = document.createElement('span');
         s.className = 'sep';
         s.style.margin = '0';
-        mBtns.push(s);
+        typeButtons.push(s);
       }
-      const b = B.mkb(IC[t], title, () => {
-        anOn[t] = !anOn[t];
+      const b = bar.makeButton(ICONS[t], title, () => {
+        listedAnnotTypes[t] = !listedAnnotTypes[t];
         renderSide();
       });
-      b.classList.toggle('on', anOn[t]);
-      mBtns.push(b);
+      b.classList.toggle('on', listedAnnotTypes[t]);
+      typeButtons.push(b);
     });
-    B.grp('m', ...mBtns);
-    B.row.querySelector('.g.m').style.gap = '4px';
-    sb.appendChild(B.row);
+    bar.addGroup('m', ...typeButtons);
+    bar.row.querySelector('.g.m').style.gap = '4px';
+    body.appendChild(bar.row);
+    // Position of an annotation on its page (top and left, in PDF units), to sort each group in reading order
     const yOf = (a) =>
         a.quads
           ? Math.max(...a.quads.flatMap((q) => [q[1], q[3], q[5], q[7]]))
@@ -629,25 +681,25 @@ function renderSide() {
             ? Math.min(a.x, a.x2)
             : a.x;
     pages.forEach((p, i) =>
-      p.annots.forEach((a, k) => (G[a.type] ? G[a.type].push({ a, p, i, k, x: xOf(a), y: yOf(a) }) : null)),
+      p.annots.forEach((a, k) => (groups[a.type] ? groups[a.type].push({ a, p, i, k, x: xOf(a), y: yOf(a) }) : null)),
     );
     let n = 0;
-    T.forEach(([t, title]) => {
-      const L = G[t];
-      if (!anOn[t] || !L.length) return;
-      n += L.length;
-      L.sort((u, v) => u.i - v.i || v.y - u.y || u.x - v.x);
+    TYPES.forEach(([t, title]) => {
+      const group = groups[t];
+      if (!listedAnnotTypes[t] || !group.length) return;
+      n += group.length;
+      group.sort((u, v) => u.i - v.i || v.y - u.y || u.x - v.x);
       const h = document.createElement('div');
       h.style.cssText = 'padding:8px 4px 4px';
-      const ti = document.createElement('span');
-      ti.style.fontWeight = '600';
-      ti.textContent = title;
-      const ct = document.createElement('span');
-      ct.style.opacity = '.6';
-      ct.textContent = ' (' + L.length + ')';
-      h.append(ti, ct);
-      sb.appendChild(h);
-      L.forEach(({ a, p, i, k, y }) => {
+      const titleEl = document.createElement('span');
+      titleEl.style.fontWeight = '600';
+      titleEl.textContent = title;
+      const countEl = document.createElement('span');
+      countEl.style.opacity = '.6';
+      countEl.textContent = ' (' + group.length + ')';
+      h.append(titleEl, countEl);
+      body.appendChild(h);
+      group.forEach(({ a, p, i, k, y }) => {
         const e = document.createElement('div');
         e.className = 'bm';
         e.style.cssText = 'gap:8px;align-items:flex-start;padding:5px 4px 5px 20px;font-size:12.5px;line-height:1.4';
@@ -658,8 +710,8 @@ function renderSide() {
             (t == 'ft' || t == 'sq' || t == 'ci' || t == 'ar' ? deep(a.color) : a.color);
           e.appendChild(dot);
         }
-        const tx = document.createElement('div');
-        tx.style.cssText =
+        const textEl = document.createElement('div');
+        textEl.style.cssText =
           'flex:1;min-width:0;overflow:hidden;' +
           (t == 'note' || t == 'ft'
             ? 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word'
@@ -683,14 +735,14 @@ function renderSide() {
         if (a.ro) {
           baseTx += a.author ? ' (' + a.author + ')' : ' (' + _t('External') + ')';
         }
-        tx.textContent = baseTx;
-        if (!str && !a.ro) tx.style.opacity = '.7';
-        if (a.ro && str) tx.title = str;
-        const pg = document.createElement('span');
-        pg.style.opacity = '.6';
-        pg.textContent = i + 1;
-        const ctl = document.createElement('span');
-        ctl.className = 'ctl';
+        textEl.textContent = baseTx;
+        if (!str && !a.ro) textEl.style.opacity = '.7';
+        if (a.ro && str) textEl.title = str;
+        const pageEl = document.createElement('span');
+        pageEl.style.opacity = '.6';
+        pageEl.textContent = i + 1;
+        const controls = document.createElement('span');
+        controls.className = 'ctl';
         if (!a.ro) {
           const x = document.createElement('button');
           x.textContent = '✕';
@@ -709,17 +761,17 @@ function renderSide() {
             renderSide();
           };
           if (t == 'note' || t == 'ft') {
-            const ed = document.createElement('button');
-            ed.textContent = '✎';
-            ed.title = _t('Edit text');
-            ed.onclick = (ev) => {
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '✎';
+            editBtn.title = _t('Edit text');
+            editBtn.onclick = (ev) => {
               ev.stopPropagation();
               textDialog(_t('Edit text'), a.text, (n) => {
                 a.text = n;
                 redraw();
               });
             };
-            ctl.append(ed);
+            controls.append(editBtn);
           }
           {
             const ci = document.createElement('button');
@@ -729,98 +781,100 @@ function renderSide() {
               (t == 'ft' || t == 'sq' || t == 'ci' || t == 'ar' ? deep(a.color) : a.color);
             ci.onclick = (ev) => {
               ev.stopPropagation();
-              openPal(ci, (pc) => {
+              openPalette(ci, (pc) => {
                 a.color = t == 'hl' || t == 'note' ? pc : deep(pc);
                 redraw();
               });
             };
-            ctl.append(ci);
+            controls.append(ci);
           }
-          ctl.append(x);
+          controls.append(x);
         }
         e.onclick = () => goTo(i, y);
-        e.append(tx, pg, ctl);
-        sb.appendChild(e);
+        e.append(textEl, pageEl, controls);
+        body.appendChild(e);
       });
     });
     if (!n) {
       const z = document.createElement('div');
       z.style.opacity = '.6';
-      z.textContent = !T.some(([t]) => anOn[t])
+      z.textContent = !TYPES.some(([t]) => listedAnnotTypes[t])
         ? _t('Turn on at least one annotation type.')
-        : annBusy
+        : annotsLoading
           ? _t('Loading annotations…')
           : _t('No annotations');
-      sb.appendChild(z);
+      body.appendChild(z);
     }
-    if (isSameTab) sb.scrollTop = prevScroll;
+    if (isSameTab) body.scrollTop = prevScroll;
     return;
   }
-  if (tab == 'bm') {
+  // Bookmarks tab: the tree, with selection, buttons on each row and drag and drop
+  if (panelTab == 'bm') {
     // Top bar: left (add / delete), centre (format) and right (expand / collapse). Acts on the selected bookmarks that are visible.
-    const { row, mkb, grp } = sbar();
-    const sel = () => flatBms.filter((x) => selBms.has(x));
-    const add = mkb('<path d="M5 12h14"/><path d="M12 5v14"/>', _t('Add bookmark'), addBookmark);
+    const { row, makeButton, addGroup } = panelBar();
+    const getSelected = () => flatBms.filter((x) => selectedBookmarks.has(x));
+    const add = makeButton('<path d="M5 12h14"/><path d="M12 5v14"/>', _t('Add bookmark'), addBookmark);
     add.id = 'addbm';
-    const del = mkb(
+    const del = makeButton(
       '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
       _t('Delete bookmark'),
       async () => {
-        const ts = sel();
-        if (!ts.length) return;
+        const targets = getSelected();
+        if (!targets.length) return;
         if (
           await confirmDialog(
-            ts.length > 1 ? _t('Delete bookmarks') : _t('Delete bookmark', null, 'dialog'),
-            ts.length > 1
-              ? _t('Delete {n} bookmarks?', { n: ts.length })
-              : _t('Delete the bookmark “{title}”?', { title: ts[0].title }),
+            targets.length > 1 ? _t('Delete bookmarks') : _t('Delete bookmark', null, 'dialog'),
+            targets.length > 1
+              ? _t('Delete {n} bookmarks?', { n: targets.length })
+              : _t('Delete the bookmark “{title}”?', { title: targets[0].title }),
             _t('Delete'),
           )
         ) {
-          ts.forEach((x) => detach(bms, x));
-          selBms.clear();
+          targets.forEach((x) => removeBookmark(bookmarks, x));
+          selectedBookmarks.clear();
           renderSide();
         }
       },
     );
-    const bold = mkb(
+    del.dataset.action = 'delete'; // the Delete key presses it (see the keyboard shortcuts)
+    const bold = makeButton(
       '<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>',
       _t('Bold'),
       () => {
-        const ts = sel(),
-          v = !ts.every((x) => x.bold);
-        ts.forEach((x) => (x.bold = v));
+        const targets = getSelected(),
+          v = !targets.every((x) => x.bold);
+        targets.forEach((x) => (x.bold = v));
         renderSide();
       },
     );
-    const ita = mkb(
+    const italic = makeButton(
       '<line x1="19" x2="10" y1="4" y2="4"/><line x1="14" x2="5" y1="20" y2="20"/><line x1="15" x2="9" y1="4" y2="20"/>',
       _t('Italic'),
       () => {
-        const ts = sel(),
-          v = !ts.every((x) => x.italic);
-        ts.forEach((x) => (x.italic = v));
+        const targets = getSelected(),
+          v = !targets.every((x) => x.italic);
+        targets.forEach((x) => (x.italic = v));
         renderSide();
       },
     );
-    const pal = mkb(
+    const colour = makeButton(
       '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
       _t('Change colour'),
       () =>
-        openPal(
-          pal,
+        openPalette(
+          colour,
           (pc) => {
-            sel().forEach((x) => (x.color = deep(pc)));
+            getSelected().forEach((x) => (x.color = deep(pc)));
             renderSide();
           },
-          BM_PAL,
+          BOOKMARK_PALETTE,
         ),
     );
-    const rf = mkb(
+    const clearFormat = makeButton(
       '<path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4 8 20"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/>',
       _t('Clear formatting (bold, italic and colour)'),
       () => {
-        sel().forEach((x) => {
+        getSelected().forEach((x) => {
           x.bold = false;
           x.italic = false;
           x.color = null;
@@ -828,36 +882,40 @@ function renderSide() {
         renderSide();
       },
     );
-    const all = mkb('<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>', _t('Expand / collapse bookmarks'), () => {
-      const anyOpen = (l) => l.some((x) => x.items.length && (x.open !== false || anyOpen(x.items)));
-      const v = !anyOpen(bms);
-      const set = (l) =>
-        l.forEach((x) => {
-          x.open = v;
-          set(x.items);
-        });
-      set(bms);
-      renderSide();
-    });
+    const all = makeButton(
+      '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+      _t('Expand / collapse bookmarks'),
+      () => {
+        const anyOpen = (l) => l.some((x) => x.items.length && (x.open !== false || anyOpen(x.items)));
+        const v = !anyOpen(bookmarks);
+        const set = (l) =>
+          l.forEach((x) => {
+            x.open = v;
+            set(x.items);
+          });
+        set(bookmarks);
+        renderSide();
+      },
+    );
     all.textContent = '⇕';
     all.style.fontSize = '16px';
-    grp('l', add, del);
-    grp('c', bold, ita, pal, rf);
-    grp('r', all);
+    addGroup('l', add, del);
+    addGroup('c', bold, italic, colour, clearFormat);
+    addGroup('r', all);
     // Button states follow the selection: with nothing selected there is nothing to delete or format; bold and italic show as active
-    const upd = () => {
-      const ts = sel(),
-        no = !ts.length;
-      [del, bold, ita, pal, rf].forEach((b) => (b.disabled = no));
-      bold.classList.toggle('on', !no && ts.every((x) => x.bold));
-      ita.classList.toggle('on', !no && ts.every((x) => x.italic));
+    const updateButtons = () => {
+      const targets = getSelected(),
+        no = !targets.length;
+      [del, bold, italic, colour, clearFormat].forEach((b) => (b.disabled = no));
+      bold.classList.toggle('on', !no && targets.every((x) => x.bold));
+      italic.classList.toggle('on', !no && targets.every((x) => x.italic));
     };
-    sb.appendChild(row);
-    if (!bms.length) {
+    body.appendChild(row);
+    if (!bookmarks.length) {
       const n = document.createElement('div');
       n.style.opacity = '.6';
       n.textContent = _t('No bookmarks');
-      sb.appendChild(n);
+      body.appendChild(n);
     }
     const flatBms = [];
     const flatten = (l) =>
@@ -865,19 +923,20 @@ function renderSide() {
         flatBms.push(x);
         if (x.open !== false) flatten(x.items);
       });
-    flatten(bms);
-    upd();
+    flatten(bookmarks);
+    updateButtons();
+    // Draws the bookmarks of list at depth d (indented); up is where the parent is ({ list, i }), to move a level up
     const walk = (list, d, up) =>
       list.forEach((it, i) => {
         const e = document.createElement('div');
-        e.className = 'bm' + (selBms.has(it) ? ' sel' : '');
+        e.className = 'bm' + (selectedBookmarks.has(it) ? ' sel' : '');
         e.draggable = true;
         e.style.paddingLeft = 4 + d * 14 + 'px';
-        const tg = document.createElement('span');
-        tg.style.cssText = 'width:16px;flex-shrink:0;text-align:center;opacity:.7';
+        const toggle = document.createElement('span');
+        toggle.style.cssText = 'width:16px;flex-shrink:0;text-align:center;opacity:.7';
         if (it.items.length) {
-          tg.textContent = it.open === false ? '▸' : '▾';
-          tg.onclick = (ev) => {
+          toggle.textContent = it.open === false ? '▸' : '▾';
+          toggle.onclick = (ev) => {
             ev.stopPropagation();
             it.open = it.open === false;
             renderSide();
@@ -892,29 +951,29 @@ function renderSide() {
         t.onclick = (ev) => {
           if (!ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
             const k = pages.indexOf(it.page);
-            if (k >= 0) goTo(k, ddY(it.dd));
+            if (k >= 0) goTo(k, destY(it.dd));
           }
         };
         e.onclick = (ev) => {
           ev.stopPropagation();
-          if (ev.shiftKey && anchorBm) {
-            const a = flatBms.indexOf(anchorBm),
+          if (ev.shiftKey && bookmarkAnchor) {
+            const a = flatBms.indexOf(bookmarkAnchor),
               b = flatBms.indexOf(it);
             if (a >= 0 && b >= 0) {
-              if (!(ev.ctrlKey || ev.metaKey)) selBms.clear();
-              for (let k = Math.min(a, b); k <= Math.max(a, b); k++) selBms.add(flatBms[k]);
+              if (!(ev.ctrlKey || ev.metaKey)) selectedBookmarks.clear();
+              for (let k = Math.min(a, b); k <= Math.max(a, b); k++) selectedBookmarks.add(flatBms[k]);
             }
           } else if (ev.ctrlKey || ev.metaKey) {
-            selBms.has(it) ? selBms.delete(it) : selBms.add(it);
-            anchorBm = it;
+            selectedBookmarks.has(it) ? selectedBookmarks.delete(it) : selectedBookmarks.add(it);
+            bookmarkAnchor = it;
           } else {
-            selBms.clear();
-            selBms.add(it);
-            anchorBm = it;
+            selectedBookmarks.clear();
+            selectedBookmarks.add(it);
+            bookmarkAnchor = it;
           }
           renderSide();
         };
-        const mv = (txt, tip, fn) => {
+        const rowButton = (txt, tip, fn) => {
           const b = document.createElement('button');
           b.textContent = txt;
           b.title = tip;
@@ -925,11 +984,12 @@ function renderSide() {
           };
           return b;
         };
-        const ctl = document.createElement('span');
-        ctl.className = 'ctl';
-        const bTg = () => (selBms.has(it) && selBms.size > 1 ? Array.from(selBms) : [it]);
-        ctl.append(
-          mv('✎', _t('Edit bookmark'), () => {
+        const controls = document.createElement('span');
+        controls.className = 'ctl';
+        const rowTargets = () =>
+          selectedBookmarks.has(it) && selectedBookmarks.size > 1 ? Array.from(selectedBookmarks) : [it];
+        controls.append(
+          rowButton('✎', _t('Edit bookmark'), () => {
             promptDialog(_t('Edit bookmark'), _t('Title:'), it.title, _t('Save')).then((n) => {
               if (n) {
                 it.title = n;
@@ -937,192 +997,199 @@ function renderSide() {
               }
             });
           }),
-          mv('←', _t('Decrease indent (move up a level)'), () => {
+          rowButton('←', _t('Decrease indent (move up a level)'), () => {
             if (up) {
               list.splice(i, 1);
               up.list.splice(up.i + 1, 0, it);
             }
           }),
-          mv('→', _t('Increase indent (make a sub-item of the previous one)'), () => {
+          rowButton('→', _t('Increase indent (make a sub-item of the previous one)'), () => {
             if (i > 0) {
               list.splice(i, 1);
               list[i - 1].items.push(it);
               list[i - 1].open = true;
             }
           }),
-          mv('⚑', _t('Point to the current page'), () => {
-            bTg().forEach((x) => {
-              x.page = pages[cur];
+          rowButton('⚑', _t('Point to the current page'), () => {
+            rowTargets().forEach((x) => {
+              x.page = pages[currentPage];
               x.dd = null;
             });
           }),
         );
-        const clr = () => e.classList.remove('before', 'after', 'inside');
+        // Drag and drop: dropping on the top 30 % of a row puts the bookmarks before it, on the bottom 30 % after it,
+        // otherwise inside it
+        const clearDropMark = () => e.classList.remove('before', 'after', 'inside');
         const zone = (ev) => {
           const r = e.getBoundingClientRect(),
             y = (ev.clientY - r.top) / r.height;
           return y < 0.3 ? 'before' : y > 0.7 ? 'after' : 'inside';
         };
         e.ondragstart = (ev) => {
-          dragBms = dragSet(it);
+          draggedBookmarks = bookmarksToDrag(it);
           ev.dataTransfer.setData('text/plain', 'bm');
           ev.dataTransfer.effectAllowed = 'move';
         };
         e.ondragend = () => {
-          dragBms = [];
+          draggedBookmarks = [];
           renderSide();
         };
         e.ondragover = (ev) => {
-          if (!dragBms.length || dragBms.some((n) => inTree(n, it))) return;
+          if (!draggedBookmarks.length || draggedBookmarks.some((n) => isInSubtree(n, it))) return;
           ev.preventDefault();
-          clr();
+          clearDropMark();
           e.classList.add(zone(ev));
         };
-        e.ondragleave = clr;
+        e.ondragleave = clearDropMark;
         e.ondrop = (ev) => {
-          if (!dragBms.length || dragBms.some((n) => inTree(n, it))) return;
+          if (!draggedBookmarks.length || draggedBookmarks.some((n) => isInSubtree(n, it))) return;
           ev.preventDefault();
           const z = zone(ev),
-            ns = dragBms;
-          ns.forEach((n) => detach(bms, n));
+            moved = draggedBookmarks;
+          moved.forEach((n) => removeBookmark(bookmarks, n));
           if (z == 'inside') {
-            it.items.push(...ns);
+            it.items.push(...moved);
             it.open = true;
           } else {
-            const f = locate(bms, it);
-            f.list.splice(f.i + (z == 'after' ? 1 : 0), 0, ...ns);
+            const f = findBookmark(bookmarks, it);
+            f.list.splice(f.i + (z == 'after' ? 1 : 0), 0, ...moved);
           }
-          dragBms = [];
+          draggedBookmarks = [];
           renderSide();
         };
-        e.append(tg, t, ctl);
-        sb.appendChild(e);
-        if (it === flashBm) {
+        e.append(toggle, t, controls);
+        body.appendChild(e);
+        if (it === flashBookmark) {
           e.style.background = 'color-mix(in srgb,var(--acc) 30%,transparent)';
           requestAnimationFrame(() => e.scrollIntoView({ block: 'nearest' }));
         }
         if (it.open !== false) walk(it.items, d + 1, { list, i });
       });
-    walk(bms, 0);
-    const hadFlash = !!flashBm;
-    flashBm = null;
+    walk(bookmarks, 0);
+    const hadFlash = !!flashBookmark;
+    flashBookmark = null;
     const end = document.createElement('div');
     end.style.minHeight = '80px';
     end.ondragover = (ev) => {
-      if (dragBms.length) ev.preventDefault();
+      if (draggedBookmarks.length) ev.preventDefault();
     };
     end.ondrop = (ev) => {
-      if (!dragBms.length) return;
+      if (!draggedBookmarks.length) return;
       ev.preventDefault();
-      const ns = dragBms;
-      ns.forEach((n) => detach(bms, n));
-      bms.push(...ns);
-      dragBms = [];
+      const moved = draggedBookmarks;
+      moved.forEach((n) => removeBookmark(bookmarks, n));
+      bookmarks.push(...moved);
+      draggedBookmarks = [];
       renderSide();
     };
-    sb.appendChild(end);
-    if (isSameTab && !hadFlash) sb.scrollTop = prevScroll;
+    body.appendChild(end);
+    if (isSameTab && !hadFlash) body.scrollTop = prevScroll;
     return;
   }
+  // Pages tab: the thumbnails, with selection (click, Ctrl+click, Shift+click) and drag and drop to reorder
   // Top bar: delete (left), extract (centre) and rotate (right). Delete and rotate act on the selected pages.
   {
-    const T = sbar(),
-      sel = () => pages.filter((x) => selPages.has(x));
-    const del = T.mkb(
+    const bar = panelBar(),
+      getSelected = () => pages.filter((x) => selectedPages.has(x));
+    const del = bar.makeButton(
       '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
       _t('Delete page'),
       async () => {
-        const tgs = sel();
-        if (!tgs.length) return;
-        if (pages.length <= tgs.length) {
-          msg(_t('You can’t delete all the pages.'));
+        const targets = getSelected();
+        if (!targets.length) return;
+        if (pages.length <= targets.length) {
+          showMessage(_t('You can’t delete all the pages.'));
           return;
         }
         if (
           await confirmDialog(
-            tgs.length > 1 ? _t('Delete pages') : _t('Delete page'),
-            tgs.length > 1
-              ? _t('Delete {n} pages?', { n: tgs.length })
-              : _t('Delete page {n}?', { n: pages.indexOf(tgs[0]) + 1 }),
+            targets.length > 1 ? _t('Delete pages') : _t('Delete page'),
+            targets.length > 1
+              ? _t('Delete {n} pages?', { n: targets.length })
+              : _t('Delete page {n}?', { n: pages.indexOf(targets[0]) + 1 }),
             _t('Delete', null, 'page'),
           )
         ) {
-          tgs.forEach((x) => {
+          targets.forEach((x) => {
             const idx = pages.indexOf(x);
             if (idx >= 0) pages.splice(idx, 1);
           });
-          selPages.clear();
-          bms = prune(bms);
+          selectedPages.clear();
+          bookmarks = pruneBookmarks(bookmarks);
           renderSide();
           renderMain();
         }
       },
     );
-    const ad = T.mkb(
+    del.dataset.action = 'delete'; // the Delete key presses it (see the keyboard shortcuts)
+    const addBtn = bar.makeButton(
       '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/>',
       _t('Add pages'),
       addDialog,
     );
-    ad.disabled = !pages.length;
-    const ex = T.mkb(
+    addBtn.disabled = !pages.length;
+    const extractBtn = bar.makeButton(
       '<path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/>',
       _t('Extract pages'),
       () => extractDialog(),
     );
-    ex.disabled = isLocked();
-    const rl = T.mkb(
+    extractBtn.disabled = isLocked();
+    const rotLeftBtn = bar.makeButton(
       '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
       _t('Rotate 90° anticlockwise'),
-      () => rotatePages(sel(), -90),
+      () => rotatePages(getSelected(), -90),
     );
-    const rr = T.mkb(
+    const rotRightBtn = bar.makeButton(
       '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
       _t('Rotate 90° clockwise'),
-      () => rotatePages(sel(), 90),
+      () => rotatePages(getSelected(), 90),
     );
-    T.grp('l', del);
-    T.grp('c', ad, ex);
-    T.grp('r', rl, rr);
-    thBar = () => {
-      const no = !sel().length;
-      [del, rl, rr].forEach((b) => (b.disabled = no));
+    bar.addGroup('l', del);
+    bar.addGroup('c', addBtn, extractBtn);
+    bar.addGroup('r', rotLeftBtn, rotRightBtn);
+    // Delete and rotate are enabled only with pages selected
+    updatePagesBar = () => {
+      const no = !getSelected().length;
+      [del, rotLeftBtn, rotRightBtn].forEach((b) => (b.disabled = no));
     };
-    thBar();
-    sb.appendChild(T.row);
+    updatePagesBar();
+    body.appendChild(bar.row);
   }
+  // One cell per page; its image is drawn when it comes into view (thumbObserver)
   const grid = document.createElement('div');
   grid.className = 'grid';
-  sb.appendChild(grid);
-  thIo.disconnect();
+  body.appendChild(grid);
+  thumbObserver.disconnect();
   pages.forEach((p, i) => {
     const d = document.createElement('div');
-    d.className = 'th' + (i == cur ? ' cur' : '') + (selPages.has(p) ? ' sel' : '');
+    d.className = 'th' + (i == currentPage ? ' cur' : '') + (selectedPages.has(p) ? ' sel' : '');
     d.draggable = true;
     d.innerHTML = `<img alt=""><div class="n">${i + 1}</div>`;
     d._p = p;
-    thIo.observe(d);
+    thumbObserver.observe(d);
     d.onclick = (e) => {
-      if (e.shiftKey && anchor >= 0) {
-        const a = Math.min(anchor, i),
-          b = Math.max(anchor, i);
-        if (!(e.ctrlKey || e.metaKey)) selPages.clear();
-        for (let k = a; k <= b; k++) selPages.add(pages[k]);
+      if (e.shiftKey && pageAnchor >= 0) {
+        const a = Math.min(pageAnchor, i),
+          b = Math.max(pageAnchor, i);
+        if (!(e.ctrlKey || e.metaKey)) selectedPages.clear();
+        for (let k = a; k <= b; k++) selectedPages.add(pages[k]);
       } else if (e.ctrlKey || e.metaKey) {
-        if (selPages.has(p)) selPages.delete(p);
-        else selPages.add(p);
-        anchor = i;
+        if (selectedPages.has(p)) selectedPages.delete(p);
+        else selectedPages.add(p);
+        pageAnchor = i;
       } else {
-        selPages.clear();
-        selPages.add(p);
-        anchor = i;
+        selectedPages.clear();
+        selectedPages.add(p);
+        pageAnchor = i;
       }
       goTo(i);
-      document.querySelectorAll('.th').forEach((x, k) => x.classList.toggle('sel', selPages.has(pages[k])));
-      if (thBar) thBar();
+      document.querySelectorAll('.th').forEach((x, k) => x.classList.toggle('sel', selectedPages.has(pages[k])));
+      if (updatePagesBar) updatePagesBar();
     };
+    // Dragging a selected page drags every selected page with it
     d.ondragstart = (e) => {
       e.dataTransfer.setData('text/plain', i);
-      dragPgs = selPages.has(p) && selPages.size > 1 ? pages.filter((x) => selPages.has(x)) : [p];
+      draggedPages = selectedPages.has(p) && selectedPages.size > 1 ? pages.filter((x) => selectedPages.has(x)) : [p];
     };
     d.ondragover = (e) => {
       e.preventDefault();
@@ -1132,99 +1199,101 @@ function renderSide() {
     d.ondrop = (e) => {
       e.preventDefault();
       const f = +e.dataTransfer.getData('text/plain');
-      if (f == i || dragPgs.includes(p)) {
+      if (f == i || draggedPages.includes(p)) {
         d.classList.remove('over');
         return;
       }
-      const ms = dragPgs;
-      pages = pages.filter((x) => !ms.includes(x));
-      pages.splice(pages.indexOf(p) + (f < i ? 1 : 0), 0, ...ms);
-      dragPgs = [];
+      const moved = draggedPages;
+      pages = pages.filter((x) => !moved.includes(x));
+      pages.splice(pages.indexOf(p) + (f < i ? 1 : 0), 0, ...moved);
+      draggedPages = [];
       renderSide();
       renderMain();
     };
     grid.appendChild(d);
   });
-  if (isSameTab) sb.scrollTop = prevScroll;
+  if (isSameTab) body.scrollTop = prevScroll;
   followThumb(false);
 }
 // Pages panel: follows the current page. It only scrolls if the page's thumbnail is out of view (center=true: leaves it centred)
 function followThumb(center) {
-  if (tab != 'th') return;
-  const sb = $('#sbody'),
-    t = sb.querySelectorAll('.th')[cur];
-  if (!t) return;
-  const sr = sb.getBoundingClientRect(),
-    tr = t.getBoundingClientRect();
-  if (!sr.height) return;
-  const w = sb.querySelector('.sbw'),
-    top = sr.top + (w ? w.offsetHeight - 8 : 0);
-  if (center) sb.scrollTop += tr.top + tr.height / 2 - (top + (sr.bottom - top) / 2);
-  else if (tr.top < top) sb.scrollTop -= top - tr.top + 6;
-  else if (tr.bottom > sr.bottom) sb.scrollTop += tr.bottom - sr.bottom + 6;
+  if (panelTab != 'th') return;
+  const body = $('#sbody'),
+    thumb = body.querySelectorAll('.th')[currentPage];
+  if (!thumb) return;
+  const bodyRect = body.getBoundingClientRect(),
+    thumbRect = thumb.getBoundingClientRect();
+  if (!bodyRect.height) return;
+  const bar = body.querySelector('.sbw'),
+    top = bodyRect.top + (bar ? bar.offsetHeight - 8 : 0);
+  if (center) body.scrollTop += thumbRect.top + thumbRect.height / 2 - (top + (bodyRect.bottom - top) / 2);
+  else if (thumbRect.top < top) body.scrollTop -= top - thumbRect.top + 6;
+  else if (thumbRect.bottom > bodyRect.bottom) body.scrollTop += thumbRect.bottom - bodyRect.bottom + 6;
 }
 // “Two pages”: only one pair (1-2, 3-4…) is visible at a time; the other pages are hidden
 let shownPair = -1;
 function showPair() {
   if (!pages.length) return;
-  const v = $('#view'),
-    s = cur - (cur % 2);
-  shownPair = twoUp ? s : -1;
-  v.querySelectorAll('.ph').forEach((x) => x.remove());
-  [...v.children].forEach((c, i) => {
-    c.style.display = twoUp && i != s && i != s + 1 ? 'none' : '';
+  const view = $('#view'),
+    first = currentPage - (currentPage % 2);
+  shownPair = twoPageView ? first : -1;
+  view.querySelectorAll('.ph').forEach((x) => x.remove());
+  [...view.children].forEach((c, i) => {
+    c.style.display = twoPageView && i != first && i != first + 1 ? 'none' : '';
   });
-  if (twoUp) {
-    v.scrollTop = 0;
-    const c = v.children[s];
-    if (s + 1 >= pages.length && c) {
-      const h = document.createElement('div');
-      h.className = 'ph';
-      h.style.width = c.style.width;
-      v.appendChild(h);
+  if (twoPageView) {
+    view.scrollTop = 0;
+    const c = view.children[first];
+    if (first + 1 >= pages.length && c) {
+      const filler = document.createElement('div');
+      filler.className = 'ph';
+      filler.style.width = c.style.width;
+      view.appendChild(filler);
     }
   }
 }
 // Puts height y (in PDF points) of page i in the first third of the viewer; never scrolls back up from where the page already is
 function goToY(i, y) {
-  const v = $('#view'),
-    e = v.children[i];
-  if (!e || !e._vp || e.style.display == 'none') return;
-  const py = e._vp.convertToViewportPoint(0, y)[1],
-    d = e.getBoundingClientRect().top + py - (v.getBoundingClientRect().top + v.clientHeight / 3);
-  if (d > 0) v.scrollTop += d;
+  const view = $('#view'),
+    el = view.children[i];
+  if (!el || !el._vp || el.style.display == 'none') return;
+  const yPx = el._vp.convertToViewportPoint(0, y)[1],
+    delta = el.getBoundingClientRect().top + yPx - (view.getBoundingClientRect().top + view.clientHeight / 3);
+  if (delta > 0) view.scrollTop += delta;
 }
+// Goes to page i (and, if given, to height y on it): scrolls the viewer and marks the page in the thumbnails
 function goTo(i, y) {
-  cur = i;
-  updPg();
-  const nf = twoUp && cur - (cur % 2) != shownPair;
-  if (twoUp) {
-    if (nf) setFit('p');
+  currentPage = i;
+  updatePageBox();
+  const newPair = twoPageView && currentPage - (currentPage % 2) != shownPair;
+  if (twoPageView) {
+    if (newPair) setFit('p');
     $('#view').scrollTop = 0;
   } else {
     const e = $('#view').children[i];
     if (e) e.scrollIntoView();
   }
-  if (typeof y == 'number' && isFinite(y) && !nf) goToY(i, y);
+  if (typeof y == 'number' && isFinite(y) && !newPair) goToY(i, y);
   document.querySelectorAll('.th').forEach((t, k) => t.classList.toggle('cur', k == i));
   followThumb(false);
 }
 
+// While scrolling, the current page is the last one whose top has passed the first third of the viewer
 $('#view').addEventListener('scroll', () => {
-  if (twoUp) return;
-  const v = $('#view'),
-    t = v.getBoundingClientRect().top + v.clientHeight / 3;
+  if (twoPageView) return;
+  const view = $('#view'),
+    line = view.getBoundingClientRect().top + view.clientHeight / 3;
   let k = 0;
-  [...v.children].forEach((c, i) => {
-    if (c.getBoundingClientRect().top <= t) k = i;
+  [...view.children].forEach((c, i) => {
+    if (c.getBoundingClientRect().top <= line) k = i;
   });
-  if (twoUp) {
+  if (twoPageView) {
     k -= k % 2;
-    if (cur === k + 1) k = cur;
+    if (currentPage === k + 1) k = currentPage;
   }
-  if (k != cur) {
-    cur = k;
-    updPg();
+  if (k != currentPage) {
+    currentPage = k;
+    updatePageBox();
     document.querySelectorAll('.th').forEach((x, j) => x.classList.toggle('cur', j == k));
     followThumb(false);
     const a = $('#addbm');
@@ -1232,92 +1301,94 @@ $('#view').addEventListener('scroll', () => {
   }
 });
 
+// ---- Viewer ----
+// Builds the viewer: an empty box of the right size per page; each is painted when it comes into view (pageObserver)
 async function renderMain() {
-  updPg();
-  const v = $('#view'),
-    s = cur - (cur % 2);
-  io.disconnect();
-  v.innerHTML = '';
+  updatePageBox();
+  const view = $('#view'),
+    first = currentPage - (currentPage % 2);
+  pageObserver.disconnect();
+  view.innerHTML = '';
   for (let i = 0; i < pages.length; i++) {
     const p = pages[i],
-      pg = await docs[p.doc].pdf.getPage(p.idx + 1),
-      vp = pg.getViewport({ scale, rotation: (pg.rotate + (p.rot || 0)) % 360 });
+      pdfPage = await docs[p.doc].pdf.getPage(p.idx + 1),
+      viewport = pdfPage.getViewport({ scale, rotation: (pdfPage.rotate + (p.rot || 0)) % 360 });
     const el = document.createElement('div');
     el.className = 'page';
-    el.style.width = vp.width + 'px';
-    el.style.height = vp.height + 'px';
+    el.style.width = viewport.width + 'px';
+    el.style.height = viewport.height + 'px';
     el._p = p;
-    el._pg = pg;
-    el._vp = vp;
+    el._pg = pdfPage;
+    el._vp = viewport;
     el.dataset.i = i;
-    if (twoUp && (i < s || i > s + 1)) el.style.display = 'none';
-    v.appendChild(el);
-    io.observe(el);
+    if (twoPageView && (i < first || i > first + 1)) el.style.display = 'none';
+    view.appendChild(el);
+    pageObserver.observe(el);
   }
   showPair();
 }
 // Reads a page's annotations from the PDF (once per page)
-function loadAnnots(p) {
-  if (p.loaded) return Promise.resolve();
+function loadAnnots(page) {
+  if (page.loaded) return Promise.resolve();
   return (
-    p.annP ||
-    (p.annP = (async () => {
-      const pdf = docs[p.doc].pdf,
-        pg = await pdf.getPage(p.idx + 1),
-        raw = await pg.getAnnotations();
-      p.widgets = raw.filter(
+    page.annP ||
+    (page.annP = (async () => {
+      const pdf = docs[page.doc].pdf,
+        pdfPage = await pdf.getPage(page.idx + 1),
+        raw = await pdfPage.getAnnotations();
+      page.widgets = raw.filter(
         (a) => a.subtype === 'Widget' && a.rect && a.fieldType && !((a.annotationFlags || 0) & 34),
       );
       raw.forEach((a) => {
         const author = a.titleObj ? a.titleObj.str : a.title || '';
-        const isM = author === 'Penfold';
+        const isOwn = author === 'Penfold';
         if (
-          isM ||
+          isOwn ||
           ['Text', 'FreeText', 'Highlight', 'Underline', 'StrikeOut', 'Square', 'Circle', 'Line'].includes(a.subtype)
         ) {
-          let col =
+          let colour =
             a.color && a.color.length === 3
               ? '#' +
                 Array.from(a.color)
                   .map((v) => v.toString(16).padStart(2, '0'))
                   .join('')
               : null;
-          if (!isM) {
-            if (!col || col === '#ffffff') col = '#c64600';
+          if (!isOwn) {
+            if (!colour || colour === '#ffffff') colour = '#c64600';
           } else {
-            col = col || '#f9f06b';
+            colour = colour || '#f9f06b';
           }
           const txt = (a.contentsObj ? a.contentsObj.str : a.contents) || '';
-          const ro = !isM;
+          const readOnly = !isOwn;
           if (a.subtype === 'Text')
-            p.annots.push({
+            page.annots.push({
               type: 'note',
-              color: col,
+              color: colour,
               text: txt,
               x: (a.rect[0] + a.rect[2]) / 2,
               y: (a.rect[1] + a.rect[3]) / 2,
-              ro,
+              ro: readOnly,
               author,
             });
           else if (a.subtype === 'FreeText')
-            p.annots.push({
+            page.annots.push({
               type: 'ft',
-              color: col,
+              color: colour,
               text: txt,
               x: Math.min(a.rect[0], a.rect[2]),
               y: Math.max(a.rect[1], a.rect[3]),
               w: Math.abs(a.rect[2] - a.rect[0]),
-              ro,
+              ro: readOnly,
               author,
             });
           else if (a.subtype === 'Highlight' || a.subtype === 'Underline' || a.subtype === 'StrikeOut') {
             const quads = [];
             if (a.quadPoints) {
-              const qp = a.quadPoints;
-              if (typeof qp[0] === 'number') {
-                for (let i = 0; i < qp.length; i += 8) quads.push(Array.from(qp.slice(i, i + 8)));
+              const qpts = a.quadPoints;
+              if (typeof qpts[0] === 'number') {
+                for (let i = 0; i < qpts.length; i += 8) quads.push(Array.from(qpts.slice(i, i + 8)));
               } else
-                qp.forEach((q) => {
+                qpts.forEach((q) => {
                   if (Array.isArray(q) && q.length === 8) quads.push(q);
                   else if (q.length === 4) quads.push([q[0].x, q[0].y, q[1].x, q[1].y, q[2].x, q[2].y, q[3].x, q[3].y]);
                 });
@@ -1325,33 +1396,42 @@ function loadAnnots(p) {
               quads.push([a.rect[0], a.rect[3], a.rect[2], a.rect[3], a.rect[0], a.rect[1], a.rect[2], a.rect[1]]);
             }
             if (quads.length)
-              p.annots.push({
+              page.annots.push({
                 type: a.subtype === 'Highlight' ? 'hl' : a.subtype === 'Underline' ? 'ul' : 'so',
-                color: col,
+                color: colour,
                 quads,
                 txt,
-                ro,
+                ro: readOnly,
                 author,
               });
           } else if (a.subtype === 'Square' || a.subtype === 'Circle') {
-            p.annots.push({
+            page.annots.push({
               type: a.subtype === 'Square' ? 'sq' : 'ci',
-              color: col,
+              color: colour,
               x: Math.min(a.rect[0], a.rect[2]),
               y: Math.max(a.rect[1], a.rect[3]),
               x2: Math.max(a.rect[0], a.rect[2]),
               y2: Math.min(a.rect[1], a.rect[3]),
-              ro,
+              ro: readOnly,
               author,
             });
           } else if (a.subtype === 'Line') {
-            const lc = a.lineCoordinates || [a.rect[0], a.rect[1], a.rect[2], a.rect[3]];
-            p.annots.push({ type: 'ar', color: col, x: lc[0], y: lc[1], x2: lc[2], y2: lc[3], ro, author });
+            const line = a.lineCoordinates || [a.rect[0], a.rect[1], a.rect[2], a.rect[3]];
+            page.annots.push({
+              type: 'ar',
+              color: colour,
+              x: line[0],
+              y: line[1],
+              x2: line[2],
+              y2: line[3],
+              ro: readOnly,
+              author,
+            });
           }
         } else if (a.subtype === 'Link') {
           const dest = a.dest || (a.action && a.action.dest);
           if (dest || a.url) {
-            p.annots.push({
+            page.annots.push({
               type: 'link',
               x: Math.min(a.rect[0], a.rect[2]),
               y: Math.max(a.rect[1], a.rect[3]),
@@ -1364,240 +1444,263 @@ function loadAnnots(p) {
         }
       });
       // Annotations read from the file are the saved state of this page (see “Unsaved changes”)
-      markPageSaved(p);
-      p.loaded = true;
+      markPageSaved(page);
+      page.loaded = true;
     })().catch((e) => {
-      p.annP = null;
+      page.annP = null;
       throw e;
     }))
   );
 }
 // Loads the annotations of every page when a PDF is opened or added, so the index is complete from the start
-let annBusy = 0;
+let annotsLoading = 0;
 async function loadAllAnnots() {
-  annBusy++;
-  if (tab == 'an') renderSide();
+  annotsLoading++;
+  if (panelTab == 'an') renderSide();
   try {
     for (const p of pages.slice()) {
       if (pages.includes(p)) await loadAnnots(p);
     }
   } catch (e) {}
-  annBusy--;
-  if (tab == 'an') renderSide();
+  annotsLoading--;
+  if (panelTab == 'an') renderSide();
 }
-// ---- Forms: layer of fillable fields over the page (phase 2). Values are kept in docs[di].fv (full field name → value); they are written to the PDF on save (applyForm).
-function fvInit(a) {
-  const t = a.fieldType,
-    v = a.fieldValue;
-  if (t == 'Btn') return a.radioButton ? (v == null || v === 'Off' ? '' : String(v)) : !!(v && v !== 'Off' && v !== '');
-  if (t == 'Ch') return Array.isArray(v) ? v.map(String) : v == null || v === '' ? [] : [String(v)];
-  return v == null ? '' : Array.isArray(v) ? v.join('\n') : String(v);
+// ---- Forms: layer of fillable fields over the page (phase 2). Values are kept in docs[…].fv (full field name → value); they are written to the PDF on save (writeFormValues).
+// The value a form field has in the PDF, in the form the screen uses: text, true/false (checkbox), the chosen option
+// (radio) or a list of options (list box)
+function fieldValueInPdf(a) {
+  const type = a.fieldType,
+    value = a.fieldValue;
+  if (type == 'Btn')
+    return a.radioButton
+      ? value == null || value === 'Off'
+        ? ''
+        : String(value)
+      : !!(value && value !== 'Off' && value !== '');
+  if (type == 'Ch')
+    return Array.isArray(value) ? value.map(String) : value == null || value === '' ? [] : [String(value)];
+  return value == null ? '' : Array.isArray(value) ? value.join('\n') : String(value);
 }
+// Puts an HTML field over each form field of the page (text box, checkbox, radio button or list), at the same
+// place and size. Changes go to docs[…].fv, and fields with the same name show the same value
 function formLayer(el) {
-  const p = el._p,
-    vp = el._vp,
-    ws = p.widgets;
-  if (!ws || !ws.length) return;
-  const doc = docs[p.doc];
+  const page = el._p,
+    viewport = el._vp,
+    widgets = page.widgets;
+  if (!widgets || !widgets.length) return;
+  const doc = docs[page.doc];
   if (!doc) return;
-  const fv = doc.fv || (doc.fv = {});
-  const lay = document.createElement('div');
-  lay.className = 'fl';
+  const values = doc.fv || (doc.fv = {});
+  const layer = document.createElement('div');
+  layer.className = 'fl';
+  // Shows the new value in the other fields with the same name (a form can repeat a field on several pages)
   const sync = (name, val, src) => {
-    lay.parentNode &&
+    layer.parentNode &&
       $('#view')
         .querySelectorAll('.fl [data-fn]')
         .forEach((x) => {
-          if (x === src || x.dataset.fn !== name || x._doc !== p.doc) return;
+          if (x === src || x.dataset.fn !== name || x._doc !== page.doc) return;
           if (x.type == 'checkbox') x.checked = !!val;
           else if (x.type == 'radio') x.checked = x.value === val;
           else if (x.tagName == 'SELECT') [...x.options].forEach((o) => (o.selected = val.includes(o.value)));
           else x.value = val;
         });
   };
-  const set = (a, val, src) => {
+  // A field was changed: its value is stored (fvDirty lists the changed fields, for the unsaved-changes check)
+  const setValue = (a, val, src) => {
     if (!doc.fvDirty) doc.fvDirty = new Set();
     // Back to the value it has in the PDF: the field counts as untouched again (and is left as it is on save)
-    if (JSON.stringify(val) === JSON.stringify(fvInit(a))) {
-      delete fv[a.fieldName];
+    if (JSON.stringify(val) === JSON.stringify(fieldValueInPdf(a))) {
+      delete values[a.fieldName];
       doc.fvDirty.delete(a.fieldName);
     } else {
-      fv[a.fieldName] = val;
+      values[a.fieldName] = val;
       doc.fvDirty.add(a.fieldName);
     }
     sync(a.fieldName, val, src);
   };
-  ws.forEach((a) => {
+  widgets.forEach((a) => {
     const t = a.fieldType;
     if (t != 'Tx' && t != 'Btn' && t != 'Ch') return;
     if (t == 'Btn' && a.pushButton) return;
-    const r = vp.convertToViewportRectangle(a.rect),
+    const r = viewport.convertToViewportRectangle(a.rect),
       l = Math.min(r[0], r[2]),
-      tp = Math.min(r[1], r[3]),
+      top = Math.min(r[1], r[3]),
       w = Math.abs(r[2] - r[0]),
       h = Math.abs(r[3] - r[1]);
     if (w < 2 || h < 2) return;
     const name = a.fieldName || '',
-      has = Object.prototype.hasOwnProperty.call(fv, name),
-      cur = has ? fv[name] : fvInit(a);
-    let e;
+      has = Object.prototype.hasOwnProperty.call(values, name),
+      current = has ? values[name] : fieldValueInPdf(a);
+    let input;
     if (t == 'Tx') {
-      const ml = !!a.multiLine,
-        pw = ((a.fieldFlags || 0) & 0x2000) != 0;
-      e = document.createElement(ml ? 'textarea' : 'input');
-      if (!ml) e.type = pw ? 'password' : 'text';
-      e.value = Array.isArray(cur) ? cur.join('\n') : String(cur);
-      if (a.maxLen) e.maxLength = a.maxLen;
-      const da = a.defaultAppearanceData,
-        fs =
-          da && da.fontSize > 0
-            ? da.fontSize * vp.scale
-            : ml
-              ? 12 * vp.scale
-              : Math.max(8, Math.min(h * 0.66, 16 * vp.scale));
-      e.style.fontSize = fs + 'px';
-      e.style.textAlign = ['left', 'center', 'right'][a.textAlignment || 0] || 'left';
-      e.oninput = () => set(a, e.value, e);
+      const multiLine = !!a.multiLine,
+        password = ((a.fieldFlags || 0) & 0x2000) != 0;
+      input = document.createElement(multiLine ? 'textarea' : 'input');
+      if (!multiLine) input.type = password ? 'password' : 'text';
+      input.value = Array.isArray(current) ? current.join('\n') : String(current);
+      if (a.maxLen) input.maxLength = a.maxLen;
+      const appearance = a.defaultAppearanceData,
+        fontSize =
+          appearance && appearance.fontSize > 0
+            ? appearance.fontSize * viewport.scale
+            : multiLine
+              ? 12 * viewport.scale
+              : Math.max(8, Math.min(h * 0.66, 16 * viewport.scale));
+      input.style.fontSize = fontSize + 'px';
+      input.style.textAlign = ['left', 'center', 'right'][a.textAlignment || 0] || 'left';
+      input.oninput = () => setValue(a, input.value, input);
     } else if (t == 'Btn' && a.checkBox) {
-      e = document.createElement('input');
-      e.type = 'checkbox';
-      e.checked = !!cur;
-      e.onchange = () => set(a, e.checked, e);
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = !!current;
+      input.onchange = () => setValue(a, input.checked, input);
     } else if (t == 'Btn') {
-      e = document.createElement('input');
-      e.type = 'radio';
-      e.name = p.doc + '|' + name;
-      e.value = String(a.buttonValue);
-      e.checked = cur === e.value;
-      e.onchange = () => {
-        if (e.checked) set(a, e.value, e);
+      input = document.createElement('input');
+      input.type = 'radio';
+      input.name = page.doc + '|' + name;
+      input.value = String(a.buttonValue);
+      input.checked = current === input.value;
+      input.onchange = () => {
+        if (input.checked) setValue(a, input.value, input);
       };
     } else {
-      e = document.createElement('select');
+      input = document.createElement('select');
       const multi = !!a.multiSelect;
-      if (multi) e.multiple = true;
-      else if (!a.combo) e.size = Math.max(2, Math.min(8, (a.options || []).length));
-      const sel = Array.isArray(cur) ? cur : [];
+      if (multi) input.multiple = true;
+      else if (!a.combo) input.size = Math.max(2, Math.min(8, (a.options || []).length));
+      const sel = Array.isArray(current) ? current : [];
       if (a.combo && !sel.length) {
         const o = document.createElement('option');
         o.value = '';
         o.textContent = '';
-        e.appendChild(o);
+        input.appendChild(o);
       }
       (a.options || []).forEach((op) => {
         const o = document.createElement('option');
         o.value = String(op.exportValue);
         o.textContent = op.displayValue != null ? op.displayValue : op.exportValue;
         o.selected = sel.includes(o.value);
-        e.appendChild(o);
+        input.appendChild(o);
       });
-      e.style.fontSize = Math.max(8, Math.min(h * 0.66, 14 * vp.scale)) + 'px';
-      e.onchange = () => set(a, [...e.selectedOptions].map((o) => o.value).filter(Boolean), e);
+      input.style.fontSize = Math.max(8, Math.min(h * 0.66, 14 * viewport.scale)) + 'px';
+      input.onchange = () => setValue(a, [...input.selectedOptions].map((o) => o.value).filter(Boolean), input);
     }
     if (a.readOnly) {
-      e.disabled = true;
+      input.disabled = true;
     }
-    e.dataset.fn = name;
-    e._doc = p.doc;
-    e.title = a.alternativeText || '';
-    e.style.left = l + 'px';
-    e.style.top = tp + 'px';
-    e.style.width = w + 'px';
-    e.style.height = h + 'px';
-    lay.appendChild(e);
+    input.dataset.fn = name;
+    input._doc = page.doc;
+    input.title = a.alternativeText || '';
+    input.style.left = l + 'px';
+    input.style.top = top + 'px';
+    input.style.width = w + 'px';
+    input.style.height = h + 'px';
+    layer.appendChild(input);
   });
-  if (lay.children.length) el.appendChild(lay);
+  if (layer.children.length) el.appendChild(layer);
 }
+// Paints a page: the image (at twice the screen resolution at least, so it stays sharp), the text layer (invisible
+// text over the image, so text can be selected and found), the annotations layer and the form fields.
+// It also handles the clicks and drags that create comments, text boxes, rectangles, circles and arrows
 async function paint(el) {
-  const { _pg: pg, _vp: vp } = el,
-    c = document.createElement('canvas'),
-    r = Math.max(2, devicePixelRatio || 1);
-  c.width = vp.width * r;
-  c.height = vp.height * r;
-  c.style.width = vp.width + 'px';
-  c.style.height = vp.height + 'px';
-  el.appendChild(c);
-  await pg.render({
-    canvasContext: c.getContext('2d'),
-    viewport: vp,
-    transform: [r, 0, 0, r, 0, 0],
+  const { _pg: pdfPage, _vp: viewport } = el,
+    canvas = document.createElement('canvas'),
+    ratio = Math.max(2, devicePixelRatio || 1);
+  canvas.width = viewport.width * ratio;
+  canvas.height = viewport.height * ratio;
+  canvas.style.width = viewport.width + 'px';
+  canvas.style.height = viewport.height + 'px';
+  el.appendChild(canvas);
+  await pdfPage.render({
+    canvasContext: canvas.getContext('2d'),
+    viewport: viewport,
+    transform: [ratio, 0, 0, ratio, 0, 0],
     annotationMode: pdfjsLib.AnnotationMode.DISABLE,
   }).promise;
-  const tl = document.createElement('div');
-  tl.className = 'textLayer';
-  tl.style.setProperty('--scale-factor', vp.scale);
-  el.appendChild(tl);
-  pdfjsLib.renderTextLayer({ textContentSource: pg.streamTextContent(), container: tl, viewport: vp, textDivs: [] });
-  const ov = document.createElement('div');
-  ov.className = 'ov';
-  el.appendChild(ov);
-  el._ov = ov;
+  const textLayer = document.createElement('div');
+  textLayer.className = 'textLayer';
+  textLayer.style.setProperty('--scale-factor', viewport.scale);
+  el.appendChild(textLayer);
+  pdfjsLib.renderTextLayer({
+    textContentSource: pdfPage.streamTextContent(),
+    container: textLayer,
+    viewport: viewport,
+    textDivs: [],
+  });
+  const overlay = document.createElement('div');
+  overlay.className = 'ov';
+  el.appendChild(overlay);
+  el._ov = overlay;
   if (!el._p.loaded) {
     await loadAnnots(el._p);
-    if (tab == 'an') renderSide();
+    if (panelTab == 'an') renderSide();
   }
   draw(el);
   markHits(el);
   formLayer(el);
+  // Comment tool: a click on the page asks for the text and puts the comment there
   el.onclick = (e) => {
     if (e.target.closest('.an') || tool != 'note') return;
     const b = el.getBoundingClientRect(),
       x = e.clientX - b.left,
       y = e.clientY - b.top;
     textDialog(_t('Comment'), '', (t) => {
-      const [px, py] = vp.convertToPdfPoint(x, y);
-      el._p.annots.push({ type: 'note', color, text: t, x: px, y: py });
+      const [px, py] = viewport.convertToPdfPoint(x, y);
+      el._p.annots.push({ type: 'note', color: annotColor, text: t, x: px, y: py });
       draw(el);
-      if (tab == 'an') renderSide();
+      if (panelTab == 'an') renderSide();
     });
   };
+  // Text box, rectangle, circle and arrow tools: dragging draws a dashed preview (ghost) that becomes the annotation
   el.onmousedown = (e) => {
     if (!['ft', 'sq', 'ci', 'ar'].includes(tool) || e.button !== 0 || e.target.closest('.an')) return;
     e.preventDefault();
     const b = el.getBoundingClientRect(),
       x0 = e.clientX - b.left,
       y0 = e.clientY - b.top,
-      g = document.createElement('div');
+      ghost = document.createElement('div');
     let x1 = x0,
       y1 = y0;
     if (tool == 'ft') {
-      g.style.cssText =
-        'position:absolute;pointer-events:none;z-index:6;height:26px;display:none;border:1.5px dashed ' + deep(color);
+      ghost.style.cssText =
+        'position:absolute;pointer-events:none;z-index:6;height:26px;display:none;border:1.5px dashed ' +
+        deep(annotColor);
     } else if (tool == 'sq' || tool == 'ci') {
-      g.style.cssText =
+      ghost.style.cssText =
         'position:absolute;pointer-events:none;z-index:6;display:none;border:' +
-        SW +
+        SHAPE_STROKE +
         'px solid ' +
-        deep(color) +
+        deep(annotColor) +
         (tool == 'ci' ? ';border-radius:50%' : '');
     } else if (tool == 'ar') {
-      g.style.cssText = 'position:absolute;pointer-events:none;z-index:6;display:none;overflow:visible';
-      g.innerHTML = `<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" stroke="${deep(color)}" stroke-width="${SW}" fill="none" stroke-linecap="round" stroke-linejoin="round"><path class="P" d=""/></svg>`;
+      ghost.style.cssText = 'position:absolute;pointer-events:none;z-index:6;display:none;overflow:visible';
+      ghost.innerHTML = `<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" stroke="${deep(annotColor)}" stroke-width="${SHAPE_STROKE}" fill="none" stroke-linecap="round" stroke-linejoin="round"><path class="P" d=""/></svg>`;
     }
-    el.appendChild(g);
-    const mm = (ev) => {
+    el.appendChild(ghost);
+    const onMove = (ev) => {
       x1 = Math.max(0, Math.min(b.width, ev.clientX - b.left));
       y1 = Math.max(0, Math.min(b.height, ev.clientY - b.top));
       const w = Math.abs(x1 - x0),
         h = Math.abs(y1 - y0);
       if (tool == 'ft') {
-        g.style.display = w > 8 ? 'block' : 'none';
-        g.style.left = Math.min(x0, x1) + 'px';
-        g.style.top = y0 + 'px';
-        g.style.width = w + 'px';
+        ghost.style.display = w > 8 ? 'block' : 'none';
+        ghost.style.left = Math.min(x0, x1) + 'px';
+        ghost.style.top = y0 + 'px';
+        ghost.style.width = w + 'px';
       } else if (tool == 'sq' || tool == 'ci') {
-        g.style.display = w > 4 || h > 4 ? 'block' : 'none';
-        g.style.left = Math.min(x0, x1) + 'px';
-        g.style.top = Math.min(y0, y1) + 'px';
-        g.style.width = w + 'px';
-        g.style.height = h + 'px';
+        ghost.style.display = w > 4 || h > 4 ? 'block' : 'none';
+        ghost.style.left = Math.min(x0, x1) + 'px';
+        ghost.style.top = Math.min(y0, y1) + 'px';
+        ghost.style.width = w + 'px';
+        ghost.style.height = h + 'px';
       } else if (tool == 'ar') {
-        g.style.display = w > 4 || h > 4 ? 'block' : 'none';
-        g.style.left = Math.min(x0, x1) + 'px';
-        g.style.top = Math.min(y0, y1) + 'px';
-        g.style.width = Math.max(1, w) + 'px';
-        g.style.height = Math.max(1, h) + 'px';
-        if (g.querySelector('.P')) {
+        ghost.style.display = w > 4 || h > 4 ? 'block' : 'none';
+        ghost.style.left = Math.min(x0, x1) + 'px';
+        ghost.style.top = Math.min(y0, y1) + 'px';
+        ghost.style.width = Math.max(1, w) + 'px';
+        ghost.style.height = Math.max(1, h) + 'px';
+        if (ghost.querySelector('.P')) {
           const px1 = x0 - Math.min(x0, x1),
             py1 = y0 - Math.min(y0, y1);
           const px2 = x1 - Math.min(x0, x1),
@@ -1608,49 +1711,50 @@ async function paint(el) {
             p1y = py2 - L * Math.sin(angle - Math.PI / 6);
           const p2x = px2 - L * Math.cos(angle + Math.PI / 6),
             p2y = py2 - L * Math.sin(angle + Math.PI / 6);
-          g.querySelector('.P').setAttribute(
-            'd',
-            `M${px1} ${py1} L${px2} ${py2} M${p1x} ${p1y} L${px2} ${py2} L${p2x} ${p2y}`,
-          );
+          ghost
+            .querySelector('.P')
+            .setAttribute('d', `M${px1} ${py1} L${px2} ${py2} M${p1x} ${p1y} L${px2} ${py2} L${p2x} ${p2y}`);
         }
       }
     };
-    const mu = () => {
-      document.removeEventListener('mousemove', mm);
-      document.removeEventListener('mouseup', mu);
-      g.remove();
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      ghost.remove();
       const w = Math.abs(x1 - x0),
         h = Math.abs(y1 - y0);
       if (tool == 'ft') {
-        const wp = w > 8 ? Math.max(40, w / vp.scale) : FT.w;
+        const widthPdf = w > 8 ? Math.max(40, w / viewport.scale) : TEXT_BOX.w;
         let l = w > 8 ? Math.min(x0, x1) : x0;
-        l = Math.max(0, Math.min(l, b.width - wp * vp.scale));
+        l = Math.max(0, Math.min(l, b.width - widthPdf * viewport.scale));
         textDialog(_t('Text box'), '', (t) => {
-          const [px, py] = vp.convertToPdfPoint(l, y0);
-          el._p.annots.push({ type: 'ft', color: deep(color), text: t, x: px, y: py, w: wp });
+          const [px, py] = viewport.convertToPdfPoint(l, y0);
+          el._p.annots.push({ type: 'ft', color: deep(annotColor), text: t, x: px, y: py, w: widthPdf });
           draw(el);
-          if (tab == 'an') renderSide();
+          if (panelTab == 'an') renderSide();
         });
       } else if (tool == 'sq' || tool == 'ci' || tool == 'ar') {
         if (w > 4 || h > 4) {
-          const [px1, py1] = vp.convertToPdfPoint(x0, y0);
-          const [px2, py2] = vp.convertToPdfPoint(x1, y1);
-          el._p.annots.push({ type: tool, color: deep(color), x: px1, y: py1, x2: px2, y2: py2 });
+          const [px1, py1] = viewport.convertToPdfPoint(x0, y0);
+          const [px2, py2] = viewport.convertToPdfPoint(x1, y1);
+          el._p.annots.push({ type: tool, color: deep(annotColor), x: px1, y: py1, x2: px2, y2: py2 });
           draw(el);
-          if (tab == 'an') renderSide();
+          if (panelTab == 'an') renderSide();
         }
       }
     };
-    document.addEventListener('mousemove', mm);
-    document.addEventListener('mouseup', mu);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   };
 }
+// Draws the annotations of a page in its overlay (HTML and SVG over the page image). Right-click deletes one of your
+// own; links can be clicked
 function draw(el) {
-  const ov = el._ov,
-    vp = el._vp;
-  ov.innerHTML = '';
+  const overlay = el._ov,
+    viewport = el._vp;
+  overlay.innerHTML = '';
   el._p.annots.forEach((a, k) => {
-    const mk = (css, cls) => {
+    const addMark = (css, cls) => {
       const d = document.createElement('div');
       d.className = 'an ' + cls;
       Object.assign(d.style, css);
@@ -1660,10 +1764,10 @@ function draw(el) {
           if (await confirmDialog(_t('Delete annotation'), _t('Delete this annotation?'), _t('Delete'))) {
             el._p.annots.splice(k, 1);
             draw(el);
-            if (tab == 'an') renderSide();
+            if (panelTab == 'an') renderSide();
           }
         };
-      ov.appendChild(d);
+      overlay.appendChild(d);
       return d;
     };
     if (a.quads)
@@ -1671,7 +1775,7 @@ function draw(el) {
         const xs = [],
           ys = [];
         for (let i = 0; i < 8; i += 2) {
-          const [x, y] = vp.convertToViewportPoint(q[i], q[i + 1]);
+          const [x, y] = viewport.convertToViewportPoint(q[i], q[i + 1]);
           xs.push(x);
           ys.push(y);
         }
@@ -1679,7 +1783,7 @@ function draw(el) {
           t = Math.min(...ys),
           w = Math.max(...xs) - l,
           h = Math.max(...ys) - t;
-        mk(
+        addMark(
           a.type == 'hl'
             ? { left: l + 'px', top: t + 'px', width: w + 'px', height: h + 'px', background: a.color }
             : a.type == 'ul'
@@ -1703,12 +1807,12 @@ function draw(el) {
                 },
           a.type,
         );
-        ov.lastChild.style.pointerEvents = 'auto';
+        overlay.lastChild.style.pointerEvents = 'auto';
       });
     else if (a.type == 'link') {
-      const [x, y] = vp.convertToViewportPoint(a.x, a.y),
-        [x2, y2] = vp.convertToViewportPoint(a.x + a.w, a.y - a.h);
-      const d = mk(
+      const [x, y] = viewport.convertToViewportPoint(a.x, a.y),
+        [x2, y2] = viewport.convertToViewportPoint(a.x + a.w, a.y - a.h);
+      const d = addMark(
         {
           left: Math.min(x, x2) + 'px',
           top: Math.min(y, y2) + 'px',
@@ -1728,21 +1832,21 @@ function draw(el) {
             if (typeof d == 'string') d = await docs[el._p.doc].pdf.getDestination(d);
             if (d) {
               const n = await docs[el._p.doc].pdf.getPageIndex(d[0]);
-              const ti = pages.findIndex((p) => p.doc == el._p.doc && p.idx == n);
-              if (ti >= 0) goTo(ti, ddY(ddFrom(d)));
+              const target = pages.findIndex((p) => p.doc == el._p.doc && p.idx == n);
+              if (target >= 0) goTo(target, destY(destFromPdfJs(d)));
             }
           } catch (e) {}
         }
       };
     } else if (a.type == 'sq' || a.type == 'ci' || a.type == 'ar') {
-      const [vx1, vy1] = vp.convertToViewportPoint(a.x, a.y);
-      const [vx2, vy2] = vp.convertToViewportPoint(a.x2, a.y2);
+      const [vx1, vy1] = viewport.convertToViewportPoint(a.x, a.y);
+      const [vx2, vy2] = viewport.convertToViewportPoint(a.x2, a.y2);
       const vl = Math.min(vx1, vx2),
         vt = Math.min(vy1, vy2);
       const vw = Math.max(1, Math.abs(vx2 - vx1)),
         vh = Math.max(1, Math.abs(vy2 - vy1));
-      const sSW = SW * vp.scale;
-      const d = mk(
+      const strokePx = SHAPE_STROKE * viewport.scale;
+      const d = addMark(
         {
           left: vl + 'px',
           top: vt + 'px',
@@ -1760,52 +1864,54 @@ function draw(el) {
           px2 = vx2 - vl,
           py2 = vy2 - vt;
         const angle = Math.atan2(vy2 - vy1, vx2 - vx1);
-        const L = 12 * vp.scale;
+        const L = 12 * viewport.scale;
         const p1x = px2 - L * Math.cos(angle - Math.PI / 6),
           p1y = py2 - L * Math.sin(angle - Math.PI / 6);
         const p2x = px2 - L * Math.cos(angle + Math.PI / 6),
           p2y = py2 - L * Math.sin(angle + Math.PI / 6);
         inner = `<path d="M${px1} ${py1} L${px2} ${py2} M${p1x} ${p1y} L${px2} ${py2} L${p2x} ${p2y}" style="pointer-events:visibleStroke"/>`;
       } else if (a.type == 'sq') {
-        inner = `<rect x="${sSW / 2}" y="${sSW / 2}" width="${Math.max(0, vw - sSW)}" height="${Math.max(0, vh - sSW)}" style="pointer-events:visibleStroke"/>`;
+        inner = `<rect x="${strokePx / 2}" y="${strokePx / 2}" width="${Math.max(0, vw - strokePx)}" height="${Math.max(0, vh - strokePx)}" style="pointer-events:visibleStroke"/>`;
       } else if (a.type == 'ci') {
-        inner = `<ellipse cx="${vw / 2}" cy="${vh / 2}" rx="${Math.max(0, (vw - sSW) / 2)}" ry="${Math.max(0, (vh - sSW) / 2)}" style="pointer-events:visibleStroke"/>`;
+        inner = `<ellipse cx="${vw / 2}" cy="${vh / 2}" rx="${Math.max(0, (vw - strokePx) / 2)}" ry="${Math.max(0, (vh - strokePx) / 2)}" style="pointer-events:visibleStroke"/>`;
       }
-      d.innerHTML = `<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" stroke="${a.color}" stroke-width="${sSW}" fill="none" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+      d.innerHTML = `<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" stroke="${a.color}" stroke-width="${strokePx}" fill="none" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
     } else {
-      const [x, y] = vp.convertToViewportPoint(a.x, a.y);
-      const d = mk({ left: x + 'px', top: y + 'px' }, a.type == 'note' ? 'note' : 'ft');
+      const [x, y] = viewport.convertToViewportPoint(a.x, a.y);
+      const d = addMark({ left: x + 'px', top: y + 'px' }, a.type == 'note' ? 'note' : 'ft');
       if (a.type == 'note') {
         d.dataset.text = a.text;
-        d.innerHTML = noteSvg(a.color);
+        d.innerHTML = noteIconSvg(a.color);
       } else {
-        const s = vp.scale,
+        const s = viewport.scale,
           c = deep(a.color);
         d.title = a.text;
         d.textContent = a.text;
         Object.assign(d.style, {
-          width: (a.w || FT.w) * s + 'px',
+          width: (a.w || TEXT_BOX.w) * s + 'px',
           boxSizing: 'border-box',
-          font: FT.fs * s + 'px/' + FT.lh + ' Helvetica,Arial,sans-serif',
-          padding: FT.pad * s + 'px',
-          border: Math.max(1, FT.bw * s) + 'px solid ' + c,
+          font: TEXT_BOX.fs * s + 'px/' + TEXT_BOX.lh + ' Helvetica,Arial,sans-serif',
+          padding: TEXT_BOX.pad * s + 'px',
+          border: Math.max(1, TEXT_BOX.bw * s) + 'px solid ' + c,
           background: tint(c, 0.14),
           color: a.ro ? c : 'var(--ink)',
         });
       }
     }
   });
-  ov.style.pointerEvents = 'none';
-  ov.querySelectorAll('.an.note,.an.ft,.an.link').forEach((n) => (n.style.pointerEvents = 'auto'));
+  overlay.style.pointerEvents = 'none';
+  overlay.querySelectorAll('.an.note,.an.ft,.an.link').forEach((n) => (n.style.pointerEvents = 'auto'));
 }
-document.addEventListener('mouseup', () => {
-  if (tool != 'hl' && tool != 'ul' && tool != 'so') return;
+// Turns the text selected on a page into a highlight, underline or strikethrough (type 'hl', 'ul' or 'so').
+// Each selected line is a quadrilateral (quads, in PDF units); overlapping boxes of one line are merged.
+// Returns false if no text of a page is selected (then nothing is done)
+function markSelection(type) {
   const s = getSelection();
-  if (!s.rangeCount || s.isCollapsed) return;
+  if (!s.rangeCount || s.isCollapsed) return false;
   const r = s.getRangeAt(0),
     n = r.commonAncestorContainer,
     el = (n.nodeType == 1 ? n : n.parentElement).closest('.page');
-  if (!el) return;
+  if (!el) return false;
   const b = el.getBoundingClientRect(),
     vp = el._vp,
     quads = [],
@@ -1837,70 +1943,82 @@ document.addEventListener('mouseup', () => {
     ]);
   if (quads.length) {
     el._p.annots.push({
-      type: tool,
-      color: tool == 'ul' || tool == 'so' ? deep(color) : color,
+      type,
+      color: type == 'ul' || type == 'so' ? deep(annotColor) : annotColor,
       quads,
       txt: s.toString().replace(/\s+/g, ' ').trim(),
     });
     draw(el);
-    if (tab == 'an') renderSide();
+    if (panelTab == 'an') renderSide();
   }
   s.removeAllRanges();
+  return true;
+}
+// Highlight, underline and strikethrough tools: releasing the mouse after selecting text marks it
+document.addEventListener('mouseup', () => {
+  if (tool == 'hl' || tool == 'ul' || tool == 'so') markSelection(tool);
 });
 
 // ---- Saving ----
-const hex = (h) => [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16) / 255);
+// #rrggbb as [r, g, b] from 0 to 1, as PDF drawing commands want it.
+// The functions that follow write small PDF drawings (content streams): a text of commands such as “x y m” (move),
+// “x y l” (line), “re” (rectangle), “S” (stroke), “f” (fill), “rg”/“RG” (fill / stroke colour)
+const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.substr(i, 2), 16) / 255);
 // Own drawing (appearance stream) for highlights, underlines and strikethroughs: that way every viewer paints the same as Penfold.
-// Highlight: fill with Multiply blending and HL_A opacity (as on screen). Underline / strikethrough: a line SW points wide.
-const HL_A = 0.75;
-function quadAP(ctx, a, r) {
-  const n = (v) => +v.toFixed(3),
+// Highlight: fill with Multiply blending and HIGHLIGHT_OPACITY (as on screen). Underline / strikethrough: a line SHAPE_STROKE points wide.
+const HIGHLIGHT_OPACITY = 0.75;
+function markupAppearance(ctx, a, bbox) {
+  const round = (v) => +v.toFixed(3),
     hl = a.type == 'hl',
-    c = hex(a.color).map(n).join(' ');
-  let s = hl ? '/GS0 gs ' + c + ' rg\n' : c + ' RG ' + SW + ' w\n';
+    rgb = hexToRgb(a.color).map(round).join(' ');
+  let ops = hl ? '/GS0 gs ' + rgb + ' rg\n' : rgb + ' RG ' + SHAPE_STROKE + ' w\n';
   a.quads.forEach((q) => {
     if (hl)
-      s +=
-        n(q[0]) +
+      ops +=
+        round(q[0]) +
         ' ' +
-        n(q[1]) +
+        round(q[1]) +
         ' m ' +
-        n(q[2]) +
+        round(q[2]) +
         ' ' +
-        n(q[3]) +
+        round(q[3]) +
         ' l ' +
-        n(q[6]) +
+        round(q[6]) +
         ' ' +
-        n(q[7]) +
+        round(q[7]) +
         ' l ' +
-        n(q[4]) +
+        round(q[4]) +
         ' ' +
-        n(q[5]) +
+        round(q[5]) +
         ' l h f\n';
     else if (a.type == 'ul') {
       const dx = q[0] - q[4],
         dy = q[1] - q[5],
         L = Math.hypot(dx, dy) || 1,
-        ox = ((dx / L) * SW) / 2,
-        oy = ((dy / L) * SW) / 2;
-      s += n(q[4] + ox) + ' ' + n(q[5] + oy) + ' m ' + n(q[6] + ox) + ' ' + n(q[7] + oy) + ' l S\n';
+        ox = ((dx / L) * SHAPE_STROKE) / 2,
+        oy = ((dy / L) * SHAPE_STROKE) / 2;
+      ops += round(q[4] + ox) + ' ' + round(q[5] + oy) + ' m ' + round(q[6] + ox) + ' ' + round(q[7] + oy) + ' l S\n';
     } else {
       const mx0 = (q[0] + q[4]) / 2,
         my0 = (q[1] + q[5]) / 2,
         mx1 = (q[2] + q[6]) / 2,
         my1 = (q[3] + q[7]) / 2;
-      s += n(mx0) + ' ' + n(my0) + ' m ' + n(mx1) + ' ' + n(my1) + ' l S\n';
+      ops += round(mx0) + ' ' + round(my0) + ' m ' + round(mx1) + ' ' + round(my1) + ' l S\n';
     }
   });
-  const res = hl ? { ExtGState: { GS0: { Type: 'ExtGState', BM: 'Multiply', ca: HL_A, CA: HL_A } } } : {};
-  return ctx.register(ctx.stream(s, { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: r, Resources: res }));
+  const resources = hl
+    ? { ExtGState: { GS0: { Type: 'ExtGState', BM: 'Multiply', ca: HIGHLIGHT_OPACITY, CA: HIGHLIGHT_OPACITY } } }
+    : {};
+  return ctx.register(
+    ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: bbox, Resources: resources }),
+  );
 }
 // Text box: splits the text into lines using Helvetica metrics (like pre-wrap + overflow-wrap on screen).
 // Characters Helvetica does not have (emoji, arrows…) come out as “?” in the drawing; the /Contents text is stored in full.
-function ftLines(font, text, w) {
-  const ok = new Set(font.getCharacterSet()),
-    max = w - 2 * (FT.bw + FT.pad),
-    W = (t) => font.widthOfTextAtSize(t, FT.fs),
+function textBoxLines(font, text, w) {
+  const glyphs = new Set(font.getCharacterSet()),
+    max = w - 2 * (TEXT_BOX.bw + TEXT_BOX.pad),
+    widthOf = (word) => font.widthOfTextAtSize(word, TEXT_BOX.fs),
     lines = [];
   text
     .replace(/\r\n?/g, '\n')
@@ -1908,72 +2026,70 @@ function ftLines(font, text, w) {
     .replace(/\n$/, '')
     .split('\n')
     .forEach((par) => {
-      let cur = '';
-      for (const t of par.match(/ +|[^ ]+/g) || []) {
-        const tt = Array.from(t, (ch) => (ok.has(ch.codePointAt(0)) ? ch : '?')).join('');
-        if (tt[0] == ' ' || W(cur + tt) <= max) {
-          cur += tt;
+      let line = '';
+      for (const word of par.match(/ +|[^ ]+/g) || []) {
+        const safeWord = Array.from(word, (ch) => (glyphs.has(ch.codePointAt(0)) ? ch : '?')).join('');
+        if (safeWord[0] == ' ' || widthOf(line + safeWord) <= max) {
+          line += safeWord;
           continue;
         }
-        if (cur.trim()) {
-          lines.push(cur.replace(/ +$/, ''));
-          cur = '';
-        }
+        // The current line is full: keep it (the word goes on the next one; line is replaced below)
+        if (line.trim()) lines.push(line.replace(/ +$/, ''));
         let part = '';
-        for (const ch of tt) {
-          if (part && W(part + ch) > max) {
+        for (const ch of safeWord) {
+          if (part && widthOf(part + ch) > max) {
             lines.push(part);
             part = '';
           }
           part += ch;
         }
-        cur = part;
+        line = part;
       }
-      lines.push(cur);
+      lines.push(line);
     });
   return lines;
 }
 // Own drawing of the text box: background, border and text already split into lines, with the same measurements as on screen.
-function ftAP(ctx, font, lines, w, h, c) {
-  const { bw, pad, fs, lh } = FT,
-    n = (v) => +v.toFixed(3),
+function textBoxAppearance(ctx, font, lines, w, h, colour) {
+  const { bw, pad, fs, lh } = TEXT_BOX,
+    round = (v) => +v.toFixed(3),
     lineH = fs * lh,
     base = (lineH - fs * 1.117) / 2 + fs * 0.905;
-  let s =
-    hex(tint(c, 0.14)).map(n).join(' ') +
+  let ops =
+    hexToRgb(tint(colour, 0.14)).map(round).join(' ') +
     ' rg\n0 0 ' +
-    n(w) +
+    round(w) +
     ' ' +
-    n(h) +
+    round(h) +
     ' re f\n' +
-    hex(c).map(n).join(' ') +
+    hexToRgb(colour).map(round).join(' ') +
     ' RG ' +
     bw +
     ' w\n' +
-    n(bw / 2) +
+    round(bw / 2) +
     ' ' +
-    n(bw / 2) +
+    round(bw / 2) +
     ' ' +
-    n(w - bw) +
+    round(w - bw) +
     ' ' +
-    n(h - bw) +
+    round(h - bw) +
     ' re S\nBT /Helv ' +
     fs +
     ' Tf 0 g\n';
   lines.forEach((ln, i) => {
     if (ln.trim())
-      s +=
+      ops +=
         '1 0 0 1 ' +
-        n(bw + pad) +
+        round(bw + pad) +
         ' ' +
-        n(h - bw - pad - base - i * lineH) +
+        round(h - bw - pad - base - i * lineH) +
         ' Tm ' +
         font.encodeText(ln).toString() +
         ' Tj\n';
   });
-  s += 'ET';
+  ops += 'ET';
   return ctx.register(
-    ctx.stream(s, {
+    ctx.stream(ops, {
       Type: 'XObject',
       Subtype: 'Form',
       FormType: 1,
@@ -1982,81 +2098,89 @@ function ftAP(ctx, font, lines, w, h, c) {
     }),
   );
 }
-// Own drawing of rectangles, circles and arrows, stroked SW points wide.
-function shapeAP(ctx, a, r) {
-  const n = (v) => +v.toFixed(3),
-    c = hex(a.color).map(n).join(' ');
-  let s = c + ' RG ' + SW + ' w\n';
-  const [minX, minY, maxX, maxY] = r;
+// Own drawing of rectangles, circles and arrows, stroked SHAPE_STROKE points wide.
+function shapeAppearance(ctx, a, bbox) {
+  const round = (v) => +v.toFixed(3),
+    rgb = hexToRgb(a.color).map(round).join(' ');
+  let ops = rgb + ' RG ' + SHAPE_STROKE + ' w\n';
+  const [minX, minY, maxX, maxY] = bbox;
   const w = Math.max(1, maxX - minX),
     h = Math.max(1, maxY - minY);
   if (a.type == 'sq') {
-    s += n(SW / 2) + ' ' + n(SW / 2) + ' ' + n(w - SW) + ' ' + n(h - SW) + ' re S\n';
+    ops +=
+      round(SHAPE_STROKE / 2) +
+      ' ' +
+      round(SHAPE_STROKE / 2) +
+      ' ' +
+      round(w - SHAPE_STROKE) +
+      ' ' +
+      round(h - SHAPE_STROKE) +
+      ' re S\n';
   } else if (a.type == 'ci') {
     const kappa = 0.5522848;
-    const rx = (w - SW) / 2,
-      ry = (h - SW) / 2;
+    const rx = (w - SHAPE_STROKE) / 2,
+      ry = (h - SHAPE_STROKE) / 2;
     const cx = w / 2,
       cy = h / 2;
-    s += n(cx) + ' ' + n(cy + ry) + ' m\n';
-    s +=
-      n(cx + rx * kappa) +
+    ops += round(cx) + ' ' + round(cy + ry) + ' m\n';
+    ops +=
+      round(cx + rx * kappa) +
       ' ' +
-      n(cy + ry) +
+      round(cy + ry) +
       ' ' +
-      n(cx + rx) +
+      round(cx + rx) +
       ' ' +
-      n(cy + ry * kappa) +
+      round(cy + ry * kappa) +
       ' ' +
-      n(cx + rx) +
+      round(cx + rx) +
       ' ' +
-      n(cy) +
+      round(cy) +
       ' c\n';
-    s +=
-      n(cx + rx) +
+    ops +=
+      round(cx + rx) +
       ' ' +
-      n(cy - ry * kappa) +
+      round(cy - ry * kappa) +
       ' ' +
-      n(cx + rx * kappa) +
+      round(cx + rx * kappa) +
       ' ' +
-      n(cy - ry) +
+      round(cy - ry) +
       ' ' +
-      n(cx) +
+      round(cx) +
       ' ' +
-      n(cy - ry) +
+      round(cy - ry) +
       ' c\n';
-    s +=
-      n(cx - rx * kappa) +
+    ops +=
+      round(cx - rx * kappa) +
       ' ' +
-      n(cy - ry) +
+      round(cy - ry) +
       ' ' +
-      n(cx - rx) +
+      round(cx - rx) +
       ' ' +
-      n(cy - ry * kappa) +
+      round(cy - ry * kappa) +
       ' ' +
-      n(cx - rx) +
+      round(cx - rx) +
       ' ' +
-      n(cy) +
+      round(cy) +
       ' c\n';
-    s +=
-      n(cx - rx) +
+    ops +=
+      round(cx - rx) +
       ' ' +
-      n(cy + ry * kappa) +
+      round(cy + ry * kappa) +
       ' ' +
-      n(cx - rx * kappa) +
+      round(cx - rx * kappa) +
       ' ' +
-      n(cy + ry) +
+      round(cy + ry) +
       ' ' +
-      n(cx) +
+      round(cx) +
       ' ' +
-      n(cy + ry) +
+      round(cy + ry) +
       ' c S\n';
   } else if (a.type == 'ar') {
     const x1 = a.x - minX,
       y1 = a.y - minY;
     const x2 = a.x2 - minX,
       y2 = a.y2 - minY;
-    s += n(x1) + ' ' + n(y1) + ' m ' + n(x2) + ' ' + n(y2) + ' l S\n';
+    ops += round(x1) + ' ' + round(y1) + ' m ' + round(x2) + ' ' + round(y2) + ' l S\n';
     const dx = x2 - x1,
       dy = y2 - y1;
     const angle = Math.atan2(dy, dx);
@@ -2065,155 +2189,169 @@ function shapeAP(ctx, a, r) {
       p1y = y2 - L * Math.sin(angle - Math.PI / 6);
     const p2x = x2 - L * Math.cos(angle + Math.PI / 6),
       p2y = y2 - L * Math.sin(angle + Math.PI / 6);
-    s += '1 J 1 j\n';
-    s += n(p1x) + ' ' + n(p1y) + ' m ' + n(x2) + ' ' + n(y2) + ' l ' + n(p2x) + ' ' + n(p2y) + ' l S\n';
+    ops += '1 J 1 j\n';
+    ops +=
+      round(p1x) +
+      ' ' +
+      round(p1y) +
+      ' m ' +
+      round(x2) +
+      ' ' +
+      round(y2) +
+      ' l ' +
+      round(p2x) +
+      ' ' +
+      round(p2y) +
+      ' l S\n';
   }
   return ctx.register(
-    ctx.stream(s, { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: [0, 0, w, h], Resources: {} }),
+    ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: [0, 0, w, h], Resources: {} }),
   );
 }
 // Comment icon: the same drawing as on screen (Lucide message-square-text, black outline and fill in the annotation's colour), in a 20 × 20 point box.
-function noteAP(ctx, a) {
-  const n = (v) => +v.toFixed(3),
+function noteAppearance(ctx, a) {
+  const round = (v) => +v.toFixed(3),
     k = 1.1046,
-    s =
+    ops =
       'q 1 0 0 -1 -2 22 cm\n' +
-      hex(a.color).map(n).join(' ') +
+      hexToRgb(a.color).map(round).join(' ') +
       ' rg 0 0 0 RG ' +
-      NOTE_SW +
+      NOTE_STROKE +
       ' w 1 J 1 j\n' +
       '21 15 m 21 ' +
-      n(15 + k) +
+      round(15 + k) +
       ' ' +
-      n(19 + k) +
+      round(19 + k) +
       ' 17 19 17 c 7 17 l 3 21 l 3 5 l 3 ' +
-      n(5 - k) +
+      round(5 - k) +
       ' ' +
-      n(5 - k) +
+      round(5 - k) +
       ' 3 5 3 c 19 3 l ' +
-      n(19 + k) +
+      round(19 + k) +
       ' 3 21 ' +
-      n(5 - k) +
+      round(5 - k) +
       ' 21 5 c h B\n' +
       '13 8 m 7 8 l S 17 12 m 7 12 l S\nQ';
   return ctx.register(
-    ctx.stream(s, { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: [0, 0, 20, 20], Resources: {} }),
+    ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', FormType: 1, BBox: [0, 0, 20, 20], Resources: {} }),
   );
 }
 // Forms (AcroForm): copyPages does not copy the catalogue's /AcroForm, so the fields were left loose. It is rebuilt with the fields
 // whose widgets are on the final pages (removes the widgets of deleted pages, fixes /P and avoids duplicate names when merging).
-function carryForm(out, src, pgs) {
+function rebuildForm(out, src, pageList) {
   const { PDFName, PDFDict, PDFArray, PDFRef, PDFBool, PDFHexString, PDFObjectCopier } = PDFLib,
     ctx = out.context,
-    N = (n) => PDFName.of(n);
+    name = (n) => PDFName.of(n);
   const pagesOut = out.getPages(),
     pageTags = new Set(pagesOut.map((q) => q.ref.tag)),
     roots = new Map(),
     onPage = new Set(),
     orphans = new Map(),
     dead = [];
-  pagesOut.forEach((pg, pi) => {
-    const arr = pg.node.lookupMaybe(N('Annots'), PDFArray);
-    if (!arr) return;
-    for (let i = 0; i < arr.size(); i++) {
-      const ref = arr.get(i);
+  pagesOut.forEach((page, pageIdx) => {
+    const annots = page.node.lookupMaybe(name('Annots'), PDFArray);
+    if (!annots) return;
+    for (let i = 0; i < annots.size(); i++) {
+      const ref = annots.get(i);
       if (!(ref instanceof PDFRef)) continue;
       const d = ctx.lookupMaybe(ref, PDFDict);
       if (!d) continue;
-      const op = d.get(N('P'));
-      if (op instanceof PDFRef && op.tag !== pg.ref.tag) {
-        if (!pageTags.has(op.tag)) orphans.set(op.tag, op);
-        d.set(N('P'), pg.ref);
+      const pageRef = d.get(name('P'));
+      if (pageRef instanceof PDFRef && pageRef.tag !== page.ref.tag) {
+        if (!pageTags.has(pageRef.tag)) orphans.set(pageRef.tag, pageRef);
+        d.set(name('P'), page.ref);
       }
-      if (d.get(N('Subtype')) !== N('Widget')) continue;
+      if (d.get(name('Subtype')) !== name('Widget')) continue;
       onPage.add(ref.tag);
       let r = ref,
         f = d;
       for (let g = 0; g < 50; g++) {
-        const pr = f.get(N('Parent'));
-        if (!(pr instanceof PDFRef)) break;
-        const pd = ctx.lookupMaybe(pr, PDFDict);
-        if (!pd) break;
-        r = pr;
-        f = pd;
+        const parentRef = f.get(name('Parent'));
+        if (!(parentRef instanceof PDFRef)) break;
+        const parentDict = ctx.lookupMaybe(parentRef, PDFDict);
+        if (!parentDict) break;
+        r = parentRef;
+        f = parentDict;
       }
-      if (!roots.has(r.tag)) roots.set(r.tag, { ref: r, doc: pgs[pi] ? pgs[pi].doc : 0 });
+      if (!roots.has(r.tag)) roots.set(r.tag, { ref: r, doc: pageList[pageIdx] ? pageList[pageIdx].doc : 0 });
     }
   });
   // A field is kept if any of its widgets is on the final pages; widgets of deleted pages are removed from /Kids
-  const keep = (ref, dep) => {
+  const keep = (ref, depth) => {
     const d = ctx.lookupMaybe(ref, PDFDict);
-    if (!d || dep > 40) return false;
-    const kids = d.lookupMaybe(N('Kids'), PDFArray);
+    if (!d || depth > 40) return false;
+    const kids = d.lookupMaybe(name('Kids'), PDFArray);
     if (!kids) return onPage.has(ref.tag);
     const ok = [],
       bad = [];
     for (let i = 0; i < kids.size(); i++) {
       const k = kids.get(i);
       if (!(k instanceof PDFRef)) return true;
-      if (keep(k, dep + 1)) ok.push(k);
+      if (keep(k, depth + 1)) ok.push(k);
       else bad.push(k);
     }
     if (bad.length) {
-      d.set(N('Kids'), ctx.obj(ok));
+      d.set(name('Kids'), ctx.obj(ok));
       bad.forEach((b) => dead.push(b));
     }
     return ok.length > 0;
   };
+  // The fields kept; when merging, a field name already used by another file gets a suffix (_2, _3…)
   const fields = [],
-    fdocs = [],
+    fieldDocs = [],
     names = new Map(),
-    ren = new Map();
+    renamed = new Map();
   roots.forEach(({ ref, doc }) => {
     if (!keep(ref, 0)) return;
     const d = ctx.lookupMaybe(ref, PDFDict),
-      t = d.get(N('T'));
+      t = d.get(name('T'));
     if (t && t.decodeText) {
-      let nm = t.decodeText();
-      const own = names.get(nm),
-        orig = nm;
+      let fieldName = t.decodeText();
+      const own = names.get(fieldName),
+        orig = fieldName;
       if (own !== undefined && own !== doc) {
         let k = 2;
-        while (names.has(nm + '_' + k)) k++;
-        nm = nm + '_' + k;
-        d.set(N('T'), PDFHexString.fromText(nm));
-        ren.set(doc + '|' + orig, nm);
+        while (names.has(fieldName + '_' + k)) k++;
+        fieldName = fieldName + '_' + k;
+        d.set(name('T'), PDFHexString.fromText(fieldName));
+        renamed.set(doc + '|' + orig, fieldName);
       }
-      names.set(nm, doc);
+      names.set(fieldName, doc);
     }
     fields.push(ref);
-    fdocs.push(doc);
+    fieldDocs.push(doc);
   });
   if (!fields.length) return null;
-  const af = ctx.obj({ Fields: fields });
-  for (const di of [...new Set(fdocs)]) {
-    const sa = src[di] && src[di].catalog.lookupMaybe(N('AcroForm'), PDFDict);
-    if (!sa) continue;
-    if (!af.has(N('DA'))) {
-      const v = sa.lookup(N('DA'));
-      if (v) af.set(N('DA'), v);
+  // The new /AcroForm takes the default appearance (DA), alignment (Q) and resources (DR: fonts) of the source files
+  const acroForm = ctx.obj({ Fields: fields });
+  for (const docIndex of [...new Set(fieldDocs)]) {
+    const srcForm = src[docIndex] && src[docIndex].catalog.lookupMaybe(name('AcroForm'), PDFDict);
+    if (!srcForm) continue;
+    if (!acroForm.has(name('DA'))) {
+      const v = srcForm.lookup(name('DA'));
+      if (v) acroForm.set(name('DA'), v);
     }
-    if (!af.has(N('Q'))) {
-      const v = sa.lookup(N('Q'));
-      if (v) af.set(N('Q'), v);
+    if (!acroForm.has(name('Q'))) {
+      const v = srcForm.lookup(name('Q'));
+      if (v) acroForm.set(name('Q'), v);
     }
-    if (sa.lookup(N('NeedAppearances')) === PDFBool.True) af.set(N('NeedAppearances'), PDFBool.True);
-    const dr = sa.get(N('DR'));
-    if (!dr) continue;
-    const cp = PDFObjectCopier.for(src[di].context, ctx).copy(dr);
-    if (!af.has(N('DR'))) {
-      af.set(N('DR'), cp);
+    if (srcForm.lookup(name('NeedAppearances')) === PDFBool.True) acroForm.set(name('NeedAppearances'), PDFBool.True);
+    const srcResources = srcForm.get(name('DR'));
+    if (!srcResources) continue;
+    const copied = PDFObjectCopier.for(src[docIndex].context, ctx).copy(srcResources);
+    if (!acroForm.has(name('DR'))) {
+      acroForm.set(name('DR'), copied);
       continue;
     }
-    const cur = ctx.lookupMaybe(af.get(N('DR')), PDFDict),
-      cd = ctx.lookupMaybe(cp, PDFDict);
-    if (cur && cd)
-      cd.entries().forEach(([k, v]) => {
-        if (!cur.has(k)) {
-          cur.set(k, v);
+    const merged = ctx.lookupMaybe(acroForm.get(name('DR')), PDFDict),
+      copiedDict = ctx.lookupMaybe(copied, PDFDict);
+    if (merged && copiedDict)
+      copiedDict.entries().forEach(([k, v]) => {
+        if (!merged.has(k)) {
+          merged.set(k, v);
           return;
         }
-        const a = ctx.lookupMaybe(cur.get(k), PDFDict),
+        const a = ctx.lookupMaybe(merged.get(k), PDFDict),
           b = ctx.lookupMaybe(v, PDFDict);
         if (a && b)
           b.entries().forEach(([kk, vv]) => {
@@ -2221,26 +2359,26 @@ function carryForm(out, src, pgs) {
           });
       });
   }
-  out.catalog.set(N('AcroForm'), ctx.register(af));
+  out.catalog.set(name('AcroForm'), ctx.register(acroForm));
   // Clean-up: page copies that are no longer used (they used to be pointed at by /P) and widgets of deleted pages
   orphans.forEach((r) => {
     const o = ctx.lookupMaybe(r, PDFDict);
-    if (o && o.get(N('Type')) === N('Page') && !pageTags.has(r.tag)) ctx.delete(r);
+    if (o && o.get(name('Type')) === name('Page') && !pageTags.has(r.tag)) ctx.delete(r);
   });
   dead.forEach((r) => ctx.delete(r));
-  return ren;
+  return renamed;
 }
-// Phase 3: writes the values filled in on screen (docs[di].fv) into the final PDF's fields, only the fields that were touched (fvDirty).
+// Phase 3: writes the values filled in on screen (docs[…].fv) into the final PDF's fields, only the fields that were touched (fvDirty).
 // It is still an editable form. Returns how many fields could not be written.
-async function applyForm(out, ren, flat) {
+async function writeFormValues(out, renamed, flatten) {
   const { PDFTextField, PDFCheckBox, PDFRadioGroup, PDFDropdown, PDFOptionList, PDFHexString, PDFName, PDFBool } =
     PDFLib;
   if (!docs.some((d) => d && d.fvDirty && d.fvDirty.size) || !out.catalog.has(PDFName.of('AcroForm'))) return 0;
   const form = out.getForm(),
     font = await out.embedFont(PDFLib.StandardFonts.Helvetica);
   let bad = 0,
-    needApp = false;
-  const enc = (t) =>
+    needAppearances = false;
+  const canEncode = (t) =>
     t.split(/\r\n|\r|\n/).every((l) => {
       try {
         font.encodeText(l);
@@ -2249,7 +2387,7 @@ async function applyForm(out, ren, flat) {
         return false;
       }
     });
-  const safe = (t) =>
+  const encodable = (t) =>
     [...t]
       .map((c) => {
         try {
@@ -2265,56 +2403,58 @@ async function applyForm(out, ren, flat) {
     d.fvDirty.forEach((name) => {
       try {
         const root = name.split('.')[0],
-          fin = (ren.get(di + '|' + root) || root) + name.slice(root.length),
-          f = form.getFieldMaybe(fin);
-        if (!f) return;
-        const v = d.fv[name];
-        if (f instanceof PDFTextField) {
-          const tx = Array.isArray(v) ? v.join('\n') : String(v == null ? '' : v);
-          if (enc(tx)) {
-            f.setText(tx === '' ? undefined : tx);
-            f.defaultUpdateAppearances(font);
-          } else if (flat) {
-            const sf = safe(tx);
-            f.setText(sf === '' ? undefined : sf);
-            f.defaultUpdateAppearances(font);
+          fullName = (renamed.get(di + '|' + root) || root) + name.slice(root.length),
+          field = form.getFieldMaybe(fullName);
+        if (!field) return;
+        const value = d.fv[name];
+        if (field instanceof PDFTextField) {
+          const text = Array.isArray(value) ? value.join('\n') : String(value == null ? '' : value);
+          if (canEncode(text)) {
+            field.setText(text === '' ? undefined : text);
+            field.defaultUpdateAppearances(font);
+          } else if (flatten) {
+            const safeText = encodable(text);
+            field.setText(safeText === '' ? undefined : safeText);
+            field.defaultUpdateAppearances(font);
           } else {
-            f.acroField.setValue(PDFHexString.fromText(tx));
-            needApp = true;
+            field.acroField.setValue(PDFHexString.fromText(text));
+            needAppearances = true;
           }
-        } else if (f instanceof PDFCheckBox) {
-          v ? f.check() : f.uncheck();
+        } else if (field instanceof PDFCheckBox) {
+          value ? field.check() : field.uncheck();
         }
         // Radio buttons: the value on screen is the button's state name; select() wants the option, which differs when the
         // group has /Opt (states "0", "1"… and options "small", "large"…), so the state is translated to its option
-        else if (f instanceof PDFRadioGroup) {
-          if (!v) f.clear();
+        else if (field instanceof PDFRadioGroup) {
+          if (!value) field.clear();
           else {
-            const s = String(v),
-              op = f.getOptions(),
-              k = f.acroField.getOnValues().findIndex((n) => n.decodeText() === s);
-            f.select(k >= 0 && op[k] !== undefined ? op[k] : s);
+            const s = String(value),
+              options = field.getOptions(),
+              k = field.acroField.getOnValues().findIndex((n) => n.decodeText() === s);
+            field.select(k >= 0 && options[k] !== undefined ? options[k] : s);
           }
-        } else if (f instanceof PDFDropdown || f instanceof PDFOptionList) {
-          const vals = (Array.isArray(v) ? v : v ? [String(v)] : []).map((x) => PDFHexString.fromText(String(x)));
-          if (flat) {
-            const op = f.acroField.getOptions(),
-              dp = (x) => {
-                const o = op.find((q) => q.value.decodeText() === x);
+        } else if (field instanceof PDFDropdown || field instanceof PDFOptionList) {
+          const vals = (Array.isArray(value) ? value : value ? [String(value)] : []).map((x) =>
+            PDFHexString.fromText(String(x)),
+          );
+          if (flatten) {
+            const options = field.acroField.getOptions(),
+              displayOf = (x) => {
+                const o = options.find((q) => q.value.decodeText() === x);
                 return o && o.display ? o.display.decodeText() : x;
               };
-            f.acroField.setValues(vals.map((x) => PDFHexString.fromText(safe(dp(x.decodeText())))));
-            f.markAsDirty();
-            f.defaultUpdateAppearances(font);
+            field.acroField.setValues(vals.map((x) => PDFHexString.fromText(encodable(displayOf(x.decodeText())))));
+            field.markAsDirty();
+            field.defaultUpdateAppearances(font);
           } else {
-            f.acroField.setValues(vals);
-            f.markAsDirty();
+            field.acroField.setValues(vals);
+            field.markAsDirty();
             if (
-              f.acroField.getOptions().some((o) => o.display && o.display.decodeText() !== o.value.decodeText()) ||
-              !vals.every((x) => enc(x.decodeText()))
+              field.acroField.getOptions().some((o) => o.display && o.display.decodeText() !== o.value.decodeText()) ||
+              !vals.every((x) => canEncode(x.decodeText()))
             )
-              needApp = true;
-            else f.defaultUpdateAppearances(font);
+              needAppearances = true;
+            else field.defaultUpdateAppearances(font);
           }
         }
       } catch (e) {
@@ -2323,36 +2463,36 @@ async function applyForm(out, ren, flat) {
       }
     });
   });
-  if (needApp && !flat) form.acroForm.dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
+  if (needAppearances && !flatten) form.acroForm.dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
   return bad;
 }
 // Phase 4: flatten. Draws each field's appearance (its /AP) as fixed page content, following the standard's algorithm
 // (ISO 32000-1, 12.5.5: the transformed appearance box is fitted to the field's /Rect), and removes the widgets and the /AcroForm.
 function flattenForm(out) {
-  const L = PDFLib,
-    N = (n) => L.PDFName.of(n),
+  const lib = PDFLib,
+    name = (n) => lib.PDFName.of(n),
     ctx = out.context,
     form = out.getForm(),
-    num = (a) => (a ? a.asArray().map((x) => x.asNumber()) : null);
+    numbers = (a) => (a ? a.asArray().map((x) => x.asNumber()) : null);
   const pageOf = new Map();
-  out.getPages().forEach((pg) => {
-    const a = pg.node.lookupMaybe(N('Annots'), L.PDFArray);
+  out.getPages().forEach((page) => {
+    const a = page.node.lookupMaybe(name('Annots'), lib.PDFArray);
     if (a)
       for (let i = 0; i < a.size(); i++) {
         const r = a.get(i);
-        if (r instanceof L.PDFRef) pageOf.set(r.tag, pg);
+        if (r instanceof lib.PDFRef) pageOf.set(r.tag, page);
       }
   });
-  const apOf = (w) => {
-    const apd = w.dict.lookupMaybe(N('AP'), L.PDFDict);
-    if (!apd) return null;
-    const n = apd.get(N('N')),
-      o = n instanceof L.PDFRef ? ctx.lookup(n) : n;
-    if (o instanceof L.PDFStream) return n instanceof L.PDFRef ? n : null;
-    if (o instanceof L.PDFDict) {
-      const as = w.dict.lookupMaybe(N('AS'), L.PDFName),
+  const appearanceOf = (widget) => {
+    const apDict = widget.dict.lookupMaybe(name('AP'), lib.PDFDict);
+    if (!apDict) return null;
+    const n = apDict.get(name('N')),
+      o = n instanceof lib.PDFRef ? ctx.lookup(n) : n;
+    if (o instanceof lib.PDFStream) return n instanceof lib.PDFRef ? n : null;
+    if (o instanceof lib.PDFDict) {
+      const as = widget.dict.lookupMaybe(name('AS'), lib.PDFName),
         r = as && o.get(as);
-      if (r instanceof L.PDFRef && ctx.lookup(r) instanceof L.PDFStream) return r;
+      if (r instanceof lib.PDFRef && ctx.lookup(r) instanceof lib.PDFStream) return r;
     }
     return null;
   };
@@ -2360,47 +2500,47 @@ function flattenForm(out) {
     .getFields()
     .slice()
     .forEach((f) => {
-      f.acroField.getWidgets().forEach((w) => {
-        const wr = ctx.getObjectRef(w.dict),
-          pg = wr && pageOf.get(wr.tag);
-        if (!pg) return;
+      f.acroField.getWidgets().forEach((widget) => {
+        const widgetRef = ctx.getObjectRef(widget.dict),
+          page = widgetRef && pageOf.get(widgetRef.tag);
+        if (!page) return;
         try {
-          const fl = w.dict.lookupMaybe(N('F'), L.PDFNumber),
-            ap = apOf(w);
-          if (ap && !(fl && fl.asNumber() & 34)) {
-            const st = ctx.lookup(ap),
-              bb = num(st.dict.lookupMaybe(N('BBox'), L.PDFArray)),
-              m = num(st.dict.lookupMaybe(N('Matrix'), L.PDFArray)) || [1, 0, 0, 1, 0, 0],
-              rc = num(w.dict.lookupMaybe(N('Rect'), L.PDFArray));
-            if (bb && rc && bb.length == 4 && rc.length == 4) {
+          const flags = widget.dict.lookupMaybe(name('F'), lib.PDFNumber),
+            apRef = appearanceOf(widget);
+          if (apRef && !(flags && flags.asNumber() & 34)) {
+            const stream = ctx.lookup(apRef),
+              bbox = numbers(stream.dict.lookupMaybe(name('BBox'), lib.PDFArray)),
+              matrix = numbers(stream.dict.lookupMaybe(name('Matrix'), lib.PDFArray)) || [1, 0, 0, 1, 0, 0],
+              rect = numbers(widget.dict.lookupMaybe(name('Rect'), lib.PDFArray));
+            if (bbox && rect && bbox.length == 4 && rect.length == 4) {
               const xs = [],
                 ys = [];
               [
-                [bb[0], bb[1]],
-                [bb[2], bb[1]],
-                [bb[0], bb[3]],
-                [bb[2], bb[3]],
+                [bbox[0], bbox[1]],
+                [bbox[2], bbox[1]],
+                [bbox[0], bbox[3]],
+                [bbox[2], bbox[3]],
               ].forEach(([x, y]) => {
-                xs.push(m[0] * x + m[2] * y + m[4]);
-                ys.push(m[1] * x + m[3] * y + m[5]);
+                xs.push(matrix[0] * x + matrix[2] * y + matrix[4]);
+                ys.push(matrix[1] * x + matrix[3] * y + matrix[5]);
               });
               const x0 = Math.min(...xs),
                 x1 = Math.max(...xs),
                 y0 = Math.min(...ys),
                 y1 = Math.max(...ys),
-                rx = Math.min(rc[0], rc[2]),
-                ry = Math.min(rc[1], rc[3]),
-                rw = Math.abs(rc[2] - rc[0]),
-                rh = Math.abs(rc[3] - rc[1]);
+                rx = Math.min(rect[0], rect[2]),
+                ry = Math.min(rect[1], rect[3]),
+                rw = Math.abs(rect[2] - rect[0]),
+                rh = Math.abs(rect[3] - rect[1]);
               if (x1 > x0 && y1 > y0 && rw > 0 && rh > 0) {
-                const sx = rw / (x1 - x0),
-                  sy = rh / (y1 - y0),
-                  key = pg.node.newXObject('FlatWidget', ap);
-                pg.pushOperators(
-                  L.pushGraphicsState(),
-                  L.concatTransformationMatrix(sx, 0, 0, sy, rx - x0 * sx, ry - y0 * sy),
-                  L.drawObject(key),
-                  L.popGraphicsState(),
+                const scaleX = rw / (x1 - x0),
+                  scaleY = rh / (y1 - y0),
+                  key = page.node.newXObject('FlatWidget', apRef);
+                page.pushOperators(
+                  lib.pushGraphicsState(),
+                  lib.concatTransformationMatrix(scaleX, 0, 0, scaleY, rx - x0 * scaleX, ry - y0 * scaleY),
+                  lib.drawObject(key),
+                  lib.popGraphicsState(),
                 );
               }
             }
@@ -2408,57 +2548,63 @@ function flattenForm(out) {
         } catch (e) {
           console.warn('Field not flattened:', e);
         }
-        pg.node.removeAnnot(wr);
-        ctx.delete(wr);
+        page.node.removeAnnot(widgetRef);
+        ctx.delete(widgetRef);
       });
-      let par = f.acroField.dict.get(N('Parent')),
+      let parent = f.acroField.dict.get(name('Parent')),
         g = 0;
-      while (par instanceof L.PDFRef && g++ < 50) {
-        const nx = ctx.lookupMaybe(par, L.PDFDict);
-        ctx.delete(par);
-        par = nx && nx.get(N('Parent'));
+      while (parent instanceof lib.PDFRef && g++ < 50) {
+        const next = ctx.lookupMaybe(parent, lib.PDFDict);
+        ctx.delete(parent);
+        parent = next && next.get(name('Parent'));
       }
       ctx.delete(f.ref);
     });
-  out.catalog.delete(N('AcroForm'));
+  out.catalog.delete(name('AcroForm'));
 }
-async function build(o = {}) {
+// Builds the PDF to save (bytes) with pdf-lib: copies the pages in their current order and rotation, adds Penfold's
+// annotations (each with its own drawing), keeps the form and writes the bookmarks. opts can give other pages (pages),
+// other source files (src), only some annotation types (types), no annotations (noAnnots), no bookmarks (noBms) or
+// flatten the form (flatten)
+async function build(opts = {}) {
   const { PDFDocument, PDFName, PDFString, PDFHexString, degrees } = PDFLib,
     out = await PDFDocument.create(),
     refs = new Map();
-  const src = o.src || (await Promise.all(docs.map((d) => PDFDocument.load(d.bytes, { ignoreEncryption: true }))));
+  const src = opts.src || (await Promise.all(docs.map((d) => PDFDocument.load(d.bytes, { ignoreEncryption: true }))));
   // Safety net: pdf-lib cannot decrypt, so a protected PDF would come out broken (or not at all)
   if (src.some((s) => s && s.isEncrypted))
     throw new Error(
       _t('This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.'),
     );
-  const pgs = o.pages || pages,
-    noA = !!o.noAnnots;
-  let hf = null;
+  const pageList = opts.pages || pages,
+    noAnnots = !!opts.noAnnots;
+  let helvetica = null;
   // One copyPages call per document: form fields shared between pages are copied only once
-  const cps = new Map(),
-    usedCp = new Set();
+  const copies = new Map(),
+    usedCopies = new Set();
   for (let di = 0; di < src.length; di++) {
-    const ix = [...new Set(pgs.filter((q) => q.doc == di).map((q) => q.idx))];
-    if (!ix.length) continue;
-    const arr = await out.copyPages(src[di], ix);
-    ix.forEach((x, k) => cps.set(di + ':' + x, arr[k]));
+    const indices = [...new Set(pageList.filter((q) => q.doc == di).map((q) => q.idx))];
+    if (!indices.length) continue;
+    const copied = await out.copyPages(src[di], indices);
+    indices.forEach((x, k) => copies.set(di + ':' + x, copied[k]));
   }
-  for (const p of pgs) {
-    const ck = p.doc + ':' + p.idx;
-    let cp = cps.get(ck);
-    if (!cp || usedCp.has(ck)) cp = (await out.copyPages(src[p.doc], [p.idx]))[0];
-    usedCp.add(ck);
-    out.addPage(cp);
-    refs.set(p, cp.ref);
-    if (p.rot) cp.setRotation(degrees((src[p.doc].getPage(p.idx).getRotation().angle + p.rot) % 360));
+  for (const p of pageList) {
+    const key = p.doc + ':' + p.idx;
+    let copy = copies.get(key);
+    if (!copy || usedCopies.has(key)) copy = (await out.copyPages(src[p.doc], [p.idx]))[0];
+    usedCopies.add(key);
+    out.addPage(copy);
+    refs.set(p, copy.ref);
+    if (p.rot) copy.setRotation(degrees((src[p.doc].getPage(p.idx).getRotation().angle + p.rot) % 360));
     const ctx = out.context;
-    if (p.loaded || noA) {
-      const aRef = cp.node.get(PDFName.of('Annots'));
-      if (aRef) {
-        const aObj = ctx.lookup(aRef);
-        if (aObj && aObj.array) {
-          const fil = aObj.array.filter((ref) => {
+    // Penfold's own annotations already in the file (author “Penfold”) are taken out: they are written again from what
+    // is on screen, so deleted ones disappear and edited ones are not doubled
+    if (p.loaded || noAnnots) {
+      const annotsRef = copy.node.get(PDFName.of('Annots'));
+      if (annotsRef) {
+        const annotsObj = ctx.lookup(annotsRef);
+        if (annotsObj && annotsObj.array) {
+          const kept = annotsObj.array.filter((ref) => {
             const obj = ctx.lookup(ref);
             if (obj && typeof obj.get === 'function') {
               const t = obj.get(PDFName.of('T'));
@@ -2469,156 +2615,166 @@ async function build(o = {}) {
             }
             return true;
           });
-          cp.node.set(PDFName.of('Annots'), ctx.obj(fil));
+          copy.node.set(PDFName.of('Annots'), ctx.obj(kept));
         }
       }
     }
-    for (const a of noA ? [] : o.types ? p.annots.filter((a) => o.types.has(a.type)) : p.annots) {
+    for (const a of noAnnots ? [] : opts.types ? p.annots.filter((a) => opts.types.has(a.type)) : p.annots) {
       if (a.type == 'link' || a.ro) continue;
-      let d;
-      const base = { Type: 'Annot', F: 4, C: hex(a.color), T: PDFString.of('Penfold') };
+      let dict;
+      const base = { Type: 'Annot', F: 4, C: hexToRgb(a.color), T: PDFString.of('Penfold') };
       if (a.type == 'note' || a.type == 'ft') base.Contents = PDFHexString.fromText(a.text || '');
       if (a.quads) {
         const all = a.quads.flat(),
           xs = all.filter((_, i) => i % 2 == 0),
           ys = all.filter((_, i) => i % 2);
-        const rc = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-        d = ctx.obj({
+        const rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+        dict = ctx.obj({
           ...base,
           Subtype: a.type == 'hl' ? 'Highlight' : a.type == 'ul' ? 'Underline' : 'StrikeOut',
-          Rect: rc,
+          Rect: rect,
           QuadPoints: all,
-          CA: a.type == 'hl' ? HL_A : 1,
-          AP: { N: quadAP(ctx, a, rc) },
+          CA: a.type == 'hl' ? HIGHLIGHT_OPACITY : 1,
+          AP: { N: markupAppearance(ctx, a, rect) },
         });
       } else if (a.type == 'sq' || a.type == 'ci' || a.type == 'ar') {
-        let rc;
+        let rect;
         if (a.type == 'ar') {
-          rc = [Math.min(a.x, a.x2) - 15, Math.min(a.y, a.y2) - 15, Math.max(a.x, a.x2) + 15, Math.max(a.y, a.y2) + 15];
+          rect = [
+            Math.min(a.x, a.x2) - 15,
+            Math.min(a.y, a.y2) - 15,
+            Math.max(a.x, a.x2) + 15,
+            Math.max(a.y, a.y2) + 15,
+          ];
         } else {
-          rc = [Math.min(a.x, a.x2), Math.min(a.y, a.y2), Math.max(a.x, a.x2), Math.max(a.y, a.y2)];
+          rect = [Math.min(a.x, a.x2), Math.min(a.y, a.y2), Math.max(a.x, a.x2), Math.max(a.y, a.y2)];
         }
-        d = ctx.obj({
+        dict = ctx.obj({
           ...base,
           Subtype: a.type == 'sq' ? 'Square' : a.type == 'ci' ? 'Circle' : 'Line',
-          Rect: rc,
-          C: hex(a.color),
-          BS: { W: SW, S: 'S' },
-          AP: { N: shapeAP(ctx, a, rc) },
+          Rect: rect,
+          C: hexToRgb(a.color),
+          BS: { W: SHAPE_STROKE, S: 'S' },
+          AP: { N: shapeAppearance(ctx, a, rect) },
         });
         if (a.type == 'ar') {
-          d.set(PDFName.of('L'), ctx.obj([a.x, a.y, a.x2, a.y2]));
-          d.set(PDFName.of('LE'), ctx.obj([PDFName.of('None'), PDFName.of('OpenArrow')]));
+          dict.set(PDFName.of('L'), ctx.obj([a.x, a.y, a.x2, a.y2]));
+          dict.set(PDFName.of('LE'), ctx.obj([PDFName.of('None'), PDFName.of('OpenArrow')]));
         }
       } else if (a.type == 'note')
-        d = ctx.obj({
+        dict = ctx.obj({
           ...base,
           Subtype: 'Text',
           Rect: [a.x - 10, a.y - 10, a.x + 10, a.y + 10],
           Name: 'Note',
-          AP: { N: noteAP(ctx, a) },
+          AP: { N: noteAppearance(ctx, a) },
         });
       else {
-        const w = a.w || FT.w,
+        const w = a.w || TEXT_BOX.w,
           c = deep(a.color),
-          font = hf || (hf = await out.embedFont(PDFLib.StandardFonts.Helvetica)),
-          ls = ftLines(font, a.text, w),
-          h = 2 * (FT.bw + FT.pad) + ls.length * FT.fs * FT.lh,
-          z = (x) => String(x).padStart(2, '0'),
-          t = new Date();
-        d = ctx.obj({
+          font = helvetica || (helvetica = await out.embedFont(PDFLib.StandardFonts.Helvetica)),
+          lines = textBoxLines(font, a.text, w),
+          h = 2 * (TEXT_BOX.bw + TEXT_BOX.pad) + lines.length * TEXT_BOX.fs * TEXT_BOX.lh,
+          pad2 = (x) => String(x).padStart(2, '0'),
+          now = new Date();
+        dict = ctx.obj({
           ...base,
-          C: hex(c),
-          IC: hex(tint(c, 0.14)),
-          BS: { W: FT.bw, S: 'S' },
+          C: hexToRgb(c),
+          IC: hexToRgb(tint(c, 0.14)),
+          BS: { W: TEXT_BOX.bw, S: 'S' },
           Subtype: 'FreeText',
           Rect: [a.x, a.y - h, a.x + w, a.y],
           DA: PDFString.of('/Helv 11 Tf 0 0 0 rg'),
           Q: 0,
           M: PDFString.of(
             'D:' +
-              t.getUTCFullYear() +
-              z(t.getUTCMonth() + 1) +
-              z(t.getUTCDate()) +
-              z(t.getUTCHours()) +
-              z(t.getUTCMinutes()) +
-              z(t.getUTCSeconds()) +
+              now.getUTCFullYear() +
+              pad2(now.getUTCMonth() + 1) +
+              pad2(now.getUTCDate()) +
+              pad2(now.getUTCHours()) +
+              pad2(now.getUTCMinutes()) +
+              pad2(now.getUTCSeconds()) +
               'Z',
           ),
-          AP: { N: ftAP(ctx, font, ls, w, h, c) },
+          AP: { N: textBoxAppearance(ctx, font, lines, w, h, c) },
         });
       }
-      Object.keys(d.dict ? d.dict : {});
-      cp && out.getPage(out.getPageCount() - 1).node.addAnnot(ctx.register(d));
+      Object.keys(dict.dict ? dict.dict : {});
+      copy && out.getPage(out.getPageCount() - 1).node.addAnnot(ctx.register(dict));
     }
   }
-  let frm = null;
+  let renamedFields = null;
   try {
-    frm = carryForm(out, src, pgs);
+    renamedFields = rebuildForm(out, src, pageList);
   } catch (e) {
     console.warn('Form not preserved:', e);
   }
-  if (frm) {
+  if (renamedFields) {
     try {
-      const bad = await applyForm(out, frm, !!o.flatten);
-      if (bad) msg(_t('{n} form field(s) could not be saved.', { n: bad }));
+      const bad = await writeFormValues(out, renamedFields, !!opts.flatten);
+      if (bad) showMessage(_t('{n} form field(s) could not be saved.', { n: bad }));
     } catch (e) {
       console.warn('Form data not saved:', e);
-      if (o.flatten) throw new Error(_t('Could not flatten the form: {m}', { m: e.message }));
-      msg(_t('The form data could not be saved.'));
+      if (opts.flatten) throw new Error(_t('Could not flatten the form: {m}', { m: e.message }), { cause: e });
+      showMessage(_t('The form data could not be saved.'));
     }
-    if (o.flatten) {
+    if (opts.flatten) {
       try {
         flattenForm(out);
       } catch (e) {
-        throw new Error(_t('Could not flatten the form: {m}', { m: e.message }));
+        throw new Error(_t('Could not flatten the form: {m}', { m: e.message }), { cause: e });
       }
     }
   }
-  const items = noA || o.noBms ? [] : prune(bms, pgs);
+  // Bookmarks (the PDF outline): a linked list per level (Prev / Next, First / Last); Count is negative for collapsed ones
+  const items = noAnnots || opts.noBms ? [] : pruneBookmarks(bookmarks, pageList);
   if (items.length) {
     const ctx = out.context,
       root = ctx.nextRef(),
-      cnt = (l) => l.reduce((n, i) => n + 1 + cnt(i.items), 0),
-      vis = (l) => l.reduce((n, i) => n + 1 + (i.open === false ? 0 : vis(i.items)), 0);
-    const wr = (list, par) => {
-      const rs = list.map(() => ctx.nextRef());
+      countAll = (l) => l.reduce((n, i) => n + 1 + countAll(i.items), 0),
+      countVisible = (l) => l.reduce((n, i) => n + 1 + (i.open === false ? 0 : countVisible(i.items)), 0);
+    const writeOutline = (list, parent) => {
+      const itemRefs = list.map(() => ctx.nextRef());
       list.forEach((it, i) => {
-        const o = {
+        const entry = {
           Title: PDFHexString.fromText(it.title),
-          Parent: par,
-          Dest: [refs.get(it.page), ...(ddOk(it.dd) ? [it.dd.n, ...it.dd.a] : ['Fit'])],
+          Parent: parent,
+          Dest: [refs.get(it.page), ...(isValidDest(it.dd) ? [it.dd.n, ...it.dd.a] : ['Fit'])],
         };
-        if (it.color) o.C = hex(it.color);
-        const ff = (it.italic ? 1 : 0) | (it.bold ? 2 : 0);
-        if (ff) o.F = ff;
-        if (i > 0) o.Prev = rs[i - 1];
-        if (i < list.length - 1) o.Next = rs[i + 1];
+        if (it.color) entry.C = hexToRgb(it.color);
+        const flags = (it.italic ? 1 : 0) | (it.bold ? 2 : 0);
+        if (flags) entry.F = flags;
+        if (i > 0) entry.Prev = itemRefs[i - 1];
+        if (i < list.length - 1) entry.Next = itemRefs[i + 1];
         if (it.items.length) {
-          const k = wr(it.items, rs[i]);
-          o.First = k[0];
-          o.Last = k[k.length - 1];
-          o.Count = it.open === false ? -cnt(it.items) : vis(it.items);
+          const children = writeOutline(it.items, itemRefs[i]);
+          entry.First = children[0];
+          entry.Last = children[children.length - 1];
+          entry.Count = it.open === false ? -countAll(it.items) : countVisible(it.items);
         }
-        ctx.assign(rs[i], ctx.obj(o));
+        ctx.assign(itemRefs[i], ctx.obj(entry));
       });
-      return rs;
+      return itemRefs;
     };
-    const top = wr(items, root);
-    ctx.assign(root, ctx.obj({ Type: 'Outlines', First: top[0], Last: top[top.length - 1], Count: vis(items) }));
+    const top = writeOutline(items, root);
+    ctx.assign(
+      root,
+      ctx.obj({ Type: 'Outlines', First: top[0], Last: top[top.length - 1], Count: countVisible(items) }),
+    );
     out.catalog.set(PDFName.of('Outlines'), root);
     out.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'));
   }
   return out.save({ updateFieldAppearances: false });
 }
-async function save(h, flat) {
-  const bytes = await build(flat ? { flatten: true } : {}),
-    w = await h.createWritable();
-  await w.write(bytes);
-  await w.close();
+// Writes the PDF into the file of handle (flatten: with the form flattened)
+async function save(handle, flatten) {
+  const bytes = await build(flatten ? { flatten: true } : {}),
+    writable = await handle.createWritable();
+  await writable.write(bytes);
+  await writable.close();
   // A flattened copy is an export: the working document still has its changes unsaved
-  if (!flat) markSaved();
-  msg(flat ? _t('Saved ✔ (form flattened)') : _t('Saved ✔'));
+  if (!flatten) markSaved();
+  showMessage(flatten ? _t('Saved ✔ (form flattened)') : _t('Saved ✔'));
 }
 // Does the open document have fillable form fields?
 const hasForm = () =>
@@ -2629,125 +2785,148 @@ const hasForm = () =>
   );
 // “Save As…” dialogue for documents with a form: returns true (flatten), false (keep editable) or null (cancel)
 function flattenDialog() {
-  return new Promise((res) => {
-    if (document.getElementById('dlg')) return res(null);
-    const ov = document.createElement('div');
-    ov.id = 'dlg';
-    ov.innerHTML =
-      '<div class="box"><h3>Save As…</h3><label><input type="checkbox" id="fFlat"> Flatten the form</label><div class="hint" style="margin-top:-6px;padding-left:26px">The data becomes part of the page and the fields can no longer be edited in the saved file.</div><div class="row r"><button id="fCancel">Cancel</button><button id="fOk" class="on">Save</button></div></div>';
-    i18nApply(ov);
-    const fin = (v) => {
-        ov.remove();
-        document.removeEventListener('keydown', key);
-        res(v);
+  return new Promise((resolve) => {
+    if (document.getElementById('dlg')) return resolve(null);
+    const overlay = document.createElement('div');
+    overlay.id = 'dlg';
+    overlay.innerHTML =
+      '<div class="box"><h3>Save As</h3><div class="card"><label class="srow"><span class="txt"><span>Flatten the form</span><span class="sub">The data becomes part of the page and the fields can no longer be edited in the saved file.</span></span><input type="checkbox" id="fFlat" class="switch"></label></div><div class="row r"><button id="fCancel">Cancel</button><button id="fOk" class="on">Save</button></div></div>';
+    i18nApply(overlay);
+    const finish = (v) => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(v);
       },
-      key = (e) => {
-        if (e.key == 'Escape') fin(null);
+      onKey = (e) => {
+        if (e.key == 'Escape') finish(null);
         else if (e.key == 'Enter' && !document.getElementById('dlg2')) {
           e.preventDefault();
-          fin(ov.querySelector('#fFlat').checked);
+          finish(overlay.querySelector('#fFlat').checked);
         }
       };
-    ov.querySelector('#fCancel').onclick = () => fin(null);
-    ov.querySelector('#fOk').onclick = () => fin(ov.querySelector('#fFlat').checked);
-    document.addEventListener('keydown', key);
-    document.body.appendChild(ov);
-    ov.querySelector('#fOk').focus();
+    overlay.querySelector('#fCancel').onclick = () => finish(null);
+    overlay.querySelector('#fOk').onclick = () => finish(overlay.querySelector('#fFlat').checked);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    overlay.querySelector('#fOk').focus();
   });
 }
+// Save: overwrites the opened file after asking; without a file handle it does “Save As…” or, if the browser cannot
+// write files, downloads a copy
 $('#bSave').onclick = async () => {
   try {
-    if (handle) {
+    if (fileHandle) {
       if (
         !(await confirmDialog(
           _t('Overwrite file'),
-          _t('Do you want to overwrite “{name}”?', { name: fname }),
+          _t('Do you want to overwrite “{name}”?', { name: fileName }),
           _t('Overwrite'),
         ))
       )
         return;
-      await save(handle);
+      await save(fileHandle);
     } else if (window.showSaveFilePicker) $('#bSaveAs').click();
     else {
-      msg(_t('This browser cannot overwrite files: a copy is being downloaded.'));
+      showMessage(_t('This browser cannot overwrite files: a copy is being downloaded.'));
       download();
     }
   } catch (e) {
-    if (e.name != 'AbortError') msg('Error: ' + e.message);
+    if (e.name != 'AbortError') showMessage('Error: ' + e.message);
   }
 };
 // “Save As…”: returns true if a file was written (false if cancelled)
 async function saveAs() {
-  let flat = false;
+  let flatten = false;
   if (hasForm()) {
-    flat = await flattenDialog();
-    if (flat === null) return false;
+    flatten = await flattenDialog();
+    if (flatten === null) return false;
   }
   if (!window.showSaveFilePicker) {
-    await download(flat);
+    await download(flatten);
     return true;
   }
-  const h = await showSaveFilePicker({ suggestedName: fname, types: [{ accept: { 'application/pdf': ['.pdf'] } }] });
-  await save(h, flat);
+  const handle = await showSaveFilePicker({
+    suggestedName: fileName,
+    types: [{ accept: { 'application/pdf': ['.pdf'] } }],
+  });
+  await save(handle, flatten);
   // A flattened copy is an export: it does not become the working file (so that “Save” never overwrites it with the editable version)
-  if (!flat) {
-    handle = h;
-    fname = h.name;
+  if (!flatten) {
+    fileHandle = handle;
+    fileName = handle.name;
   }
   return true;
 }
+// Save As… button
 $('#bSaveAs').onclick = async () => {
   try {
     await saveAs();
   } catch (e) {
-    if (e.name != 'AbortError') msg('Error: ' + e.message);
+    if (e.name != 'AbortError') showMessage('Error: ' + e.message);
   }
 };
-async function download(flat) {
-  const b = new Blob([await build(flat ? { flatten: true } : {})], { type: 'application/pdf' }),
-    a = document.createElement('a');
-  a.href = URL.createObjectURL(b);
-  a.download = fname.replace(/\.pdf$/i, '') + (flat ? _t('_flattened.pdf') : _t('_annotated.pdf'));
-  a.click();
-  if (!flat) markSaved();
+// Browsers that cannot write files: the PDF is downloaded as “name_annotated.pdf” (or “_flattened.pdf”)
+async function download(flatten) {
+  const blob = new Blob([await build(flatten ? { flatten: true } : {})], { type: 'application/pdf' }),
+    link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName.replace(/\.pdf$/i, '') + (flatten ? _t('_flattened.pdf') : _t('_annotated.pdf'));
+  link.click();
+  if (!flatten) markSaved();
 }
 // ---- Unsaved changes. Penfold remembers how the document was when it was opened or last saved, and compares it with
 // how it is now: page order and rotation, bookmarks and form values (docShape), and each of Penfold's own annotations
 // (a snapshot in a._o, and how many there were per page in p._nOwn). Undoing a change by hand leaves nothing to save.
 // A merged document has never been saved (savedShape = null).
 let savedShape = '';
-const annSnap = (a) => JSON.stringify(a, (k, v) => (k == '_o' ? undefined : v));
+// annotSnapshot: an annotation as text, to compare it with its saved copy; ownAnnots: the annotations Penfold can edit
+const annotSnapshot = (a) => JSON.stringify(a, (k, v) => (k == '_o' ? undefined : v));
 const ownAnnots = (p) => p.annots.filter((a) => !a.ro && a.type != 'link');
+// The state of the document as text: pages (file, page, rotation), bookmarks and form values
 function docShape() {
-  const bm = (l) =>
-    l.map((b) => [b.title, pages.indexOf(b.page), b.dd || null, b.color || null, !!b.bold, !!b.italic, bm(b.items)]);
-  return JSON.stringify([pages.map((p) => [p.doc, p.idx, p.rot || 0]), bm(bms), docs.map((d) => (d && d.fv) || {})]);
+  const bookmarkShape = (l) =>
+    l.map((b) => [
+      b.title,
+      pages.indexOf(b.page),
+      b.dd || null,
+      b.color || null,
+      !!b.bold,
+      !!b.italic,
+      bookmarkShape(b.items),
+    ]);
+  return JSON.stringify([
+    pages.map((p) => [p.doc, p.idx, p.rot || 0]),
+    bookmarkShape(bookmarks),
+    docs.map((d) => (d && d.fv) || {}),
+  ]);
 }
-function markPageSaved(p) {
-  const own = ownAnnots(p);
-  own.forEach((a) => (a._o = annSnap(a)));
-  p._nOwn = own.length;
+// Remembers the annotations of a page as saved
+function markPageSaved(page) {
+  const own = ownAnnots(page);
+  own.forEach((a) => (a._o = annotSnapshot(a)));
+  page._nOwn = own.length;
 }
 // After opening or saving, the current state becomes the saved one (never = a document that has not been saved yet)
 function markSaved(never) {
   savedShape = never ? null : docShape();
   pages.forEach(markPageSaved);
 }
+// True if something differs from the saved state: the document, or an own annotation changed, added or deleted
 function hasUnsavedChanges() {
   if (!pages.length) return false;
   if (savedShape === null || docShape() !== savedShape) return true;
   return pages.some((p) => {
     const own = ownAnnots(p);
-    return own.some((a) => a._o !== annSnap(a)) || own.filter((a) => a._o).length !== (p._nOwn || 0);
+    return own.some((a) => a._o !== annotSnapshot(a)) || own.filter((a) => a._o).length !== (p._nOwn || 0);
   });
 }
 // What to do with unsaved changes: 'save', 'discard' or 'cancel'. A protected PDF cannot be saved: Discard or Cancel.
 // As in GNOME, the text is centred and Discard, which loses the changes, is shown in red.
 function unsavedDialog() {
   const locked = isLocked(),
-    pr = locked
+    answer = locked
       ? choiceDialog(
-          _t('Discard the changes to “{name}”?', { name: fname }),
+          _t('Discard the changes to “{name}”?', { name: fileName }),
           _t('This PDF is protected: its changes cannot be saved and will be lost.'),
           [
             [_t('Cancel'), 'cancel'],
@@ -2755,7 +2934,7 @@ function unsavedDialog() {
           ],
         )
       : choiceDialog(
-          _t('Save changes to “{name}”?', { name: fname }),
+          _t('Save changes to “{name}”?', { name: fileName }),
           _t('If you don’t save, your changes will be lost.'),
           [
             [_t('Cancel'), 'cancel'],
@@ -2764,25 +2943,25 @@ function unsavedDialog() {
           ],
         );
   document.querySelector('#dlg2 .box>div').style.textAlign = 'center';
-  const b = document.querySelector('#dlg2 button.on') || document.querySelector('#dlg2 button.danger');
-  if (b) b.focus();
-  return pr;
+  const focusBtn = document.querySelector('#dlg2 button.on') || document.querySelector('#dlg2 button.danger');
+  if (focusBtn) focusBtn.focus();
+  return answer;
 }
 // Before the document is replaced (Open, Merge, a PDF from the desktop) or the window is closed.
 // true = go ahead (nothing to save, discarded or saved); false = stop.
 async function confirmUnsaved() {
   if (!hasUnsavedChanges()) return true;
-  const v = await unsavedDialog();
-  if (v == 'discard') return true;
-  if (v != 'save') return false;
+  const answer = await unsavedDialog();
+  if (answer == 'discard') return true;
+  if (answer != 'save') return false;
   try {
-    if (handle) {
-      await save(handle);
+    if (fileHandle) {
+      await save(fileHandle);
       return true;
     }
     return await saveAs();
   } catch (e) {
-    if (e.name != 'AbortError') msg('Error: ' + e.message);
+    if (e.name != 'AbortError') showMessage('Error: ' + e.message);
     return false;
   }
 }
@@ -2793,69 +2972,72 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 // Places the imported bookmarks according to the insertion point (at = position of the first new page)
-function placeBms(list, at, nodes) {
-  let x = null,
-    xi = -1;
+function placeBookmarks(list, at, nodes) {
+  let prevBm = null,
+    prevIdx = -1;
   list.forEach((it, i) => {
     if (pages.indexOf(it.page) < at) {
-      x = it;
-      xi = i;
+      prevBm = it;
+      prevIdx = i;
     }
   });
-  if (!x) {
+  if (!prevBm) {
     list.unshift(...nodes);
     return;
   }
-  const later = (l) => l.some((c) => pages.indexOf(c.page) >= at || later(c.items));
-  if (x.items.length && later(x.items)) {
-    x.open = true;
-    placeBms(x.items, at, nodes);
-  } else list.splice(xi + 1, 0, ...nodes);
+  const hasLater = (l) => l.some((c) => pages.indexOf(c.page) >= at || hasLater(c.items));
+  if (prevBm.items.length && hasLater(prevBm.items)) {
+    prevBm.open = true;
+    placeBookmarks(prevBm.items, at, nodes);
+  } else list.splice(prevIdx + 1, 0, ...nodes);
 }
-async function insertPdf(f, mode, afterN, blank) {
-  const bytes = await f.arrayBuffer(),
+// Adds the pages of PDF file (and its bookmarks) at the start, at the end or after page afterN
+async function insertPdf(file, mode, afterN, blank) {
+  const bytes = await file.arrayBuffer(),
     pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
   if (await isProtected(pdf, bytes))
-    throw new Error(_t('“{name}” is protected against changes and cannot be added yet.', { name: f.name }));
-  const di = docs.push({ bytes, pdf }) - 1,
-    np = [];
-  for (let i = 0; i < pdf.numPages; i++) np.push({ doc: di, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
+    throw new Error(_t('“{name}” is protected against changes and cannot be added yet.', { name: file.name }));
+  const docIndex = docs.push({ bytes, pdf }) - 1,
+    newPages = [];
+  for (let i = 0; i < pdf.numPages; i++)
+    newPages.push({ doc: docIndex, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
   const at = mode == 'start' ? 0 : mode == 'end' ? pages.length : afterN;
-  pages.splice(at, 0, ...np);
-  const nodes = prune(await convert((await pdf.getOutline()) || [], di));
+  pages.splice(at, 0, ...newPages);
+  const nodes = pruneBookmarks(await convertOutline((await pdf.getOutline()) || [], docIndex));
   if (nodes.length) {
-    placeBms(bms, at, nodes);
-    flashBm = nodes[0];
+    placeBookmarks(bookmarks, at, nodes);
+    flashBookmark = nodes[0];
   }
   renderSide();
   await renderMain();
   goTo(at);
   loadAllAnnots();
   {
-    const pn = _n(np.length, '{n} page', '{n} pages');
-    msg(
+    const count = _n(newPages.length, '{n} page', '{n} pages');
+    showMessage(
       blank
         ? _t('Blank page added.')
         : nodes.length
-          ? _t('PDF added: {pn} and its bookmarks.', { pn })
-          : _t('PDF added: {pn}.', { pn }),
+          ? _t('PDF added: {pn} and its bookmarks.', { pn: count })
+          : _t('PDF added: {pn}.', { pn: count }),
     );
   }
 }
 // Blank page: a single-page PDF created on the spot, which goes in just like an added PDF
 async function insertBlank(size, mode, afterN) {
-  const dim = { a4: [595.28, 841.89], letter: [612, 792], a5: [419.53, 595.28], a3: [841.89, 1190.55] };
-  const [w, h] = dim[size] || dim.a4;
-  const d = await PDFLib.PDFDocument.create();
-  d.addPage([w, h]);
-  await insertPdf(new Blob([await d.save()], { type: 'application/pdf' }), mode, afterN, true);
+  const SIZES = { a4: [595.28, 841.89], letter: [612, 792], a5: [419.53, 595.28], a3: [841.89, 1190.55] };
+  const [w, h] = SIZES[size] || SIZES.a4;
+  const doc = await PDFLib.PDFDocument.create();
+  doc.addPage([w, h]);
+  await insertPdf(new Blob([await doc.save()], { type: 'application/pdf' }), mode, afterN, true);
 }
+// “Add pages” dialogue: pages from a PDF or a blank page, at the start, at the end or after a page
 function addDialog() {
   if (!pages.length) return;
   let file = null;
-  const ov = document.createElement('div');
-  ov.id = 'dlg';
-  ov.innerHTML = `<div class="box"><h3>Add pages</h3>
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML = `<div class="box"><h3>Add pages</h3>
   <label><input type="radio" name="ds" value="pdf" checked> From a PDF</label>
   <div class="row"><button id="dPick">Choose PDF…</button><span id="dName">No file chosen</span></div>
   <label><input type="radio" name="ds" value="blank"> Blank page</label>
@@ -2863,136 +3045,141 @@ function addDialog() {
   <b>Where should they be added?</b>
   <label><input type="radio" name="dw" value="start"> At the start</label>
   <label><input type="radio" name="dw" value="end" checked> At the end</label>
-  <label><input type="radio" name="dw" value="after"> After page <input id="dN" type="number" min="1" max="${pages.length}" value="${cur + 1}"></label>
+  <label><input type="radio" name="dw" value="after"> After page <input id="dN" type="number" min="1" max="${pages.length}" value="${currentPage + 1}"></label>
   <div class="row r"><button id="dCancel">Cancel</button><button id="dOk" class="on" disabled>Add</button></div></div>`;
-  i18nApply(ov);
-  document.body.appendChild(ov);
+  i18nApply(overlay);
+  document.body.appendChild(overlay);
   const close = () => {
-      ov.remove();
-      document.removeEventListener('keydown', esc);
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
     },
-    esc = (e) => {
+    onKey = (e) => {
       if (e.key == 'Escape') close();
     };
-  document.addEventListener('keydown', esc);
-  const inp = document.createElement('input');
-  inp.type = 'file';
-  inp.accept = '.pdf,application/pdf';
-  const src = () => ov.querySelector('input[name=ds]:checked').value,
+  document.addEventListener('keydown', onKey);
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = '.pdf,application/pdf';
+  const source = () => overlay.querySelector('input[name=ds]:checked').value,
     okState = () => {
-      ov.querySelector('#dOk').disabled = src() == 'pdf' && !file;
+      overlay.querySelector('#dOk').disabled = source() == 'pdf' && !file;
     };
-  inp.onchange = () => {
-    file = inp.files[0];
+  picker.onchange = () => {
+    file = picker.files[0];
     if (file) {
-      ov.querySelector('#dName').textContent = file.name;
-      ov.querySelector('input[name=ds][value=pdf]').checked = true;
+      overlay.querySelector('#dName').textContent = file.name;
+      overlay.querySelector('input[name=ds][value=pdf]').checked = true;
       okState();
     }
   };
-  ov.querySelector('#dPick').onclick = () => inp.click();
-  ov.querySelectorAll('input[name=ds]').forEach((r) => (r.onchange = okState));
-  ov.querySelector('#dSize').onchange = () => {
-    ov.querySelector('input[name=ds][value=blank]').checked = true;
+  overlay.querySelector('#dPick').onclick = () => picker.click();
+  overlay.querySelectorAll('input[name=ds]').forEach((r) => (r.onchange = okState));
+  overlay.querySelector('#dSize').onchange = () => {
+    overlay.querySelector('input[name=ds][value=blank]').checked = true;
     okState();
   };
-  ov.querySelector('#dSize').onfocus = ov.querySelector('#dSize').onchange;
-  ov.querySelector('#dN').oninput = () => (ov.querySelector('input[value=after]').checked = true);
-  ov.querySelector('#dCancel').onclick = close;
-  ov.querySelector('#dOk').onclick = async () => {
-    const mode = ov.querySelector('input[name=dw]:checked').value,
-      n = parseInt(ov.querySelector('#dN').value);
+  overlay.querySelector('#dSize').onfocus = overlay.querySelector('#dSize').onchange;
+  overlay.querySelector('#dN').oninput = () => (overlay.querySelector('input[value=after]').checked = true);
+  overlay.querySelector('#dCancel').onclick = close;
+  overlay.querySelector('#dOk').onclick = async () => {
+    const mode = overlay.querySelector('input[name=dw]:checked').value,
+      n = parseInt(overlay.querySelector('#dN').value);
     if (mode == 'after' && !(n >= 1 && n <= pages.length)) {
-      msg(_t('The page must be between 1 and {n}.', { n: pages.length }));
+      showMessage(_t('The page must be between 1 and {n}.', { n: pages.length }));
       return;
     }
-    const kind = src(),
-      size = ov.querySelector('#dSize').value;
+    const kind = source(),
+      size = overlay.querySelector('#dSize').value;
     close();
-    msg(_t('Adding…'));
+    showMessage(_t('Adding…'));
     try {
       if (kind == 'blank') await insertBlank(size, mode, n);
       else await insertPdf(file, mode, n);
     } catch (e) {
-      msg(_t('Error adding: {m}', { m: e.message }));
+      showMessage(_t('Error adding: {m}', { m: e.message }));
     }
   };
 }
 // ---- Find: the text of each page is read without painting it; ignores case and accents
-const S = { q: '', hits: [], i: -1, tok: 0, busy: false, by: null, ref: [] };
-const nch = (c) =>
+// findState: the search state. q: what is searched (normalised); hits: the matches ({ p: page, s: start, e: end });
+// i: the current one; tok: increases with each search, so an older search that is still running stops; by: matches per
+// page; ref: the pages when the search ran (to know if they changed)
+const findState = { q: '', hits: [], i: -1, tok: 0, busy: false, by: null, ref: [] };
+// foldChar / foldText: lower case and no accents (“Canción” → “cancion”); foldText also merges spaces
+const foldChar = (c) =>
   c
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
-const nq = (s) => {
-  let n = '';
-  for (let o = 0; o < s.length; o++) {
-    const c = nch(s[o]);
-    for (let k = 0; k < c.length; k++) {
-      const w = /\s/.test(c[k]) ? ' ' : c[k];
-      if (w == ' ' && (n === '' || n.endsWith(' '))) continue;
-      n += w;
+const foldText = (text) => {
+  let out = '';
+  for (let o = 0; o < text.length; o++) {
+    const folded = foldChar(text[o]);
+    for (let k = 0; k < folded.length; k++) {
+      const ch = /\s/.test(folded[k]) ? ' ' : folded[k];
+      if (ch == ' ' && (out === '' || out.endsWith(' '))) continue;
+      out += ch;
     }
   }
-  return n.trim();
+  return out.trim();
 };
 // Normalised page text, with the mapping of each character to its fragment (mi) and its position within it (mo)
-function mkTx(items) {
-  let n = '',
+function pageText(items) {
+  let text = '',
     prev = null;
-  const mi = [],
-    mo = [];
+  const itemOf = [],
+    offsetOf = [];
   items.forEach((it, k) => {
-    if (prev && n && !n.endsWith(' ')) {
+    if (prev && text && !text.endsWith(' ')) {
       const h = it.height || prev.height || 10,
         dy = Math.abs(it.transform[5] - prev.transform[5]),
         gap = it.transform[4] - (prev.transform[4] + prev.width);
       if (prev.hasEOL || dy > h * 0.5 || gap > h * 0.15) {
-        n += ' ';
-        mi.push(-1);
-        mo.push(0);
+        text += ' ';
+        itemOf.push(-1);
+        offsetOf.push(0);
       }
     }
-    const t = it.str;
-    for (let o = 0; o < t.length; o++) {
-      const c = nch(t[o]);
-      for (let q = 0; q < c.length; q++) {
-        const w = /\s/.test(c[q]) ? ' ' : c[q];
-        if (w == ' ' && (n === '' || n.endsWith(' '))) continue;
-        n += w;
-        mi.push(k);
-        mo.push(o);
+    const str = it.str;
+    for (let o = 0; o < str.length; o++) {
+      const folded = foldChar(str[o]);
+      for (let q = 0; q < folded.length; q++) {
+        const ch = /\s/.test(folded[q]) ? ' ' : folded[q];
+        if (ch == ' ' && (text === '' || text.endsWith(' '))) continue;
+        text += ch;
+        itemOf.push(k);
+        offsetOf.push(o);
       }
     }
     prev = it;
   });
-  return { items, n, mi, mo };
+  return { items, n: text, mi: itemOf, mo: offsetOf };
 }
-async function getTx(p) {
-  if (p._tx) return p._tx;
-  const pg = await docs[p.doc].pdf.getPage(p.idx + 1),
-    tc = await pg.getTextContent();
-  return (p._tx = mkTx(tc.items.filter((i) => typeof i.str == 'string')));
+// The text of a page (read once and kept)
+async function getPageText(page) {
+  if (page._tx) return page._tx;
+  const pdfPage = await docs[page.doc].pdf.getPage(page.idx + 1),
+    content = await pdfPage.getTextContent();
+  return (page._tx = pageText(content.items.filter((i) => typeof i.str == 'string')));
 }
 // Rectangles (in page pixels) of a match: one for each text fragment it crosses
-function hitRects(h, vp) {
-  const tx = h.p._tx,
-    seg = {},
+function hitRects(hit, viewport) {
+  const text = hit.p._tx,
+    spans = {},
     out = [];
-  for (let k = h.s; k < h.e; k++) {
-    const i = tx.mi[k];
+  for (let k = hit.s; k < hit.e; k++) {
+    const i = text.mi[k];
     if (i < 0) continue;
-    const o = tx.mo[k],
-      g = seg[i] || (seg[i] = [o, o + 1]);
+    const o = text.mo[k],
+      g = spans[i] || (spans[i] = [o, o + 1]);
     if (o < g[0]) g[0] = o;
     if (o + 1 > g[1]) g[1] = o + 1;
   }
-  for (const i in seg) {
-    const it = tx.items[i],
+  for (const i in spans) {
+    const it = text.items[i],
       [a, b, c, d, e, f] = it.transform,
       L = it.str.length || 1,
-      [o1, o2] = seg[i],
+      [o1, o2] = spans[i],
       lu = Math.hypot(a, b) || 1,
       lv = Math.hypot(c, d) || 1,
       ux = a / lu,
@@ -3009,7 +3196,7 @@ function hitRects(h, vp) {
         [x1 - vx * 0.2 * fs, y1 - vy * 0.2 * fs],
         [x1 + vx * 0.85 * fs, y1 + vy * 0.85 * fs],
         [x0 + vx * 0.85 * fs, y0 + vy * 0.85 * fs],
-      ].map((q) => vp.convertToViewportPoint(q[0], q[1])),
+      ].map((q) => viewport.convertToViewportPoint(q[0], q[1])),
       xs = P.map((q) => q[0]),
       ys = P.map((q) => q[1]),
       l = Math.min(...xs),
@@ -3018,162 +3205,169 @@ function hitRects(h, vp) {
   }
   return out;
 }
+// Marks the matches on a page (the current one in another colour)
 function markHits(el) {
-  const o = el.querySelector('.sr');
-  if (o) o.remove();
-  if (!S.by || !S.q || !el._vp) return;
-  const arr = S.by.get(el._p);
-  if (!arr) return;
+  const old = el.querySelector('.sr');
+  if (old) old.remove();
+  if (!findState.by || !findState.q || !el._vp) return;
+  const pageHits = findState.by.get(el._p);
+  if (!pageHits) return;
   const box = document.createElement('div');
   box.className = 'sr';
-  arr.forEach((h) => {
-    const c = h === S.hits[S.i];
+  pageHits.forEach((h) => {
+    const isCurrent = h === findState.hits[findState.i];
     hitRects(h, el._vp).forEach((r) => {
       const d = document.createElement('div');
-      if (c) d.className = 'cur';
+      if (isCurrent) d.className = 'cur';
       d.style.cssText = 'left:' + r.l + 'px;top:' + r.t + 'px;width:' + r.w + 'px;height:' + r.h + 'px';
       box.appendChild(d);
     });
   });
   el.appendChild(box);
 }
+// Marks the matches again on every page already painted
 const refreshMarks = () =>
   [...$('#view').children].forEach((el) => {
     if (el._ov) markHits(el);
   });
-function fcount() {
-  const c = $('#sc');
-  c.textContent = !S.q
+// The counter of the find bar: “Searching…”, “No results”, “12 results” or “3 of 12”
+function showFindCount() {
+  const counter = $('#sc');
+  counter.textContent = !findState.q
     ? ''
-    : !S.hits.length
-      ? S.busy
+    : !findState.hits.length
+      ? findState.busy
         ? _t('Searching…')
         : _t('No results')
-      : S.i < 0
-        ? _n(S.hits.length, '{n} result', '{n} results')
-        : _t('{i} of {n}', { i: S.i + 1, n: S.hits.length });
+      : findState.i < 0
+        ? _n(findState.hits.length, '{n} result', '{n} results')
+        : _t('{i} of {n}', { i: findState.i + 1, n: findState.hits.length });
 }
-function fshow() {
-  const h = S.hits[S.i];
-  if (!h) return;
-  const pi = pages.indexOf(h.p);
-  if (pi < 0) return;
-  const v = $('#view'),
-    el = v.children[pi],
-    same = !twoUp || pi - (pi % 2) == shownPair,
-    r = el && el._vp && hitRects(h, el._vp)[0];
-  let vis = false;
-  if (r && same) {
-    const er = el.getBoundingClientRect(),
-      vr = v.getBoundingClientRect(),
-      t = er.top + r.t,
-      l = er.left + r.l;
-    vis =
+// Shows the current match: scrolls only if it is not already in view, and leaves it in the first third of the viewer
+function showHit() {
+  const hit = findState.hits[findState.i];
+  if (!hit) return;
+  const pageIdx = pages.indexOf(hit.p);
+  if (pageIdx < 0) return;
+  const view = $('#view'),
+    el = view.children[pageIdx],
+    same = !twoPageView || pageIdx - (pageIdx % 2) == shownPair,
+    rect = el && el._vp && hitRects(hit, el._vp)[0];
+  let visible = false;
+  if (rect && same) {
+    const elRect = el.getBoundingClientRect(),
+      viewRect = view.getBoundingClientRect(),
+      t = elRect.top + rect.t,
+      l = elRect.left + rect.l;
+    visible =
       el.style.display != 'none' &&
-      t >= vr.top + 20 &&
-      t + r.h <= vr.bottom - 20 &&
-      l >= vr.left &&
-      l + r.w <= vr.right - 16;
+      t >= viewRect.top + 20 &&
+      t + rect.h <= viewRect.bottom - 20 &&
+      l >= viewRect.left &&
+      l + rect.w <= viewRect.right - 16;
   }
-  if (!vis && !(twoUp && same)) goTo(pi);
+  if (!visible && !(twoPageView && same)) goTo(pageIdx);
   refreshMarks();
-  if (!vis && r && same) {
-    const er = el.getBoundingClientRect(),
-      vr = v.getBoundingClientRect(),
-      cx = er.left + r.l + r.w / 2;
-    v.scrollTop += er.top + r.t - (vr.top + v.clientHeight / 3);
-    if (cx < vr.left || cx > vr.right) v.scrollLeft += cx - (vr.left + v.clientWidth / 2);
+  if (!visible && rect && same) {
+    const elRect = el.getBoundingClientRect(),
+      viewRect = view.getBoundingClientRect(),
+      cx = elRect.left + rect.l + rect.w / 2;
+    view.scrollTop += elRect.top + rect.t - (viewRect.top + view.clientHeight / 3);
+    if (cx < viewRect.left || cx > viewRect.right) view.scrollLeft += cx - (viewRect.left + view.clientWidth / 2);
   }
-  fcount();
+  showFindCount();
 }
+// Searches every page for the text of the find bar; the first match goes to the one at or after the current page
 async function runFind() {
-  const q = nq($('#sq').value),
-    tok = ++S.tok;
-  S.q = q;
-  S.hits = [];
-  S.i = -1;
-  S.by = new Map();
-  S.ref = pages.slice();
-  S.busy = false;
+  const query = foldText($('#sq').value),
+    token = ++findState.tok;
+  findState.q = query;
+  findState.hits = [];
+  findState.i = -1;
+  findState.by = new Map();
+  findState.ref = pages.slice();
+  findState.busy = false;
   $('#view')
     .querySelectorAll('.sr')
     .forEach((x) => x.remove());
-  if (!q) {
-    fcount();
+  if (!query) {
+    showFindCount();
     return;
   }
-  S.busy = true;
-  fcount();
-  const start = cur;
+  findState.busy = true;
+  showFindCount();
+  const start = currentPage;
   let placed = false;
   for (let k = 0; k < pages.length; k++) {
     const p = pages[k];
-    let tx;
+    let text;
     try {
-      tx = await getTx(p);
+      text = await getPageText(p);
     } catch (e) {
       continue;
     }
-    if (tok != S.tok) return;
-    const arr = [];
+    if (token != findState.tok) return;
+    const pageHits = [];
     let i = 0;
-    while ((i = tx.n.indexOf(q, i)) >= 0) {
-      const h = { p, s: i, e: i + q.length };
-      S.hits.push(h);
-      arr.push(h);
-      i += q.length;
+    while ((i = text.n.indexOf(query, i)) >= 0) {
+      const h = { p, s: i, e: i + query.length };
+      findState.hits.push(h);
+      pageHits.push(h);
+      i += query.length;
     }
-    if (arr.length) {
-      S.by.set(p, arr);
+    if (pageHits.length) {
+      findState.by.set(p, pageHits);
       if (!placed && k >= start) {
         placed = true;
-        S.i = S.hits.length - arr.length;
-        fshow();
+        findState.i = findState.hits.length - pageHits.length;
+        showHit();
       } else {
         const el = $('#view').children[k];
         if (el && el._ov) markHits(el);
       }
     }
-    fcount();
+    showFindCount();
   }
-  S.busy = false;
-  if (!placed && S.hits.length) {
-    S.i = 0;
-    fshow();
+  findState.busy = false;
+  if (!placed && findState.hits.length) {
+    findState.i = 0;
+    showHit();
   }
-  fcount();
+  showFindCount();
 }
-function fstep(d) {
-  if (!S.q || !pages.length) return;
-  if (pages.length != S.ref.length || pages.some((p, i) => p !== S.ref[i])) {
+// Next (dir = 1) or previous (dir = -1) match; if the pages changed since the search, it searches again
+function stepHit(dir) {
+  if (!findState.q || !pages.length) return;
+  if (pages.length != findState.ref.length || pages.some((p, i) => p !== findState.ref[i])) {
     runFind();
     return;
   }
-  const n = S.hits.length;
-  if (!n) return;
-  S.i = S.i < 0 ? (d > 0 ? 0 : n - 1) : (S.i + d + n) % n;
-  fshow();
+  const count = findState.hits.length;
+  if (!count) return;
+  findState.i = findState.i < 0 ? (dir > 0 ? 0 : count - 1) : (findState.i + dir + count) % count;
+  showHit();
 }
+// The find bar: open or not, open (selects what was searched before) and close (removes the marks)
 const findOpen = () => $('#sb').style.display == 'flex';
 function openFind() {
   if (!pages.length) return;
-  const b = $('#sb'),
-    was = findOpen();
-  b.style.top = $('#bar').offsetHeight + 8 + 'px';
-  b.style.display = 'flex';
+  const bar = $('#sb'),
+    wasOpen = findOpen();
+  bar.style.top = $('#bar').offsetHeight + 8 + 'px';
+  bar.style.display = 'flex';
   $('#bFind').classList.add('on');
-  const i = $('#sq');
-  i.focus();
-  i.select();
-  if (!was && nq(i.value)) runFind();
+  const input = $('#sq');
+  input.focus();
+  input.select();
+  if (!wasOpen && foldText(input.value)) runFind();
 }
 function closeFind() {
-  S.tok++;
-  S.hits = [];
-  S.by = null;
-  S.i = -1;
-  S.busy = false;
-  S.q = '';
+  findState.tok++;
+  findState.hits = [];
+  findState.by = null;
+  findState.i = -1;
+  findState.busy = false;
+  findState.q = '';
   $('#sb').style.display = 'none';
   $('#bFind').classList.remove('on');
   $('#sc').textContent = '';
@@ -3181,21 +3375,23 @@ function closeFind() {
     .querySelectorAll('.sr')
     .forEach((x) => x.remove());
 }
-let ftm;
+// Typing searches 250 ms after the last key; Enter goes to the next match (Shift+Enter: previous)
+let findTimer;
 $('#sq').oninput = () => {
-  clearTimeout(ftm);
-  ftm = setTimeout(runFind, 250);
+  clearTimeout(findTimer);
+  findTimer = setTimeout(runFind, 250);
 };
 $('#sq').onkeydown = (e) => {
   if (e.key != 'Enter') return;
   e.preventDefault();
-  if (nq(e.target.value) !== S.q) {
-    clearTimeout(ftm);
+  if (foldText(e.target.value) !== findState.q) {
+    clearTimeout(findTimer);
     runFind();
-  } else fstep(e.shiftKey ? -1 : 1);
+  } else stepHit(e.shiftKey ? -1 : 1);
 };
-$('#sPrev').onclick = () => fstep(-1);
-$('#sNext').onclick = () => fstep(1);
+// Find bar buttons, and Ctrl+F / Esc to open and close it
+$('#sPrev').onclick = () => stepHit(-1);
+$('#sNext').onclick = () => stepHit(1);
 $('#sClose').onclick = closeFind;
 $('#bFind').onclick = () => (findOpen() ? closeFind() : openFind());
 document.addEventListener('keydown', (e) => {
@@ -3215,18 +3411,22 @@ document.addEventListener('keydown', (e) => {
   if (e.key == 'Escape' && findOpen() && !$('#dlg') && !$('#dlg2') && !$('#pal')) closeFind();
 });
 // ---- Print: the PDF is built with the chosen annotations and sent to the browser's print dialogue
-let prnBusy = false,
-  prnFrame = null,
-  prnUrl = null;
+// The hidden frame that prints and its temporary address, kept until the next print
+let printing = false,
+  printFrame = null,
+  printUrl = null;
+// “Print” dialogue: which annotation types are printed
 function printDialog() {
   if (!pages.length || document.getElementById('dlg')) return;
   if (isLocked()) {
-    msg(_t('This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.'));
+    showMessage(
+      _t('This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.'),
+    );
     return;
   }
-  const ov = document.createElement('div');
-  ov.id = 'dlg';
-  ov.innerHTML = `<div class="box"><h3>Print</h3><div class="hint">Annotations to print:</div>
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML = `<div class="box"><h3>Print</h3><div class="hint">Annotations to print:</div>
   <label><input type="checkbox" data-t="note"> Comments</label>
   <label><input type="checkbox" data-t="ft"> Text boxes</label>
   <label><input type="checkbox" data-t="hl" checked> Highlights</label>
@@ -3236,76 +3436,77 @@ function printDialog() {
   <label><input type="checkbox" data-t="ci" checked> Circles</label>
   <label><input type="checkbox" data-t="ar" checked> Arrows</label>
   <div class="row r"><button id="pCancel">Cancel</button><button id="pOk" class="on">Print</button></div></div>`;
-  i18nApply(ov);
-  document.body.appendChild(ov);
+  i18nApply(overlay);
+  document.body.appendChild(overlay);
   const close = () => {
-    ov.remove();
-    document.removeEventListener('keydown', key);
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
   };
   const ok = () => {
-    const types = new Set([...ov.querySelectorAll('input:checked')].map((x) => x.dataset.t));
+    const types = new Set([...overlay.querySelectorAll('input:checked')].map((x) => x.dataset.t));
     close();
     doPrint(types);
   };
-  const key = (e) => {
+  const onKey = (e) => {
     if (e.key == 'Escape') close();
     else if (e.key == 'Enter' && e.target.tagName != 'BUTTON') {
       e.preventDefault();
       ok();
     }
   };
-  document.addEventListener('keydown', key);
-  ov.querySelector('#pCancel').onclick = close;
-  ov.querySelector('#pOk').onclick = ok;
-  ov.querySelector('#pOk').focus();
+  document.addEventListener('keydown', onKey);
+  overlay.querySelector('#pCancel').onclick = close;
+  overlay.querySelector('#pOk').onclick = ok;
+  overlay.querySelector('#pOk').focus();
 }
+// Builds the PDF with those annotations and prints it from a hidden frame (the browser's own PDF viewer prints it)
 async function doPrint(types) {
-  if (prnBusy) return;
-  prnBusy = true;
+  if (printing) return;
+  printing = true;
   try {
-    msg(_t('Preparing to print…'));
+    showMessage(_t('Preparing to print…'));
     await Promise.all(pages.map(loadAnnots));
     const bytes = await build({ types, noBms: true });
-    if (prnFrame) {
-      prnFrame.remove();
-      prnFrame = null;
+    if (printFrame) {
+      printFrame.remove();
+      printFrame = null;
     }
-    if (prnUrl) {
-      URL.revokeObjectURL(prnUrl);
-      prnUrl = null;
+    if (printUrl) {
+      URL.revokeObjectURL(printUrl);
+      printUrl = null;
     }
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })),
-      f = document.createElement('iframe');
-    f.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:600px;border:0';
-    f.onload = () =>
+      frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;height:600px;border:0';
+    frame.onload = () =>
       setTimeout(() => {
         try {
-          f.contentWindow.focus();
-          f.contentWindow.print();
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
           $('#msg').style.display = 'none';
         } catch (e) {
           window.open(url, '_blank');
-          msg(
+          showMessage(
             _t(
               'This browser does not allow printing from here: the PDF has been opened in another tab; print it from there.',
             ),
           );
         }
       }, 400);
-    f.src = url;
-    document.body.appendChild(f);
-    prnFrame = f;
-    prnUrl = url;
+    frame.src = url;
+    document.body.appendChild(frame);
+    printFrame = frame;
+    printUrl = url;
   } catch (e) {
-    msg('Error: ' + e.message);
+    showMessage('Error: ' + e.message);
   }
-  prnBusy = false;
+  printing = false;
 }
 $('#bPrint').onclick = printDialog;
-// ---- About dialog (Information button): name, version, links, credits and licence. Change these values here only.
+// ---- About dialog (main menu → About Penfold): name, version, links, credits and licence. Change these values here only.
 const APP = {
   name: 'Penfold',
-  version: '0.5.4',
+  version: '0.6.0',
   author: 'ibanurq',
   year: 2026,
   repo: 'https://github.com/ibanurq/penfold',
@@ -3314,47 +3515,283 @@ const APP = {
 };
 // The About dialogue shows the app's colour icon (the welcome screen keeps its monochrome symbolic version)
 const APP_ICON = '<img class="ico" src="assets/penfold.svg" alt="">';
+// The arrow at the end of a link row (Lucide arrow-up-right): the link opens outside Penfold, in the browser
+const LINK_ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>';
+// “About Penfold” dialogue
 function aboutDialog() {
   if (document.getElementById('dlg')) return;
-  const ov = document.createElement('div');
-  ov.id = 'dlg';
-  ov.innerHTML =
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML =
     '<div class="box about">' +
     APP_ICON +
     '<h3></h3><div class="ver"></div><div class="tag"></div>' +
-    '<div class="links"><a class="web" target="_blank" rel="noopener"></a><a class="bug" target="_blank" rel="noopener"></a></div>' +
+    '<div class="card links"><a class="web" target="_blank" rel="noopener"><span></span>' +
+    LINK_ARROW +
+    '</a><a class="bug" target="_blank" rel="noopener"><span></span>' +
+    LINK_ARROW +
+    '</a></div>' +
     '<div class="small cred"></div><div class="small libs"></div><div class="small copy"><span></span> · <a class="lic" target="_blank" rel="noopener"></a></div>' +
     '<div class="row r"><button class="on ok"></button></div></div>';
-  const q = (s) => ov.querySelector(s);
-  q('h3').textContent = APP.name;
-  q('.ver').textContent = _t('Version {v}', { v: APP.version });
-  q('.tag').textContent = _t('Read, annotate and organise your PDFs.');
-  q('.web').textContent = _t('Website');
-  q('.web').href = APP.repo;
-  q('.bug').textContent = _t('Report an issue');
-  q('.bug').href = APP.repo + '/issues';
-  q('.cred').textContent = _t('Created by {a}, with AI assistance', { a: APP.author });
-  q('.libs').textContent = _t('Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)');
-  q('.copy span').textContent = '© ' + APP.year + ' ' + APP.author;
-  q('.lic').textContent = _t('Licence {l}', { l: APP.licence });
-  q('.lic').href = APP.licenceUrl;
-  q('.ok').textContent = _t('Close');
+  const query = (s) => overlay.querySelector(s);
+  query('h3').textContent = APP.name;
+  query('.ver').textContent = _t('Version {v}', { v: APP.version });
+  query('.tag').textContent = _t('Read, annotate and organise your PDFs.');
+  query('.web span').textContent = _t('Website');
+  query('.web').href = APP.repo;
+  query('.bug span').textContent = _t('Report an issue');
+  query('.bug').href = APP.repo + '/issues';
+  query('.cred').textContent = _t('Created by {a}, with AI assistance', { a: APP.author });
+  query('.libs').textContent = _t('Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)');
+  query('.copy span').textContent = '© ' + APP.year + ' ' + APP.author;
+  query('.lic').textContent = _t('Licence {l}', { l: APP.licence });
+  query('.lic').href = APP.licenceUrl;
+  query('.ok').textContent = _t('Close');
   const close = () => {
-      ov.remove();
-      document.removeEventListener('keydown', key);
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
     },
-    key = (e) => {
+    onKey = (e) => {
       if (e.key == 'Escape' || (e.key == 'Enter' && e.target.tagName != 'A')) {
         e.preventDefault();
         close();
       }
     };
-  q('.ok').onclick = close;
-  document.addEventListener('keydown', key);
-  document.body.appendChild(ov);
-  q('.ok').focus();
+  query('.ok').onclick = close;
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  query('.ok').focus();
 }
-$('#bInfo').onclick = aboutDialog;
+// ---- Main menu (☰, at the right end of the toolbar), as in GNOME apps: Keyboard Shortcuts and About Penfold.
+// It is a small popover under the button; a click outside, Esc or choosing an item closes it
+function closeMenu() {
+  const m = $('#menu');
+  if (!m) return false;
+  m.remove();
+  $('#bMenu').classList.remove('on');
+  document.removeEventListener('pointerdown', menuOutside, true);
+  return true;
+}
+const menuOutside = (e) => {
+  if (!e.target.closest('#menu, #bMenu')) closeMenu();
+};
+function openMenu() {
+  if (closeMenu()) return;
+  const m = document.createElement('div');
+  m.id = 'menu';
+  m.setAttribute('role', 'menu');
+  [
+    [_t('Keyboard Shortcuts'), shortcutsDialog],
+    [_t('About Penfold'), aboutDialog],
+  ].forEach(([label, action]) => {
+    const b = document.createElement('button');
+    b.setAttribute('role', 'menuitem');
+    b.textContent = label;
+    b.onclick = () => {
+      closeMenu();
+      action();
+    };
+    m.appendChild(b);
+  });
+  // Esc closes the menu; the arrow keys move between its items
+  m.onkeydown = (e) => {
+    const items = [...m.children],
+      i = items.indexOf(document.activeElement);
+    if (e.key == 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenu();
+      $('#bMenu').focus();
+    } else if (e.key == 'ArrowDown' || e.key == 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key == 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    }
+  };
+  document.body.appendChild(m);
+  const r = $('#bMenu').getBoundingClientRect();
+  m.style.top = r.bottom + 6 + 'px';
+  m.style.right = Math.max(8, innerWidth - r.right) + 'px';
+  $('#bMenu').classList.add('on');
+  document.addEventListener('pointerdown', menuOutside, true);
+  m.firstChild.focus();
+}
+$('#bMenu').onclick = openMenu;
+
+// ---- Keyboard shortcuts. SHORTCUTS lists them for the Keyboard Shortcuts window, in groups: each one is [keys,
+// description]; the keys are drawn one by one as keycaps. Annotations come first: they are the ones used most. Ctrl+W and Ctrl+Q exist only in the desktop app (its main
+// process handles them), so they are listed only there
+const IN_DESKTOP_APP = !!window.penfoldDesktop;
+const SHORTCUTS = [
+  [
+    _t('Annotations'),
+    [
+      [['H'], _t('Highlight', null, 'shortcuts')],
+      [['U'], _t('Underline', null, 'shortcuts')],
+      [['Esc'], _t('Back to the text selection tool')],
+    ],
+  ],
+  [
+    _t('General'),
+    [
+      [['Ctrl', 'O'], _t('Open a PDF')],
+      [['Ctrl', 'S'], _t('Save')],
+      [['Ctrl', 'Shift', 'S'], _t('Save As')],
+      [['Ctrl', 'P'], _t('Print')],
+      [['Delete'], _t('Delete the selected pages or bookmarks')],
+      [['Ctrl', '?'], _t('Show the keyboard shortcuts')],
+      ...(IN_DESKTOP_APP
+        ? [
+            [['Ctrl', 'W'], _t('Close the window')],
+            [['Ctrl', 'Q'], _t('Quit')],
+          ]
+        : []),
+    ],
+  ],
+  [
+    _t('Find', null, 'shortcuts'),
+    [
+      [['Ctrl', 'F'], _t('Find in document')],
+      [['Ctrl', 'G'], _t('Next result')],
+      [['Ctrl', 'Shift', 'G'], _t('Previous result')],
+      [['Esc'], _t('Close the find bar')],
+    ],
+  ],
+  [
+    _t('View'),
+    [
+      [['Ctrl', '+'], _t('Zoom in')],
+      [['Ctrl', '−'], _t('Zoom out')],
+      [['Ctrl', '0'], _t('Fit to page width')],
+      [['F9'], _t('Show / hide side panel')],
+    ],
+  ],
+  [
+    _t('Moving around'),
+    [
+      [['Page Down'], _t('Next page')],
+      [['Page Up'], _t('Previous page')],
+      [['Ctrl', 'Home'], _t('First page')],
+      [['Ctrl', 'End'], _t('Last page')],
+      [['Ctrl', 'L'], _t('Go to page')],
+    ],
+  ],
+];
+// Names of keys that are written differently in other languages (Shift is “Mayús” in Spanish…)
+const keyName = (k) =>
+  ['Shift', 'Page Down', 'Page Up', 'Home', 'End', 'Delete'].includes(k) ? _t(k, null, 'key') : k;
+// “Keyboard Shortcuts” window, as GNOME's: the groups one under another, each a card with a row per shortcut
+// (description on the left, keys on the right)
+function shortcutsDialog() {
+  if (document.getElementById('dlg')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML =
+    '<div class="box wide shortcuts"><h3></h3><div class="groups"></div><div class="row r"><button class="on ok"></button></div></div>';
+  overlay.querySelector('h3').textContent = _t('Keyboard Shortcuts');
+  overlay.querySelector('.ok').textContent = _t('Close');
+  const groups = overlay.querySelector('.groups');
+  SHORTCUTS.forEach(([title, rows]) => {
+    const h = document.createElement('h4');
+    h.textContent = title;
+    const card = document.createElement('div');
+    card.className = 'card';
+    rows.forEach(([keys, text]) => {
+      const row = document.createElement('div');
+      row.className = 'krow';
+      const label = document.createElement('span');
+      label.textContent = text;
+      const caps = document.createElement('span');
+      caps.className = 'keys';
+      keys.forEach((k) => {
+        const kbd = document.createElement('kbd');
+        kbd.textContent = keyName(k);
+        caps.appendChild(kbd);
+      });
+      row.append(label, caps);
+      card.appendChild(row);
+    });
+    groups.append(h, card);
+  });
+  const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+    },
+    onKey = (e) => {
+      if (e.key == 'Escape' || e.key == 'Enter') {
+        e.preventDefault();
+        close();
+      }
+    };
+  overlay.querySelector('.ok').onclick = close;
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  overlay.querySelector('.ok').focus();
+}
+// Chooses a toolbar tool, as if its button were clicked (nothing happens while no PDF is open: the buttons are disabled)
+const chooseTool = (t) => $('#bar .ib[data-t="' + t + '"]').click();
+// Clicks a toolbar button if it is enabled
+const pressButton = (sel) => !$(sel).disabled && $(sel).click();
+// The shortcuts themselves. They run in the capture phase, before the other key handlers, so that Esc can tell
+// whether the find bar was open. Nothing is done while a dialogue, the menu or the colour popover is open, and the
+// keys without Ctrl (H, U, Delete, Esc, Page Up / Page Down) are left alone while typing in a field
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if ($('#dlg') || $('#dlg2') || $('#pal') || $('#menu')) return;
+    const ctrl = e.ctrlKey || e.metaKey,
+      key = e.key.length == 1 ? e.key.toLowerCase() : e.key,
+      run = (action) => {
+        e.preventDefault();
+        action();
+      };
+    if (ctrl && !e.altKey) {
+      // Ctrl+? (on most keyboards “?” itself needs Shift)
+      if (key == '?') return run(shortcutsDialog);
+      if (e.shiftKey) {
+        if (key == 's') return run(() => pressButton('#bSaveAs'));
+        if (key == 'g') return run(() => (findOpen() ? stepHit(-1) : openFind()));
+        return;
+      }
+      if (key == 'o') return run(() => $('#bOpen').click());
+      if (key == 's') return run(() => pressButton('#bSave'));
+      if (key == 'g') return run(() => (findOpen() ? stepHit(1) : openFind()));
+      if (key == '+' || key == '=') return run(() => pressButton('#zi'));
+      if (key == '-') return run(() => pressButton('#zo'));
+      if (key == '0') return run(() => pages.length && setFit('w'));
+      if (key == 'l')
+        return run(() => {
+          if (!pages.length) return;
+          $('#pg').focus();
+          $('#pg').select();
+        });
+      if (key == 'Home') return run(() => pages.length && goTo(0));
+      if (key == 'End') return run(() => pages.length && goTo(pages.length - 1));
+      return;
+    }
+    if (ctrl || e.altKey) return;
+    if (key == 'F9') return run(() => pressButton('#bPanel'));
+    if (!pages.length || e.shiftKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)
+      return;
+    // Page Down / Page Up: next / previous page (in “Two pages” they already change pair)
+    if ((key == 'PageDown' || key == 'PageUp') && !twoPageView)
+      return run(() => goTo(Math.max(0, Math.min(pages.length - 1, currentPage + (key == 'PageDown' ? 1 : -1)))));
+    // H / U: highlight / underline the selected text; with no text selected, choose that tool
+    if (key == 'h' || key == 'u') {
+      const type = key == 'h' ? 'hl' : 'ul';
+      return run(() => markSelection(type) || chooseTool(type));
+    }
+    // Delete: deletes the selected pages (Pages tab) or bookmarks (Bookmarks tab), asking first, like the panel's
+    // delete button (with nothing selected the button is disabled and nothing happens)
+    if (key == 'Delete') {
+      const del = $('#sbody [data-action="delete"]');
+      return del && $('#side').style.display != 'none' && run(() => pressButton('#sbody [data-action="delete"]'));
+    }
+    // Esc: back to the text selection tool (if the find bar is open, Esc closes it instead)
+    if (key == 'Escape' && tool != 'sel' && !findOpen()) return run(() => chooseTool('sel'));
+  },
+  true,
+);
+// Ctrl+P opens the Print dialogue
 document.addEventListener('keydown', (e) => {
   if (
     (e.ctrlKey || e.metaKey) &&
@@ -3370,104 +3807,110 @@ document.addEventListener('keydown', (e) => {
   }
 });
 // ---- Text dialogue (comments and text boxes): Enter = new line, Ctrl/Cmd+Enter = save, Esc = cancel
-function textDialog(title, init, cb) {
+function textDialog(title, initial, onSave) {
   if (document.getElementById('dlg')) return;
-  const ov = document.createElement('div');
-  ov.id = 'dlg';
-  ov.innerHTML =
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML =
     '<div class="box wide"><h3></h3><textarea rows="6"></textarea><div class="row r"><button id="tCancel">Cancel</button><button id="tOk" class="on">Save</button></div></div>';
-  i18nApply(ov);
-  ov.querySelector('h3').textContent = title;
-  const ta = ov.querySelector('textarea');
-  ta.value = init || '';
-  document.body.appendChild(ov);
+  i18nApply(overlay);
+  overlay.querySelector('h3').textContent = title;
+  const textarea = overlay.querySelector('textarea');
+  textarea.value = initial || '';
+  document.body.appendChild(overlay);
   const close = () => {
-    ov.remove();
-    document.removeEventListener('keydown', key);
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
   };
   const ok = () => {
-    const v = ta.value;
+    const text = textarea.value;
     close();
-    if (v.trim()) cb(v);
+    if (text.trim()) onSave(text);
   };
-  const key = (e) => {
+  const onKey = (e) => {
     if (e.key == 'Escape') close();
     else if (e.key == 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       ok();
     }
   };
-  document.addEventListener('keydown', key);
-  ov.querySelector('#tCancel').onclick = close;
-  ov.querySelector('#tOk').onclick = ok;
-  ta.focus();
-  ta.setSelectionRange(ta.value.length, ta.value.length);
+  document.addEventListener('keydown', onKey);
+  overlay.querySelector('#tCancel').onclick = close;
+  overlay.querySelector('#tOk').onclick = ok;
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 // ---- Merge PDF: list of files -> a single document open in the application
-async function mergeInto(items, genBm, keepBm) {
+// Replaces the open document with the merged files (items, in order): optionally one bookmark per file, with the
+// file's own bookmarks under it (or at the top level)
+async function mergeInto(items, bookmarkPerFile, keepBookmarks) {
   docs = [];
   pages = [];
-  selPages.clear();
-  selBms.clear();
-  anchor = -1;
-  anchorBm = null;
-  cur = 0;
-  handle = null;
-  fname = _t('merged.pdf');
-  const firsts = [];
+  selectedPages.clear();
+  selectedBookmarks.clear();
+  pageAnchor = -1;
+  bookmarkAnchor = null;
+  currentPage = 0;
+  fileHandle = null;
+  fileName = _t('merged.pdf');
+  const firstPages = [];
   items.forEach((it) => {
-    const di = docs.push({ bytes: it.bytes, pdf: it.pdf }) - 1;
-    firsts.push(pages.length);
-    for (let i = 0; i < it.n; i++) pages.push({ doc: di, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
+    const docIndex = docs.push({ bytes: it.bytes, pdf: it.pdf }) - 1;
+    firstPages.push(pages.length);
+    for (let i = 0; i < it.n; i++)
+      pages.push({ doc: docIndex, idx: i, annots: [], thumb: null, rot: 0, loaded: false });
   });
-  bms = [];
+  bookmarks = [];
   for (let k = 0; k < items.length; k++) {
-    const sub = keepBm ? prune(await convert((await items[k].pdf.getOutline()) || [], k)) : [];
-    if (genBm) {
-      bms.push({
-        title: items[k].file.name.replace(/\.[^.\/\\]+$/, ''),
-        page: pages[firsts[k]],
+    const fileBookmarks = keepBookmarks
+      ? pruneBookmarks(await convertOutline((await items[k].pdf.getOutline()) || [], k))
+      : [];
+    if (bookmarkPerFile) {
+      bookmarks.push({
+        title: items[k].file.name.replace(/\.[^./\\]+$/, ''),
+        page: pages[firstPages[k]],
         color: null,
         bold: false,
         italic: false,
-        items: sub,
+        items: fileBookmarks,
       });
     } else {
-      bms.push(...sub);
+      bookmarks.push(...fileBookmarks);
     }
   }
   // The merged document exists only on screen until it is saved
   markSaved(true);
-  tab = 'bm';
-  ready();
+  panelTab = 'bm';
+  onDocumentReady();
 }
+// “Merge PDF” dialogue: a list of files (added with the button or dropped on it), reordered by dragging
 function mergeDialog() {
   if (document.getElementById('dlg')) return;
   const items = [];
   let dragIdx = -1;
-  const ov = document.createElement('div');
-  ov.id = 'dlg';
-  ov.innerHTML = `<div class="box wide"><h3>Merge PDF</h3>
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML = `<div class="box wide"><h3>Merge PDF</h3>
   <div id="mList" class="mlist"></div>
   <div class="row"><button id="mAdd">Add PDFs…</button><span id="mTot" style="opacity:.7"></span></div>
   <label><input type="checkbox" id="mGen" checked> Create a bookmark for each file</label>
   <label><input type="checkbox" id="mKeep" checked> Keep the files’ bookmarks</label>
   <div class="row r"><button id="mCancel">Cancel</button><button id="mOk" class="on" disabled>Merge</button></div></div>`;
-  i18nApply(ov);
-  document.body.appendChild(ov);
-  const q = (sel) => ov.querySelector(sel),
-    list = q('#mList');
+  i18nApply(overlay);
+  document.body.appendChild(overlay);
+  const query = (sel) => overlay.querySelector(sel),
+    list = query('#mList');
   const close = () => {
-      ov.remove();
-      document.removeEventListener('keydown', esc);
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
     },
-    esc = (e) => {
+    onKey = (e) => {
       if (e.key == 'Escape') close();
     };
-  document.addEventListener('keydown', esc);
-  ov.ondragover = (e) => e.preventDefault();
-  ov.ondrop = (e) => e.preventDefault();
-  const draw = () => {
+  document.addEventListener('keydown', onKey);
+  overlay.ondragover = (e) => e.preventDefault();
+  overlay.ondrop = (e) => e.preventDefault();
+  const drawList = () => {
     list.innerHTML = '';
     if (!items.length) {
       const e = document.createElement('div');
@@ -3476,96 +3919,97 @@ function mergeDialog() {
       list.appendChild(e);
     }
     items.forEach((it, i) => {
-      const r = document.createElement('div');
-      r.className = 'mrow' + (it.enc ? ' enc' : '');
-      r.draggable = true;
+      const row = document.createElement('div');
+      row.className = 'mrow' + (it.enc ? ' enc' : '');
+      row.draggable = true;
       // Drag handle (Lucide grip-vertical), as in GNOME's reorderable lists: it shows that the rows can be moved
       const grip = document.createElement('span');
       grip.className = 'grip';
       grip.innerHTML =
         '<svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>';
-      const nm = document.createElement('span');
-      nm.className = 'nm';
-      nm.textContent = it.file.name;
-      nm.title = it.file.name;
+      const nameEl = document.createElement('span');
+      nameEl.className = 'nm';
+      nameEl.textContent = it.file.name;
+      nameEl.title = it.file.name;
       // Protected PDFs stay in the list (in red) so it is clear which ones will not be merged
-      const pg = document.createElement('span');
+      const pagesEl = document.createElement('span');
       if (it.enc) {
-        pg.className = 'bad';
-        pg.textContent = _t('Cannot be merged');
+        pagesEl.className = 'bad';
+        pagesEl.textContent = _t('Cannot be merged');
       } else {
-        pg.className = 'pg';
-        pg.textContent = _n(it.n, '{n} p.', '{n} pp.');
+        pagesEl.className = 'pg';
+        pagesEl.textContent = _n(it.n, '{n} p.', '{n} pp.');
       }
-      const x = document.createElement('button');
-      x.textContent = '✕';
-      x.title = _t('Remove from list');
-      x.onclick = () => {
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '✕';
+      removeBtn.title = _t('Remove from list');
+      removeBtn.onclick = () => {
         items.splice(i, 1);
-        draw();
+        drawList();
       };
       const zone = (ev) => {
-        const b = r.getBoundingClientRect();
+        const b = row.getBoundingClientRect();
         return ev.clientY < b.top + b.height / 2 ? 'before' : 'after';
       };
-      r.ondragstart = (ev) => {
+      row.ondragstart = (ev) => {
         dragIdx = i;
         ev.dataTransfer.setData('text/plain', 'row');
         ev.dataTransfer.effectAllowed = 'move';
       };
-      r.ondragend = () => {
+      row.ondragend = () => {
         dragIdx = -1;
-        draw();
+        drawList();
       };
-      r.ondragover = (ev) => {
+      row.ondragover = (ev) => {
         if (dragIdx < 0) return;
         ev.preventDefault();
         ev.stopPropagation();
-        r.classList.remove('before', 'after');
-        r.classList.add(zone(ev));
+        row.classList.remove('before', 'after');
+        row.classList.add(zone(ev));
       };
-      r.ondragleave = () => r.classList.remove('before', 'after');
-      r.ondrop = (ev) => {
+      row.ondragleave = () => row.classList.remove('before', 'after');
+      row.ondrop = (ev) => {
         if (dragIdx < 0) return;
         ev.preventDefault();
         ev.stopPropagation();
-        const z = zone(ev),
-          [m] = items.splice(dragIdx, 1);
-        let t = i;
-        if (dragIdx < i) t--;
-        items.splice(z == 'after' ? t + 1 : t, 0, m);
+        const where = zone(ev),
+          [moved] = items.splice(dragIdx, 1);
+        let to = i;
+        if (dragIdx < i) to--;
+        items.splice(where == 'after' ? to + 1 : to, 0, moved);
         dragIdx = -1;
-        draw();
+        drawList();
       };
-      r.append(grip, nm, pg, x);
-      list.appendChild(r);
+      row.append(grip, nameEl, pagesEl, removeBtn);
+      list.appendChild(row);
     });
     const ok = items.filter((it) => !it.enc),
-      tot = ok.reduce((n, it) => n + it.n, 0);
-    q('#mTot').textContent = ok.length
-      ? _n(ok.length, '{n} file', '{n} files') + ' · ' + _n(tot, '{n} page in total', '{n} pages in total')
+      total = ok.reduce((n, it) => n + it.n, 0);
+    query('#mTot').textContent = ok.length
+      ? _n(ok.length, '{n} file', '{n} files') + ' · ' + _n(total, '{n} page in total', '{n} pages in total')
       : '';
-    q('#mOk').disabled = ok.length < 2;
+    query('#mOk').disabled = ok.length < 2;
   };
-  const addFiles = async (fs) => {
-    for (const f of fs) {
-      if (!/\.pdf$/i.test(f.name) && f.type != 'application/pdf') continue;
+  // Reads the files and adds them to the list (only PDFs; protected ones are listed but not merged)
+  const addFiles = async (files) => {
+    for (const file of files) {
+      if (!/\.pdf$/i.test(file.name) && file.type != 'application/pdf') continue;
       try {
-        const bytes = await f.arrayBuffer(),
+        const bytes = await file.arrayBuffer(),
           pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
-        items.push({ file: f, bytes, pdf, n: pdf.numPages, enc: await isProtected(pdf, bytes) });
+        items.push({ file: file, bytes, pdf, n: pdf.numPages, enc: await isProtected(pdf, bytes) });
       } catch (e) {
-        msg(_t('Could not read “{name}”: {m}', { name: f.name, m: e.message }));
+        showMessage(_t('Could not read “{name}”: {m}', { name: file.name, m: e.message }));
       }
     }
-    draw();
+    drawList();
   };
-  const inp = document.createElement('input');
-  inp.type = 'file';
-  inp.accept = '.pdf,application/pdf';
-  inp.multiple = true;
-  inp.onchange = () => addFiles([...inp.files]);
-  q('#mAdd').onclick = () => inp.click();
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = '.pdf,application/pdf';
+  picker.multiple = true;
+  picker.onchange = () => addFiles([...picker.files]);
+  query('#mAdd').onclick = () => picker.click();
   list.ondragover = (ev) => {
     if (ev.dataTransfer.types.includes('Files')) {
       ev.preventDefault();
@@ -3579,35 +4023,38 @@ function mergeDialog() {
     list.classList.remove('drop');
     addFiles([...ev.dataTransfer.files]);
   };
-  q('#mCancel').onclick = close;
-  q('#mOk').onclick = async () => {
-    const genBm = q('#mGen').checked;
-    const keepBm = q('#mKeep').checked;
+  query('#mCancel').onclick = close;
+  query('#mOk').onclick = async () => {
+    const genBm = query('#mGen').checked;
+    const keepBm = query('#mKeep').checked;
     close();
-    msg(_t('Merging…'));
+    showMessage(_t('Merging…'));
     try {
       await mergeInto(
         items.filter((it) => !it.enc),
         genBm,
         keepBm,
       );
-      msg(_t('PDF merged: {n} pages. Use “Save As…” to save it.', { n: pages.length }));
+      showMessage(_t('PDF merged: {n} pages. Use “Save As…” to save it.', { n: pages.length }));
     } catch (e) {
-      msg(_t('Error merging: {m}', { m: e.message }));
+      showMessage(_t('Error merging: {m}', { m: e.message }));
     }
   };
-  draw();
+  drawList();
 }
-function closePal() {
-  const d = document.getElementById('pal');
-  if (d) d.remove();
+// ---- Small helpers ----
+// The colour popover (used to change the colour of an annotation or a bookmark): closes it
+function closePalette() {
+  const pop = document.getElementById('pal');
+  if (pop) pop.remove();
 }
-function openPal(anchor, pick, list) {
-  closePal();
-  const d = document.createElement('div');
-  d.id = 'pal';
-  list = list || PAL;
-  if (list.length > 6) d.style.gridTemplateColumns = 'repeat(4,24px)';
+// Opens the colour popover under button; onPick gets the chosen colour. Closes with any click
+function openPalette(button, onPick, list) {
+  closePalette();
+  const pop = document.createElement('div');
+  pop.id = 'pal';
+  list = list || PALETTE;
+  if (list.length > 6) pop.style.gridTemplateColumns = 'repeat(4,24px)';
   list.forEach((x) => {
     const b = document.createElement('button');
     b.className = 'sq';
@@ -3615,24 +4062,26 @@ function openPal(anchor, pick, list) {
     b.style.background = x.p;
     b.onclick = (ev) => {
       ev.stopPropagation();
-      closePal();
-      pick(x.p);
+      closePalette();
+      onPick(x.p);
     };
-    d.appendChild(b);
+    pop.appendChild(b);
   });
-  document.body.appendChild(d);
-  const r = anchor.getBoundingClientRect();
-  d.style.left = Math.max(8, Math.min(r.left, innerWidth - d.offsetWidth - 8)) + 'px';
-  d.style.top = r.bottom + 6 + 'px';
-  setTimeout(() => document.addEventListener('click', closePal, { once: true }), 0);
+  document.body.appendChild(pop);
+  const rect = button.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(rect.left, innerWidth - pop.offsetWidth - 8)) + 'px';
+  pop.style.top = rect.bottom + 6 + 'px';
+  setTimeout(() => document.addEventListener('click', closePalette, { once: true }), 0);
 }
-function updPg() {
-  cur = Math.max(0, Math.min(cur, pages.length - 1));
-  $('#pg').value = pages.length ? cur + 1 : '';
+// Keeps currentPage within the document and shows it in the page box of the toolbar (“3 of 12”)
+function updatePageBox() {
+  currentPage = Math.max(0, Math.min(currentPage, pages.length - 1));
+  $('#pg').value = pages.length ? currentPage + 1 : '';
   $('#pgN').textContent = pages.length;
 }
+// Changes the zoom (fn sets scale), draws the pages again and stays on the same page
 async function zoomTo(fn) {
-  const keep = cur;
+  const keep = currentPage;
   fn();
   await renderMain();
   goTo(keep);
@@ -3641,75 +4090,80 @@ async function zoomTo(fn) {
 function reflowOnWidth(w0) {
   const w = $('#view').clientWidth;
   if (!pages.length || w0 <= 60 || w <= 60 || Math.abs(w - w0) < 2) return;
-  setFit(twoUp ? 'p' : 'w');
+  setFit(twoPageView ? 'p' : 'w');
 }
 // When a PDF is opened it is fitted to the width (if that fails, it is painted at the current zoom)
 function fitOnOpen() {
-  cur = 0;
-  Promise.resolve(setFit(twoUp ? 'p' : 'w')).catch(() => renderMain());
+  currentPage = 0;
+  Promise.resolve(setFit(twoPageView ? 'p' : 'w')).catch(() => renderMain());
 }
+// Fits the zoom to the width (mode 'w') or to the whole page (mode 'p'; in “Two pages”, the whole pair)
 async function setFit(mode) {
-  const p = pages[cur];
-  if (!p) return;
-  const v = $('#view'),
-    s = cur - (cur % 2),
-    ix = twoUp ? [s, s + 1].filter((k) => k < pages.length) : [cur],
-    vs = [];
-  for (const k of ix) {
+  const page = pages[currentPage];
+  if (!page) return;
+  const view = $('#view'),
+    first = currentPage - (currentPage % 2),
+    shown = twoPageView ? [first, first + 1].filter((k) => k < pages.length) : [currentPage],
+    viewports = [];
+  for (const k of shown) {
     const q = pages[k],
-      g = await docs[q.doc].pdf.getPage(q.idx + 1);
-    vs.push(g.getViewport({ scale: 1, rotation: (g.rotate + (q.rot || 0)) % 360 }));
+      pdfPage = await docs[q.doc].pdf.getPage(q.idx + 1);
+    viewports.push(pdfPage.getViewport({ scale: 1, rotation: (pdfPage.rotate + (q.rot || 0)) % 360 }));
   }
-  const tw = vs.reduce((a, x) => a + x.width, 0) + (twoUp && vs.length == 1 ? vs[0].width : 0),
-    th = Math.max(...vs.map((x) => x.height)),
-    w = (v.clientWidth - 40 - (twoUp ? 14 : 0)) / tw,
-    h = v.clientHeight - (twoUp ? 48 : 30);
-  const ns = Math.max(0.3, Math.min(4, mode == 'w' ? w : Math.min(w, h / th)));
-  if (twoUp && Math.abs(ns - scale) < 1e-6) {
+  const totalW =
+      viewports.reduce((a, x) => a + x.width, 0) + (twoPageView && viewports.length == 1 ? viewports[0].width : 0),
+    maxH = Math.max(...viewports.map((x) => x.height)),
+    fitW = (view.clientWidth - 40 - (twoPageView ? 14 : 0)) / totalW,
+    availH = view.clientHeight - (twoPageView ? 48 : 30);
+  const newScale = Math.max(0.3, Math.min(4, mode == 'w' ? fitW : Math.min(fitW, availH / maxH)));
+  if (twoPageView && Math.abs(newScale - scale) < 1e-6) {
     showPair();
     return;
   }
   zoomTo(() => {
-    scale = ns;
+    scale = newScale;
   });
 }
+// “Two pages” button
 $('#two').onclick = () => {
-  twoUp = !twoUp;
-  $('#view').classList.toggle('two', twoUp);
-  $('#two').classList.toggle('on', twoUp);
+  twoPageView = !twoPageView;
+  $('#view').classList.toggle('two', twoPageView);
+  $('#two').classList.toggle('on', twoPageView);
   showPair();
-  setFit(twoUp ? 'p' : 'w');
+  setFit(twoPageView ? 'p' : 'w');
 };
 // In “Two pages” the wheel, the left/right arrows and Page Up / Page Down change pair
-const flip = (d) => {
-  const t = cur - (cur % 2) + 2 * d;
-  if (t >= 0 && t < pages.length) goTo(t);
+const flipPair = (dir) => {
+  const target = currentPage - (currentPage % 2) + 2 * dir;
+  if (target >= 0 && target < pages.length) goTo(target);
 };
-let wLock = 0;
+// Mouse wheel in “Two pages”: scrolls the pair first; at its end, the next turn of the wheel changes pair.
+// wheelLock is a short pause, so one swipe of a touchpad does not skip several pairs
+let wheelLock = 0;
 $('#view').addEventListener(
   'wheel',
   (e) => {
-    if (!twoUp || e.ctrlKey || !e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-    const v = e.currentTarget,
+    if (!twoPageView || e.ctrlKey || !e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    const view = e.currentTarget,
       now = Date.now(),
       down = e.deltaY > 0;
-    if (down ? v.scrollTop + v.clientHeight < v.scrollHeight - 2 : v.scrollTop > 0) {
-      wLock = Math.max(wLock, now + 250);
+    if (down ? view.scrollTop + view.clientHeight < view.scrollHeight - 2 : view.scrollTop > 0) {
+      wheelLock = Math.max(wheelLock, now + 250);
       return;
     }
     e.preventDefault();
-    if (now < wLock) {
-      wLock = Math.max(wLock, now + 150);
+    if (now < wheelLock) {
+      wheelLock = Math.max(wheelLock, now + 150);
       return;
     }
-    wLock = now + 450;
-    flip(down ? 1 : -1);
+    wheelLock = now + 450;
+    flipPair(down ? 1 : -1);
   },
   { passive: false },
 );
 document.addEventListener('keydown', (e) => {
   if (
-    !twoUp ||
+    !twoPageView ||
     !pages.length ||
     e.ctrlKey ||
     e.metaKey ||
@@ -3722,9 +4176,10 @@ document.addEventListener('keydown', (e) => {
   const d = e.key == 'ArrowRight' || e.key == 'PageDown' ? 1 : e.key == 'ArrowLeft' || e.key == 'PageUp' ? -1 : 0;
   if (d) {
     e.preventDefault();
-    flip(d);
+    flipPair(d);
   }
 });
+// Fit width and fit page buttons; the page box (typing a number + Enter goes to that page)
 $('#fw').onclick = () => setFit('w');
 $('#fp').onclick = () => setFit('p');
 $('#pg').onfocus = (e) => e.target.select();
@@ -3732,179 +4187,195 @@ $('#pg').onkeydown = (e) => {
   if (e.key != 'Enter') return;
   const n = parseInt(e.target.value);
   if (n >= 1 && n <= pages.length) goTo(n - 1);
-  else updPg();
+  else updatePageBox();
   e.target.blur();
 };
 // Merge PDF: the question about unsaved changes comes first, before the files are chosen
 $('#bMerge').onclick = async () => {
   if (await confirmUnsaved()) mergeDialog();
 };
+// The Open and Merge buttons of the welcome screen do the same as the toolbar ones
 $('#eOpen').onclick = () => $('#bOpen').click();
 $('#eMerge').onclick = () => $('#bMerge').click();
 // ---- Extract pages ----
-function parsePages(str, n) {
+// Reads a list of pages such as “1, 5, 10-12, 56-” (56- = to the end) for a document of count pages:
+// { list: [page numbers] } or { err: message }
+function parsePages(text, count) {
   const out = new Set(),
-    parts = str
+    parts = text
       .split(/[,;]/)
-      .map((t) => t.trim())
+      .map((part) => part.trim())
       .filter(Boolean);
   if (!parts.length) return { err: _t('Enter at least one page.') };
-  for (const t of parts) {
-    const m = t.match(/^(\d+)\s*(-)?\s*(\d+)?$/);
-    if (!m || (m[3] && !m[2])) return { err: _t('Invalid format: “{t}”.', { t }) };
+  for (const part of parts) {
+    const m = part.match(/^(\d+)\s*(-)?\s*(\d+)?$/);
+    if (!m || (m[3] && !m[2])) return { err: _t('Invalid format: “{t}”.', { t: part }) };
     const a = +m[1],
-      b = m[2] ? (m[3] ? +m[3] : n) : a;
-    if (a < 1 || a > n) return { err: _t('Page {p} does not exist (the document has {n}).', { p: a, n }) };
-    if (b < a) return { err: _t('Invalid range: “{t}”.', { t }) };
-    if (b > n) return { err: _t('Page {p} does not exist (the document has {n}).', { p: b, n }) };
+      b = m[2] ? (m[3] ? +m[3] : count) : a;
+    if (a < 1 || a > count) return { err: _t('Page {p} does not exist (the document has {n}).', { p: a, n: count }) };
+    if (b < a) return { err: _t('Invalid range: “{t}”.', { t: part }) };
+    if (b > count) return { err: _t('Page {p} does not exist (the document has {n}).', { p: b, n: count }) };
     for (let k = a; k <= b; k++) out.add(k);
   }
   return { list: [...out].sort((x, y) => x - y) };
 }
-function fmtPages(l) {
-  const r = [];
-  for (let i = 0; i < l.length;) {
+// The opposite: [1, 5, 10, 11, 12] → “1, 5, 10-12”
+function formatPages(list) {
+  const parts = [];
+  for (let i = 0; i < list.length;) {
     let j = i;
-    while (j + 1 < l.length && l[j + 1] == l[j] + 1) j++;
-    r.push(j > i ? l[i] + '-' + l[j] : '' + l[i]);
+    while (j + 1 < list.length && list[j + 1] == list[j] + 1) j++;
+    parts.push(j > i ? list[i] + '-' + list[j] : '' + list[i]);
     i = j + 1;
   }
-  return r.join(', ');
+  return parts.join(', ');
 }
-function choiceDialog(title, text, btns) {
-  return new Promise((res) => {
-    const o = document.createElement('div');
-    o.id = 'dlg2';
-    o.innerHTML = '<div class="box"><h3></h3><div style="white-space:pre-wrap"></div><div class="row"></div></div>';
-    o.querySelector('h3').textContent = title;
-    o.querySelector('.box>div').textContent = text;
-    const fin = (v) => {
-        o.remove();
-        document.removeEventListener('keydown', esc);
-        res(v);
+// ---- Question dialogues (in the style of GNOME's alerts) ----
+// A question with buttons: each is [label, value, isDefault, extra class]; resolves to the value of the button
+// pressed ('cancel' with Esc)
+function choiceDialog(title, text, buttons) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'dlg2';
+    overlay.innerHTML =
+      '<div class="box"><h3></h3><div style="white-space:pre-wrap"></div><div class="row"></div></div>';
+    overlay.querySelector('h3').textContent = title;
+    overlay.querySelector('.box>div').textContent = text;
+    const finish = (value) => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(value);
       },
-      esc = (e) => {
-        if (e.key == 'Escape') fin('cancel');
+      onKey = (e) => {
+        if (e.key == 'Escape') finish('cancel');
       };
-    btns.forEach(([l, v, on, cls]) => {
+    buttons.forEach(([label, value, isDefault, cls]) => {
       const b = document.createElement('button');
-      b.textContent = l;
-      if (on) b.className = 'on';
+      b.textContent = label;
+      if (isDefault) b.className = 'on';
       if (cls) b.classList.add(cls);
-      b.onclick = () => fin(v);
-      o.querySelector('.row').appendChild(b);
+      b.onclick = () => finish(value);
+      overlay.querySelector('.row').appendChild(b);
     });
-    document.addEventListener('keydown', esc);
-    document.body.appendChild(o);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
   });
 }
+// Cancel / OK question: resolves to true or false
 function confirmDialog(title, text, okLabel) {
-  const pr = choiceDialog(title, text, [
+  const answer = choiceDialog(title, text, [
     [_t('Cancel'), 'cancel'],
     [okLabel || _t('OK'), 'ok', true],
   ]);
-  const b = document.querySelector('#dlg2 button.on');
-  if (b) b.focus();
-  return pr.then((v) => v == 'ok');
+  const okBtn = document.querySelector('#dlg2 button.on');
+  if (okBtn) okBtn.focus();
+  return answer.then((v) => v == 'ok');
 }
-function promptDialog(title, label, init, okLabel) {
-  return new Promise((res) => {
-    const o = document.createElement('div');
-    o.id = 'dlg2';
-    o.innerHTML =
+// Asks for a text: resolves to the text, or null if cancelled or empty
+function promptDialog(title, label, initial, okLabel) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'dlg2';
+    overlay.innerHTML =
       '<div class="box"><h3></h3><div></div><input type="text" autocomplete="off"><div class="row"><button class="c"></button><button class="on ok"></button></div></div>';
-    o.querySelector('.c').textContent = _t('Cancel');
-    o.querySelector('h3').textContent = title;
-    o.querySelector('.box>div').textContent = label;
-    const inp = o.querySelector('input');
-    inp.value = init || '';
-    o.querySelector('.ok').textContent = okLabel || _t('OK');
-    const fin = (v) => {
-      o.remove();
-      document.removeEventListener('keydown', key);
-      res(v);
+    overlay.querySelector('.c').textContent = _t('Cancel');
+    overlay.querySelector('h3').textContent = title;
+    overlay.querySelector('.box>div').textContent = label;
+    const input = overlay.querySelector('input');
+    input.value = initial || '';
+    overlay.querySelector('.ok').textContent = okLabel || _t('OK');
+    const finish = (v) => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(v);
     };
-    const key = (e) => {
-      if (e.key == 'Escape') fin(null);
-      else if (e.key == 'Enter' && e.target === inp) {
+    const onKey = (e) => {
+      if (e.key == 'Escape') finish(null);
+      else if (e.key == 'Enter' && e.target === input) {
         e.preventDefault();
-        fin(inp.value || null);
+        finish(input.value || null);
       }
     };
-    o.querySelector('.c').onclick = () => fin(null);
-    o.querySelector('.ok').onclick = () => fin(inp.value || null);
-    document.addEventListener('keydown', key);
-    document.body.appendChild(o);
-    inp.focus();
-    inp.select();
+    overlay.querySelector('.c').onclick = () => finish(null);
+    overlay.querySelector('.ok').onclick = () => finish(input.value || null);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    input.focus();
+    input.select();
   });
 }
-function extractDialog(init) {
+// “Extract pages” dialogue: which pages (by default the selected ones), as one file or one per page, and whether to
+// delete them from the document or leave out bookmarks and annotations
+function extractDialog(initial) {
   if (!pages.length) {
-    msg(_t('Open a PDF first.'));
+    showMessage(_t('Open a PDF first.'));
     return;
   }
   if (document.getElementById('dlg')) return;
-  if (init === undefined) init = fmtPages(pages.map((p, k) => (selPages.has(p) ? k + 1 : 0)).filter(Boolean));
-  const ov = document.createElement('div');
-  ov.id = 'dlg';
-  ov.innerHTML = `<div class="box"><h3>Extract pages</h3>
-  <div style="position:relative"><div class="row"><b>Pages to extract:</b><span class="help" tabindex="0">?<span class="tip">Examples:<br><code>5</code> → page 5 only<br><code>5, 9</code> → pages 5 and 9<br><code>5-10</code> → pages 5 to 10<br><code>5-</code> → page 5 to the end<br><code>1, 5, 10-12, 56-</code> → pages 1 and 5, 10 to 12, and 56 to the end</span></span></div>
+  if (initial === undefined)
+    initial = formatPages(pages.map((p, k) => (selectedPages.has(p) ? k + 1 : 0)).filter(Boolean));
+  const overlay = document.createElement('div');
+  overlay.id = 'dlg';
+  overlay.innerHTML = `<div class="box"><h3>Extract pages</h3>
+  <div><b>Pages to extract:</b>
   <input id="xPg" type="text" autocomplete="off" placeholder="1, 5, 10-12, 56-" style="width:100%;box-sizing:border-box;margin-top:6px">
+  <div class="hint xhint">Separate the pages with commas and use a dash for a range (10‑12). 56‑ means from page 56 to the end.</div>
   <div id="xErr" class="err"></div></div>
   <label><input type="checkbox" id="xSep"> Extract as separate pages</label>
   <label><input type="checkbox" id="xDel"> Delete pages after extraction</label>
   <label><input type="checkbox" id="xClean"> Delete bookmarks and annotations</label>
   <div class="row r"><button id="xCancel">Cancel</button><button id="xOk" class="on">OK</button></div></div>`;
-  i18nApply(ov);
-  document.body.appendChild(ov);
-  const q = (s) => ov.querySelector(s),
-    inp = q('#xPg'),
-    err = q('#xErr');
-  inp.value = init;
+  i18nApply(overlay);
+  document.body.appendChild(overlay);
+  const query = (s) => overlay.querySelector(s),
+    input = query('#xPg'),
+    error = query('#xErr');
+  input.value = initial;
   const close = () => {
-      ov.remove();
-      document.removeEventListener('keydown', esc);
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
     },
-    esc = (e) => {
+    onKey = (e) => {
       if (e.key == 'Escape' && !document.getElementById('dlg2')) close();
     };
-  document.addEventListener('keydown', esc);
-  q('#xCancel').onclick = close;
-  inp.oninput = () => (err.textContent = '');
+  document.addEventListener('keydown', onKey);
+  query('#xCancel').onclick = close;
+  input.oninput = () => (error.textContent = '');
   const run = async () => {
-    const r = parsePages(inp.value, pages.length);
-    if (r.err) {
-      err.textContent = r.err;
+    const parsed = parsePages(input.value, pages.length);
+    if (parsed.err) {
+      error.textContent = parsed.err;
       return;
     }
-    const sel = r.list.map((k) => pages[k - 1]),
-      o = { sep: q('#xSep').checked, del: q('#xDel').checked, clean: q('#xClean').checked };
-    if (o.del && sel.length >= pages.length) {
-      err.textContent = _t('You can’t delete all the pages: untick “Delete pages after extraction”.');
+    const chosen = parsed.list.map((k) => pages[k - 1]),
+      opts = { sep: query('#xSep').checked, del: query('#xDel').checked, clean: query('#xClean').checked };
+    if (opts.del && chosen.length >= pages.length) {
+      error.textContent = _t('You can’t delete all the pages: untick “Delete pages after extraction”.');
       return;
     }
-    q('#xOk').disabled = true;
+    query('#xOk').disabled = true;
     try {
-      await extractPages(sel, o, ov);
+      await extractPages(chosen, opts, overlay);
       close();
     } catch (e) {
-      q('#xOk').disabled = false;
-      if (e.name != 'AbortError') msg('Error: ' + e.message);
+      query('#xOk').disabled = false;
+      if (e.name != 'AbortError') showMessage('Error: ' + e.message);
     }
   };
-  q('#xOk').onclick = run;
-  inp.onkeydown = (e) => {
+  query('#xOk').onclick = run;
+  input.onkeydown = (e) => {
     if (e.key == 'Enter') run();
   };
-  inp.focus();
-  inp.select();
+  input.focus();
+  input.select();
 }
-async function extractPages(sel, o, ov) {
-  const groups = o.sep ? sel.map((p) => [p]) : [sel],
-    w = Math.max(2, String(groups.length).length);
-  const names = o.sep
-    ? groups.map((_, i) => _t('extracted') + '_' + String(i + 1).padStart(w, '0') + '.pdf')
+// Writes the extracted files. Chromium-based browsers write into a chosen folder (asking before overwriting files
+// already there); other browsers download them
+async function extractPages(chosen, opts, dialog) {
+  const groups = opts.sep ? chosen.map((p) => [p]) : [chosen],
+    digits = Math.max(2, String(groups.length).length);
+  const names = opts.sep
+    ? groups.map((_, i) => _t('extracted') + '_' + String(i + 1).padStart(digits, '0') + '.pdf')
     : [_t('extracted') + '.pdf'];
   let dir = null,
     final = names;
@@ -3919,21 +4390,21 @@ async function extractPages(sel, o, ov) {
         throw e;
       }
     };
-    const ex = [];
-    for (const n of names) if (await exists(n)) ex.push(n);
-    if (ex.length) {
-      ov.style.display = 'none';
-      let ch;
+    const existing = [];
+    for (const n of names) if (await exists(n)) existing.push(n);
+    if (existing.length) {
+      dialog.style.display = 'none';
+      let answer;
       try {
-        ch = await choiceDialog(
+        answer = await choiceDialog(
           _t('Existing files'),
           _t('Already in the folder:') +
             '\n' +
-            ex
+            existing
               .slice(0, 6)
               .map((n) => '- ' + n)
               .join('\n') +
-            (ex.length > 6 ? '\n' + _t('…and {n} more', { n: ex.length - 6 }) : '') +
+            (existing.length > 6 ? '\n' + _t('…and {n} more', { n: existing.length - 6 }) : '') +
             '\n\n' +
             _t('Do you want to overwrite them or rename the new ones?'),
           [
@@ -3943,10 +4414,10 @@ async function extractPages(sel, o, ov) {
           ],
         );
       } finally {
-        ov.style.display = '';
+        dialog.style.display = '';
       }
-      if (ch == 'cancel') throw Object.assign(new Error('cancel'), { name: 'AbortError' });
-      if (ch == 'rename') {
+      if (answer == 'cancel') throw Object.assign(new Error('cancel'), { name: 'AbortError' });
+      if (answer == 'rename') {
         final = [];
         for (const n of names) {
           let m = n,
@@ -3956,15 +4427,15 @@ async function extractPages(sel, o, ov) {
         }
       }
     }
-  } else msg(_t('This browser does not allow choosing a folder: the files will be downloaded.'));
+  } else showMessage(_t('This browser does not allow choosing a folder: the files will be downloaded.'));
   const src = await Promise.all(docs.map((d) => PDFLib.PDFDocument.load(d.bytes, { ignoreEncryption: true })));
   for (let i = 0; i < groups.length; i++) {
-    const bytes = await build({ pages: groups[i], noAnnots: o.clean, src });
+    const bytes = await build({ pages: groups[i], noAnnots: opts.clean, src });
     if (dir) {
-      const fh = await dir.getFileHandle(final[i], { create: true }),
-        wr = await fh.createWritable();
-      await wr.write(bytes);
-      await wr.close();
+      const fileHandle = await dir.getFileHandle(final[i], { create: true }),
+        writable = await fileHandle.createWritable();
+      await writable.write(bytes);
+      await writable.close();
     } else {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -3973,52 +4444,55 @@ async function extractPages(sel, o, ov) {
       await new Promise((r) => setTimeout(r, 300));
     }
   }
-  if (o.del) {
-    sel.forEach((x) => {
+  if (opts.del) {
+    chosen.forEach((x) => {
       const idx = pages.indexOf(x);
       if (idx >= 0) pages.splice(idx, 1);
     });
-    selPages.clear();
-    bms = prune(bms);
+    selectedPages.clear();
+    bookmarks = pruneBookmarks(bookmarks);
     renderSide();
     renderMain();
   }
-  msg(
+  showMessage(
     _t('{x} into {f}', {
-      x: _n(sel.length, '{n} page extracted', '{n} pages extracted'),
+      x: _n(chosen.length, '{n} page extracted', '{n} pages extracted'),
       f: _n(groups.length, '{n} file', '{n} files'),
     }) +
-      (o.del ? _t(' and removed from the document') : '') +
+      (opts.del ? _t(' and removed from the document') : '') +
       ' ✔',
   );
 }
+// ---- Start-up ----
+// Side panel resizer: dragging the bar changes the panel's width, which is remembered for next time
 (() => {
-  const sd = $('#side'),
-    r = $('#rs');
-  sd.style.minWidth = SIDE_MIN + 'px';
+  const side = $('#side'),
+    resizer = $('#rs');
+  side.style.minWidth = SIDE_MIN + 'px';
   try {
     const w = localStorage.getItem('sw');
-    if (w) sd.style.width = w + 'px';
+    if (w) side.style.width = w + 'px';
   } catch (e) {}
-  r.onmousedown = (e) => {
+  resizer.onmousedown = (e) => {
     e.preventDefault();
     const w0 = $('#view').clientWidth;
-    const mm = (ev) => {
-      sd.style.width = Math.max(SIDE_MIN, Math.min(thMaxPanel(), ev.clientX)) + 'px';
+    const onMove = (ev) => {
+      side.style.width = Math.max(SIDE_MIN, Math.min(panelMaxWidth(), ev.clientX)) + 'px';
     };
-    const mu = () => {
-      document.removeEventListener('mousemove', mm);
-      document.removeEventListener('mouseup', mu);
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
       document.body.style.userSelect = '';
       try {
-        localStorage.setItem('sw', parseInt(sd.style.width));
+        localStorage.setItem('sw', parseInt(side.style.width));
       } catch (e) {}
       reflowOnWidth(w0);
     };
     document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', mm);
-    document.addEventListener('mouseup', mu);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   };
 })();
-new ResizeObserver(thCols).observe($('#sbody'));
+// The thumbnail columns follow the panel's width; the protected-PDF sign follows the viewer
+new ResizeObserver(updateThumbColumns).observe($('#sbody'));
 new ResizeObserver(lockBadge).observe($('#view'));

@@ -20,6 +20,7 @@ if (process.env.PENFOLD_USER_DATA) app.setPath('userData', process.env.PENFOLD_U
 // page: the system's first language that is English or has a file, then its fallback language, then English.
 const { FALLBACK, loadLangs } = require('./i18n');
 const LANGS = loadLangs();
+// The translation of text into the system's language ({name} placeholders are filled in from values)
 function t(text, values = {}) {
   const has = (l) => l === 'en' || Object.prototype.hasOwnProperty.call(LANGS, l),
     prefs = app.getPreferredSystemLanguages().map((l) => l.toLowerCase().split('-')[0]),
@@ -61,6 +62,7 @@ if (!app.requestSingleInstanceLock()) {
 
   // ---- Window size and position, remembered between sessions (the last window closed is the one remembered)
   const stateFile = () => path.join(app.getPath('userData'), 'window-state.json');
+  // The remembered size and position; the position only if it is still on one of the screens
   function loadState() {
     try {
       const s = JSON.parse(fs.readFileSync(stateFile(), 'utf8'));
@@ -72,6 +74,7 @@ if (!app.requestSingleInstanceLock()) {
       return {};
     }
   }
+  // Remembers the window's size, position and whether it is maximised
   function saveState(win) {
     try {
       fs.mkdirSync(app.getPath('userData'), { recursive: true });
@@ -103,6 +106,8 @@ if (!app.requestSingleInstanceLock()) {
     await openFromDesktop(handle);
   })()`;
 
+  // Opens, one after another, the files waiting in a window's queue (once its page has loaded). Each file gets a
+  // number (id) that allows the page to write back to that file only
   async function openNext(w) {
     if (w.busy) return;
     w.busy = true;
@@ -127,6 +132,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     w.busy = false;
   }
+  // Puts a file in a window's queue and brings the window forward
   function openIn(w, file) {
     w.claimed = true;
     w.queue.push(file);
@@ -160,6 +166,7 @@ if (!app.requestSingleInstanceLock()) {
   }
 
   // ---- Closing: a window with unsaved changes asks first, with Penfold's own question (Save, Discard, Cancel)
+  // Asks the page (confirmUnsaved in js/penfold.js); true = the window may close
   async function confirmClose(w) {
     if (!w.ready || w.win.isDestroyed()) return true;
     w.win.focus();
@@ -169,6 +176,7 @@ if (!app.requestSingleInstanceLock()) {
       return true; // a page that cannot answer has nothing it could save
     }
   }
+  // Closes a window after the question (asking avoids showing it twice if the close button is pressed again)
   async function closeWindow(w) {
     if (w.asking) return;
     w.asking = true;
@@ -215,11 +223,13 @@ if (!app.requestSingleInstanceLock()) {
   // front while it has unsaved changes
   const TITLE_WATCH = `setInterval(() => {
     try {
-      const t = pages.length ? (hasUnsavedChanges() ? '• ' : '') + fname + ' — Penfold' : 'Penfold';
+      const t = pages.length ? (hasUnsavedChanges() ? '• ' : '') + fileName + ' — Penfold' : 'Penfold';
       if (document.title !== t) document.title = t;
     } catch (e) {}
   }, 300)`;
 
+  // Creates a window and its state w: ready (page loaded), queue (files waiting), handoff (the file being handed to
+  // the page), claimed (a file is on its way), busy (opening files), asking (the question is shown), allowClose
   function createWindow() {
     const s = loadState(),
       // The first window goes where the last one was; the others are placed by the desktop

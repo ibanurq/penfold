@@ -50,10 +50,9 @@ La motivación para su desarrollo ha sido contar con una única herramienta, sen
 
 ## Detalles
 
-- Arrastrar y soltar con el ratón funciona para cambiar el orden de los archivos que se van a combinar, y para
-  reordenar páginas en la vista de miniaturas y marcadores.
+- Arrastrar y soltar con el ratón funciona para cambiar el orden de los archivos que se van a combinar, y para reordenar páginas en la vista de miniaturas y marcadores.
+- Atajos de teclado (listado accesible con `Ctrl + ?`).
 - Selección múltiple (Mayús o Ctrl) de páginas en la vista de miniaturas y de marcadores.
-- Idiomas: inglés y castellano (según el idioma del sistema).
 - Modo claro y oscuro (según el tema del sistema).
 - Paleta de 6 colores para las anotaciones y de 8 para los marcadores.
 - Panel izquierdo redimensionable.
@@ -67,6 +66,11 @@ Notas importantes:
 
 - Las anotaciones hechas con otros programas son de solo lectura y se conservan intactas al guardar.
 - Las anotaciones de tipos no soportados no se muestran, pero se conservan al guardar.
+
+## Idiomas
+
+- Inglés
+- Castellano
 
 ## Instalación
 

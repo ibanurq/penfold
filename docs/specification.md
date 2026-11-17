@@ -23,8 +23,8 @@ extracted: Penfold warns and blocks those actions (see “Protected PDFs”).
 - **Name: Penfold.** *Pen* + *fold* (a folded sheet of pages): the two halves of the app, annotating and organising
   pages. Always use it with a descriptive subtitle, e.g. “Penfold — PDF editor”. Penfold recognises its own
   annotations only by the author `Penfold`.
-- **Version: 0.5.4** (tab title “Penfold 0.5.4”). Features are frozen in 0.5: the third number only goes up for
-  visual polish and bug fixes.
+- **Version: 0.6.0** (tab title “Penfold 0.6.0”). The second number goes up when features are added (0.6: keyboard
+  shortcuts and the main menu); the third one only for visual polish, translations and bug fixes.
 - **Licence: GPL-3.0.** Compatible with the libraries used: pdf.js (Apache-2.0), pdf-lib (MIT) and Lucide icons (ISC).
 - **Repository:** `https://github.com/ibanurq/penfold` (GitHub user `ibanurq`). Planned app ID:
   `io.github.ibanurq.Penfold`.
@@ -72,7 +72,7 @@ The look follows the GNOME Human Interface Guidelines and libadwaita: minimal, w
 - **Controls:** fields with 8 px corners; round search field; pure-CSS checkboxes and radio buttons; GNOME-style thin
   rounded scrollbars and focus rings.
 - **Icons:** Lucide, stroke 1.8, round caps and joins, 20 px in the main toolbar and 18 px in the panel bars.
-- **Single palette (`PAL`):** six colours used for everything (highlight, underline, strikethrough, comment, text box,
+- **Single palette (`PALETTE`):** six colours used for everything (highlight, underline, strikethrough, comment, text box,
   shapes and bookmarks). `deep(c)` returns the same colour; it is kept only so existing calls stay untouched. Old
   annotations with other colours keep their colour.
 
@@ -85,7 +85,7 @@ The look follows the GNOME Human Interface Guidelines and libadwaita: minimal, w
 | Red | `#f66151` |
 | Lilac | `#dc8add` |
 
-- **Bookmark palette (`BM_PAL`):** only in the bookmarks’ colour button, 8 colours in 4 columns × 2 rows: the six
+- **Bookmark palette (`BOOKMARK_PALETTE`):** only in the bookmarks’ colour button, 8 colours in 4 columns × 2 rows: the six
   above plus **Grey** `#606971` (top right) and **Burgundy** `#ad182e` (bottom right). The annotations’ “Change
   colour” palette keeps the 6 (3 × 2).
 - **Colour squares (`.sw` in the toolbar, `.sq` in palettes):** same look (24 px, 5 px corners, thin border); the
@@ -99,7 +99,7 @@ All text in the code is British English; translations live in `js/i18n/`, one fi
 
 | English | Spanish | Notes |
 |---|---|---|
-| Penfold | Penfold | App name. Tab title: “Penfold 0.5.4”. |
+| Penfold | Penfold | App name. Tab title: “Penfold 0.6.0”. |
 | Highlight text | Resaltador | Highlight tool. In lists the item is “Highlight” / “Resaltado”. |
 | Comment | Comentario | Note shown as an icon on the page (speech bubble). |
 | Text box | Cuadro de texto | Text shown directly on the page. |
@@ -125,14 +125,14 @@ Three groups, from left to right:
 - **Left:** show / hide side panel, separator, Open PDF, Merge PDF, separator, Save, Save As…, Print.
 - **Centre:** tools — Select text, Highlight, Underline, Strike through, Comment, Text box, Rectangle, Circle and Arrow
   (grouped with vertical separators); the six-colour palette (`#sws`); the “Go to page” field (“1 of 3”).
-- **Right:** Find, Zoom out, Zoom in, Fit to page width, Whole page, Two pages, and Information (see “About dialogue”).
+- **Right:** Find, Zoom out, Zoom in, Fit to page width, Whole page, Two pages, and the main menu ☰ (see “Main menu and keyboard shortcuts”).
 
 ### Without a PDF
 
-Only Open, Merge and Information are enabled; every other control (side panel, tools, colours, go to page, zoom, two
-pages, Save, Save As…, Print, Find) is greyed out and disabled. `ready()` enables them when a PDF is opened or
+Only Open, Merge and the main menu are enabled; every other control (side panel, tools, colours, go to page, zoom, two
+pages, Save, Save As…, Print, Find) is greyed out and disabled. `onDocumentReady()` enables them when a PDF is opened or
 merged (list `NEED_PDF`). A new control that needs a PDF must be added to that list. Exception: with a protected PDF,
-`ready()` leaves Save, Save As… and Print disabled.
+`onDocumentReady()` leaves Save, Save As… and Print disabled.
 
 ### Welcome screen
 
@@ -145,7 +145,7 @@ SVG mask for the gaps.
 
 ### Zoom on opening and when the viewer width changes
 
-When a PDF is opened (or merged), `ready()` calls `fitOnOpen()`, which sets `cur=0` and applies “Fit to width”
+When a PDF is opened (or merged), `onDocumentReady()` calls `fitOnOpen()`, which sets `currentPage=0` and applies “Fit to width”
 (`setFit('w')`; in two-page mode, `setFit('p')`). If `setFit` failed, the pages are painted at the current zoom
 (`renderMain`). The same happens when the side panel is resized (when the mouse is released) or shown/hidden with its
 button (`reflowOnWidth`): once, not while dragging. A manual zoom is lost when the panel width changes.
@@ -166,9 +166,9 @@ scrolls above the start of the page, and without a height (thumbnails, page numb
 to the start of the page. In two-page mode the height is only used when the pair does not change (when it changes,
 the whole page is fitted).
 
-**Bookmark destinations (`dd`):** when the outline is read, `convert()` keeps the original destination as
+**Bookmark destinations (`dd`):** when the outline is read, `convertOutline()` keeps the original destination as
 `dd={n:name, a:[arguments]}` (`XYZ`, `FitH`, `FitV`, `FitR`, `Fit`, `FitB`, `FitBH`, `FitBV`; `null` = no value).
-`ddFrom` extracts it from pdf.js, `ddOk` validates it and `ddY` gets the height. On save, `build()` writes the
+`destFromPdfJs` extracts it from pdf.js, `isValidDest` validates it and `destY` gets the height. On save, `build()` writes the
 destination back **as it was** (`[page /XYZ null 700 null]`, etc.); without a valid `dd` it writes `[page /Fit]`.
 Bookmarks created in Penfold have no `dd` (they go to the start of the page). “Point to the current page” (⚑) clears
 `dd`, because the old height no longer belongs to the new page.
@@ -178,7 +178,7 @@ Bookmarks created in Penfold have no `dd` (they go to the start of the page). �
 - Hidden by default; opens automatically when a PDF is loaded. Minimum width 265 px (`SIDE_MIN`); the maximum
   allows up to 4 thumbnail columns. Its width is remembered (`localStorage`).
 - **Pages:** actions on the selection — Delete (left), Add and Extract (centre), Rotate anticlockwise / clockwise
-  (right). Responsive thumbnails in 1 to 4 columns (`thCols()`), never wider than 310 px. For portrait pages the
+  (right). Responsive thumbnails in 1 to 4 columns (`updateThumbColumns()`), never wider than 310 px. For portrait pages the
   selection box fits the thumbnail width (class `.pt` and variable `--ar`, set when the image loads). Multiple
   selection with Ctrl/Shift; drag to reorder.
 - **Bookmarks:** bar with Add, Delete (left); Bold, Italic, Colour, Clear formatting (centre); Expand/collapse
@@ -213,10 +213,10 @@ Penfold annotations are removed and written anew (no duplicates).
 
 - **Highlight (`Highlight`):** polygon with `Multiply` blending in an ExtGState, opacity 0.75.
 - **Underline (`Underline`) and Strikethrough (`StrikeOut`):** opaque 1 pt line, at the bottom or in the middle.
-- **Text box (`FreeText`):** lines are split with Helvetica metrics (`ftLines`), like `pre-wrap` on screen. The `/AP`
+- **Text box (`FreeText`):** lines are split with Helvetica metrics (`textBoxLines`), like `pre-wrap` on screen. The `/AP`
   draws the faint background, the border and the text in black. Characters Helvetica lacks are drawn as `?`, but
   `/Contents` keeps the full UTF-16 text.
-- **Shapes (`Square`, `Circle`, `Line`):** drawn by `shapeAP(ctx, a, r)` inside the `BBox`, line width `SW=1`; circles
+- **Shapes (`Square`, `Circle`, `Line`):** drawn by `shapeAppearance(ctx, a, bbox)` inside the `BBox`, line width `SHAPE_STROKE=1`; circles
   with four Bézier curves; the arrowhead (`/LE [/None /OpenArrow]`) computed with trigonometry.
 - **Comment (`Text`):** no `/Popup`; the appearance is the same speech-bubble drawing as on screen.
 
@@ -236,7 +236,7 @@ The app **never uses the browser’s native dialogues** (`alert`, `confirm`, `pr
 `confirmDialog(title, text, okLabel)` returns a promise with `true`/`false`; `promptDialog(title, label, initial,
 okLabel)` returns the text or `null`; `choiceDialog` offers several options (each button: label, value, primary, an
 extra class such as `danger`). Enter confirms, Esc cancels. Short notices
-use `msg()` (a toast at the bottom for 4.5 s). Callers must `await` them.
+use `showMessage()` (a toast at the bottom for 4.5 s: a dark pill with white text, as libadwaita's toasts). Callers must `await` them.
 
 ### Languages
 
@@ -272,25 +272,51 @@ app reads the same files (`electron/i18n.js`) for its own few texts. `js/i18n/RE
 
 ### About dialogue
 
-The Information button (always enabled) opens `aboutDialog()`, a GNOME-style “About” window (`#dlg`, 470 px wide,
+Main menu → About Penfold opens `aboutDialog()`, a GNOME-style “About” window (`#dlg`, 470 px wide,
 everything centred):
 
 - **Icon:** the app’s colour icon, `assets/penfold.svg`, 96 px (`APP_ICON`). The welcome screen keeps its own
   monochrome symbolic version.
-- **Texts, in order:** “Penfold” (22 px, bold); “Version 0.5.4”; “Read, annotate and organise your PDFs.”; the links
-  “Website” (repository) and “Report an issue” (`/issues`), in the accent colour, opening in a new tab; “Created by
-  ibanurq, with AI assistance”; “Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)”; “© 2026 ibanurq ·
+- **Texts, in order:** “Penfold” (22 px, bold); “Version 0.6.0” in a pill (accent-coloured text on a pale accent
+  background); “Read, annotate and organise your PDFs.”; a card (boxed list) with two rows, “Website” (repository)
+  and “Report an issue” (`/issues`), each with an arrow at the end (Lucide arrow-up-right), opening in a new tab;
+  “Created by ibanurq, with AI assistance”; “Uses pdf.js (Apache-2.0) · pdf-lib (MIT) · Lucide icons (ISC)”; “© 2026 ibanurq ·
   Licence GPL-3.0” (the licence links to gnu.org). The last three lines are small and dimmed.
 - **Button:** Close (focused). Enter and Esc also close it.
 - **Data in one place:** name, version, author, year, repository and licence are in the `APP` constant. For a new
   version change `APP.version`, the `<title>` in `index.html` and `version` in `package.json` (the tests check that
   they match).
 
+### Main menu and keyboard shortcuts
+
+- **Main menu (☰,** `#bMenu`, at the right end of the toolbar, always enabled): a popover in the style of libadwaita’s
+  (popover colours, 12 px corners, flat rows of 32 px) with “Keyboard Shortcuts” and “About Penfold”. It closes with
+  Esc, a click outside or choosing an item; the arrow keys move between the items.
+- **Keyboard Shortcuts window** (`shortcutsDialog()`, also Ctrl+?): the shortcuts in groups (Annotations first, as
+  they are the most used; then General, Find, View and Moving around; the annotation rows read just “Highlight” and
+  “Underline”), each group a card with one row per shortcut: description on the left, keys as keycaps
+  on the right. Key names are translated (Shift → “Mayús”, Page Down → “Av Pág”…). Ctrl+W and Ctrl+Q are listed only
+  in the desktop app. Close, Esc or Enter close it.
+- **Shortcuts:** Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+P print, Ctrl+? this window; Delete
+  deletes the selected pages (Pages tab) or bookmarks (Bookmarks tab), asking first, by pressing the panel's delete
+  button (`data-action="delete"`); Ctrl+F find,
+  Ctrl+G / Ctrl+Shift+G next / previous result (they open the find bar if it is closed), Esc closes the find bar;
+  Ctrl++ (or Ctrl+=) / Ctrl+− zoom, Ctrl+0 fit to width, F9 side panel; Page Down / Page Up next / previous page,
+  Ctrl+Home / Ctrl+End first / last page, Ctrl+L puts the cursor in the page box; in the desktop app, Ctrl+W closes
+  the window and Ctrl+Q quits.
+- **H and U:** highlight / underline. With text of a page selected they mark it (`markSelection(type)`, the same
+  function the tools use when the mouse is released) and the tool stays as it was; with nothing selected they choose
+  the Highlight / Underline tool. **Esc** goes back to the text selection tool (unless the find bar is open: then Esc
+  closes it).
+- **When they do not act:** no shortcut acts while a dialogue, the menu or the colour popover is open; the keys without
+  Ctrl (H, U, Delete, Esc, Page Down / Page Up) do nothing while typing in a field (form fields, find bar, page box). The
+  handler runs in the capture phase, before the other key handlers.
+
 ### Adding, extracting and merging
 
 - **Add pages** (Pages tab): from an existing PDF (its bookmarks are inserted in the right place) or a blank page in
   portrait **A4**, **Letter**, **A5** or **A3**; at the start, at the end or after a given page.
-- **Extract pages:** by ranges (`1, 5, 10-12, 56-`), with help on hover. Options: extract as separate pages, delete
+- **Extract pages:** by ranges (`1, 5, 10-12, 56-`), explained by a dimmed line under the field. Options: extract as separate pages, delete
   the pages from the document afterwards, delete bookmarks and annotations (for sharing). With the File System Access
   API the user picks a folder (existing names: overwrite, rename or cancel); otherwise the files are downloaded.
 - **Merge:** a list where PDFs are added with a button or dropped from the file manager, reordered by dragging and
@@ -300,11 +326,11 @@ everything centred):
 ### Forms (AcroForm)
 
 - **Kept on save:** `copyPages` in pdf-lib does not copy the catalogue’s `/AcroForm`, so `build()` calls
-  `carryForm(out, src, pgs)`, which rebuilds it with the fields whose widgets are on the final pages: it keeps `/DA`,
+  `rebuildForm(out, src, pageList)`, which rebuilds it with the fields whose widgets are on the final pages: it keeps `/DA`,
   `/DR` (copied with `PDFObjectCopier`), `/Q` and `/NeedAppearances` (not `/SigFlags`, because the document is
   rewritten); removes widgets of deleted pages from `/Kids`; fixes each annotation’s `/P`; and, when merging, renames
   repeated field names from another document (`name` → `name_2`). `build()` makes **one `copyPages` call per document**
-  so fields shared between pages are copied once. If `carryForm` fails, the file is saved without the form rather than
+  so fields shared between pages are copied once. If `rebuildForm` fails, the file is saved without the form rather than
   not at all.
 - **Shown and filled on screen:** each painted page gets a layer `.fl` (`formLayer(el)`) with one HTML control per
   field — text (`input`/`textarea`, with `maxLen`, password, alignment and font size from the PDF), checkbox, radio
@@ -315,20 +341,21 @@ everything centred):
   dot) because the app’s global checkbox styles are cancelled inside `.fl`. Fields only take the mouse with the Select
   text tool. The canvas does not paint widgets (`AnnotationMode.DISABLE`), so fields have a faint blue background.
   Known limits: on pages rotated in Penfold the field text does not rotate; no JavaScript calculations or validation.
-- **Saved editable:** at the end of `build()`, `applyForm(out, ren)` writes `docs[di].fv` into the final PDF, **only the
+- **Saved editable:** at the end of `build()`, `writeFormValues(out, renamed)` writes `docs[…].fv` into the final PDF, **only the
   touched fields**. Text: `setText` + `defaultUpdateAppearances` (Helvetica; text outside WinAnsi, e.g. emoji, is
   written to `/V` in UTF-16 and `/NeedAppearances` is set). Checkboxes: `check()`/`uncheck()`. Radio buttons: the
   on-screen value is the button’s state name; when the group has `/Opt` it is translated to its option before
   `select()`. Lists: export values with `setValues` (with `/NeedAppearances` when options have display text different
-  from their value). A field that fails does not stop the save: they are counted and reported with `msg`.
+  from their value). A field that fails does not stop the save: they are counted and reported with `showMessage`.
   `out.save({updateFieldAppearances:false})` keeps pdf-lib from redrawing untouched fields. Print and Extract also use
   `build()`, so they include the values.
-- **Flatten:** `build({flatten:true})` runs `flattenForm(out)` after `applyForm`: each field’s `/AP` is drawn as fixed
+- **Flatten:** `build({flatten:true})` runs `flattenForm(out)` after `writeFormValues`: each field’s `/AP` is drawn as fixed
   page content, fitting the transformed appearance box (`/BBox` by `/Matrix`) to the field’s `/Rect` (ISO 32000-1,
   12.5.5); hidden widgets or widgets without appearance are ignored; widgets, fields and `/AcroForm` are removed. It is
   Penfold’s own flattening because pdf-lib’s `form.flatten()` fails on fields without appearance and leaves the widgets.
   If it fails, saving fails with a clear error. **Interface:** only in **Save As…** and only when the document has
-  fillable fields (`hasForm()`): a dialogue with the checkbox “Flatten the form” (unticked by default; Esc or Cancel do
+  fillable fields (`hasForm()`): a dialogue titled “Save As” (no ellipsis: GNOME keeps it for the labels of buttons and menu items that
+  open a dialogue) with a card holding a switch row “Flatten the form” and its explanation (off by default; Esc or Cancel do
   not save). “Save” never flattens. A flattened copy is an **export**: it does not become the working file. Without the
   File System Access API the download is called `…_flattened.pdf`.
 
@@ -399,7 +426,7 @@ pdf.js can read encrypted PDFs (for example with an owner password and no open p
 decrypt them**: saving them produced broken files. Penfold detects them and blocks those actions:
 
 - **Detection (`isProtected(pdf, bytes)`):** first `EncryptFilterName` in pdf.js’s `getMetadata().info`; if missing,
-  `PDFDocument.load(…, {ignoreEncryption:true}).isEncrypted` from pdf-lib. Stored in `docs[di].enc`; `isLocked()`
+  `PDFDocument.load(…, {ignoreEncryption:true}).isEncrypted` from pdf-lib. Stored in `docs[…].enc`; `isLocked()`
   says whether any open document is protected.
 - **On opening:** a notice (`protectedNotice`, built on `choiceDialog`) with the warning sign instead of a title and
   the centred text “This PDF is protected. Any changes made to it cannot be saved. It cannot be printed and pages
@@ -410,7 +437,7 @@ decrypt them**: saving them produced broken files. Penfold detects them and bloc
   `#view`, because `renderMain` empties `#view` and the code uses `#view.children[i]` as pages.
 - **Icon (`WARN_SVG`):** Lucide `triangle-alert` with GNOME yellow fill `#f6d32d` and black outline and exclamation
   mark (an exception to the monochrome toolbar icons). 56 px in the dialogue.
-- **Disabled:** Save, Save As…, Print and Extract pages (Find stays enabled). Ctrl+P shows a `msg` instead.
+- **Disabled:** Save, Save As…, Print and Extract pages (Find stays enabled). Ctrl+P shows a message instead.
 - **Adding pages from a protected PDF** is refused with a message; **Merge** lists protected files in red
   (`#e01b24`) with “Cannot be merged” instead of the page count and leaves them out.
 - **Safety net:** `build()` throws a clear error if any source document `isEncrypted`.
@@ -426,9 +453,9 @@ decrypt them**: saving them produced broken files. Penfold detects them and bloc
     `loaded`, `widgets` and `annots`.
   - Annotation types: `hl`, `ul`, `so` (StrikeOut), `sq` (Square), `ci` (Circle), `ar` (Arrow / Line), `note`, `ft`,
     plus `link`. Text annotations use `quads`; others use `x`, `y` (and `x2`, `y2`, `w`). `ro: true` marks foreign ones.
-  - `bms`: the bookmark tree (`title`, `page`, `dd`, `color`, `bold`, `italic`, `open`, `items`).
-  - `cur`: current page index; `scale`: zoom; `tool`, `color`: current tool and colour.
-- **Shapes and `/AP`:** `shapeAP`, `quadAP`, `ftAP` and `noteAP` write raw PDF drawing operators (`m`, `l`, `c`, `re`,
+  - `bookmarks`: the bookmark tree (`title`, `page`, `dd`, `color`, `bold`, `italic`, `open`, `items`).
+  - `currentPage`: current page index; `scale`: zoom; `tool`, `annotColor`: current tool and colour.
+- **Shapes and `/AP`:** `shapeAppearance`, `markupAppearance`, `textBoxAppearance` and `noteAppearance` write raw PDF drawing operators (`m`, `l`, `c`, `re`,
   `S`, `f`…).
 
 ## Decisions taken

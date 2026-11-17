@@ -152,7 +152,7 @@ export async function waitRendered(page) {
       ((r) => r.bottom > sr.top && r.top < sr.bottom)(i.getBoundingClientRect()),
     );
     if (!ths.every((i) => i.complete && i.naturalWidth > 0)) return false;
-    return annBusy === 0;
+    return annotsLoading === 0;
   });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);

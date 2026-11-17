@@ -117,7 +117,7 @@ test('bookmarks: list, go to, add, bold, save', async ({ page }) => {
   await page.click('#sbody .sbar .ib[title="Negrita"]');
   const state = await page.evaluate(() => {
     const m = (l) => l.map((i) => ({ title: i.title, bold: !!i.bold, italic: !!i.italic, items: m(i.items) }));
-    return m(bms);
+    return m(bookmarks);
   });
   expect(JSON.stringify(state)).toContain('"title":"Página 2","bold":true');
   await page.click('#bSaveAs');
@@ -215,5 +215,5 @@ test('print dialog: default choices, then a PDF is prepared for printing', async
   expect(checked).toEqual({ note: false, ft: false, hl: true, ul: true, so: true, sq: true, ci: true, ar: true });
   await expect(page).toHaveScreenshot('print-dialog.png', SHOT);
   await page.click('#pOk');
-  await page.waitForFunction(() => prnFrame && prnFrame.src.startsWith('blob:'));
+  await page.waitForFunction(() => printFrame && printFrame.src.startsWith('blob:'));
 });

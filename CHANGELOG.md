@@ -2,8 +2,28 @@
 
 All notable changes to Penfold are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Version numbers: while features are frozen in 0.5, the third number (0.5.1, 0.5.2…) only goes up for visual polish
-and bug fixes.
+Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
+for visual polish, translations and bug fixes.
+
+## 0.6.0 — 2026-11-17
+
+### Added
+- Keyboard shortcuts: Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+G / Ctrl+Shift+G next / previous result,
+  Ctrl++ / Ctrl+− / Ctrl+0 zoom, F9 side panel, Page Down / Page Up, Ctrl+Home / Ctrl+End and Ctrl+L to move around.
+  Delete deletes the selected pages or bookmarks (asking first). H and U highlight or underline the selected text (with
+  nothing selected they choose the tool), and Esc goes back to the text selection tool.
+- Main menu (☰) in place of the Information button, as in GNOME apps, with Keyboard Shortcuts (a window listing them,
+  also opened with Ctrl+?) and About Penfold.
+
+### Changed
+- Dialogues closer to GNOME (libadwaita): Extract pages explains the page list in a line under the field instead of a
+  “?” tooltip that covered it; the Save As dialogue has no “…” in its title and “Flatten the form” is a switch in a
+  card; About shows the version in a pill and Website / Report an issue as rows of a card; the brief messages at the
+  bottom are dark pills, like GNOME's toasts.
+- The code has clearer names and a comment for every part; the code checker reports nothing.
+
+### Fixed
+- A test of the unsaved-changes question could fail now and then: it checked before the document had finished opening.
 
 ## 0.5.4 — 2026-11-17
 

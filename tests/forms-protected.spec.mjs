@@ -96,7 +96,7 @@ test('Save As can flatten the form; Cancel does not save', async ({ page }) => {
   expect(pdf.hasAcroForm).toBe(false);
   expect(pdf.pages[0].annots.filter((a) => a.subtype == 'Widget')).toHaveLength(0);
   // A flattened copy is an export: the working file is still the original one
-  expect(await page.evaluate(() => handle && handle.name)).toBe('form.pdf');
+  expect(await page.evaluate(() => fileHandle && fileHandle.name)).toBe('form.pdf');
 });
 
 for (const name of ['protected.pdf', 'protected-objstm.pdf']) {

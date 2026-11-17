@@ -46,7 +46,7 @@ automatically, not by eye:
 - Techniques that proved useful:
   - File pickers are replaced by in-memory fakes (`window.showOpenFilePicker` returns a `File`; saved files are kept
     and read back). Merge is tested by dispatching a `drop` event with a `DataTransfer` on `#mList`.
-  - The app’s global state (`docs`, `pages`, `cur`, `bms`) can be read from the test to check the result.
+  - The app’s global state (`docs`, `pages`, `currentPage`, `bookmarks`) can be read from the test to check the result.
   - Protected test PDFs are made with `qpdf --encrypt` (with and without `--object-streams=generate`, which behave
     differently).
   - Reference screenshots depend on the installed fonts (Cantarell) and on the browser version, so they are only valid
@@ -64,7 +64,7 @@ automatically, not by eye:
 - The app must work offline: any library goes into `vendor/`, unchanged, in a folder named with its version, with its
   licence and its checksum in `vendor/README.md`. Only free licences compatible with the GPL-3.0.
 - No native browser dialogues (`alert`, `confirm`, `prompt`): use `confirmDialog`, `promptDialog`, `choiceDialog` and
-  `msg`.
+  `showMessage`.
 - New text: in English in the code (through `_t` when JavaScript builds it), with its pair in every language file in
   `js/i18n/` (translated in `es.js`, empty in the others until someone translates it; see `js/i18n/README.md`).
 - New toolbar controls that need a PDF go into the `NEED_PDF` list.

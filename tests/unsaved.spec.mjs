@@ -126,13 +126,14 @@ test('Open with unsaved changes asks first, before the file is chosen: Cancel ke
   await expect(page.locator('#dlg2 button.on')).toBeFocused();
   await expect(page).toHaveScreenshot('unsaved-dialog.png', SHOT);
   await page.click('#dlg2 button:text("Cancel")');
-  expect(await page.evaluate(() => [fname, pages.length, pages[0].annots.length])).toEqual(['text.pdf', 3, 1]);
+  expect(await page.evaluate(() => [fileName, pages.length, pages[0].annots.length])).toEqual(['text.pdf', 3, 1]);
   // Cancel does not open the file chooser at all
   expect(await page.evaluate(() => window.__pt.open.length)).toBe(1);
   await page.evaluate(() => (window.__pt.open = []));
   await startOpening(page, 'outline.pdf');
   await page.click('#dlg2 button:text("Discard")');
-  await page.waitForFunction(() => fname == 'outline.pdf' && pages.length == 4);
+  // Wait until the document has finished opening: its saved state is recorded after its bookmarks are read
+  await page.waitForFunction(() => fileName == 'outline.pdf' && pages.length == 4 && pages.every((p) => p.loaded));
   expect(await dirty(page)).toBe(false);
 });
 
@@ -145,14 +146,14 @@ test('Open with unsaved changes: Save writes the file first, then opens the othe
   const [saved] = await waitSaved(page);
   expect(saved.name).toBe('text.pdf');
   expect((await inspectPdf(page, saved.b64)).pages[0].annots.map((a) => a.subtype)).toEqual(['Square']);
-  await page.waitForFunction(() => fname == 'outline.pdf' && pages.length == 4);
+  await page.waitForFunction(() => fileName == 'outline.pdf' && pages.length == 4 && pages.every((p) => p.loaded));
 });
 
 test('Open without changes does not ask', async ({ page }) => {
   await openApp(page);
   await openPdf(page, 'text.pdf');
   await startOpening(page, 'outline.pdf');
-  await page.waitForFunction(() => fname == 'outline.pdf');
+  await page.waitForFunction(() => fileName == 'outline.pdf' && pages.every((p) => p.loaded));
   await expect(page.locator('#dlg2')).toHaveCount(0);
 });
 
@@ -190,7 +191,7 @@ test('a protected PDF cannot be saved: the question offers only Discard and Canc
   await expect(page.locator('#dlg2 h3')).toHaveText('Discard the changes to “protected.pdf”?');
   await expect(page.locator('#dlg2 button')).toHaveText(['Cancel', 'Discard']);
   await page.click('#dlg2 button:text("Discard")');
-  await page.waitForFunction(() => fname == 'text.pdf');
+  await page.waitForFunction(() => fileName == 'text.pdf' && pages.every((p) => p.loaded));
 });
 
 test('closing the browser tab asks only when there are unsaved changes', async ({ page }) => {
