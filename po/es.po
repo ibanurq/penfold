@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 13:32+0100\n"
+"Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
+"POT-Creation-Date: 2026-11-18 13:34+0100\n"
 "PO-Revision-Date: 2026-11-18 12:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -14,6 +14,72 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: data/io.github.ibanurq.Penfold.desktop.in:2
+msgid "Penfold"
+msgstr "Penfold"
+
+#: data/io.github.ibanurq.Penfold.desktop.in:3
+msgid "PDF Editor"
+msgstr "Editor de PDF"
+
+#: data/io.github.ibanurq.Penfold.desktop.in:4 penfold/ui/about.py:30
+msgid "Read, annotate and organize your PDFs"
+msgstr "Lee, anota y organiza tus PDF"
+
+#. Translators: search terms for the app, separated by semicolons. Keep the final semicolon.
+#: data/io.github.ibanurq.Penfold.desktop.in:6
+msgid "PDF;annotate;highlight;merge;bookmarks;form;"
+msgstr "PDF;anotar;resaltar;combinar;marcadores;formulario;"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:9
+msgid "Read, annotate and organize PDFs"
+msgstr "Lee, anota y organiza tus PDF"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:14
+msgid ""
+"Penfold is a PDF editor. Everything happens on your computer: your documents "
+"never leave it, and it works without an internet connection."
+msgstr ""
+"Penfold es un editor de PDF. Todo se hace en tu equipo: tus documentos no "
+"salen de él, y funciona sin conexión a internet."
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:17
+msgid "Bookmarks: edit the document’s outline"
+msgstr "Marcadores: edita el índice del documento"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:18
+msgid "Annotations: highlights, underlines and strikethroughs"
+msgstr "Anotaciones: resaltados, subrayados y tachados"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:19
+msgid "Graphic elements: comments, text boxes, rectangles, circles and arrows"
+msgstr "Elementos gráficos: comentarios, cuadros de texto, cuadros, círculos y flechas"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:20
+msgid "Pages: merge, extract, delete and rotate"
+msgstr "Páginas: combinar, extraer, eliminar y girar"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:22
+msgid ""
+"Annotations are saved with their own drawing, so they look the same in any "
+"other PDF viewer. Penfold can also fill in forms, find text and print."
+msgstr ""
+"Las anotaciones se guardan con su propio dibujo, para que se vean igual en "
+"cualquier otro visor de PDF. Penfold también rellena formularios, busca texto "
+"e imprime."
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:30
+msgid "annotate"
+msgstr "anotar"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:31
+msgid "highlight"
+msgstr "resaltar"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:32
+msgid "merge"
+msgstr "combinar"
 
 #: data/ui/welcome_page.blp:9
 msgid "Open a PDF"
@@ -50,10 +116,6 @@ msgstr "A_tajos de teclado"
 #: data/ui/window.blp:52
 msgid "_About Penfold"
 msgstr "Acerca _de Penfold"
-
-#: penfold/ui/about.py:30
-msgid "Read, annotate and organize your PDFs"
-msgstr "Lee, anota y organiza tus PDF"
 
 #: penfold/ui/about.py:31
 msgid "ibanurq, with AI assistance"

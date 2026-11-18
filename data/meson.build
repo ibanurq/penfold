@@ -26,3 +26,20 @@ install_data(
   f'@app_id@.gschema.xml',
   install_dir: get_option('datadir') / 'glib-2.0' / 'schemas',
 )
+
+i18n.merge_file(
+  input: f'@app_id@.desktop.in',
+  output: f'@app_id@.desktop',
+  type: 'desktop',
+  po_dir: '../po',
+  install: true,
+  install_dir: get_option('datadir') / 'applications',
+)
+
+i18n.merge_file(
+  input: f'@app_id@.metainfo.xml.in',
+  output: f'@app_id@.metainfo.xml',
+  po_dir: '../po',
+  install: true,
+  install_dir: get_option('datadir') / 'metainfo',
+)

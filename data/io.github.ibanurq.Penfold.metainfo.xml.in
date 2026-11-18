@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The app's card in software centers such as GNOME Software and Flathub (AppStream metadata) -->
+<component type="desktop-application">
+  <id>io.github.ibanurq.Penfold</id>
+  <launchable type="desktop-id">io.github.ibanurq.Penfold.desktop</launchable>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name translate="no">Penfold</name>
+  <summary>Read, annotate and organize PDFs</summary>
+  <developer id="io.github.ibanurq">
+    <name translate="no">ibanurq</name>
+  </developer>
+  <description>
+    <p>Penfold is a PDF editor. Everything happens on your computer: your documents never leave it, and it works
+      without an internet connection.</p>
+    <ul>
+      <li>Bookmarks: edit the document’s outline</li>
+      <li>Annotations: highlights, underlines and strikethroughs</li>
+      <li>Graphic elements: comments, text boxes, rectangles, circles and arrows</li>
+      <li>Pages: merge, extract, delete and rotate</li>
+    </ul>
+    <p>Annotations are saved with their own drawing, so they look the same in any other PDF viewer. Penfold can also
+      fill in forms, find text and print.</p>
+  </description>
+  <categories>
+    <category>Office</category>
+  </categories>
+  <keywords>
+    <keyword translate="no">PDF</keyword>
+    <keyword>annotate</keyword>
+    <keyword>highlight</keyword>
+    <keyword>merge</keyword>
+  </keywords>
+  <provides>
+    <mediatype>application/pdf</mediatype>
+    <binary>penfold</binary>
+  </provides>
+  <url type="homepage">https://github.com/ibanurq/penfold</url>
+  <url type="bugtracker">https://github.com/ibanurq/penfold/issues</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.6.0" date="2026-11-17"/>
+    <release version="0.5.4" date="2026-11-17"/>
+    <release version="0.5.3" date="2026-11-15"/>
+    <release version="0.5.2" date="2026-11-12"/>
+    <release version="0.5.1" date="2026-11-12"/>
+  </releases>
+</component>

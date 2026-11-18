@@ -37,8 +37,9 @@ convention = "google"
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-# Test names already say what they check.
-"tests/**" = ["D103"]
+# Test names already say what they check. Interface modules are imported inside the tests, once the fixtures have
+# loaded the resources their window templates need.
+"tests/**" = ["D103", "PLC0415"]
 
 [tool.mypy]
 python_version = "3.13"

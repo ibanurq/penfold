@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Penfold
+GenericName=PDF Editor
+Comment=Read, annotate and organize your PDFs
+# Translators: search terms for the app, separated by semicolons. Keep the final semicolon.
+Keywords=PDF;annotate;highlight;merge;bookmarks;form;
+Exec=penfold %U
+Icon=io.github.ibanurq.Penfold
+Terminal=false
+Type=Application
+Categories=Office;Viewer;
+MimeType=application/pdf;
+StartupNotify=true

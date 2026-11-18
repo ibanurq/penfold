@@ -1,4 +1,6 @@
 # Files with translatable texts, one per line (paths from the project folder).
+data/io.github.ibanurq.Penfold.desktop.in
+data/io.github.ibanurq.Penfold.metainfo.xml.in
 data/ui/welcome_page.blp
 data/ui/window.blp
 penfold/ui/about.py
