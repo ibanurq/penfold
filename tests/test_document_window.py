@@ -224,7 +224,6 @@ def test_pages_are_drawn_pixel_for_pixel(window: "PenfoldWindow", tmp_path: Path
     from gi.repository import Gdk, Gsk, Gtk
 
     from penfold.rendering.renderer import round_scale
-    from penfold.ui.document_view import Fit
     from tests.test_page_content import make_text_pdf
 
     open_and_wait(window, make_text_pdf(tmp_path / "text.pdf"))
@@ -232,7 +231,7 @@ def test_pages_are_drawn_pixel_for_pixel(window: "PenfoldWindow", tmp_path: Path
     assert view.vadjustment is not None
     assert view.hadjustment is not None
     # A zoom with more decimals than the tiles' scale keeps, and a scroll position between two pixels.
-    view._set_zoom(1.2345678, Fit.MANUAL)
+    view.zoom_around(1.2345678, None)
     view.vadjustment.set_value(43.4)
     renderer = view.renderer
     assert renderer is not None
@@ -265,3 +264,22 @@ def test_pages_are_drawn_pixel_for_pixel(window: "PenfoldWindow", tmp_path: Path
             screen_offset = (top + tile_y) * screen_stride + (left + tile_x) * 4
             tile_offset = tile_y * tile_stride + tile_x * 4
             assert screen_data[screen_offset : screen_offset + 3] == tile_data[tile_offset : tile_offset + 3]
+
+
+def test_control_wheel_zooms_around_the_pointer(window: "PenfoldWindow", book: Path) -> None:
+    from penfold.ui.document_view import Fit
+
+    open_and_wait(window, book)
+    view = window.document_view
+    pointer = (300.0, 200.0)
+    before = view.page_point(*pointer)
+    start = view.zoom
+    view.zoom_around(start * 1.1, pointer)
+    assert view.zoom == pytest.approx(start * 1.1)
+    assert view.fit is Fit.MANUAL
+    after = view.page_point(*pointer)
+    assert before is not None
+    assert after is not None
+    assert after.page == before.page
+    assert after.x == pytest.approx(before.x, abs=0.5)
+    assert after.y == pytest.approx(before.y, abs=0.5)

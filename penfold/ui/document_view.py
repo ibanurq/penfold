@@ -27,6 +27,8 @@ TOP_MARGIN = 15
 PAGE_GAP = 12
 PAIR_GAP = 14
 PAIR_TOP_MARGIN = 24
+# Ctrl + wheel: each step of the wheel multiplies or divides the zoom by this.
+WHEEL_ZOOM_FACTOR = 1.1
 # Pages drawn ahead of the visible ones, so they are ready when scrolling.
 PRELOAD_PAGES = 2
 SCROLL_STEP = 48
@@ -112,6 +114,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._dragging = False
         self._pixel = 1.0
         self._scale = 1.0
+        self._pointer: tuple[float, float] | None = None
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
         self._add_controllers()
@@ -196,6 +199,25 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def can_zoom_out(self) -> bool:
         """Whether the zoom is above the minimum."""
         return self.renderer is not None and self.zoom > MIN_ZOOM + 1e-6
+
+    def zoom_around(self, zoom: float, point: tuple[float, float] | None) -> None:
+        """Set a manual zoom keeping the point of the document under the pointer where it is."""
+        anchor = self.page_point(*point) if point is not None else None
+        if self.renderer is None or anchor is None or self._hadjustment is None or self._vadjustment is None:
+            self._set_zoom(zoom, Fit.MANUAL)
+            return
+        assert point is not None
+        self.fit = Fit.MANUAL
+        if not math.isclose(zoom, self.zoom):
+            self.zoom = zoom
+            self._layout()
+            self._configure_adjustments(centre=False)
+            box = self._box(anchor.page)
+            if box is not None:
+                self._hadjustment.set_value(box.x + anchor.x * zoom - point[0])
+                self._vadjustment.set_value(box.y + anchor.y * zoom - point[1])
+            self.queue_draw()
+        self.emit("zoom-changed")
 
     def _set_zoom(self, zoom: float, fit: Fit) -> None:
         if self.renderer is None:
@@ -346,7 +368,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         line = self._vadjustment.get_value() + self.get_height() / 3
         return box.page, (line - box.y) / box.height
 
-    def _configure_adjustments(self) -> None:
+    def _configure_adjustments(self, centre: bool = True) -> None:
+        """Tell the scrollbars the size of the content; with centre, pages wider than the viewer are centred."""
         width, height = self.get_width(), self.get_height()
         for adjustment, size, content in (
             (self._hadjustment, width, self._content_width),
@@ -357,7 +380,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             upper = max(content, size)
             value = min(adjustment.get_value(), upper - size)
             adjustment.configure(value, 0, upper, SCROLL_STEP, size * 0.9, size)
-        if self._hadjustment is not None and self._content_width > width:
+        if centre and self._hadjustment is not None and self._content_width > width:
             self._hadjustment.set_value(max(0, (self._content_width - width) / 2))
 
     def do_size_allocate(self, width: int, _height: int, _baseline: int) -> None:
@@ -402,9 +425,14 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.current_page = page
             self.emit("current-page-changed")
 
-    def _on_scroll(self, _controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:
-        """In Two pages, the wheel changes pair at the edges of the pair (or always, if it fits) (B2)."""
-        if not self.two_pages or self._vadjustment is None or dy == 0:
+    def _on_scroll(self, controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:
+        """Ctrl + wheel zooms around the pointer; in Two pages, the wheel changes pair at its edges (B2)."""
+        if dy == 0 or self._vadjustment is None:
+            return False
+        if controller.get_current_event_state() & Gdk.ModifierType.CONTROL_MASK:
+            self.zoom_around(clamp_zoom(self.zoom * WHEEL_ZOOM_FACTOR ** (-dy)), self._pointer)
+            return True
+        if not self.two_pages:
             return False
         adjustment = self._vadjustment
         at_top = adjustment.get_value() <= adjustment.get_lower() + 0.5
@@ -629,6 +657,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
         """A hand over links, the text cursor over pages."""
+        self._pointer = (x, y)
         if self.link_at(x, y) is not None:
             self.set_cursor_from_name("pointer")
         elif self.page_point(x, y) is not None:
