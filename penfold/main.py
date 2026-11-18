@@ -1,5 +1,6 @@
 """Entry point: prepares translations and resources, then runs the application."""
 
+import faulthandler
 import gettext
 import locale
 import logging
@@ -53,6 +54,8 @@ def load_resources(pkgdatadir: str) -> None:
 
 def main(pkgdatadir: str, localedir: str) -> int:
     """Run Penfold and return its exit status."""
+    # If Penfold ever crashes in C code (GTK, Poppler, qpdf), write where every thread was, to find the cause.
+    faulthandler.enable()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     # pikepdf announces at INFO level that it has started; only its warnings are of interest.
     logging.getLogger("pikepdf").setLevel(logging.WARNING)
