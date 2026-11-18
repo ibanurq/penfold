@@ -13,13 +13,15 @@ from penfold import config
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_LIBRARY_VERSIONS = {"Gtk": "4.0", "Adw": "1"}
+REQUIRED_LIBRARY_VERSIONS = {"Gtk": "4.0", "Gdk": "4.0", "Adw": "1", "Poppler": "0.18"}
 
 
 def require_library_versions() -> None:
     """Tell PyGObject which versions of the libraries to load; it must happen before they are first imported."""
     for namespace, version in REQUIRED_LIBRARY_VERSIONS.items():
         gi.require_version(namespace, version)
+    # Poppler draws on cairo contexts made with pycairo.
+    gi.require_foreign("cairo")
 
 
 def set_up_translations(localedir: str) -> None:
