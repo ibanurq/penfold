@@ -1,0 +1,92 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// Header of the document (02-interfaz, 3.2). Buttons whose action does not exist yet are greyed out (D21).
+template $PenfoldDocumentHeader: Adw.Bin {
+  child: Adw.HeaderBar {
+    [start]
+    ToggleButton {
+      icon-name: "sidebar-show-symbolic";
+      action-name: "win.show-sidebar";
+      tooltip-text: _("Side Panel");
+    }
+
+    [start]
+    ToggleButton {
+      icon-name: "document-edit-symbolic";
+      action-name: "win.annotate";
+      tooltip-text: _("Annotate");
+    }
+
+    [start]
+    Button {
+      icon-name: "edit-undo-symbolic";
+      action-name: "win.undo";
+      tooltip-text: _("Undo");
+    }
+
+    [start]
+    Button {
+      icon-name: "edit-redo-symbolic";
+      action-name: "win.redo";
+      tooltip-text: _("Redo");
+    }
+
+    title-widget: Adw.WindowTitle title_widget {};
+
+    // Packed from the right: the main menu ☰ (while there is no side panel, D36), the document menu ⋮, the page box.
+    [end]
+    MenuButton main_menu_button {
+      icon-name: "open-menu-symbolic";
+      primary: true;
+      tooltip-text: _("Main Menu");
+    }
+
+    [end]
+    MenuButton {
+      icon-name: "view-more-symbolic";
+      menu-model: document_menu;
+      tooltip-text: _("Document Menu");
+    }
+
+    [end]
+    $PenfoldPageEntry page_entry {}
+  };
+}
+
+menu document_menu {
+  section {
+    item {
+      label: _("_Print…");
+      action: "win.print";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Save");
+      action: "win.save";
+    }
+
+    item {
+      label: _("Save _As…");
+      action: "win.save-as";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Continuous");
+      action: "win.layout";
+      target: "continuous";
+    }
+
+    item {
+      label: _("_Two Pages");
+      action: "win.layout";
+      target: "two-pages";
+    }
+  }
+}

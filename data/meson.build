@@ -1,8 +1,12 @@
 blueprints = custom_target(
   'blueprints',
   input: files(
+    'ui/document_header.blp',
+    'ui/main_menu.blp',
+    'ui/page_entry.blp',
     'ui/welcome_page.blp',
     'ui/window.blp',
+    'ui/zoom_controls.blp',
   ),
   output: '.',
   command: [find_program('blueprint-compiler'), 'batch-compile', '@OUTPUT@', '@CURRENT_SOURCE_DIR@', '@INPUT@'],

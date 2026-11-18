@@ -2,18 +2,14 @@
 
 from typing import TYPE_CHECKING
 
-from gi.repository import Adw, GLib
+from gi.repository import Adw
+
+from tests.gtk_helpers import process_pending_events
 
 if TYPE_CHECKING:
     from penfold.application import PenfoldApplication
 
 WELCOME_WINDOW_SIZE = (620, 600)
-
-
-def process_pending_events() -> None:
-    context = GLib.MainContext.default()
-    while context.pending():
-        context.iteration(may_block=False)
 
 
 def test_activating_opens_a_small_welcome_window(application: "PenfoldApplication") -> None:
@@ -35,7 +31,7 @@ def test_activating_again_reuses_the_window(application: "PenfoldApplication") -
 
 
 def test_menu_actions_are_enabled(application: "PenfoldApplication") -> None:
-    for action in ("about", "shortcuts"):
+    for action in ("about", "shortcuts", "open", "new-window", "quit"):
         assert application.get_action_enabled(action), action
 
 

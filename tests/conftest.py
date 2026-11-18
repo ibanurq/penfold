@@ -1,5 +1,6 @@
 """Shared fixtures: a Meson build of the project, and the application running from it."""
 
+import os
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -29,7 +30,24 @@ def build_directory(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="session")
-def application(build_directory: Path) -> Iterator["PenfoldApplication"]:
+def settings_schemas(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Compile the settings schema and keep the settings in memory, so the tests never touch the user's ones."""
+    directory = tmp_path_factory.mktemp("schemas")
+    subprocess.run(
+        ["glib-compile-schemas", "--strict", f"--targetdir={directory}", str(PROJECT_DIRECTORY / "data")], check=True
+    )
+    previous = {name: os.environ.get(name) for name in ("GSETTINGS_SCHEMA_DIR", "GSETTINGS_BACKEND")}
+    os.environ.update(GSETTINGS_SCHEMA_DIR=str(directory), GSETTINGS_BACKEND="memory")
+    yield directory
+    for name, value in previous.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
+@pytest.fixture(scope="session")
+def application(build_directory: Path, settings_schemas: Path) -> Iterator["PenfoldApplication"]:  # noqa: ARG001
     """Return Penfold's application, registered but not running, with the interface files of the build."""
     main.load_resources(str(build_directory / "data"))
     # Imported here because the window templates need the resources loaded first (see penfold.main).

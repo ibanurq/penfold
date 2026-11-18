@@ -5,8 +5,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-18 13:34+0100\n"
-"PO-Revision-Date: 2026-11-18 12:00+0100\n"
+"POT-Creation-Date: 2026-11-18 15:53+0100\n"
+"PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
 "Language: es\n"
@@ -32,6 +32,10 @@ msgstr "Lee, anota y organiza tus PDF"
 msgid "PDF;annotate;highlight;merge;bookmarks;form;"
 msgstr "PDF;anotar;resaltar;combinar;marcadores;formulario;"
 
+#: data/io.github.ibanurq.Penfold.desktop.in:17
+msgid "New Window"
+msgstr "Nueva ventana"
+
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:9
 msgid "Read, annotate and organize PDFs"
 msgstr "Lee, anota y organiza tus PDF"
@@ -54,7 +58,9 @@ msgstr "Anotaciones: resaltados, subrayados y tachados"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:19
 msgid "Graphic elements: comments, text boxes, rectangles, circles and arrows"
-msgstr "Elementos gráficos: comentarios, cuadros de texto, cuadros, círculos y flechas"
+msgstr ""
+"Elementos gráficos: comentarios, cuadros de texto, cuadros, círculos y "
+"flechas"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:20
 msgid "Pages: merge, extract, delete and rotate"
@@ -66,8 +72,8 @@ msgid ""
 "other PDF viewer. Penfold can also fill in forms, find text and print."
 msgstr ""
 "Las anotaciones se guardan con su propio dibujo, para que se vean igual en "
-"cualquier otro visor de PDF. Penfold también rellena formularios, busca texto "
-"e imprime."
+"cualquier otro visor de PDF. Penfold también rellena formularios, busca "
+"texto e imprime."
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:30
 msgid "annotate"
@@ -81,7 +87,80 @@ msgstr "resaltar"
 msgid "merge"
 msgstr "combinar"
 
-#: data/ui/welcome_page.blp:9
+#: data/ui/document_header.blp:13
+msgid "Side Panel"
+msgstr "Panel lateral"
+
+#: data/ui/document_header.blp:20
+msgid "Annotate"
+msgstr "Anotar"
+
+#: data/ui/document_header.blp:27
+msgid "Undo"
+msgstr "Deshacer"
+
+#: data/ui/document_header.blp:34
+msgid "Redo"
+msgstr "Rehacer"
+
+#: data/ui/document_header.blp:44 data/ui/window.blp:24
+msgid "Main Menu"
+msgstr "Menú principal"
+
+#: data/ui/document_header.blp:51
+msgid "Document Menu"
+msgstr "Menú del documento"
+
+#: data/ui/document_header.blp:62
+msgid "_Print…"
+msgstr "_Imprimir…"
+
+#: data/ui/document_header.blp:69
+msgid "_Save"
+msgstr "_Guardar"
+
+#: data/ui/document_header.blp:74
+msgid "Save _As…"
+msgstr "Guardar _como…"
+
+#: data/ui/document_header.blp:81
+msgid "_Continuous"
+msgstr "C_ontinuo"
+
+#: data/ui/document_header.blp:87
+msgid "_Two Pages"
+msgstr "_Dos páginas"
+
+#: data/ui/main_menu.blp:9 data/ui/welcome_page.blp:17
+msgid "_Open…"
+msgstr "_Abrir…"
+
+#: data/ui/main_menu.blp:14
+msgid "_Merge PDFs…"
+msgstr "_Combinar PDF…"
+
+#: data/ui/main_menu.blp:19
+msgid "_New Window"
+msgstr "_Nueva ventana"
+
+#: data/ui/main_menu.blp:26
+msgid "_Keyboard Shortcuts"
+msgstr "A_tajos de teclado"
+
+#: data/ui/main_menu.blp:31
+msgid "_About Penfold"
+msgstr "Acerca _de Penfold"
+
+#: data/ui/page_entry.blp:14
+msgid "Go to Page"
+msgstr "Ir a la página"
+
+#: data/ui/page_entry.blp:18
+msgid "Page"
+msgstr "Página"
+
+#: data/ui/welcome_page.blp:9 penfold/application.py:101
+#: penfold/ui/shortcuts_dialog.py:43
 msgid "Open a PDF"
 msgstr "Abrir un PDF"
 
@@ -89,42 +168,136 @@ msgstr "Abrir un PDF"
 msgid "Drag a PDF here to open it, or several to merge them"
 msgstr "Arrastra aquí un PDF para abrirlo, o varios para combinarlos"
 
-#: data/ui/welcome_page.blp:17 data/ui/window.blp:30
-msgid "_Open…"
-msgstr "_Abrir…"
-
 #: data/ui/welcome_page.blp:28
 msgid "_Merge…"
 msgstr "_Combinar…"
 
-#: data/ui/window.blp:19
-msgid "Main Menu"
-msgstr "Menú principal"
+#: data/ui/window.blp:42
+msgid ""
+"This PDF is protected against changes: Penfold cannot save it, print it or "
+"extract pages from it yet."
+msgstr ""
+"Este PDF está protegido contra cambios: Penfold todavía no puede guardarlo, "
+"imprimirlo ni extraer páginas."
 
-#: data/ui/window.blp:35
-msgid "_Merge PDFs…"
-msgstr "_Combinar PDF…"
+#: data/ui/zoom_controls.blp:18
+msgid "Fit Width"
+msgstr "Ajustar al ancho"
 
-#: data/ui/window.blp:40
-msgid "_New Window"
-msgstr "_Nueva ventana"
+#: data/ui/zoom_controls.blp:30
+msgid "Whole Page"
+msgstr "Página entera"
 
-#: data/ui/window.blp:47
-msgid "_Keyboard Shortcuts"
-msgstr "A_tajos de teclado"
+#: data/ui/zoom_controls.blp:41
+msgid "Zoom In"
+msgstr "Acercar"
 
-#: data/ui/window.blp:52
-msgid "_About Penfold"
-msgstr "Acerca _de Penfold"
+#: data/ui/zoom_controls.blp:52
+msgid "Zoom Out"
+msgstr "Alejar"
+
+#: penfold/application.py:45
+msgid "Open a new window"
+msgstr "Abrir una ventana nueva"
+
+#: penfold/application.py:97
+msgid "PDF Documents"
+msgstr "Documentos PDF"
 
 #: penfold/ui/about.py:31
 msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
-#: penfold/ui/shortcuts_dialog.py:38
+#. Translators: position of the current page when the PDF names its pages, as in "ix (11 of 800)".
+#: penfold/ui/page_entry.py:58
+#, python-brace-format
+msgid "({number} of {count})"
+msgstr "({number} de {count})"
+
+#. Translators: next to the page number, as in "3 of 113".
+#: penfold/ui/page_entry.py:61
+#, python-brace-format
+msgid "of {count}"
+msgstr "de {count}"
+
+#: penfold/ui/shortcuts_dialog.py:41
 msgid "General"
 msgstr "General"
 
-#: penfold/ui/shortcuts_dialog.py:38
-msgid "Keyboard Shortcuts"
-msgstr "Atajos de teclado"
+#: penfold/ui/shortcuts_dialog.py:44
+msgid "Show the keyboard shortcuts"
+msgstr "Mostrar los atajos de teclado"
+
+#: penfold/ui/shortcuts_dialog.py:45
+msgid "Close the window"
+msgstr "Cerrar la ventana"
+
+#: penfold/ui/shortcuts_dialog.py:46
+msgid "Quit"
+msgstr "Salir"
+
+#: penfold/ui/shortcuts_dialog.py:50
+msgid "View"
+msgstr "Ver"
+
+#: penfold/ui/shortcuts_dialog.py:52
+msgid "Zoom in"
+msgstr "Acercar"
+
+#: penfold/ui/shortcuts_dialog.py:53
+msgid "Zoom out"
+msgstr "Alejar"
+
+#: penfold/ui/shortcuts_dialog.py:54
+msgid "Fit to page width"
+msgstr "Ajustar al ancho de página"
+
+#: penfold/ui/shortcuts_dialog.py:58
+msgid "Moving around"
+msgstr "Desplazarse"
+
+#: penfold/ui/shortcuts_dialog.py:60
+msgid "Next page"
+msgstr "Página siguiente"
+
+#: penfold/ui/shortcuts_dialog.py:61
+msgid "Previous page"
+msgstr "Página anterior"
+
+#: penfold/ui/shortcuts_dialog.py:62
+msgid "First page"
+msgstr "Primera página"
+
+#: penfold/ui/shortcuts_dialog.py:63
+msgid "Last page"
+msgstr "Última página"
+
+#: penfold/ui/shortcuts_dialog.py:64
+msgid "Go to page"
+msgstr "Ir a la página"
+
+#: penfold/ui/window.py:140
+#, python-brace-format
+msgid "Could not open “{name}”"
+msgstr "No se pudo abrir «{name}»"
+
+#: penfold/ui/window.py:146
+#, python-brace-format
+msgid "{file_name} — Penfold"
+msgstr "{file_name} — Penfold"
+
+#: penfold/ui/window.py:154
+msgid "Protected PDF"
+msgstr "PDF protegido"
+
+#: penfold/ui/window.py:156
+msgid ""
+"This PDF is protected. Any changes made to it cannot be saved. It cannot be "
+"printed and pages cannot be extracted either."
+msgstr ""
+"Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
+"guardado. Tampoco se podrá imprimir ni extraer páginas."
+
+#: penfold/ui/window.py:171
+msgid "_OK"
+msgstr "_Aceptar"

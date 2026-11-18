@@ -1,0 +1,35 @@
+using Gtk 4.0;
+
+translation-domain "penfold";
+
+// Main menu ☰ (02-interfaz, 3.3), shared by the headers that show it.
+menu main_menu {
+  section {
+    item {
+      label: _("_Open…");
+      action: "app.open";
+    }
+
+    item {
+      label: _("_Merge PDFs…");
+      action: "app.merge";
+    }
+
+    item {
+      label: _("_New Window");
+      action: "app.new-window";
+    }
+  }
+
+  section {
+    item {
+      label: _("_Keyboard Shortcuts");
+      action: "app.shortcuts";
+    }
+
+    item {
+      label: _("_About Penfold");
+      action: "app.about";
+    }
+  }
+}

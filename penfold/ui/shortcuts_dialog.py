@@ -35,7 +35,37 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
             if (accelerators := application.get_accels_for_action(action))
         )
 
-    return (ShortcutGroup(_("General"), shortcuts((_("Keyboard Shortcuts"), "app.shortcuts"))),)
+    # The groups and texts of 0.6 (L2). A row appears once its action has keys, so later phases only add the keys.
+    groups = (
+        ShortcutGroup(
+            _("General"),
+            shortcuts(
+                (_("Open a PDF"), "app.open"),
+                (_("Show the keyboard shortcuts"), "app.shortcuts"),
+                (_("Close the window"), "win.close"),
+                (_("Quit"), "app.quit"),
+            ),
+        ),
+        ShortcutGroup(
+            _("View"),
+            shortcuts(
+                (_("Zoom in"), "win.zoom-in"),
+                (_("Zoom out"), "win.zoom-out"),
+                (_("Fit to page width"), "win.fit-width"),
+            ),
+        ),
+        ShortcutGroup(
+            _("Moving around"),
+            shortcuts(
+                (_("Next page"), "win.next-page"),
+                (_("Previous page"), "win.previous-page"),
+                (_("First page"), "win.first-page"),
+                (_("Last page"), "win.last-page"),
+                (_("Go to page"), "win.focus-page-entry"),
+            ),
+        ),
+    )
+    return tuple(group for group in groups if group.shortcuts)
 
 
 def present_shortcuts_dialog(parent: Gtk.Window | None, application: Gtk.Application) -> None:

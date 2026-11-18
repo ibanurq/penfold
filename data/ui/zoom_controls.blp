@@ -1,0 +1,59 @@
+using Gtk 4.0;
+
+translation-domain "penfold";
+
+// Floating zoom buttons at the bottom right of the document (02-interfaz, 4). Of Fit Width and Whole Page, only the
+// one that is not active is shown (with a manual zoom, both).
+template $PenfoldZoomControls: Box {
+  orientation: vertical;
+  spacing: 12;
+  halign: end;
+  valign: end;
+  margin-end: 18;
+  margin-bottom: 18;
+
+  Button fit_width_button {
+    icon-name: "penfold-fit-width-symbolic";
+    action-name: "win.fit-width";
+    tooltip-text: _("Fit Width");
+
+    styles [
+      "osd",
+      "circular",
+      "provisional-icon",
+    ]
+  }
+
+  Button fit_page_button {
+    icon-name: "zoom-fit-best-symbolic";
+    action-name: "win.fit-page";
+    tooltip-text: _("Whole Page");
+
+    styles [
+      "osd",
+      "circular",
+    ]
+  }
+
+  Button {
+    icon-name: "zoom-in-symbolic";
+    action-name: "win.zoom-in";
+    tooltip-text: _("Zoom In");
+
+    styles [
+      "osd",
+      "circular",
+    ]
+  }
+
+  Button {
+    icon-name: "zoom-out-symbolic";
+    action-name: "win.zoom-out";
+    tooltip-text: _("Zoom Out");
+
+    styles [
+      "osd",
+      "circular",
+    ]
+  }
+}

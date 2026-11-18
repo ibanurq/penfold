@@ -8,49 +8,53 @@ template $PenfoldWindow: Adw.ApplicationWindow {
   default-width: 620;
   default-height: 600;
 
-  content: Adw.ToolbarView {
-    [top]
-    Adw.HeaderBar {
-      [end]
-      MenuButton {
-        icon-name: "open-menu-symbolic";
-        menu-model: main_menu;
-        primary: true;
-        tooltip-text: _("Main Menu");
-      }
+  content: Stack stack {
+    transition-type: crossfade;
+
+    StackPage {
+      name: "welcome";
+
+      child: Adw.ToolbarView {
+        [top]
+        Adw.HeaderBar {
+          [end]
+          MenuButton welcome_menu_button {
+            icon-name: "open-menu-symbolic";
+            primary: true;
+            tooltip-text: _("Main Menu");
+          }
+        }
+
+        content: $PenfoldWelcomePage {};
+      };
     }
 
-    content: $PenfoldWelcomePage {};
+    StackPage {
+      name: "document";
+
+      child: Adw.ToolbarView {
+        [top]
+        $PenfoldDocumentHeader document_header {}
+
+        // Fixed reminder for protected PDFs (D18).
+        [top]
+        Adw.Banner protected_banner {
+          title: _("This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.");
+        }
+
+        content: Overlay {
+          child: ScrolledWindow {
+            child: $PenfoldDocumentView document_view {
+              styles [
+                "document-view",
+              ]
+            };
+          };
+
+          [overlay]
+          $PenfoldZoomControls zoom_controls {}
+        };
+      };
+    }
   };
-}
-
-menu main_menu {
-  section {
-    item {
-      label: _("_Open…");
-      action: "app.open";
-    }
-
-    item {
-      label: _("_Merge PDFs…");
-      action: "app.merge";
-    }
-
-    item {
-      label: _("_New Window");
-      action: "app.new-window";
-    }
-  }
-
-  section {
-    item {
-      label: _("_Keyboard Shortcuts");
-      action: "app.shortcuts";
-    }
-
-    item {
-      label: _("_About Penfold");
-      action: "app.about";
-    }
-  }
 }

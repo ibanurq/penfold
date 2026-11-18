@@ -1,0 +1,11 @@
+/* Penfold's own styles; libadwaita loads this file by itself (it is style.css in the resource base path). */
+
+/* Provisional icons (D37): shown in violet until the user chooses the final one. */
+.provisional-icon {
+  color: var(--purple-3);
+}
+
+/* Background behind the pages: a soft grey, so their edges show in light and dark mode. */
+.document-view {
+  background-color: color-mix(in srgb, var(--window-fg-color) 8%, var(--window-bg-color));
+}

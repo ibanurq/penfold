@@ -11,3 +11,8 @@ Type=Application
 Categories=Office;Viewer;
 MimeType=application/pdf;
 StartupNotify=true
+Actions=new-window;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=penfold --new-window
