@@ -2,7 +2,7 @@
 
 from typing import ClassVar
 
-from gi.repository import Adw, GObject, Gtk
+from gi.repository import Adw, GObject, Graphene, Gtk
 
 from penfold import config
 from penfold.ui.menus import main_menu
@@ -50,7 +50,7 @@ class PenfoldSidebar(Adw.Bin):
         super().__init__()
         self.main_menu_button.set_menu_model(main_menu())
         self._previous_view = PAGES
-        self._width_at_start = 0
+        self._grab_offset = 0.0
         self._updating = False
         self.resize_handle.set_cursor_from_name("col-resize")
         drag = Gtk.GestureDrag()
@@ -107,9 +107,25 @@ class PenfoldSidebar(Adw.Bin):
         names = {self.pages_button: PAGES, self.bookmarks_button: BOOKMARKS, self.annotations_button: ANNOTATIONS}
         self.show_view(names[button])
 
-    def _on_resize_begin(self, _gesture: Gtk.GestureDrag, _x: float, _y: float) -> None:
-        self._width_at_start = self.get_width()
+    def _pointer_x(self, gesture: Gtk.GestureDrag) -> float | None:
+        """Where the pointer is, from the left edge of the panel (which does not move while its width changes)."""
+        found, x, y = gesture.get_point(None)
+        if not found:
+            return None
+        found, point = self.resize_handle.compute_point(self, Graphene.Point().init(x, y))
+        return point.x if found else None
+
+    def _on_resize_begin(self, gesture: Gtk.GestureDrag, _x: float, _y: float) -> None:
+        # Keep the edge where it was grabbed under the pointer: remember how far from the edge the press was.
+        pointer = self._pointer_x(gesture)
+        self._grab_offset = self.get_width() - pointer if pointer is not None else 0.0
         self.emit("resize-started")
 
-    def _on_resize_update(self, _gesture: Gtk.GestureDrag, offset_x: float, _offset_y: float) -> None:
-        self.emit("resized", clamp_width(self._width_at_start + offset_x))
+    def _on_resize_update(self, gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float) -> None:
+        """Make the edge follow the pointer exactly.
+
+        The width is measured from the panel's left edge, not from the handle, which moves with the edge.
+        """
+        pointer = self._pointer_x(gesture)
+        if pointer is not None:
+            self.emit("resized", clamp_width(pointer + self._grab_offset))
