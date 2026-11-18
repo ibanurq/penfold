@@ -63,19 +63,12 @@
     },
     {
       "name": "qpdf",
-      "buildsystem": "cmake-ninja",
-      "builddir": true,
-      "config-opts": [
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DCMAKE_INSTALL_LIBDIR=lib",
-        "-DBUILD_STATIC_LIBS=OFF",
-        "-DUSE_IMPLICIT_CRYPTO=OFF",
-        "-DREQUIRE_CRYPTO_GNUTLS=ON",
-        "-DBUILD_DOC=OFF",
-        "-DINSTALL_EXAMPLES=OFF"
-      ],
-      "cleanup": [
-        "/bin"
+      "buildsystem": "simple",
+      "build-commands": [
+        "cmake -G Ninja -S . -B _build -DCMAKE_INSTALL_PREFIX=${FLATPAK_DEST} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC_LIBS=OFF -DUSE_IMPLICIT_CRYPTO=OFF -DREQUIRE_CRYPTO_GNUTLS=ON -DBUILD_DOC=OFF -DINSTALL_EXAMPLES=OFF",
+        "cmake --build _build --target libqpdf",
+        "cmake --install _build --component lib",
+        "cmake --install _build --component dev"
       ],
       "sources": [
         {
