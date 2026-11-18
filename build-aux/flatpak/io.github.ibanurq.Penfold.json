@@ -12,12 +12,135 @@
   ],
   "cleanup": [
     "/include",
+    "/lib/cmake",
     "/lib/pkgconfig",
     "/share/pkgconfig",
+    "/share/gir-1.0",
+    "/share/man",
+    "/share/doc",
     "*.la",
     "*.a"
   ],
   "modules": [
+    {
+      "name": "poppler-data",
+      "buildsystem": "cmake-ninja",
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://poppler.freedesktop.org/poppler-data-0.4.12.tar.gz",
+          "sha256": "c835b640a40ce357e1b83666aabd95edffa24ddddd49b8daff63adb851cdab74"
+        }
+      ]
+    },
+    {
+      "name": "poppler",
+      "buildsystem": "cmake-ninja",
+      "config-opts": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_INSTALL_LIBDIR=lib",
+        "-DENABLE_GLIB=ON",
+        "-DENABLE_GOBJECT_INTROSPECTION=ON",
+        "-DENABLE_CPP=OFF",
+        "-DENABLE_QT5=OFF",
+        "-DENABLE_QT6=OFF",
+        "-DENABLE_BOOST=OFF",
+        "-DENABLE_GPGME=OFF",
+        "-DENABLE_LIBCURL=OFF",
+        "-DENABLE_UTILS=OFF",
+        "-DBUILD_GTK_TESTS=OFF",
+        "-DBUILD_CPP_TESTS=OFF",
+        "-DBUILD_MANUAL_TESTS=OFF",
+        "-DENABLE_GTK_DOC=OFF"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://poppler.freedesktop.org/poppler-25.03.0.tar.xz",
+          "sha256": "97da4ff88517a6bbd729529f195f85c8d7a0c3bb4a3d57cb0c685cbb052fe837"
+        }
+      ]
+    },
+    {
+      "name": "qpdf",
+      "buildsystem": "cmake-ninja",
+      "builddir": true,
+      "config-opts": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_INSTALL_LIBDIR=lib",
+        "-DBUILD_STATIC_LIBS=OFF",
+        "-DUSE_IMPLICIT_CRYPTO=OFF",
+        "-DREQUIRE_CRYPTO_GNUTLS=ON",
+        "-DBUILD_DOC=OFF",
+        "-DINSTALL_EXAMPLES=OFF"
+      ],
+      "cleanup": [
+        "/bin"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/qpdf/qpdf/releases/download/v12.2.0/qpdf-12.2.0.tar.gz",
+          "sha256": "b3d1575b2218badc3549d6977524bb0f8c468c6528eebc8967bbe3078cf2cace"
+        }
+      ]
+    },
+    {
+      "name": "python3-pybind11",
+      "buildsystem": "simple",
+      "build-commands": [
+        "pip3 install --verbose --no-index --find-links=\"file://${PWD}\" --prefix=${FLATPAK_DEST} --no-build-isolation pybind11"
+      ],
+      "cleanup": [
+        "*"
+      ],
+      "sources": [
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/33/fd/8762f7ee3e4e4be6d1d846cffb4916dd9bb02b2f800d3603718a0efe494c/pybind11-3.1.0-py3-none-any.whl",
+          "sha256": "b8488090f8acffbcb6b5d6a85571a6827a0a2981ffb75e5a0b27b87c4a6b7dd0"
+        }
+      ]
+    },
+    {
+      "name": "python3-pikepdf",
+      "buildsystem": "simple",
+      "build-options": {
+        "env": {
+          "CPATH": "/app/include"
+        }
+      },
+      "build-commands": [
+        "pip3 install --verbose --no-index --find-links=\"file://${PWD}\" --prefix=${FLATPAK_DEST} --no-build-isolation pikepdf"
+      ],
+      "sources": [
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/1c/2c/0707248e2bdfe148c53c43ea1a7fce730eab9ae8bbe65470720f5a7ddd25/pikepdf-9.5.2.tar.gz",
+          "sha256": "190b3bb4891a7a154315f505d7dcd557ef21e8130cea8b78eb9646f8d67072ed"
+        },
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/ce/a4/9cc30690a394a8305e8be4c9036aa16d0dfddadd09079860b582f562496d/pillow-13.0.0.tar.gz",
+          "sha256": "cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510"
+        },
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/23/ad/28ecd7cb894d172f3c9c80a075eeeb2017ac62e3632cee05a5f9493547eb/lxml-6.1.3.tar.gz",
+          "sha256": "45222d94ddd511536f3b2f7d9deae3b2339b4ce0f075f1ca25703b07cad9dd21"
+        },
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/82/f0/07de837adfa09d592747b82fd74316e88285d2d7057551f30e4b5ef81bd8/deprecated-3.0.1-py3-none-any.whl",
+          "sha256": "eda314c115e8bc0fe52b90a6869e19240ac3cedb7449adfdba5981cf9ef693e1"
+        },
+        {
+          "type": "file",
+          "url": "https://files.pythonhosted.org/packages/77/8b/1ea57b936b70f98e8e7620a352578096d778dbee95b262f73c066d210ffb/wrapt-2.5.2-py3-none-any.whl",
+          "sha256": "61eb54e9540ea522c2c4752a57549a83d3c67e6704ed708403d28e067aaf90f0"
+        }
+      ]
+    },
     {
       "name": "penfold",
       "buildsystem": "meson",
