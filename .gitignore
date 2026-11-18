@@ -14,6 +14,17 @@ playwright/.cache/
 dist/
 out/
 
+# Python development environment and tool caches
+.venv/
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+
+# Meson build directory
+_build/
+
 # Editor and system files
 .vscode/
 .idea/

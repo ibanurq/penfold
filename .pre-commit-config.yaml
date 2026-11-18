@@ -1,0 +1,27 @@
+# Checks run before every commit (03-arquitectura, 1.2), with the tools of the project's virtual environment.
+# Set up once with:  .venv/bin/pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: .venv/bin/ruff check
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format --check
+        entry: .venv/bin/ruff format --check
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: pytest
+        name: pytest
+        entry: .venv/bin/pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
