@@ -1,0 +1,38 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+template $PenfoldWelcomePage: Adw.Bin {
+  child: Adw.StatusPage {
+    icon-name: "io.github.ibanurq.Penfold-symbolic";
+    title: _("Open a PDF");
+    description: _("Drag a PDF here to open it, or several to merge them");
+
+    child: Box {
+      halign: center;
+      spacing: 12;
+
+      Button {
+        label: _("_Open…");
+        use-underline: true;
+        action-name: "app.open";
+
+        styles [
+          "pill",
+          "suggested-action",
+        ]
+      }
+
+      Button {
+        label: _("_Merge…");
+        use-underline: true;
+        action-name: "app.merge";
+
+        styles [
+          "pill",
+        ]
+      }
+    };
+  };
+}

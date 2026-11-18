@@ -1,6 +1,7 @@
 blueprints = custom_target(
   'blueprints',
   input: files(
+    'ui/welcome_page.blp',
     'ui/window.blp',
   ),
   output: '.',
@@ -14,4 +15,9 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: pkgdatadir,
+)
+
+install_subdir(
+  'icons/hicolor',
+  install_dir: get_option('datadir') / 'icons',
 )
