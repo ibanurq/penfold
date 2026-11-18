@@ -20,7 +20,11 @@ THUMBNAIL_GAP = 10
 MAX_COLUMNS = 4
 CELL_PADDING = 8
 LIST_MARGIN = 8
+# Room kept for the vertical scrollbar, as 0.6 did (it overlays the list in GNOME, but appears while scrolling).
+SCROLLBAR_WIDTH = 14
 CHANNEL = "thumbnails"
+# Thumbnails accept being this narrow while the panel shrinks, until their width is fitted again.
+MIN_THUMBNAIL_WIDTH = 40
 EDGE_COLOR = (0, 0, 0, 0.2)
 
 
@@ -55,10 +59,13 @@ class Thumbnail(Gtk.Widget):
         self.page = -1
 
     def do_measure(self, orientation: object, _for_size: int) -> tuple[int, int, int, int]:
-        """As wide as the view says; as tall as the page's proportions ask."""
+        """Ask for the width the view says and the height of the page's proportions.
+
+        The width may be less, so that the list can shrink with the panel until the thumbnails are fitted again.
+        """
         width = self._view.thumbnail_width
         if orientation == Gtk.Orientation.HORIZONTAL:
-            return width, width, -1, -1
+            return MIN_THUMBNAIL_WIDTH, width, -1, -1
         height = round(width * self._view.page_ratio(self.page))
         return height, height, -1, -1
 
@@ -133,6 +140,9 @@ class PagesView(Gtk.Box):
         self.grid.add_css_class("navigation-sidebar")
         self.scrolled = Gtk.ScrolledWindow(child=self.grid, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         self.append(self.scrolled)
+        # Check the width at every frame (a cheap comparison) and fit the thumbnails when it changes.
+        self._fitted_width = -1
+        self.add_tick_callback(self._on_tick)
 
     # Document.
 
@@ -223,12 +233,21 @@ class PagesView(Gtk.Box):
         if cell is not None:
             cell.thumbnail.queue_draw()
 
-    def do_size_allocate(self, width: int, height: int, baseline: int) -> None:
-        """Choose the columns and the thumbnail width for the width of the panel."""
-        available = width - 2 * LIST_MARGIN
+    def _on_tick(self, _widget: Gtk.Widget, _clock: Gdk.FrameClock) -> bool:
+        width = self.get_width()
+        if width != self._fitted_width:
+            self._fitted_width = width
+            self._fit_to_width(width)
+        return GLib.SOURCE_CONTINUE
+
+    def _fit_to_width(self, width: int) -> None:
+        """Choose the columns and the thumbnail width for the width of the panel, as 0.6 does."""
+        available = width - SCROLLBAR_WIDTH - 2 * LIST_MARGIN
+        if available <= 0:
+            return
         columns = column_count(available)
         cell_width = min(THUMBNAIL_MAX_WIDTH, (available - (columns - 1) * THUMBNAIL_GAP) / columns)
-        thumbnail_width = max(40, int(cell_width - 2 * CELL_PADDING))
+        thumbnail_width = max(MIN_THUMBNAIL_WIDTH, int(cell_width - 2 * CELL_PADDING))
         if columns != self.grid.get_min_columns() or thumbnail_width != self.thumbnail_width:
             self.grid.set_min_columns(columns)
             self.grid.set_max_columns(columns)
@@ -236,7 +255,6 @@ class PagesView(Gtk.Box):
             for cell in self._cells.values():
                 cell.thumbnail.queue_resize()
             self._request_thumbnails()
-        Gtk.Box.do_size_allocate(self, width, height, baseline)
 
     # List items.
 

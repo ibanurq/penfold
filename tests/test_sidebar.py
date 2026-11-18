@@ -197,3 +197,22 @@ def test_the_panel_leaves_room_for_the_document(window: "PenfoldWindow", tmp_pat
     assert window.split_view.get_max_sidebar_width() < widest
     window.set_default_size(1400, 800)
     assert window.split_view.get_max_sidebar_width() == widest  # the chosen width comes back
+
+
+def test_thumbnails_grow_with_the_panel_and_then_add_columns(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.ui.sidebar.pages_view import LIST_MARGIN, SCROLLBAR_WIDTH
+
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=6))
+    window.set_default_size(1800, 800)
+    pages = window.pages_view
+    sizes = []
+    # Wide first, then narrow: the thumbnails must shrink back to one column, and grow again.
+    for width in (700, 300, 330, 450, 700):
+        window.sidebar.emit("resized", width)
+        wait_until_stable(lambda: (pages.grid.get_min_columns(), pages.thumbnail_width))
+        available = pages.get_width() - SCROLLBAR_WIDTH - 2 * LIST_MARGIN
+        assert pages.grid.get_min_columns() == column_count(available)  # the panel may be narrower than asked
+        sizes.append((pages.grid.get_min_columns(), pages.thumbnail_width))
+    assert sizes[1][0] == 1
+    assert sizes[2][1] > sizes[1][1]  # a wider panel, bigger thumbnails, until a new column fits
+    assert sizes[-1][0] >= 2
