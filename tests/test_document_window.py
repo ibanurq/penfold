@@ -285,3 +285,19 @@ def test_control_wheel_zooms_around_the_pointer(window: "PenfoldWindow", book: P
     assert after.page == before.page
     assert after.x == pytest.approx(before.x, abs=0.5)
     assert after.y == pytest.approx(before.y, abs=0.5)
+
+
+def test_page_down_in_a_zoomed_pair_moves_inside_it_first(window: "PenfoldWindow", book: Path) -> None:
+    open_and_wait(window, book)
+    view = window.document_view
+    window.activate_action("win.layout", GLib.Variant.new_string("two-pages"))
+    for _ in range(3):
+        view.zoom_in()
+    assert view.vadjustment is not None
+    view.vadjustment.set_value(0)
+    window.activate_action("win.next-page", None)
+    assert [box.page for box in view._boxes] == [0, 1]
+    assert view.vadjustment.get_value() > 0
+    view.vadjustment.set_value(view.vadjustment.get_upper())
+    window.activate_action("win.next-page", None)
+    assert [box.page for box in view._boxes] == [2, 3]

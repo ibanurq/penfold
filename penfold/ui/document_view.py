@@ -299,6 +299,29 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         step = 2 + self.current_page % 2 if self.two_pages else 1
         self.go_to(max(0, self.current_page - step))
 
+    def page_down(self) -> None:
+        """Page Down: the next page; in Two pages with zoom, first down inside the pair, then the next pair (B2)."""
+        if not self._scroll_inside_pair(1):
+            self.next_page()
+
+    def page_up(self) -> None:
+        """Page Up: the previous page; in Two pages with zoom, first up inside the pair, then the previous pair."""
+        if not self._scroll_inside_pair(-1):
+            self.previous_page()
+
+    def _scroll_inside_pair(self, direction: int) -> bool:
+        """Scroll a screen inside a zoomed pair; return False at its edge (or if it fits), to change pair instead."""
+        adjustment = self._vadjustment
+        if not self.two_pages or adjustment is None:
+            return False
+        lowest = adjustment.get_lower()
+        highest = adjustment.get_upper() - adjustment.get_page_size()
+        value = adjustment.get_value()
+        if (direction > 0 and value >= highest - 0.5) or (direction < 0 and value <= lowest + 0.5):
+            return False
+        adjustment.set_value(value + direction * adjustment.get_page_increment())
+        return True
+
     def first_page(self) -> None:
         """Go to the first page."""
         self.go_to(0)
