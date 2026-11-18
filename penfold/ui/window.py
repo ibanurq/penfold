@@ -135,8 +135,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         try:
             document = OpenDocument.open(path)
             renderer = Renderer(path)
-        except (DocumentOpenError, GLib.Error):
-            logger.warning("Could not open %s", path, exc_info=True)
+        except (DocumentOpenError, GLib.Error) as error:
+            logger.warning("Could not open %s (%s)", path, type(error).__name__)
             self._show_message(_("Could not open “{name}”").format(name=path.name))
             return False
         self._close_document()
