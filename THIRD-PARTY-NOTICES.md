@@ -71,3 +71,10 @@ SOFTWARE.
 
 The tests use Playwright (Apache-2.0) and the npm packages `pdfjs-dist` and `pdf-lib`, installed with `npm install`
 into `node_modules/`, which is not part of the repository.
+
+## GNOME icon-development-kit (Penfold 1.0)
+
+- Project: https://gitlab.gnome.org/Teams/Design/icon-development-kit — the icon collection of the GNOME design team.
+- Licence: CC0 1.0 Universal (public domain dedication); no attribution is required, it is given here anyway.
+- Used, provisionally (D37), for the Fit Width button: `expand-horizontal`, by Jakub Steiner, with its outline converted
+  to filled shapes in `data/icons/scalable/actions/penfold-fit-width-symbolic.svg`.
