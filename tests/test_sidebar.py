@@ -160,9 +160,9 @@ def test_find_lists_matches_and_goes_to_them(window: "PenfoldWindow", tmp_path: 
     assert window.document_view.current_page == 1
     window.activate_action("win.find-previous", None)
     assert search.current == 0
-    assert window.document_view._matches  # highlighted on the pages while Find is open
+    assert window.document_view.has_matches  # highlighted on the pages while Find is open
     window.close_find()
-    assert not window.document_view._matches
+    assert not window.document_view.has_matches
 
 
 def test_dragging_the_panel_edge_fits_the_zoom_once_released(window: "PenfoldWindow", tmp_path: Path) -> None:

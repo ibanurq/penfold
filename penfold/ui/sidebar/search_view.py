@@ -4,6 +4,8 @@ The list fills while the PDF is searched, in page order. Enter and Shift+Enter (
 next and previous match, from the current page on; Esc goes back to the view Find covered.
 """
 
+import bisect
+import time
 from collections.abc import Callable
 from gettext import gettext as _
 from gettext import ngettext
@@ -11,10 +13,12 @@ from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
-from penfold.rendering.text_search import SearchResult, TextSearch
+from penfold.rendering.text_search import MatchContext, SearchResult, TextSearch
 from penfold.ui.sidebar.view_header import HEADER_MARGIN
 
 ROW_TEXT_LINES = 2
+# Sentences are read a few at a time, for at most this long (seconds) each time, so the window never waits.
+CONTEXT_TIME_SLICE = 0.008
 
 
 class ResultItem(GObject.Object):
@@ -29,12 +33,12 @@ class ResultItem(GObject.Object):
         self.page_label = page_label
 
 
-def result_markup(result: SearchResult) -> str:
-    """The sentence of a match with the match highlighted, as Pango markup."""
+def result_markup(context: MatchContext) -> str:
+    """The sentence of a match with the match highlighted, as Pango markup: "…words before match words after…"."""
     escape = GLib.markup_escape_text
-    before = f"…{escape(result.before)}" if result.before.strip() else escape(result.before)
-    after = f"{escape(result.after)}…" if result.after.strip() else escape(result.after)
-    return f'{before}<span background="#f8e45c" foreground="#000000">{escape(result.match)}</span>{after}'
+    before = f"…{escape(context.before)} " if context.before else ""
+    after = f" {escape(context.after)}…" if context.after else ""
+    return f'{before}<span background="#f8e45c" foreground="#000000">{escape(context.match)}</span>{after}'
 
 
 class SearchView(Gtk.Box):
@@ -47,7 +51,8 @@ class SearchView(Gtk.Box):
     __gsignals__: ClassVar = {
         "result-chosen": (GObject.SignalFlags.RUN_FIRST, None, (int,)),
         "close-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
-        "results-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "results-cleared": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "results-added": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     def __init__(self) -> None:
@@ -81,19 +86,33 @@ class SearchView(Gtk.Box):
         self.list.add_css_class("navigation-sidebar")
         self.append(Gtk.ScrolledWindow(child=self.list, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER))
         self._search: TextSearch | None = None
+        # The matches in page order, and the page of each, to place a new batch with a binary search.
+        self._found: list[SearchResult] = []
+        self._found_pages: list[int] = []
+        self.last_added: list[SearchResult] = []
         self._page_label: Callable[[int], str] = str
+        self._context: Callable[[SearchResult], MatchContext] | None = None
+        # Rows are bound again whenever matches are inserted above them: read each sentence only once.
+        self._contexts: dict[SearchResult, MatchContext] = {}
+        self._page_format = _("Page {label}")
+        # Rows waiting for their sentence: the label to fill and the match it must show.
+        self._pending_contexts: dict[Gtk.Label, SearchResult] = {}
+        self._filling = False
         self.current_page = 0
         self.current = -1
         self._jump_to_first = False
         self._searching = False
         self._choosing = False
 
-    def set_document(self, uri: str, page_label: Callable[[int], str]) -> None:
-        """Search this PDF; page_label names a page by its index (D14)."""
+    def set_document(
+        self, uri: str, page_label: Callable[[int], str], context: Callable[[SearchResult], MatchContext]
+    ) -> None:
+        """Search this PDF; page_label names a page by its index (D14) and context reads the sentence of a match."""
         if self._search is not None:
             self._search.cancel()
         self._search = TextSearch(uri)
         self._page_label = page_label
+        self._context = context
         self.entry.set_text("")
         self._clear()
 
@@ -105,7 +124,7 @@ class SearchView(Gtk.Box):
     @property
     def result_list(self) -> list[SearchResult]:
         """The matches found so far, in page order."""
-        return [item.result for item in self._items()]
+        return self._found
 
     def search(self) -> None:
         """Search for the text of the box, from the current page on; the first match from there is shown."""
@@ -132,8 +151,8 @@ class SearchView(Gtk.Box):
         if count == 0:
             return
         if self.current < 0:
-            later = [index for index, item in enumerate(self._items()) if item.result.page >= self.current_page]
-            index = later[0] if later and direction > 0 else (later[0] - 1 if later else count - 1)
+            first_later = bisect.bisect_left(self._found_pages, self.current_page)
+            index = first_later if direction > 0 else first_later - 1
             self.choose(index % count)
         else:
             self.choose((self.current + direction) % count)
@@ -149,30 +168,41 @@ class SearchView(Gtk.Box):
         self.list.scroll_to(index, Gtk.ListScrollFlags.NONE, None)
         self.emit("result-chosen", index)
 
-    def _items(self) -> list[ResultItem]:
-        items = [self.results.get_item(index) for index in range(self.results.get_n_items())]
-        return [item for item in items if isinstance(item, ResultItem)]
-
     def _clear(self) -> None:
         if self._search is not None:
             self._search.cancel()
         self._searching = False
         self.current = -1
+        self._found, self._found_pages, self.last_added = [], [], []
+        self._contexts.clear()
+        self._pending_contexts.clear()
         self.results.remove_all()
-        self.emit("results-changed")
+        self.emit("results-cleared")
 
     def _on_results(self, results: list[SearchResult]) -> None:
-        """Add the matches of a page in their place (the search starts at the current page and wraps around)."""
-        page = results[0].page
-        position = sum(1 for item in self._items() if item.result.page < page)
-        if self.current >= position:
-            self.current += len(results)
-        self.results.splice(position, 0, [ResultItem(result, self._page_label(result.page)) for result in results])
+        """Put a batch of matches in their place: the search starts at the current page and wraps around."""
+        first_position = -1
+        start = 0
+        while start < len(results):
+            end = start
+            while end < len(results) and results[end].page >= results[start].page:
+                end += 1
+            run = results[start:end]
+            position = bisect.bisect_left(self._found_pages, run[0].page)
+            self._found[position:position] = run
+            self._found_pages[position:position] = [result.page for result in run]
+            if self.current >= position:
+                self.current += len(run)
+            self.results.splice(position, 0, [ResultItem(result, self._page_label(result.page)) for result in run])
+            if first_position < 0:
+                first_position = position
+            start = end
+        self.last_added = results
         self._update_count()
-        self.emit("results-changed")
-        if self._jump_to_first:
+        self.emit("results-added")
+        if self._jump_to_first and first_position >= 0:
             self._jump_to_first = False
-            self.choose(position)
+            self.choose(first_position)
 
     def _on_finished(self) -> None:
         self._searching = False
@@ -216,8 +246,31 @@ class SearchView(Gtk.Box):
         page, text = box.get_first_child(), box.get_last_child()
         assert isinstance(page, Gtk.Label)
         assert isinstance(text, Gtk.Label)
-        page.set_label(_("Page {label}").format(label=result_item.page_label))
-        text.set_markup(result_markup(result_item.result))
+        page.set_label(self._page_format.format(label=result_item.page_label))
+        result = result_item.result
+        if result in self._contexts:
+            text.set_markup(result_markup(self._contexts[result]))
+            self._pending_contexts.pop(text, None)
+        else:
+            text.set_label("")
+            self._pending_contexts[text] = result
+            if not self._filling:
+                self._filling = True
+                GLib.idle_add(self._fill_contexts)
+
+    def _fill_contexts(self) -> bool:
+        """Read the sentences of the rows waiting for one, for a short time; go on later if some are left."""
+        deadline = time.monotonic() + CONTEXT_TIME_SLICE
+        while self._pending_contexts and time.monotonic() < deadline and self._context is not None:
+            label, result = next(iter(self._pending_contexts.items()))
+            del self._pending_contexts[label]
+            if result not in self._contexts:
+                self._contexts[result] = self._context(result)
+            label.set_markup(result_markup(self._contexts[result]))
+        if self._pending_contexts and self._context is not None:
+            return GLib.SOURCE_CONTINUE
+        self._filling = False
+        return GLib.SOURCE_REMOVE
 
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType

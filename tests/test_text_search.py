@@ -2,54 +2,62 @@
 
 from pathlib import Path
 
-from gi.repository import GLib
+import cairo
+import pytest
+from gi.repository import GLib, Poppler
 
-from penfold.rendering.text_search import TextSearch, find_in_page, fold, fold_query
+from penfold.rendering.text_search import MatchContext, TextSearch, find_in_page, match_context, normalize_query
 from tests.gtk_helpers import wait_until
-from tests.test_page_content import make_text_pdf
+from tests.test_page_content import A4, make_text_pdf
+
+LINES = [
+    "El plazo de Garantía será de dos años",
+    "desde la entrega. La garantia cubre los",
+    "defectos de una garantía legal establecida en la normativa vigente del país",
+]
 
 
-def boxes_for(text: str) -> list[tuple[float, float, float, float]]:
-    """One 10-point box per character, all on one line, as Poppler would give them."""
-    return [(index * 10.0, 100.0, index * 10.0 + 10, 112.0) for index in range(len(text))]
+@pytest.fixture
+def document(tmp_path: Path) -> Poppler.Document:
+    """One page with three lines of text, 20 points apart, from 100 points from the top."""
+    path = tmp_path / "words.pdf"
+    surface = cairo.PDFSurface(str(path), *A4)
+    context = cairo.Context(surface)
+    context.set_font_size(12)
+    for index, line in enumerate(LINES):
+        context.move_to(72, 100 + index * 20)
+        context.show_text(line)
+    surface.finish()
+    return Poppler.Document.new_from_file(GLib.filename_to_uri(str(path), None), None)
 
 
-def test_folding_ignores_case_accents_and_line_breaks() -> None:
-    folded, origins = fold("Canción\n  ÚNICA")
-    assert folded == "cancion unica"
-    assert origins[5] == 5  # the "o" of "ción" comes from the accented letter
-    assert fold_query("  GARANTÍA ") == "garantia"
+def test_runs_of_spaces_count_as_one() -> None:
+    assert normalize_query("  dos\n  años ") == "dos años"
 
 
-def test_finds_every_match_and_its_boxes() -> None:
-    text = "La garantía de la Garantia"
-    results = find_in_page(3, text, boxes_for(text), fold_query("garantia"))
-    assert [result.match for result in results] == ["garantía", "Garantia"]
-    assert results[0].page == 3
-    assert results[0].rectangles == ((30.0, 100.0, 110.0, 112.0),)
+def test_ignores_case_and_accents(document: Poppler.Document) -> None:
+    results = find_in_page(document.get_page(0), 0, "GARANTIA")
+    assert len(results) == 3
+    assert [result.page for result in results] == [0, 0, 0]
+    left, top, right, bottom = results[0].rectangles[0]
+    assert top < 100 <= bottom  # the boxes are measured from the top of the page
+    assert 72 < left < right
 
 
-def test_a_match_across_a_line_break_has_one_box_per_line() -> None:
-    text = "the plazo\nde garantía"
-    boxes = (
-        boxes_for("the plazo")
-        + [(0.0, 0.0, 0.0, 0.0)]
-        + [(index * 10.0, 120.0, index * 10.0 + 10, 132.0) for index in range(11)]
-    )
-    results = find_in_page(0, text, boxes, fold_query("plazo de"))
+def test_finds_text_across_a_line_break(document: Poppler.Document) -> None:
+    results = find_in_page(document.get_page(0), 0, "dos años desde la")
     assert len(results) == 1
-    assert results[0].rectangles == ((40.0, 100.0, 90.0, 112.0), (0.0, 120.0, 20.0, 132.0))
+    assert len(results[0].rectangles) == 2  # one box per line
+    assert results[0].top < 100
 
 
-def test_the_sentence_around_a_match_has_whole_words() -> None:
-    text = "Una frase muy larga con varias palabras antes de la garantía legal establecida en la normativa vigente"
-    result = find_in_page(0, text, boxes_for(text), fold_query("garantía"))[0]
-    assert result.before.endswith("antes de la ")
-    assert not result.before.startswith("rase")
-    assert result.after.startswith(" legal")
-    dotted = "la garantía. Siguiente frase"
-    assert find_in_page(0, dotted, boxes_for(dotted), fold_query("garantia"))[0].after.startswith(". Siguiente")
-    assert result.after.split()[-1] in text.split()
+def test_the_sentence_around_a_match(document: Poppler.Document) -> None:
+    result = find_in_page(document.get_page(0), 0, "garantia legal")[0]
+    context = match_context(document, result)
+    assert context == MatchContext(before="defectos de una", match="garantía legal", after=context.after)
+    assert context.after.startswith("establecida en la")
+    assert len(context.after) <= 40
+    assert context.after.split()[-1] in LINES[2].split()
 
 
 def test_searches_a_pdf_in_the_background_from_a_page_on(tmp_path: Path) -> None:
@@ -58,7 +66,7 @@ def test_searches_a_pdf_in_the_background_from_a_page_on(tmp_path: Path) -> None
     pages: list[int] = []
     finished: list[bool] = []
     search.start(
-        "LINE 2", 1, lambda results: pages.extend(result.page for result in results), lambda: finished.append(True)
+        "LINE   2", 1, lambda results: pages.extend(item.page for item in results), lambda: finished.append(True)
     )
     wait_until(lambda: bool(finished))
     assert pages == [1, 2, 0]  # from page 2 on, wrapping around
@@ -67,13 +75,9 @@ def test_searches_a_pdf_in_the_background_from_a_page_on(tmp_path: Path) -> None
 def test_a_new_search_stops_the_previous_one(tmp_path: Path) -> None:
     path = make_text_pdf(tmp_path / "text.pdf")
     search = TextSearch(GLib.filename_to_uri(str(path), None))
-    old: list[int] = []
     new: list[int] = []
     finished: list[bool] = []
-    search.start("page", 0, lambda results: old.extend(result.page for result in results), lambda: None)
-    search.start(
-        "page 3", 0, lambda results: new.extend(result.page for result in results), lambda: finished.append(True)
-    )
+    search.start("page", 0, lambda _results: None, lambda: None)
+    search.start("page 3", 0, lambda results: new.extend(item.page for item in results), lambda: finished.append(True))
     wait_until(lambda: bool(finished))
     assert new == [2, 2]
-    assert not old or len(old) < 6

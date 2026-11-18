@@ -1,13 +1,13 @@
 """Finding text in a PDF, in the background (D13; as 0.6's Find).
 
-The search ignores case, accents and irregular line breaks: both the page text and what is searched are "folded"
-(lower case, without accents, every run of spaces and line breaks as one space), and each folded character remembers
-which character of the page it came from, to put the match back on the page. It runs in a thread with its own Poppler
-document, and the results arrive in the main thread page by page, so the list fills while it searches.
+Poppler finds the text itself, ignoring case and accents and across line breaks (0.6's rules); runs of spaces in
+what is searched count as one. The search runs in a thread with its own Poppler document and sends the matches to the
+main thread in batches, so the list fills while it searches. The sentence around a match is read only when its row is
+shown, from Poppler's main-thread copy of the document.
 """
 
 import threading
-import unicodedata
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -15,23 +15,18 @@ from gi.repository import GLib, Poppler
 
 from penfold.rendering.page_content import Rectangle
 
+FIND_FLAGS = Poppler.FindFlags.IGNORE_DIACRITICS | Poppler.FindFlags.MULTILINE
+# Results are sent to the main thread in batches, at most this often (seconds), so a common word does not flood it.
+BATCH_INTERVAL = 0.1
 CONTEXT_CHARACTERS = 40
-# Two character boxes are on the same line if their centres are this close, relative to their height.
-SAME_LINE = 0.5
 
 
 @dataclass(frozen=True)
 class SearchResult:
-    """One match: its page, the boxes of its text (in points from the top left corner) and the sentence around it.
-
-    The sentence is split in three: before the match, the match as written in the PDF, and after it.
-    """
+    """One match: its page and the boxes of its text, one per line, in points from the top left corner."""
 
     page: int
     rectangles: tuple[Rectangle, ...]
-    before: str
-    match: str
-    after: str
 
     @property
     def top(self) -> float:
@@ -39,96 +34,69 @@ class SearchResult:
         return min(rectangle[1] for rectangle in self.rectangles)
 
 
-def fold(text: str) -> tuple[str, list[int]]:
-    """Fold a text and return it with, for each folded character, the index of the character it came from."""
-    folded: list[str] = []
-    origins: list[int] = []
-    for index, character in enumerate(text):
-        for piece in unicodedata.normalize("NFKD", character):
-            if unicodedata.category(piece) == "Mn":
-                continue
-            folded_piece = " " if piece.isspace() else piece.lower()
-            if folded_piece == " " and (not folded or folded[-1] == " "):
-                continue
-            folded.append(folded_piece)
-            origins.append(index)
-    while folded and folded[-1] == " ":
-        folded.pop()
-        origins.pop()
-    return "".join(folded), origins
+@dataclass(frozen=True)
+class MatchContext:
+    """The sentence around a match: the words before it, the match as written in the PDF and the words after it."""
+
+    before: str
+    match: str
+    after: str
 
 
-def fold_query(query: str) -> str:
-    """Fold what is searched, the same way as the page text."""
-    return fold(query)[0].strip()
+def normalize_query(query: str) -> str:
+    """What is searched, with runs of spaces and line breaks as one space."""
+    return " ".join(query.split())
 
 
-def find_in_page(page: int, text: str, boxes: list[Rectangle], query: str) -> list[SearchResult]:
-    """Find a folded query in the text of a page, whose characters have these boxes."""
-    if not query:
-        return []
-    folded, origins = fold(text)
+def find_in_page(page: Poppler.Page, page_index: int, query: str) -> list[SearchResult]:
+    """Find a text in a page; a match across a line break has one box per line."""
+    _width, height = page.get_size()
     results = []
-    start = folded.find(query)
-    while start >= 0:
-        first, last = origins[start], origins[start + len(query) - 1]
-        rectangles = _merge_lines([boxes[index] for index in range(first, last + 1) if not text[index].isspace()])
-        if rectangles:
-            before = _whole_words(text, max(0, first - CONTEXT_CHARACTERS), first, at_start=True)
-            after = _whole_words(text, last + 1, last + 1 + CONTEXT_CHARACTERS, at_start=False)
-            results.append(
-                SearchResult(
-                    page=page,
-                    rectangles=tuple(rectangles),
-                    before=_context(before, keep_end=True),
-                    match=" ".join(text[first : last + 1].split()),
-                    after=_context(after, keep_end=False),
-                )
-            )
-        start = folded.find(query, start + len(query))
+    boxes: list[Rectangle] = []
+    for box in page.find_text_with_options(query, FIND_FLAGS):
+        # Poppler gives boxes from the bottom left corner of the page.
+        boxes.append((box.x1, height - box.y2, box.x2, height - box.y1))
+        if not box.find_get_match_continued():
+            results.append(SearchResult(page_index, tuple(boxes)))
+            boxes = []
+    if boxes:
+        results.append(SearchResult(page_index, tuple(boxes)))
     return results
 
 
-def _whole_words(text: str, start: int, end: int, at_start: bool) -> str:
-    """Return text[start:end] without the piece of word cut at its outer edge.
+def match_context(document: Poppler.Document, result: SearchResult) -> MatchContext:
+    """Read the sentence around a match: the rest of its first line before it and of its last line after it."""
+    page = document.get_page(result.page)
+    width, _height = page.get_size()
+    first, last = result.rectangles[0], result.rectangles[-1]
 
-    The text before a match is cut at its start (at_start) and the text after it at its end; the edge that touches the
-    match, and the edges of the page text, are kept.
-    """
-    piece = text[start:end]
-    spaces = [index for index, character in enumerate(piece) if character.isspace()]
-    if at_start and start > 0 and not text[start - 1].isspace() and not piece[:1].isspace():
-        return piece[spaces[0] :] if spaces else ""
-    if not at_start and end < len(text) and not text[end].isspace() and not piece[-1:].isspace():
-        return piece[: spaces[-1] + 1] if spaces else ""
-    return piece
+    def text(left: float, top: float, right: float, bottom: float) -> str:
+        area = Poppler.Rectangle()
+        area.x1, area.y1, area.x2, area.y2 = left, top, right, bottom
+        return " ".join((page.get_text_for_area(area) or "").split())
 
-
-def _context(text: str, keep_end: bool) -> str:
-    """Return the words around a match on one line, keeping the space that touches the match.
-
-    That is the space at the end of the text before the match, or at the start of the text after it.
-    """
-    words = " ".join(text.split())
-    if keep_end and text[-1:].isspace():
-        return f"{words} " if words else " "
-    if not keep_end and text[:1].isspace():
-        return f" {words}" if words else " "
-    return words
+    before = text(0, first[1], first[0], first[3])
+    match = " ".join(text(*box) for box in result.rectangles)
+    after = text(last[2], last[1], width, last[3])
+    return MatchContext(_last_words(before), match, _first_words(after))
 
 
-def _merge_lines(boxes: list[Rectangle]) -> list[Rectangle]:
-    """Join the boxes of consecutive characters on the same line into one box per line."""
-    merged: list[Rectangle] = []
-    for box in boxes:
-        if merged:
-            left, top, right, bottom = merged[-1]
-            height = max(bottom - top, box[3] - box[1], 1.0)
-            if abs((top + bottom) / 2 - (box[1] + box[3]) / 2) < height * SAME_LINE:
-                merged[-1] = (min(left, box[0]), min(top, box[1]), max(right, box[2]), max(bottom, box[3]))
-                continue
-        merged.append(box)
-    return merged
+def _last_words(text: str) -> str:
+    """The end of a text, up to CONTEXT_CHARACTERS, in whole words."""
+    if len(text) <= CONTEXT_CHARACTERS:
+        return text
+    piece = text[-CONTEXT_CHARACTERS:]
+    space = piece.find(" ")
+    return piece[space + 1 :] if space >= 0 else piece
+
+
+def _first_words(text: str) -> str:
+    """The start of a text, up to CONTEXT_CHARACTERS, in whole words."""
+    if len(text) <= CONTEXT_CHARACTERS:
+        return text
+    piece = text[:CONTEXT_CHARACTERS]
+    space = piece.rfind(" ")
+    return piece[:space] if space >= 0 else piece
 
 
 class TextSearch:
@@ -149,16 +117,15 @@ class TextSearch:
     ) -> None:
         """Search for a text from a page on, wrapping around to the start; any earlier search stops.
 
-        on_results is called in the main thread with the results of each page that has any, in search order, and
-        on_finished once at the end.
+        on_results is called in the main thread with batches of results, in search order (each page's results
+        together), and on_finished once at the end.
         """
         with self._lock:
             self._generation += 1
             generation = self._generation
-        folded = fold_query(query)
         thread = threading.Thread(
             target=self._search,
-            args=(generation, folded, first_page, on_results, on_finished),
+            args=(generation, normalize_query(query), first_page, on_results, on_finished),
             name="penfold-search",
             daemon=True,
         )
@@ -183,19 +150,19 @@ class TextSearch:
     ) -> None:
         document = Poppler.Document.new_from_file(self._uri, None)
         count = document.get_n_pages()
+        batch: list[SearchResult] = []
+        sent = 0.0
         for step in range(count if query else 0):
             if not self._current(generation):
                 return
             page = (first_page + step) % count
-            poppler_page = document.get_page(page)
-            text = poppler_page.get_text() or ""
-            _found, layout = poppler_page.get_text_layout()
-            boxes = [(box.x1, box.y1, box.x2, box.y2) for box in layout or []]
-            if len(boxes) != len(text):
-                continue
-            results = find_in_page(page, text, boxes, query)
-            if results:
-                GLib.idle_add(self._deliver, generation, on_results, results)
+            batch.extend(find_in_page(document.get_page(page), page, query))
+            # The first match goes at once, so the view can jump to it; then in batches.
+            if batch and time.monotonic() - sent >= BATCH_INTERVAL:
+                GLib.idle_add(self._deliver, generation, on_results, batch)
+                batch, sent = [], time.monotonic()
+        if batch:
+            GLib.idle_add(self._deliver, generation, on_results, batch)
         GLib.idle_add(self._finish, generation, on_finished)
 
     def _deliver(

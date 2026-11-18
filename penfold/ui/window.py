@@ -10,6 +10,7 @@ from penfold import config
 from penfold.document.document import OpenDocument
 from penfold.errors import DocumentOpenError
 from penfold.rendering.renderer import Renderer
+from penfold.rendering.text_search import match_context
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
 from penfold.ui.document_header import PenfoldDocumentHeader
@@ -173,7 +174,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.sidebar.add_view(sidebar_views.ANNOTATIONS, self.annotations_view)
         self.search_view = SearchView()
         self.search_view.connect("result-chosen", self._on_result_chosen)
-        self.search_view.connect("results-changed", lambda _view: self._show_matches())
+        self.search_view.connect("results-added", self._on_results_added)
+        self.search_view.connect("results-cleared", lambda _view: self.document_view.clear_matches())
         self.search_view.connect("close-requested", lambda _view: self.close_find())
         self.sidebar.add_view(sidebar_views.SEARCH, self.search_view)
         self.sidebar.connect("view-changed", self._on_sidebar_view_changed)
@@ -213,18 +215,22 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_result_chosen(self, view: SearchView, index: int) -> None:
         result = view.result_list[index]
         self.document_view.go_to(result.page, result.top)
-        self._show_matches()
+        self.document_view.set_current_match(result)
 
-    def _show_matches(self) -> None:
-        searching = self.sidebar.visible_view == sidebar_views.SEARCH
-        results = self.search_view.result_list if searching else []
-        self.document_view.show_matches(results, self.search_view.current)
+    def _on_results_added(self, view: SearchView) -> None:
+        if self.sidebar.visible_view == sidebar_views.SEARCH:
+            self.document_view.add_matches(view.last_added)
 
     def _on_sidebar_view_changed(self, sidebar: PenfoldSidebar) -> None:
+        """Matches are highlighted while Find is shown."""
+        self.document_view.clear_matches()
         if sidebar.visible_view == sidebar_views.SEARCH:
             self.search_view.current_page = self.document_view.current_page
             self.search_view.focus()
-        self._show_matches()
+            self.document_view.add_matches(self.search_view.result_list)
+            current = self.search_view.current
+            if 0 <= current < len(self.search_view.result_list):
+                self.document_view.set_current_match(self.search_view.result_list[current])
 
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, _state: Gdk.ModifierType
@@ -265,7 +271,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.bookmarks_view.set_document(document)
         assert self.document_view.content is not None
         self.annotations_view.set_document(document, self.document_view.content)
-        self.search_view.set_document(renderer.uri, document.page_label)
+        self.search_view.set_document(
+            renderer.uri, document.page_label, lambda result: match_context(renderer.document, result)
+        )
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
         self.document_view.grab_focus()

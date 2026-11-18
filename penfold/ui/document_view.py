@@ -114,7 +114,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._fit_deferred = False
         self.content: PageContent | None = None
         self.selection: TextSelection | None = None
-        self._matches: dict[int, list[tuple[SearchResult, bool]]] = {}
+        self._matches: dict[int, list[SearchResult]] = {}
+        self._current_match: SearchResult | None = None
         self._press: PagePoint | None = None
         self._press_style = Poppler.SelectionStyle.GLYPH
         self._dragging = False
@@ -597,16 +598,31 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         scaling = Gsk.ScalingFilter.NEAREST if exact else Gsk.ScalingFilter.LINEAR
         snapshot.append_scaled_texture(texture, scaling, bounds)
 
-    def show_matches(self, results: list[SearchResult], current: int) -> None:
-        """Highlight the matches of Find on the pages, the current one differently; an empty list clears them."""
-        self._matches = {}
-        for index, result in enumerate(results):
-            self._matches.setdefault(result.page, []).append((result, index == current))
+    def add_matches(self, results: list[SearchResult]) -> None:
+        """Highlight more matches of Find on their pages."""
+        for result in results:
+            self._matches.setdefault(result.page, []).append(result)
+        if any(box.page in self._matches for box in self._visible_boxes()):
+            self.queue_draw()
+
+    def set_current_match(self, result: SearchResult | None) -> None:
+        """Highlight the current match of Find differently from the others."""
+        self._current_match = result
         self.queue_draw()
 
+    def clear_matches(self) -> None:
+        """Remove every highlight of Find."""
+        self._matches, self._current_match = {}, None
+        self.queue_draw()
+
+    @property
+    def has_matches(self) -> bool:
+        """Whether matches of Find are highlighted."""
+        return bool(self._matches)
+
     def _draw_matches(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
-        for result, is_current in self._matches.get(box.page, []):
-            color = rgba(CURRENT_MATCH_COLOR if is_current else MATCH_COLOR)
+        for result in self._matches.get(box.page, []):
+            color = rgba(CURRENT_MATCH_COLOR if result is self._current_match else MATCH_COLOR)
             for left, top, right, bottom in result.rectangles:
                 bounds = Graphene.Rect().init(
                     x + left * self.zoom, y + top * self.zoom, (right - left) * self.zoom, (bottom - top) * self.zoom
