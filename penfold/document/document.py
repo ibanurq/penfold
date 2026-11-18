@@ -5,6 +5,7 @@ from typing import Self
 
 import pikepdf
 
+from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, read_bookmarks
 from penfold.document.page_labels import page_labels
 from penfold.document.sources import open_source
@@ -25,6 +26,7 @@ class OpenDocument:
         self.title = _read_title(pdf)
         self.is_protected = pdf.is_encrypted
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
+        self.annotations: list[Annotation] = read_annotations(pdf)
 
     @classmethod
     def open(cls, path: Path) -> Self:
