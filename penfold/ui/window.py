@@ -10,7 +10,7 @@ from penfold import config
 from penfold.document.document import OpenDocument
 from penfold.errors import DocumentOpenError
 from penfold.rendering.renderer import Renderer
-from penfold.rendering.text_search import match_context
+from penfold.rendering.text_search import ContextReader
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
 from penfold.ui.document_header import PenfoldDocumentHeader
@@ -271,9 +271,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.bookmarks_view.set_document(document)
         assert self.document_view.content is not None
         self.annotations_view.set_document(document, self.document_view.content)
-        self.search_view.set_document(
-            renderer.uri, document.page_label, lambda result: match_context(renderer.document, result)
-        )
+        self.search_view.set_document(renderer.uri, document.page_label, ContextReader(renderer.document).context)
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
         self.document_view.grab_focus()

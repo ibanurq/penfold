@@ -19,6 +19,8 @@ from penfold.ui.sidebar.view_header import HEADER_MARGIN
 ROW_TEXT_LINES = 2
 # Sentences are read a few at a time, for at most this long (seconds) each time, so the window never waits.
 CONTEXT_TIME_SLICE = 0.008
+# Signs written right after a word, without a space.
+CLOSING_PUNCTUATION = frozenset(".,;:!?)]»\u201d\u2019\u2026")
 
 
 class ResultItem(GObject.Object):
@@ -36,8 +38,12 @@ class ResultItem(GObject.Object):
 def result_markup(context: MatchContext) -> str:
     """The sentence of a match with the match highlighted, as Pango markup: "…words before match words after…"."""
     escape = GLib.markup_escape_text
-    before = f"…{escape(context.before)} " if context.before else ""
-    after = f" {escape(context.after)}…" if context.after else ""
+    before = f"{'…' if context.more_before else ''}{escape(context.before)} " if context.before else ""
+    after = ""
+    if context.after:
+        # No space before punctuation that follows the match ("garantía.", not "garantía .").
+        gap = "" if context.after[0] in CLOSING_PUNCTUATION else " "
+        after = f"{gap}{escape(context.after)}{'…' if context.more_after else ''}"
     return f'{before}<span background="#f8e45c" foreground="#000000">{escape(context.match)}</span>{after}'
 
 

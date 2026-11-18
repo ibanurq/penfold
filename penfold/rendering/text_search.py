@@ -3,11 +3,12 @@
 Poppler finds the text itself, ignoring case and accents and across line breaks (0.6's rules); runs of spaces in
 what is searched count as one. The search runs in a thread with its own Poppler document and sends the matches to the
 main thread in batches, so the list fills while it searches. The sentence around a match is read only when its row is
-shown, from Poppler's main-thread copy of the document.
+shown, from the text of its page in Poppler's main-thread copy of the document.
 """
 
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -19,6 +20,8 @@ FIND_FLAGS = Poppler.FindFlags.IGNORE_DIACRITICS | Poppler.FindFlags.MULTILINE
 # Results are sent to the main thread in batches, at most this often (seconds), so a common word does not flood it.
 BATCH_INTERVAL = 0.1
 CONTEXT_CHARACTERS = 40
+# Pages whose text is kept for the sentences of the rows shown.
+CACHED_PAGES = 8
 
 
 @dataclass(frozen=True)
@@ -36,11 +39,16 @@ class SearchResult:
 
 @dataclass(frozen=True)
 class MatchContext:
-    """The sentence around a match: the words before it, the match as written in the PDF and the words after it."""
+    """The sentence around a match: the words before it, the match as written in the PDF and the words after it.
+
+    The flags say whether the line goes on beyond the words shown (so the row shows "…").
+    """
 
     before: str
     match: str
     after: str
+    more_before: bool = False
+    more_after: bool = False
 
 
 def normalize_query(query: str) -> str:
@@ -64,39 +72,65 @@ def find_in_page(page: Poppler.Page, page_index: int, query: str) -> list[Search
     return results
 
 
-def match_context(document: Poppler.Document, result: SearchResult) -> MatchContext:
-    """Read the sentence around a match: the rest of its first line before it and of its last line after it."""
-    page = document.get_page(result.page)
-    width, _height = page.get_size()
-    first, last = result.rectangles[0], result.rectangles[-1]
+class ContextReader:
+    """Reads the sentence around matches from the text of their pages, keeping the last pages read."""
 
-    def text(left: float, top: float, right: float, bottom: float) -> str:
-        area = Poppler.Rectangle()
-        area.x1, area.y1, area.x2, area.y2 = left, top, right, bottom
-        return " ".join((page.get_text_for_area(area) or "").split())
+    def __init__(self, document: Poppler.Document) -> None:
+        """Read from Poppler's main-thread copy of the document."""
+        self._document = document
+        self._pages: OrderedDict[int, tuple[str, list[Rectangle]]] = OrderedDict()
 
-    before = text(0, first[1], first[0], first[3])
-    match = " ".join(text(*box) for box in result.rectangles)
-    after = text(last[2], last[1], width, last[3])
-    return MatchContext(_last_words(before), match, _first_words(after))
+    def context(self, result: SearchResult) -> MatchContext:
+        """Return the rest of the first line of a match before it, the match and the rest of its last line."""
+        text, boxes = self._page_text(result.page)
+        inside = [index for index, box in enumerate(boxes) if not text[index].isspace() and _inside(box, result)]
+        if not inside:
+            return MatchContext("", "", "")
+        first, last = inside[0], inside[-1]
+        line_start = text.rfind("\n", 0, first) + 1
+        line_end = text.find("\n", last + 1)
+        line_end = len(text) if line_end < 0 else line_end
+        before, more_before = _last_words(" ".join(text[line_start:first].split()))
+        after, more_after = _first_words(" ".join(text[last + 1 : line_end].split()))
+        return MatchContext(before, " ".join(text[first : last + 1].split()), after, more_before, more_after)
+
+    def _page_text(self, page: int) -> tuple[str, list[Rectangle]]:
+        if page not in self._pages:
+            poppler_page = self._document.get_page(page)
+            text = poppler_page.get_text() or ""
+            _found, layout = poppler_page.get_text_layout()
+            boxes = [(box.x1, box.y1, box.x2, box.y2) for box in layout or []]
+            if len(boxes) != len(text):
+                text, boxes = "", []
+            self._pages[page] = (text, boxes)
+            while len(self._pages) > CACHED_PAGES:
+                self._pages.popitem(last=False)
+        self._pages.move_to_end(page)
+        return self._pages[page]
 
 
-def _last_words(text: str) -> str:
-    """The end of a text, up to CONTEXT_CHARACTERS, in whole words."""
+def _inside(box: Rectangle, result: SearchResult) -> bool:
+    """Whether the centre of a character box is inside one of the boxes of a match."""
+    x, y = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    return any(left <= x <= right and top <= y <= bottom for left, top, right, bottom in result.rectangles)
+
+
+def _last_words(text: str) -> tuple[str, bool]:
+    """The end of a text, up to CONTEXT_CHARACTERS, in whole words, and whether something was left out."""
     if len(text) <= CONTEXT_CHARACTERS:
-        return text
+        return text, False
     piece = text[-CONTEXT_CHARACTERS:]
     space = piece.find(" ")
-    return piece[space + 1 :] if space >= 0 else piece
+    return (piece[space + 1 :] if space >= 0 else piece), True
 
 
-def _first_words(text: str) -> str:
-    """The start of a text, up to CONTEXT_CHARACTERS, in whole words."""
+def _first_words(text: str) -> tuple[str, bool]:
+    """The start of a text, up to CONTEXT_CHARACTERS, in whole words, and whether something was left out."""
     if len(text) <= CONTEXT_CHARACTERS:
-        return text
+        return text, False
     piece = text[:CONTEXT_CHARACTERS]
     space = piece.rfind(" ")
-    return piece[:space] if space >= 0 else piece
+    return (piece[:space] if space >= 0 else piece), True
 
 
 class TextSearch:

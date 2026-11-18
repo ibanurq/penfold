@@ -6,7 +6,7 @@ import cairo
 import pytest
 from gi.repository import GLib, Poppler
 
-from penfold.rendering.text_search import MatchContext, TextSearch, find_in_page, match_context, normalize_query
+from penfold.rendering.text_search import ContextReader, MatchContext, TextSearch, find_in_page, normalize_query
 from tests.gtk_helpers import wait_until
 from tests.test_page_content import A4, make_text_pdf
 
@@ -52,12 +52,16 @@ def test_finds_text_across_a_line_break(document: Poppler.Document) -> None:
 
 
 def test_the_sentence_around_a_match(document: Poppler.Document) -> None:
-    result = find_in_page(document.get_page(0), 0, "garantia legal")[0]
-    context = match_context(document, result)
-    assert context == MatchContext(before="defectos de una", match="garantía legal", after=context.after)
+    reader = ContextReader(document)
+    context = reader.context(find_in_page(document.get_page(0), 0, "garantia legal")[0])
+    assert (context.before, context.match, context.more_before) == ("defectos de una", "garantía legal", False)
     assert context.after.startswith("establecida en la")
     assert len(context.after) <= 40
+    assert context.more_after
     assert context.after.split()[-1] in LINES[2].split()
+    # A match at the end of a line takes nothing from the next one.
+    end_of_line = reader.context(find_in_page(document.get_page(0), 0, "dos años")[0])
+    assert end_of_line == MatchContext("El plazo de Garantía será de", "dos años", "", False, False)
 
 
 def test_searches_a_pdf_in_the_background_from_a_page_on(tmp_path: Path) -> None:
