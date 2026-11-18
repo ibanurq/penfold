@@ -22,3 +22,18 @@ def wait_until(condition: Callable[[], bool], timeout: float = 10.0) -> None:
             raise AssertionError("Timed out waiting for the condition")
         context.iteration(may_block=False)
         time.sleep(0.005)
+
+
+def wait_until_stable(measure: Callable[[], object], settle: float = 0.25, timeout: float = 10.0) -> None:
+    """Run the main loop until a value stops changing for the settle time, in seconds (a size after resizing)."""
+    context = GLib.MainContext.default()
+    deadline = time.monotonic() + timeout
+    value, since = measure(), time.monotonic()
+    while time.monotonic() - since < settle:
+        if time.monotonic() > deadline:
+            raise AssertionError("Timed out waiting for the value to settle")
+        context.iteration(may_block=False)
+        time.sleep(0.005)
+        current = measure()
+        if current != value:
+            value, since = current, time.monotonic()

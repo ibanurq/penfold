@@ -8,7 +8,7 @@ import pikepdf
 import pytest
 from gi.repository import Adw, GLib
 
-from tests.gtk_helpers import process_pending_events, wait_until
+from tests.gtk_helpers import process_pending_events, wait_until, wait_until_stable
 from tests.sample_pdfs import make_pdf
 
 if TYPE_CHECKING:
@@ -44,9 +44,11 @@ def book(tmp_path: Path) -> Path:
 def open_and_wait(window: "PenfoldWindow", path: Path) -> bool:
     opened = window.open_file(path)
     if opened:
-        # The window grows to its size with a document (D17); wait until the view has its final width.
-        wait_until(lambda: window.get_width() == window.get_default_size()[0] and bool(window.document_view._boxes))
-        process_pending_events()
+        # The window may grow to its size with a document (D17), or not, without a window manager: wait until the
+        # view has its pages and its width no longer changes.
+        view = window.document_view
+        wait_until(lambda: view.get_width() > 0 and bool(view._boxes))
+        wait_until_stable(lambda: (window.get_width(), view.get_width(), view.zoom))
     return opened
 
 
