@@ -12,3 +12,5 @@ install_data(
   'zoom_controls.py',
   install_dir: pkgdatadir / 'penfold' / 'ui',
 )
+
+subdir('sidebar')

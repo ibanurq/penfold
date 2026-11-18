@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-18 15:53+0100\n"
+"POT-Creation-Date: 2026-11-18 18:14+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -103,7 +103,8 @@ msgstr "Deshacer"
 msgid "Redo"
 msgstr "Rehacer"
 
-#: data/ui/document_header.blp:44 data/ui/window.blp:24
+#: data/ui/document_header.blp:44 data/ui/sidebar/sidebar.blp:27
+#: data/ui/window.blp:23
 msgid "Main Menu"
 msgstr "Menú principal"
 
@@ -159,6 +160,22 @@ msgstr "Ir a la página"
 msgid "Page"
 msgstr "Página"
 
+#: data/ui/sidebar/sidebar.blp:15
+msgid "Find"
+msgstr "Buscar"
+
+#: data/ui/sidebar/sidebar.blp:47 penfold/ui/sidebar/pages_view.py:114
+msgid "Pages"
+msgstr "Páginas"
+
+#: data/ui/sidebar/sidebar.blp:58 penfold/ui/sidebar/bookmarks_view.py:84
+msgid "Bookmarks"
+msgstr "Marcadores"
+
+#: data/ui/sidebar/sidebar.blp:69 penfold/ui/sidebar/annotations_view.py:133
+msgid "Annotations"
+msgstr "Anotaciones"
+
 #: data/ui/welcome_page.blp:9 penfold/application.py:101
 #: penfold/ui/shortcuts_dialog.py:43
 msgid "Open a PDF"
@@ -172,7 +189,7 @@ msgstr "Arrastra aquí un PDF para abrirlo, o varios para combinarlos"
 msgid "_Merge…"
 msgstr "_Combinar…"
 
-#: data/ui/window.blp:42
+#: data/ui/window.blp:47
 msgid ""
 "This PDF is protected against changes: Penfold cannot save it, print it or "
 "extract pages from it yet."
@@ -276,21 +293,127 @@ msgstr "Última página"
 msgid "Go to page"
 msgstr "Ir a la página"
 
-#: penfold/ui/window.py:140
+#: penfold/ui/sidebar/annotations_view.py:40
+msgid "Highlights"
+msgstr "Resaltados"
+
+#: penfold/ui/sidebar/annotations_view.py:41
+msgid "Underlines"
+msgstr "Subrayados"
+
+#: penfold/ui/sidebar/annotations_view.py:42
+msgid "Strikethroughs"
+msgstr "Tachados"
+
+#: penfold/ui/sidebar/annotations_view.py:43
+msgid "Comments"
+msgstr "Comentarios"
+
+#: penfold/ui/sidebar/annotations_view.py:44
+msgid "Text Boxes"
+msgstr "Cuadros de texto"
+
+#: penfold/ui/sidebar/annotations_view.py:45
+msgid "Rectangles"
+msgstr "Rectángulos"
+
+#: penfold/ui/sidebar/annotations_view.py:46
+msgid "Circles"
+msgstr "Círculos"
+
+#: penfold/ui/sidebar/annotations_view.py:47
+msgid "Arrows"
+msgstr "Flechas"
+
+#: penfold/ui/sidebar/annotations_view.py:48
+msgid "Other Types"
+msgstr "Otros tipos"
+
+#: penfold/ui/sidebar/annotations_view.py:89
+#: penfold/ui/sidebar/search_view.py:219
+#, python-brace-format
+msgid "Page {label}"
+msgstr "Página {label}"
+
+#: penfold/ui/sidebar/annotations_view.py:91
+msgid "(External)"
+msgstr "(Externa)"
+
+#: penfold/ui/sidebar/annotations_view.py:108
+msgid "No text"
+msgstr "Sin texto"
+
+#: penfold/ui/sidebar/annotations_view.py:129
+msgid "Filter"
+msgstr "Filtro"
+
+#: penfold/ui/sidebar/annotations_view.py:166
+msgid "No annotations of the types shown"
+msgstr "Ninguna anotación de los tipos elegidos"
+
+#: penfold/ui/sidebar/annotations_view.py:166
+msgid "This PDF has no annotations"
+msgstr "Este PDF no tiene anotaciones"
+
+#. Translators: heading of a group of annotations, as in "Comments (2)".
+#: penfold/ui/sidebar/annotations_view.py:193
+msgid "{kind} ({count})"
+msgstr "{kind} ({count})"
+
+#: penfold/ui/sidebar/annotations_view.py:212
+msgid "Show"
+msgstr "Mostrar"
+
+#: penfold/ui/sidebar/bookmarks_view.py:37
+msgid "Untitled"
+msgstr "Sin título"
+
+#: penfold/ui/sidebar/bookmarks_view.py:78
+msgid "Expand or Collapse All"
+msgstr "Desplegar o plegar todo"
+
+#: penfold/ui/sidebar/bookmarks_view.py:85 penfold/ui/sidebar/pages_view.py:115
+msgid "_Add"
+msgstr "_Añadir"
+
+#: penfold/ui/sidebar/bookmarks_view.py:97
+msgid "This PDF has no bookmarks"
+msgstr "Este PDF no tiene marcadores"
+
+#: penfold/ui/sidebar/pages_view.py:116
+msgid "_Extract"
+msgstr "_Extraer"
+
+#: penfold/ui/sidebar/search_view.py:57
+msgid "Find in Document"
+msgstr "Buscar en el documento"
+
+#: penfold/ui/sidebar/search_view.py:186
+msgid "No results"
+msgstr "Ningún resultado"
+
+#: penfold/ui/sidebar/search_view.py:188
+#, python-brace-format
+msgid "{count} result"
+msgid_plural "{count} results"
+msgstr[0] "{count} resultado"
+msgstr[1] "{count} resultados"
+
+#: penfold/ui/window.py:252
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
-#: penfold/ui/window.py:146
+#: penfold/ui/window.py:258
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:154
+#: penfold/ui/window.py:274
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:156
+#: penfold/ui/window.py:276
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -298,6 +421,6 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:171
+#: penfold/ui/window.py:291
 msgid "_OK"
 msgstr "_Aceptar"

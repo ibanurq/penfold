@@ -14,5 +14,9 @@
       <default>false</default>
       <summary>Whether the window with a document is maximized</summary>
     </key>
+    <key name="sidebar-width" type="i">
+      <default>300</default>
+      <summary>Width of the side panel</summary>
+    </key>
   </schema>
 </schemalist>

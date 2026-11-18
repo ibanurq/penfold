@@ -86,7 +86,8 @@ class Renderer(GObject.Object):
         self._main_document = document
         self._cache: OrderedDict[TileKey, Gdk.Texture] = OrderedDict()
         self._cache_bytes = 0
-        self._wanted: dict[TileKey, int] = {}
+        # What each part of the interface wants (the document, the thumbnails…), so they do not replace each other.
+        self._wanted: dict[str, dict[TileKey, int]] = {}
         self._in_progress: set[TileKey] = set()
         self._condition = threading.Condition()
         self._closed = False
@@ -96,6 +97,11 @@ class Renderer(GObject.Object):
         ]
         for thread in self._threads:
             thread.start()
+
+    @property
+    def uri(self) -> str:
+        """Address of the PDF, to open it again in other threads (the search)."""
+        return self._uri
 
     @property
     def document(self) -> Poppler.Document:
@@ -129,10 +135,14 @@ class Renderer(GObject.Object):
         nearest = min(scales, key=lambda cached: abs(math.log(cached / scale)))
         return [(key, texture) for key, texture in self._cache.items() if key.page == page and key.scale == nearest]
 
-    def request(self, wanted: dict[TileKey, int]) -> None:
-        """Ask for these tiles, with their priority (lower first); tiles asked for earlier and not drawn are dropped."""
+    def request(self, wanted: dict[TileKey, int], channel: str = "view") -> None:
+        """Ask for these tiles, with their priority (lower first), for one part of the interface.
+
+        Tiles that part asked for earlier and that are not drawn yet are dropped. The document view goes first, then
+        the other parts in alphabetical order (thumbnails).
+        """
         with self._condition:
-            self._wanted = {key: priority for key, priority in wanted.items() if key not in self._cache}
+            self._wanted[channel] = {key: priority for key, priority in wanted.items() if key not in self._cache}
             self._condition.notify_all()
 
     def close(self) -> None:
@@ -148,11 +158,13 @@ class Renderer(GObject.Object):
         """Wait for a tile to draw and take it; None when the renderer is closed."""
         with self._condition:
             while not self._closed:
-                pending = [key for key in self._wanted if key not in self._in_progress]
-                if pending:
-                    key = min(pending, key=lambda candidate: (self._wanted[candidate], candidate))
-                    self._in_progress.add(key)
-                    return key
+                for channel in sorted(self._wanted, key=lambda name: (name != "view", name)):
+                    wanted = self._wanted[channel]
+                    pending = [key for key in wanted if key not in self._in_progress]
+                    if pending:
+                        key = min(pending, key=lambda candidate: (wanted[candidate], candidate))
+                        self._in_progress.add(key)
+                        return key
                 self._condition.wait()
             return None
 
@@ -167,7 +179,8 @@ class Renderer(GObject.Object):
         """Store a drawn tile and announce it, in the main thread."""
         with self._condition:
             self._in_progress.discard(key)
-            self._wanted.pop(key, None)
+            for wanted in self._wanted.values():
+                wanted.pop(key, None)
             if self._closed:
                 return GLib.SOURCE_REMOVE
         self._cache[key] = texture

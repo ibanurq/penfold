@@ -68,6 +68,12 @@ class PageContent:
         """Return the text of a page between the two corners of a selection (from where it starts to where it ends)."""
         return self._document.get_page(page).get_selected_text(style, _poppler_rectangle(selection)) or ""
 
+    def text_in_areas(self, page: int, areas: list[Rectangle]) -> str:
+        """Return the text inside some areas of a page (what a highlight marks), joined by spaces."""
+        poppler_page = self._document.get_page(page)
+        texts = [(poppler_page.get_text_for_area(_poppler_rectangle(area)) or "").strip() for area in areas]
+        return " ".join(" ".join(text.split()) for text in texts if text)
+
     def selection_rectangles(self, page: int, selection: Rectangle, style: Poppler.SelectionStyle) -> list[Rectangle]:
         """Return the areas to highlight for a selection on a page, in points."""
         region = self._document.get_page(page).get_selected_region(1.0, style, _poppler_rectangle(selection))

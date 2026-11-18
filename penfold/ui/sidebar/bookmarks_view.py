@@ -1,0 +1,175 @@
+"""The Bookmarks view of the side panel (02-interfaz, 6.2; D23): the outline as a tree.
+
+Phase 2 shows it, with each bookmark's style and page, lets the user unfold it and go to a bookmark. Adding, editing,
+formatting and moving bookmarks come with phase 5.
+"""
+
+from gettext import gettext as _
+from typing import ClassVar
+
+from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
+
+from penfold.document.bookmarks import Bookmark
+from penfold.document.document import OpenDocument
+from penfold.ui.sidebar.view_header import empty_label, header_button, view_header
+
+
+class BookmarkItem(GObject.Object):
+    """One bookmark in the tree model."""
+
+    __gtype_name__ = "PenfoldBookmarkItem"
+
+    def __init__(self, bookmark: Bookmark) -> None:
+        """Wrap a bookmark of the document."""
+        super().__init__()
+        self.bookmark = bookmark
+
+
+def children_model(bookmarks: list[Bookmark]) -> Gio.ListStore:
+    """Return a list model with these bookmarks."""
+    store = Gio.ListStore.new(BookmarkItem)
+    store.splice(0, 0, [BookmarkItem(bookmark) for bookmark in bookmarks])
+    return store
+
+
+def title_markup(bookmark: Bookmark) -> str:
+    """Return the title with its bold, italic and colour, as Pango markup."""
+    text = GLib.markup_escape_text(bookmark.title or _("Untitled"))
+    if bookmark.color is not None:
+        red, green, blue = (round(component * 255) for component in bookmark.color)
+        text = f'<span foreground="#{red:02x}{green:02x}{blue:02x}">{text}</span>'
+    if bookmark.italic:
+        text = f"<i>{text}</i>"
+    if bookmark.bold:
+        text = f"<b>{text}</b>"
+    return text
+
+
+class BookmarkRow(Gtk.Box):
+    """Expander arrow, title and page label."""
+
+    __gtype_name__ = "PenfoldBookmarkRow"
+
+    def __init__(self) -> None:
+        """Create the row's widgets."""
+        super().__init__(spacing=6)
+        self.expander = Gtk.TreeExpander(hexpand=True)
+        self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.expander.set_child(self.title)
+        self.page = Gtk.Label(xalign=1)
+        self.page.add_css_class("dim-label")
+        self.page.add_css_class("numeric")
+        self.append(self.expander)
+        self.append(self.page)
+
+
+class BookmarksView(Gtk.Box):
+    """The outline tree; "destination-activated" is emitted with a page and a height (-1 for none) on a click."""
+
+    __gtype_name__ = "PenfoldBookmarksView"
+    __gsignals__: ClassVar = {
+        "destination-activated": (GObject.SignalFlags.RUN_FIRST, None, (int, float)),
+    }
+
+    def __init__(self) -> None:
+        """Create the view, empty until set_document."""
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.expand_button = Gtk.Button(
+            icon_name="penfold-expand-all-symbolic", tooltip_text=_("Expand or Collapse All"), valign=Gtk.Align.CENTER
+        )
+        self.expand_button.add_css_class("provisional-icon")
+        self.expand_button.connect("clicked", lambda _button: self.toggle_all())
+        self.append(
+            view_header(
+                _("Bookmarks"),
+                header_button(_("_Add"), "bookmark-new-symbolic", "win.add-bookmark"),
+                self.expand_button,
+            )
+        )
+        self.document: OpenDocument | None = None
+        self.tree = Gtk.TreeListModel.new(Gio.ListStore.new(BookmarkItem), False, False, self._children)
+        self.selection = Gtk.MultiSelection.new(self.tree)
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", self._on_setup)
+        factory.connect("bind", self._on_bind)
+        self.list = Gtk.ListView(model=self.selection, factory=factory)
+        self.list.add_css_class("navigation-sidebar")
+        self.empty = empty_label(_("This PDF has no bookmarks"))
+        self.stack = Gtk.Stack(vexpand=True)
+        self.stack.add_named(Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER), "list")
+        self.stack.add_named(self.empty, "empty")
+        self.append(self.stack)
+
+    def set_document(self, document: OpenDocument) -> None:
+        """Show the bookmarks of a PDF, unfolded as the PDF says."""
+        self.document = document
+        root = children_model(document.bookmarks)
+        self.tree = Gtk.TreeListModel.new(root, False, False, self._children)
+        self.selection.set_model(self.tree)
+        self._open_as_stored()
+        self.stack.set_visible_child_name("list" if document.bookmarks else "empty")
+        self.expand_button.set_sensitive(any(bookmark.children for bookmark in document.bookmarks))
+
+    def toggle_all(self) -> None:
+        """Unfold every branch, or fold them all if they are all unfolded."""
+        rows = [self.tree.get_row(index) for index in range(self.tree.get_n_items())]
+        expandable = [row for row in rows if row is not None and row.is_expandable()]
+        expand = not all(row.get_expanded() for row in expandable)
+        if expand:
+            index = 0
+            while index < self.tree.get_n_items():
+                row = self.tree.get_row(index)
+                if row is not None and row.is_expandable():
+                    row.set_expanded(True)
+                index += 1
+        else:
+            for row in reversed(expandable):
+                row.set_expanded(False)
+
+    def _children(self, item: GObject.Object) -> Gio.ListModel | None:
+        if isinstance(item, BookmarkItem) and item.bookmark.children:
+            return children_model(item.bookmark.children)
+        return None
+
+    def _open_as_stored(self) -> None:
+        """Unfold the branches the PDF marks as open (a positive /Count)."""
+        index = 0
+        while index < self.tree.get_n_items():
+            row = self.tree.get_row(index)
+            item = row.get_item() if row is not None else None
+            if row is not None and isinstance(item, BookmarkItem) and item.bookmark.is_open and row.is_expandable():
+                row.set_expanded(True)
+            index += 1
+
+    def _on_setup(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        row = BookmarkRow()
+        click = Gtk.GestureClick()
+        click.connect("released", self._on_row_clicked, item)
+        row.add_controller(click)
+        item.set_child(row)
+
+    def _on_bind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        tree_row = item.get_item()
+        row = item.get_child()
+        assert isinstance(tree_row, Gtk.TreeListRow)
+        assert isinstance(row, BookmarkRow)
+        bookmark_item = tree_row.get_item()
+        assert isinstance(bookmark_item, BookmarkItem)
+        bookmark = bookmark_item.bookmark
+        row.expander.set_list_row(tree_row)
+        row.title.set_markup(title_markup(bookmark))
+        row.title.set_tooltip_text(bookmark.title)
+        page = bookmark.page
+        row.page.set_label("" if page is None or self.document is None else self.document.page_label(page))
+
+    def _on_row_clicked(
+        self, gesture: Gtk.GestureClick, _presses: int, _x: float, _y: float, item: Gtk.ListItem
+    ) -> None:
+        """A click without Ctrl or Shift goes to the bookmark's destination."""
+        if gesture.get_current_event_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK):
+            return
+        tree_row = item.get_item()
+        bookmark_item = tree_row.get_item() if isinstance(tree_row, Gtk.TreeListRow) else None
+        if isinstance(bookmark_item, BookmarkItem) and bookmark_item.bookmark.page is not None:
+            top = bookmark_item.bookmark.top
+            self.emit("destination-activated", bookmark_item.bookmark.page, -1.0 if top is None else top)

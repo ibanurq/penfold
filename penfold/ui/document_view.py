@@ -15,6 +15,7 @@ from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
+from penfold.rendering.text_search import SearchResult
 from penfold.ui.text_selection import PagePoint, TextSelection
 
 # Zoom limits and step, as in 0.6: from 30 % to 400 %, 20 points at a time.
@@ -37,6 +38,9 @@ SCROLL_STEP = 48
 PAGE_EDGE_OPACITIES = (0.2, 0.08, 0.03)
 WHITE = (1, 1, 1, 1)
 SELECTION_OPACITY = 0.35
+# Matches of Find on the page: all of them in yellow, the current one in orange (GNOME's palette).
+MATCH_COLOR = (0.97, 0.89, 0.36, 0.45)
+CURRENT_MATCH_COLOR = (1.0, 0.47, 0.0, 0.5)
 # A press that moves less than this, in pixels, is a click (it follows links), not a drag.
 DRAG_THRESHOLD = 3
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
@@ -107,8 +111,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._content_height = 0.0
         self._allocated_width = 0
         self._start_pending = False
+        self._fit_deferred = False
         self.content: PageContent | None = None
         self.selection: TextSelection | None = None
+        self._matches: dict[int, list[tuple[SearchResult, bool]]] = {}
         self._press: PagePoint | None = None
         self._press_style = Poppler.SelectionStyle.GLYPH
         self._dragging = False
@@ -406,11 +412,19 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if centre and self._hadjustment is not None and self._content_width > width:
             self._hadjustment.set_value(max(0, (self._content_width - width) / 2))
 
+    def defer_fit(self, deferred: bool) -> None:
+        """While the panel border is dragged, keep the zoom; when it is released, fit it once to the new width (B4)."""
+        self._fit_deferred = deferred
+        if not deferred:
+            self._allocated_width = -1
+            self.queue_allocate()
+
     def do_size_allocate(self, width: int, _height: int, _baseline: int) -> None:
         """Fit the zoom again when the width of the viewer changes (B4), then place the pages."""
         width_changed = width != self._allocated_width
-        self._allocated_width = width
-        if self.renderer is not None and width_changed:
+        if not self._fit_deferred:
+            self._allocated_width = width
+        if self.renderer is not None and width_changed and not self._fit_deferred:
             if self.fit is Fit.MANUAL:
                 self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH
             self.zoom = self._fitting_zoom(self.fit)
@@ -510,6 +524,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                 self._draw_placeholder(snapshot, x, y, box, scale)
             for key, texture in ready:
                 self._append_tile(snapshot, x, y, key, texture)
+            self._draw_matches(snapshot, x, y, box)
             self._draw_selection(snapshot, x, y, box)
         for page in self._nearby_pages(visible):
             for key in self._all_tiles(page, scale):
@@ -581,6 +596,22 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         bounds = Graphene.Rect().init(x + tile_x * logical, y + tile_y * logical, width * logical, height * logical)
         scaling = Gsk.ScalingFilter.NEAREST if exact else Gsk.ScalingFilter.LINEAR
         snapshot.append_scaled_texture(texture, scaling, bounds)
+
+    def show_matches(self, results: list[SearchResult], current: int) -> None:
+        """Highlight the matches of Find on the pages, the current one differently; an empty list clears them."""
+        self._matches = {}
+        for index, result in enumerate(results):
+            self._matches.setdefault(result.page, []).append((result, index == current))
+        self.queue_draw()
+
+    def _draw_matches(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
+        for result, is_current in self._matches.get(box.page, []):
+            color = rgba(CURRENT_MATCH_COLOR if is_current else MATCH_COLOR)
+            for left, top, right, bottom in result.rectangles:
+                bounds = Graphene.Rect().init(
+                    x + left * self.zoom, y + top * self.zoom, (right - left) * self.zoom, (bottom - top) * self.zoom
+                )
+                snapshot.append_color(color, bounds)
 
     def _draw_selection(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Highlight the selected text of a page with the accent colour."""

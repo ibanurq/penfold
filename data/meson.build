@@ -4,6 +4,7 @@ blueprints = custom_target(
     'ui/document_header.blp',
     'ui/main_menu.blp',
     'ui/page_entry.blp',
+    'ui/sidebar/sidebar.blp',
     'ui/welcome_page.blp',
     'ui/window.blp',
     'ui/zoom_controls.blp',

@@ -1,0 +1,88 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// Side panel (02-interfaz, 2, 3.1 and 6): its header, the four views and, at the bottom, the view switcher.
+template $PenfoldSidebar: Adw.Bin {
+  child: Overlay {
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {
+        [start]
+        ToggleButton search_button {
+          icon-name: "system-search-symbolic";
+          tooltip-text: _("Find");
+          toggled => $_on_search_toggled();
+        }
+
+        title-widget: Adw.WindowTitle {
+          title: "Penfold";
+        };
+
+        [end]
+        MenuButton main_menu_button {
+          icon-name: "open-menu-symbolic";
+          primary: true;
+          tooltip-text: _("Main Menu");
+        }
+      }
+
+      content: Stack views {
+        transition-type: crossfade;
+        vexpand: true;
+      };
+
+      [bottom]
+      Box switcher {
+        homogeneous: true;
+        spacing: 6;
+        margin-start: 6;
+        margin-end: 6;
+        margin-top: 6;
+        margin-bottom: 6;
+
+        ToggleButton pages_button {
+          icon-name: "view-grid-symbolic";
+          tooltip-text: _("Pages");
+          active: true;
+          toggled => $_on_switcher_toggled();
+
+          styles [
+            "flat",
+          ]
+        }
+
+        ToggleButton bookmarks_button {
+          icon-name: "user-bookmarks-symbolic";
+          tooltip-text: _("Bookmarks");
+          group: pages_button;
+          toggled => $_on_switcher_toggled();
+
+          styles [
+            "flat",
+          ]
+        }
+
+        ToggleButton annotations_button {
+          icon-name: "penfold-annotations-symbolic";
+          tooltip-text: _("Annotations");
+          group: pages_button;
+          toggled => $_on_switcher_toggled();
+
+          styles [
+            "flat",
+            "provisional-icon",
+          ]
+        }
+      }
+    };
+
+    // Edge to drag for changing the width of the panel.
+    [overlay]
+    Box resize_handle {
+      halign: end;
+      width-request: 6;
+    }
+  };
+}
