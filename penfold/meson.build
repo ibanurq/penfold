@@ -18,6 +18,7 @@ install_data(
   '__init__.py',
   'application.py',
   'config.py',
+  'errors.py',
   'main.py',
   install_dir: pkgdatadir / 'penfold',
 )
