@@ -1,0 +1,13 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PenfoldWindow: Adw.ApplicationWindow {
+  title: "Penfold";
+  default-width: 620;
+  default-height: 600;
+
+  content: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {}
+  };
+}

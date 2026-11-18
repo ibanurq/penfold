@@ -1,0 +1,10 @@
+#!@PYTHON@
+"""Start Penfold from the place where Meson installed it."""
+
+import sys
+
+sys.path.insert(1, "@PKGDATADIR@")
+
+from penfold import main
+
+sys.exit(main.main(pkgdatadir="@PKGDATADIR@", localedir="@LOCALEDIR@"))
