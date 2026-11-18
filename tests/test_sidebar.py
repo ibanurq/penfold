@@ -167,7 +167,9 @@ def test_find_lists_matches_and_goes_to_them(window: "PenfoldWindow", tmp_path: 
 
 def test_dragging_the_panel_edge_fits_the_zoom_once_released(window: "PenfoldWindow", tmp_path: Path) -> None:
     open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    window.set_default_size(1400, 800)  # wide enough for a 500-pixel panel
     view = window.document_view
+    wait_until_stable(lambda: (window.get_width(), view.get_width(), view.zoom))
     zoom = view.zoom
     window.sidebar.emit("resize-started")
     window.sidebar.emit("resized", 500)
@@ -181,3 +183,17 @@ def test_dragging_the_panel_edge_fits_the_zoom_once_released(window: "PenfoldWin
     from penfold import config
 
     assert Gio.Settings(schema_id=config.APP_ID).get_int("sidebar-width") == 500
+
+
+def test_the_panel_leaves_room_for_the_document(window: "PenfoldWindow", tmp_path: Path) -> None:
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    window.set_default_size(1400, 800)
+    window.sidebar.emit("resize-started")
+    window.sidebar.emit("resized", 1300)
+    window.sidebar.emit("resize-finished")
+    widest = window.split_view.get_max_sidebar_width()
+    assert widest < 1300  # never wider than the window minus the document's room, as in 0.6
+    window.set_default_size(900, 800)
+    assert window.split_view.get_max_sidebar_width() < widest
+    window.set_default_size(1400, 800)
+    assert window.split_view.get_max_sidebar_width() == widest  # the chosen width comes back

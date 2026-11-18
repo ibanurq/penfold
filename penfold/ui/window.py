@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 WELCOME_SIZE = (620, 600)
 LAYOUT_CONTINUOUS = "continuous"
 LAYOUT_TWO_PAGES = "two-pages"
+# Room the document keeps beside the panel, besides what its header needs (0.6 kept 160 pixels).
+DOCUMENT_ROOM = 160
 
 # Window actions and their shortcuts (0.6, apartado 2.8). They need a document, so they are off without one (A2).
 DOCUMENT_ACTIONS = {
@@ -159,9 +161,15 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "visible",
             GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.INVERT_BOOLEAN,
         )
-        self._set_sidebar_width(self._settings().get_int("sidebar-width"))
+        self._chosen_sidebar_width = clamp_width(self._settings().get_int("sidebar-width"))
+        self._fit_sidebar_width()
+        # The window's new width is known as soon as it is asked for (default-width); maximized and full-screen
+        # windows get theirs from the screen, once they are laid out.
+        self.connect("notify::default-width", lambda _window, _property: self._fit_sidebar_width())
+        for size_property in ("notify::maximized", "notify::fullscreened"):
+            self.connect(size_property, lambda _window, _property: GLib.idle_add(self._fit_sidebar_width))
         self.sidebar.connect("resize-started", lambda _sidebar: self.document_view.defer_fit(True))
-        self.sidebar.connect("resized", lambda _sidebar, width: self._set_sidebar_width(width))
+        self.sidebar.connect("resized", self._on_sidebar_resized)
         self.sidebar.connect("resize-finished", self._on_sidebar_resize_finished)
         self.pages_view = PagesView()
         self.pages_view.connect("page-activated", lambda _view, page: self.document_view.go_to(page))
@@ -183,10 +191,24 @@ class PenfoldWindow(Adw.ApplicationWindow):
         escape.connect("key-pressed", self._on_key_pressed)
         self.add_controller(escape)
 
-    def _set_sidebar_width(self, width: int) -> None:
-        width = clamp_width(width)
+    def _on_sidebar_resized(self, _sidebar: PenfoldSidebar, width: int) -> None:
+        self._chosen_sidebar_width = min(clamp_width(width), self._widest_sidebar())
+        self._fit_sidebar_width()
+
+    def _widest_sidebar(self) -> int:
+        """The widest the panel can be in this window: the document keeps the room its header needs (as in 0.6)."""
+        content = self.split_view.get_content()
+        document_minimum = content.measure(Gtk.Orientation.HORIZONTAL, -1)[0] if content is not None else 0
+        free = not (self.is_maximized() or self.is_fullscreen())
+        window_width = self.get_default_size()[0] if free else self.get_width()
+        return clamp_width(window_width - document_minimum - DOCUMENT_ROOM)
+
+    def _fit_sidebar_width(self) -> bool:
+        """Give the panel the width chosen, or less if the window is too narrow for it (it is not forgotten)."""
+        width = min(self._chosen_sidebar_width, self._widest_sidebar())
         self.split_view.set_min_sidebar_width(width)
         self.split_view.set_max_sidebar_width(width)
+        return GLib.SOURCE_REMOVE
 
     # Find (D13).
 
@@ -244,7 +266,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_sidebar_resize_finished(self, _sidebar: PenfoldSidebar) -> None:
         """The zoom is fitted once, when the border is released, not while dragging (B4)."""
         self.document_view.defer_fit(False)
-        self._settings().set_int("sidebar-width", round(self.split_view.get_max_sidebar_width()))
+        self._settings().set_int("sidebar-width", self._chosen_sidebar_width)
 
     # Opening.
 
