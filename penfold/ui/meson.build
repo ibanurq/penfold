@@ -6,6 +6,7 @@ install_data(
   'menus.py',
   'page_entry.py',
   'shortcuts_dialog.py',
+  'text_selection.py',
   'welcome_page.py',
   'window.py',
   'zoom_controls.py',

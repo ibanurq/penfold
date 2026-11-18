@@ -10,10 +10,12 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
-from gi.repository import Gdk, GObject, Graphene, Gsk, Gtk
+from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 
 from penfold.document.document import OpenDocument
+from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
+from penfold.ui.text_selection import PagePoint, TextSelection
 
 # Zoom limits and step, as in 0.6: from 30 % to 400 %, 20 points at a time.
 MIN_ZOOM = 0.3
@@ -32,6 +34,10 @@ SCROLL_STEP = 48
 # now and then with some of its renderers (invalid damage regions).
 PAGE_EDGE_OPACITIES = (0.2, 0.08, 0.03)
 WHITE = (1, 1, 1, 1)
+SELECTION_OPACITY = 0.35
+# A press that moves less than this, in pixels, is a click (it follows links), not a drag.
+DRAG_THRESHOLD = 3
+SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
 
 class Fit(enum.Enum):
@@ -99,11 +105,14 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._content_height = 0.0
         self._allocated_width = 0
         self._start_pending = False
+        self.content: PageContent | None = None
+        self.selection: TextSelection | None = None
+        self._press: PagePoint | None = None
+        self._press_style = Poppler.SelectionStyle.GLYPH
+        self._dragging = False
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
-        scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
-        scroll.connect("scroll", self._on_scroll)
-        self.add_controller(scroll)
+        self._add_controllers()
 
     # Scrollable interface: the scrolled window gives the view its adjustments.
 
@@ -144,6 +153,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.document = document
         self.renderer = renderer
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
+        self.content = PageContent(renderer.document)
+        self.selection = None
         self.current_page = 0
         self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH
         self._start_pending = True
@@ -442,6 +453,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                 self._draw_placeholder(snapshot, x, y, box, scale)
             for key, texture in ready:
                 self._append_tile(snapshot, x, y, key, texture)
+            self._draw_selection(snapshot, x, y, box)
         for page in self._nearby_pages(visible):
             for key in self._all_tiles(page, scale):
                 wanted.setdefault(key, PRELOAD_PAGES + abs(page - self.current_page))
@@ -509,3 +521,153 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         logical = self.zoom / key.scale
         bounds = Graphene.Rect().init(x + tile_x * logical, y + tile_y * logical, width * logical, height * logical)
         snapshot.append_scaled_texture(texture, Gsk.ScalingFilter.LINEAR, bounds)
+
+    def _draw_selection(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
+        """Highlight the selected text of a page with the accent colour."""
+        if self.selection is None or self.content is None or self.renderer is None:
+            return
+        selection = self.selection.page_selections(self.renderer.page_sizes).get(box.page)
+        if selection is None:
+            return
+        color = Adw.StyleManager.get_default().get_accent_color_rgba()
+        color.alpha = SELECTION_OPACITY
+        for left, top, right, bottom in self.content.selection_rectangles(box.page, selection, self.selection.style):
+            bounds = Graphene.Rect().init(
+                x + left * self.zoom, y + top * self.zoom, (right - left) * self.zoom, (bottom - top) * self.zoom
+            )
+            snapshot.append_color(color, bounds)
+
+    # Mouse and keyboard.
+
+    def _add_controllers(self) -> None:
+        scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
+        scroll.connect("scroll", self._on_scroll)
+        self.add_controller(scroll)
+        click = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
+        click.connect("pressed", self._on_pressed)
+        self.add_controller(click)
+        drag = Gtk.GestureDrag(button=Gdk.BUTTON_PRIMARY)
+        drag.connect("drag-update", self._on_drag_update)
+        drag.connect("drag-end", self._on_drag_end)
+        self.add_controller(drag)
+        motion = Gtk.EventControllerMotion()
+        motion.connect("motion", self._on_motion)
+        self.add_controller(motion)
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", self._on_key_pressed)
+        self.add_controller(keys)
+
+    def page_point(self, x: float, y: float, clamp: bool = False) -> PagePoint | None:
+        """Convert a point of the widget to a point of a page; with clamp, the nearest page if it falls between."""
+        if self._hadjustment is None or self._vadjustment is None or not self._boxes:
+            return None
+        content_x, content_y = x + self._hadjustment.get_value(), y + self._vadjustment.get_value()
+        for box in self._boxes:
+            if box.x <= content_x <= box.x + box.width and box.y <= content_y <= box.bottom:
+                return PagePoint(box.page, (content_y - box.y) / self.zoom, (content_x - box.x) / self.zoom)
+        if not clamp:
+            return None
+        box = min(self._boxes, key=lambda candidate: _distance(candidate, content_x, content_y))
+        page_x = min(max(content_x, box.x), box.x + box.width)
+        page_y = min(max(content_y, box.y), box.bottom)
+        return PagePoint(box.page, (page_y - box.y) / self.zoom, (page_x - box.x) / self.zoom)
+
+    def link_at(self, x: float, y: float) -> Link | None:
+        """Return the link under a point of the widget, if any."""
+        point = self.page_point(x, y)
+        if point is None or self.content is None:
+            return None
+        return self.content.link_at(point.page, point.x, point.y)
+
+    def _on_pressed(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
+        """A press starts a selection; a double click selects a word and a triple click a line."""
+        self.grab_focus()
+        self._press = self.page_point(x, y)
+        self._press_style = SELECTION_STYLES.get(min(n_press, 3), Poppler.SelectionStyle.GLYPH)
+        self._dragging = False
+        if self._press is not None and n_press > 1:
+            self._set_selection(TextSelection(self._press, self._press, self._press_style))
+
+    def _on_drag_update(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
+        if self._press is None:
+            return
+        if not self._dragging and math.hypot(offset_x, offset_y) < DRAG_THRESHOLD:
+            return
+        self._dragging = True
+        _found, start_x, start_y = gesture.get_start_point()
+        focus = self.page_point(start_x + offset_x, start_y + offset_y, clamp=True)
+        if focus is not None:
+            self._set_selection(TextSelection(self._press, focus, self._press_style))
+
+    def _on_drag_end(self, gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float) -> None:
+        """A click without moving follows the link under it, or clears the selection."""
+        if self._dragging or self._press_style is not Poppler.SelectionStyle.GLYPH:
+            return
+        _found, x, y = gesture.get_start_point()
+        link = self.link_at(x, y)
+        self._set_selection(None)
+        if link is not None:
+            self.follow_link(link)
+
+    def follow_link(self, link: Link) -> None:
+        """Go to an internal destination, or open a web address in the browser (B7)."""
+        target = link.target
+        if isinstance(target, InternalTarget):
+            self.go_to(target.page, target.top)
+        elif isinstance(target, ExternalTarget):
+            root = self.get_root()
+            Gtk.UriLauncher(uri=target.uri).launch(root if isinstance(root, Gtk.Window) else None, None, None)
+
+    def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
+        """A hand over links, the text cursor over pages."""
+        if self.link_at(x, y) is not None:
+            self.set_cursor_from_name("pointer")
+        elif self.page_point(x, y) is not None:
+            self.set_cursor_from_name("text")
+        else:
+            self.set_cursor_from_name(None)
+
+    def _set_selection(self, selection: TextSelection | None) -> None:
+        self.selection = selection
+        self.queue_draw()
+
+    def copy_selection(self) -> bool:
+        """Copy the selected text to the clipboard; return whether there was any."""
+        if self.selection is None or self.content is None or self.renderer is None:
+            return False
+        text = self.selection.text(self.content, self.renderer.page_sizes)
+        if not text:
+            return False
+        self.get_clipboard().set(text)
+        return True
+
+    def _on_key_pressed(
+        self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
+    ) -> bool:
+        """Ctrl+C copies; the arrows scroll, and in Two pages left and right change pair (B2)."""
+        if self.renderer is None or self._vadjustment is None or self._hadjustment is None:
+            return False
+        control = bool(state & Gdk.ModifierType.CONTROL_MASK)
+        if control and keyval in {Gdk.KEY_c, Gdk.KEY_C}:
+            return self.copy_selection()
+        if control:
+            return False
+        vertical = {Gdk.KEY_Up: -SCROLL_STEP, Gdk.KEY_Down: SCROLL_STEP}.get(keyval)
+        if vertical is not None:
+            self._vadjustment.set_value(self._vadjustment.get_value() + vertical)
+            return True
+        horizontal = {Gdk.KEY_Left: -1, Gdk.KEY_Right: 1}.get(keyval)
+        if horizontal is None:
+            return False
+        if self.two_pages and self._content_width <= self.get_width():
+            (self.next_page if horizontal > 0 else self.previous_page)()
+        else:
+            self._hadjustment.set_value(self._hadjustment.get_value() + horizontal * SCROLL_STEP)
+        return True
+
+
+def _distance(box: PageBox, x: float, y: float) -> float:
+    """Distance from a point of the content to a page box (0 inside it)."""
+    dx = max(box.x - x, 0.0, x - box.x - box.width)
+    dy = max(box.y - y, 0.0, y - box.bottom)
+    return math.hypot(dx, dy)

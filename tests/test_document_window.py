@@ -192,3 +192,28 @@ def test_window_grows_to_the_remembered_size_with_a_document(window: "PenfoldWin
     window.set_default_size(620, 600)
     open_and_wait(window, book)
     assert window.get_default_size() == (1000, 750)
+
+
+def test_internal_link_puts_its_height_on_the_top_third(window: "PenfoldWindow", book: Path) -> None:
+    from penfold.rendering.page_content import InternalTarget, Link
+
+    open_and_wait(window, book)
+    view = window.document_view
+    view.follow_link(Link((0, 0, 10, 10), InternalTarget(6, 400)))
+    assert view.current_page == 6
+    box = next(box for box in view._boxes if box.page == 6)
+    vadjustment = view.vadjustment
+    assert vadjustment is not None
+    assert box.y + 400 * view.zoom - vadjustment.get_value() == pytest.approx(view.get_height() / 3)
+
+
+def test_link_without_height_goes_to_the_start_of_the_page(window: "PenfoldWindow", book: Path) -> None:
+    from penfold.rendering.page_content import InternalTarget, Link
+    from penfold.ui.document_view import TOP_MARGIN
+
+    open_and_wait(window, book)
+    view = window.document_view
+    view.follow_link(Link((0, 0, 10, 10), InternalTarget(3)))
+    box = next(box for box in view._boxes if box.page == 3)
+    assert view.vadjustment is not None
+    assert view.vadjustment.get_value() == pytest.approx(box.y - TOP_MARGIN)
