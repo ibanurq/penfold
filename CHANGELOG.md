@@ -5,6 +5,27 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.2 — 2026-11-18
+
+Second preview of Penfold 1.0: it works as a PDF viewer. Nothing can be changed or saved yet.
+
+### Added
+- Open a PDF with the Open button, Ctrl+O, Open With in the file manager, the command line or by dropping it on the
+  window. Each PDF from the desktop opens in an empty window, or in a new one.
+- Continuous scrolling and Two Pages (in pairs: 1-2, 3-4…), from the document menu (⋮).
+- Zoom from 30 % to 400 % with the round floating buttons (Fit Width, Whole Page, Zoom In, Zoom Out), Ctrl++, Ctrl+−
+  and Ctrl+0. It fits the width on opening and when the window gets wider or narrower. New: Ctrl and the mouse wheel
+  zoom around the pointer.
+- Document header with the PDF's title and file name, and the page box with the PDF's own page labels, as in
+  “ix (11 of 800)”. Page Down, Page Up, Ctrl+Home, Ctrl+End, Ctrl+L and the arrow keys move around.
+- Internal links go to their destination, with its height on the top third of the viewer; web links open in the
+  browser.
+- Select text with the mouse, also across pages (double click: a word; triple click: a line), and copy it with Ctrl+C.
+- Everything in the PDF is shown as Poppler draws it, including annotations made with other programs and forms.
+- Protected PDFs open with a notice and a fixed banner; PDFs that need a password are not opened, with a message.
+- The window remembers its size with a document; New Window also in the dock's menu; Ctrl+W and Ctrl+Q.
+- Pages are drawn in the background, only the visible ones and those near them: large PDFs scroll smoothly.
+
 ## 1.0.0-alpha.1 — 2026-11-18
 
 First preview of Penfold 1.0, a native GNOME app (Python, GTK 4 and libadwaita) that replaces the web and Electron
