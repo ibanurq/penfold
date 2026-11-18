@@ -8,7 +8,7 @@ import math
 from gettext import gettext as _
 from typing import ClassVar
 
-from gi.repository import Gdk, Gio, GObject, Graphene, Gtk
+from gi.repository import Gdk, Gio, GLib, GObject, Graphene, Gtk
 
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
@@ -122,6 +122,7 @@ class PagesView(Gtk.Box):
         self.thumbnail_width = THUMBNAIL_MAX_WIDTH - 2 * CELL_PADDING
         self.current_page = 0
         self._cells: dict[int, PageCell] = {}
+        self._request_pending = False
         self.pages = Gio.ListStore.new(PageItem)
         self.selection = Gtk.MultiSelection.new(self.pages)
         factory = Gtk.SignalListItemFactory()
@@ -179,11 +180,12 @@ class PagesView(Gtk.Box):
         surface = native.get_surface() if native else None
         return surface.get_scale() if surface else float(self.get_scale_factor())
 
-    def _key(self, page: int) -> TileKey | None:
+    def _key(self, page: int, device_scale: float | None = None) -> TileKey | None:
         if self.renderer is None or not 0 <= page < len(self.renderer.page_sizes):
             return None
         width, _height = self.renderer.page_sizes[page]
-        return TileKey(page, round_scale(self.thumbnail_width * self._device_scale() / width))
+        scale = self._device_scale() if device_scale is None else device_scale
+        return TileKey(page, round_scale(self.thumbnail_width * scale / width))
 
     def texture(self, page: int) -> Gdk.Texture | None:
         """The drawn thumbnail of a page, or a drawing of it at another size while it is being drawn."""
@@ -198,14 +200,23 @@ class PagesView(Gtk.Box):
         return whole[0] if len(stand_ins) == 1 and whole else None
 
     def _request_thumbnails(self) -> None:
+        """Ask for the thumbnails of the cells shown, once, after the list has placed them."""
+        if not self._request_pending:
+            self._request_pending = True
+            GLib.idle_add(self._send_request)
+
+    def _send_request(self) -> bool:
+        self._request_pending = False
         if self.renderer is None:
-            return
+            return GLib.SOURCE_REMOVE
+        device_scale = self._device_scale()
         wanted = {}
         for page in self._cells:
-            key = self._key(page)
+            key = self._key(page, device_scale)
             if key is not None and self.renderer.texture(key) is None:
                 wanted[key] = abs(page - self.current_page)
         self.renderer.request(wanted, CHANNEL)
+        return GLib.SOURCE_REMOVE
 
     def _on_tile_rendered(self, _renderer: Renderer, page: int) -> None:
         cell = self._cells.get(page)
