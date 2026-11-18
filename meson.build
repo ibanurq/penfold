@@ -1,6 +1,6 @@
 project(
   'penfold',
-  version: '1.0.0-dev',
+  version: '1.0.0-alpha.1',
   meson_version: '>= 1.7.0',
   license: 'GPL-3.0-only',
   default_options: ['warning_level=2', 'werror=true'],

@@ -5,6 +5,19 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.1 — 2026-11-18
+
+First preview of Penfold 1.0, a native GNOME app (Python, GTK 4 and libadwaita) that replaces the web and Electron
+version. It is incomplete on purpose: it only shows the foundations, and it cannot open PDFs yet.
+
+### Added
+- Welcome window with Open… and Merge… (both greyed out until they work), in light and dark mode.
+- Main menu (☰): Keyboard Shortcuts (also Ctrl+?) and About Penfold work; Open, Merge PDFs and New Window are greyed
+  out for now.
+- English and Spanish.
+- Entry in the applications menu, AppStream card for GNOME Software, and a Flatpak package with minimum permissions.
+- Automatic checks (Ruff, mypy and pytest) and the Flatpak build on GitHub Actions.
+
 ## 0.6.0 — 2026-11-17
 
 ### Added
