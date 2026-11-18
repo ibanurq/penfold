@@ -26,6 +26,10 @@ __pycache__/
 _build/
 po/penfold.pot
 
+# Flatpak builds made on this computer
+.flatpak-builder/
+_flatpak/
+
 # Editor and system files
 .vscode/
 .idea/

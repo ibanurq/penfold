@@ -1,0 +1,44 @@
+{
+  "id": "io.github.ibanurq.Penfold",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "51",
+  "sdk": "org.gnome.Sdk",
+  "command": "penfold",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--device=dri"
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/share/pkgconfig",
+    "*.la",
+    "*.a"
+  ],
+  "modules": [
+    {
+      "name": "penfold",
+      "buildsystem": "meson",
+      "sources": [
+        {
+          "type": "dir",
+          "path": "../..",
+          "skip": [
+            ".flatpak-builder",
+            ".git",
+            ".venv",
+            "_build",
+            "_flatpak",
+            "dist",
+            "node_modules",
+            "notas_privadas",
+            "playwright-report",
+            "test-results"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pip install --quiet --requirement requirements-dev.txt
 # Type descriptions of GTK 4 for mypy. --no-deps: PyGObject comes from the system, it must not be rebuilt.
 PYGOBJECT_STUB_CONFIG=Gtk4,Gdk4 .venv/bin/pip install --quiet --no-deps --no-cache-dir pygobject-stubs==2.20.0
-if [ -d .git ]; then
+# Not on GitHub Actions (CI is set there), where the checks run as separate steps.
+if [ -d .git ] && [ -z "${CI:-}" ]; then
     .venv/bin/pre-commit install
 fi

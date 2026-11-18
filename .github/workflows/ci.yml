@@ -1,0 +1,55 @@
+# Checks on every push and pull request (03-arquitectura, 1.2 and 9): code quality and tests on Debian 13, the
+# minimum platform, and the Flatpak build on the current GNOME runtime.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Ruff, mypy and pytest (Debian 13)
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      - name: Install the Debian packages
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends \
+            git ca-certificates python3-venv \
+            python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
+            gir1.2-poppler-0.18 python3-pikepdf \
+            meson ninja-build blueprint-compiler gettext libglib2.0-dev pkgconf \
+            appstream desktop-file-utils \
+            xvfb xauth dbus
+      - uses: actions/checkout@v7
+      - name: Set up the development tools
+        run: build-aux/set-up-dev-environment.sh
+      - name: Ruff
+        run: |
+          .venv/bin/ruff check
+          .venv/bin/ruff format --check
+      - name: mypy
+        run: .venv/bin/mypy
+      - name: pytest
+        # A virtual display and session bus for the interface tests; GTK draws with cairo, without a GPU.
+        env:
+          GSK_RENDERER: cairo
+        run: dbus-run-session -- xvfb-run --auto-servernum .venv/bin/pytest
+
+  flatpak:
+    name: Flatpak (GNOME 51)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: penfold.flatpak
+          manifest-path: build-aux/flatpak/io.github.ibanurq.Penfold.json
+          cache-key: flatpak-builder-${{ github.sha }}
