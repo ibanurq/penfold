@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="penfold">
+  <schema id="io.github.ibanurq.Penfold" path="/io/github/ibanurq/Penfold/">
+    <!-- A window without a document is always small; these keys hold the size it had with a document (D17). -->
+    <key name="window-width" type="i">
+      <default>1280</default>
+      <summary>Window width with a document</summary>
+    </key>
+    <key name="window-height" type="i">
+      <default>860</default>
+      <summary>Window height with a document</summary>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Whether the window with a document is maximized</summary>
+    </key>
+  </schema>
+</schemalist>

@@ -21,3 +21,8 @@ install_subdir(
   'icons/hicolor',
   install_dir: get_option('datadir') / 'icons',
 )
+
+install_data(
+  f'@app_id@.gschema.xml',
+  install_dir: get_option('datadir') / 'glib-2.0' / 'schemas',
+)

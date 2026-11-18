@@ -1,0 +1,68 @@
+# Spanish translation of Penfold.
+# Copyright (C) 2026 ibanurq
+# This file is distributed under the same license as the penfold package.
+msgid ""
+msgstr ""
+"Project-Id-Version: penfold\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-18 13:32+0100\n"
+"PO-Revision-Date: 2026-11-18 12:00+0100\n"
+"Last-Translator: ibanurq\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: data/ui/welcome_page.blp:9
+msgid "Open a PDF"
+msgstr "Abrir un PDF"
+
+#: data/ui/welcome_page.blp:10
+msgid "Drag a PDF here to open it, or several to merge them"
+msgstr "Arrastra aquí un PDF para abrirlo, o varios para combinarlos"
+
+#: data/ui/welcome_page.blp:17 data/ui/window.blp:30
+msgid "_Open…"
+msgstr "_Abrir…"
+
+#: data/ui/welcome_page.blp:28
+msgid "_Merge…"
+msgstr "_Combinar…"
+
+#: data/ui/window.blp:19
+msgid "Main Menu"
+msgstr "Menú principal"
+
+#: data/ui/window.blp:35
+msgid "_Merge PDFs…"
+msgstr "_Combinar PDF…"
+
+#: data/ui/window.blp:40
+msgid "_New Window"
+msgstr "_Nueva ventana"
+
+#: data/ui/window.blp:47
+msgid "_Keyboard Shortcuts"
+msgstr "A_tajos de teclado"
+
+#: data/ui/window.blp:52
+msgid "_About Penfold"
+msgstr "Acerca _de Penfold"
+
+#: penfold/ui/about.py:30
+msgid "Read, annotate and organize your PDFs"
+msgstr "Lee, anota y organiza tus PDF"
+
+#: penfold/ui/about.py:31
+msgid "ibanurq, with AI assistance"
+msgstr "ibanurq, con ayuda de IA"
+
+#: penfold/ui/shortcuts_dialog.py:38
+msgid "General"
+msgstr "General"
+
+#: penfold/ui/shortcuts_dialog.py:38
+msgid "Keyboard Shortcuts"
+msgstr "Atajos de teclado"

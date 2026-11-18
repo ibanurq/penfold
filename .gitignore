@@ -22,8 +22,9 @@ __pycache__/
 .pytest_cache/
 .coverage
 
-# Meson build directory
+# Meson build directory, and the translation template it generates
 _build/
+po/penfold.pot
 
 # Editor and system files
 .vscode/

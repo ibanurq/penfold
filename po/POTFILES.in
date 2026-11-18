@@ -1,0 +1,5 @@
+# Files with translatable texts, one per line (paths from the project folder).
+data/ui/welcome_page.blp
+data/ui/window.blp
+penfold/ui/about.py
+penfold/ui/shortcuts_dialog.py
