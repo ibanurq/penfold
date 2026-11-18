@@ -217,3 +217,51 @@ def test_link_without_height_goes_to_the_start_of_the_page(window: "PenfoldWindo
     box = next(box for box in view._boxes if box.page == 3)
     assert view.vadjustment is not None
     assert view.vadjustment.get_value() == pytest.approx(box.y - TOP_MARGIN)
+
+
+def test_pages_are_drawn_pixel_for_pixel(window: "PenfoldWindow", tmp_path: Path) -> None:
+    """Sharp text: what the screen shows is the renderer's tile unchanged, even between two pixels of scroll."""
+    from gi.repository import Gdk, Gsk, Gtk
+
+    from penfold.rendering.renderer import round_scale
+    from penfold.ui.document_view import Fit
+    from tests.test_page_content import make_text_pdf
+
+    open_and_wait(window, make_text_pdf(tmp_path / "text.pdf"))
+    view = window.document_view
+    assert view.vadjustment is not None
+    assert view.hadjustment is not None
+    # A zoom with more decimals than the tiles' scale keeps, and a scroll position between two pixels.
+    view._set_zoom(1.2345678, Fit.MANUAL)
+    view.vadjustment.set_value(43.4)
+    renderer = view.renderer
+    assert renderer is not None
+    scale = round_scale(view.zoom * view._device_scale())
+    view.queue_draw()
+    wait_until(lambda: any(key.page == 0 and key.scale == scale for key in renderer._cache))
+    view.queue_draw()
+
+    def draw_view() -> "Gsk.RenderNode | None":
+        snapshot = Gtk.Snapshot()
+        Gtk.WidgetPaintable.new(view).snapshot(snapshot, view.get_width(), view.get_height())
+        return snapshot.to_node()
+
+    wait_until(lambda: draw_view() is not None)
+    node = draw_view()
+    gsk_renderer = window.get_renderer()
+    assert node is not None
+    assert gsk_renderer is not None
+    screen = gsk_renderer.render_texture(node, None)
+    tile = next(texture for key, texture in renderer._cache.items() if key.page == 0 and key.scale == scale)
+    screen_bytes, screen_stride = Gdk.TextureDownloader.new(screen).download_bytes()
+    tile_bytes, tile_stride = Gdk.TextureDownloader.new(tile).download_bytes()
+    screen_data, tile_data = screen_bytes.get_data(), tile_bytes.get_data()
+    assert screen_data is not None
+    assert tile_data is not None
+    box = view._boxes[0]
+    left, top = round(box.x - view.hadjustment.get_value()), round(box.y - view.vadjustment.get_value())
+    for tile_y in range(60, 140, 3):  # the two lines of text, about 100 and 120 points from the top
+        for tile_x in range(60, 300, 3):
+            screen_offset = (top + tile_y) * screen_stride + (left + tile_x) * 4
+            tile_offset = tile_y * tile_stride + tile_x * 4
+            assert screen_data[screen_offset : screen_offset + 3] == tile_data[tile_offset : tile_offset + 3]

@@ -110,6 +110,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._press: PagePoint | None = None
         self._press_style = Poppler.SelectionStyle.GLYPH
         self._dragging = False
+        self._pixel = 1.0
+        self._scale = 1.0
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
         self._add_controllers()
@@ -439,8 +441,12 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         scale = round_scale(self.zoom * device_scale)
         visible = self._visible_boxes()
         wanted: dict[TileKey, int] = {}
+        self._pixel = 1 / device_scale
+        self._scale = scale
         for box in visible:
-            x, y = box.x - offset_x, box.y - offset_y
+            # On whole device pixels, so tiles are copied pixel for pixel instead of resampled (sharp text).
+            x = round((box.x - offset_x) * device_scale) / device_scale
+            y = round((box.y - offset_y) * device_scale) / device_scale
             self._draw_page_frame(snapshot, x, y, box)
             ready = []
             for key in self._visible_tiles(box, scale, offset_x, offset_y):
@@ -515,12 +521,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         snapshot.pop()
 
     def _append_tile(self, snapshot: Gtk.Snapshot, x: float, y: float, key: TileKey, texture: Gdk.Texture) -> None:
+        """Draw a tile; exact tiles (at the current zoom) one texture pixel per device pixel, others stretched."""
         assert self.renderer is not None
         grid = self.renderer.grid(self.renderer.page_sizes[key.page], key.scale)
         tile_x, tile_y, width, height = grid.tile_rectangle(key.column, key.row)
-        logical = self.zoom / key.scale
+        exact = key.scale == self._scale
+        logical = self._pixel if exact else self.zoom / key.scale
         bounds = Graphene.Rect().init(x + tile_x * logical, y + tile_y * logical, width * logical, height * logical)
-        snapshot.append_scaled_texture(texture, Gsk.ScalingFilter.LINEAR, bounds)
+        scaling = Gsk.ScalingFilter.NEAREST if exact else Gsk.ScalingFilter.LINEAR
+        snapshot.append_scaled_texture(texture, scaling, bounds)
 
     def _draw_selection(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Highlight the selected text of a page with the accent colour."""
