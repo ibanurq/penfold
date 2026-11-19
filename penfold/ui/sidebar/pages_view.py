@@ -20,6 +20,7 @@ from penfold import config
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import Rectangle
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
+from penfold.ui.document_view import append_page_frame
 from penfold.ui.sidebar.view_header import header_button, view_header
 
 # The cell of every thumbnail has the proportions of an upright A4.
@@ -36,7 +37,6 @@ ZOOM_FACTOR = 1.1
 # A cell accepts being this narrow while the panel shrinks, until the columns are laid out again.
 SHRINKING_WIDTH = 24
 CHANNEL = "thumbnails"
-EDGE_COLOR = (0, 0, 0, 0.2)
 VISIBLE_AREA_FILL = 0.12
 VISIBLE_AREA_EDGE = 0.6
 
@@ -107,8 +107,7 @@ class Thumbnail(Gtk.Widget):
         if renderer is None or not 0 <= self.page < len(renderer.page_sizes):
             return
         x, y, width, height = fit_page(renderer.page_sizes[self.page], self.get_width(), self.get_height())
-        snapshot.append_color(rgba(*EDGE_COLOR), Graphene.Rect().init(x - 1, y - 1, width + 2, height + 2))
-        snapshot.append_color(rgba(1, 1, 1, 1), Graphene.Rect().init(x, y, width, height))
+        append_page_frame(snapshot, x, y, width, height)
         texture = self._view.texture(self.page)
         if texture is not None:
             snapshot.append_texture(texture, Graphene.Rect().init(x, y, width, height))

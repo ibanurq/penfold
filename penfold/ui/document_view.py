@@ -77,6 +77,22 @@ def rgba(color: tuple[float, float, float, float]) -> Gdk.RGBA:
     return value
 
 
+def append_page_frame(snapshot: Gtk.Snapshot, x: float, y: float, width: float, height: float) -> None:
+    """Draw white paper with an edge that fades outwards, like a soft shadow (the document and the thumbnails)."""
+    for distance, opacity in enumerate(PAGE_EDGE_OPACITIES, start=1):
+        color = rgba((0, 0, 0, opacity))
+        left, top = x - distance, y - distance
+        ring_width, ring_height = width + 2 * distance, height + 2 * distance
+        for edge in (
+            (left, top, ring_width, 1),
+            (left, top + ring_height - 1, ring_width, 1),
+            (left, top + 1, 1, ring_height - 2),
+            (left + ring_width - 1, top + 1, 1, ring_height - 2),
+        ):
+            snapshot.append_color(color, Graphene.Rect().init(*edge))
+    snapshot.append_color(rgba(WHITE), Graphene.Rect().init(x, y, width, height))
+
+
 def clamp_zoom(zoom: float) -> float:
     """Keep a zoom between the limits."""
     return min(MAX_ZOOM, max(MIN_ZOOM, zoom))
@@ -561,18 +577,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     def _draw_page_frame(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Draw the white page with its edge, before its tiles."""
-        for distance, opacity in enumerate(PAGE_EDGE_OPACITIES, start=1):
-            color = rgba((0, 0, 0, opacity))
-            left, top = x - distance, y - distance
-            width, height = box.width + 2 * distance, box.height + 2 * distance
-            for edge in (
-                (left, top, width, 1),
-                (left, top + height - 1, width, 1),
-                (left, top + 1, 1, height - 2),
-                (left + width - 1, top + 1, 1, height - 2),
-            ):
-                snapshot.append_color(color, Graphene.Rect().init(*edge))
-        snapshot.append_color(rgba(WHITE), Graphene.Rect().init(x, y, box.width, box.height))
+        append_page_frame(snapshot, x, y, box.width, box.height)
 
     def _visible_tiles(self, box: PageBox, scale: float, offset_x: float, offset_y: float) -> list[TileKey]:
         """Tiles of a page that intersect the visible part of the view."""
