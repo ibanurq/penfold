@@ -9,9 +9,9 @@ from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
-from penfold.document.bookmarks import Bookmark
+from penfold.document.bookmarks import Bookmark, ReadingIndex
 from penfold.document.document import OpenDocument
-from penfold.ui.sidebar.view_header import empty_label, header_button, view_header
+from penfold.ui.sidebar.view_header import RecentUse, empty_label, header_button, view_header
 
 
 class BookmarkItem(GObject.Object):
@@ -53,6 +53,7 @@ class BookmarkRow(Gtk.Box):
     def __init__(self) -> None:
         """Create the row's widgets."""
         super().__init__(spacing=6)
+        self.bookmark_id = 0
         self.expander = Gtk.TreeExpander(hexpand=True)
         self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.expander.set_child(self.title)
@@ -92,8 +93,16 @@ class BookmarksView(Gtk.Box):
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_setup)
         factory.connect("bind", self._on_bind)
+        factory.connect("unbind", self._on_unbind)
         self.list = Gtk.ListView(model=self.selection, factory=factory)
         self.list.add_css_class("navigation-sidebar")
+        self._recent_use = RecentUse(self.list)
+        # Following the reading (D40): the bookmark of the section read, and the row that shows it (the bookmark
+        # itself, or the folded branch that holds it).
+        self._index = ReadingIndex([])
+        self._reading: Bookmark | None = None
+        self._marked: Bookmark | None = None
+        self._rows: dict[int, BookmarkRow] = {}
         self.empty = empty_label(_("This PDF has no bookmarks"))
         self.stack = Gtk.Stack(vexpand=True)
         self.stack.add_named(Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER), "list")
@@ -104,11 +113,57 @@ class BookmarksView(Gtk.Box):
         """Show the bookmarks of a PDF, unfolded as the PDF says."""
         self.document = document
         root = children_model(document.bookmarks)
+        # Forget the old rows first: GTK may bind the new ones as soon as the model changes.
+        self._rows.clear()
+        self._reading = self._marked = None
+        self._index = ReadingIndex(document.bookmarks)
         self.tree = Gtk.TreeListModel.new(root, False, False, self._children)
         self.selection.set_model(self.tree)
         self._open_as_stored()
+        # Unfolding or folding a branch may change which row shows the section being read.
+        self.tree.connect("items-changed", lambda *_arguments: self._mark_reading(scroll=False))
         self.stack.set_visible_child_name("list" if document.bookmarks else "empty")
         self.expand_button.set_sensitive(any(bookmark.children for bookmark in document.bookmarks))
+
+    def follow(self, page: int, top: float) -> None:
+        """Mark the bookmark of the section being read, and bring it into sight unless the list is in use (D40)."""
+        reading = self._index.at(page, top)
+        if reading is not self._reading:
+            self._reading = reading
+            self._mark_reading(scroll=True)
+
+    @property
+    def marked_bookmark(self) -> Bookmark | None:
+        """The bookmark whose row is marked as the section being read."""
+        return self._marked
+
+    def _mark_reading(self, scroll: bool) -> None:
+        """Mark the row of the section being read: its own, or that of the folded branch that holds it."""
+        positions = {}
+        for index in range(self.tree.get_n_items()):
+            row = self.tree.get_row(index)
+            item = row.get_item() if row is not None else None
+            if isinstance(item, BookmarkItem):
+                positions[id(item.bookmark)] = index
+        target: Bookmark | None = None
+        if self._reading is not None:
+            for candidate in [self._reading, *self._index.ancestors(self._reading)]:
+                if id(candidate) in positions:
+                    target = candidate
+                    break
+        previous, self._marked = self._marked, target
+        for bookmark in (previous, target):
+            if bookmark is not None and id(bookmark) in self._rows:
+                self._show_mark(self._rows[id(bookmark)], bookmark)
+        if scroll and target is not None and not self._recent_use.recently:
+            self.list.scroll_to(positions[id(target)], Gtk.ListScrollFlags.NONE, None)
+
+    def _show_mark(self, row: "BookmarkRow", bookmark: Bookmark) -> None:
+        # On the row itself: the list's own row widgets belong to GTK, which may be destroying them at this point.
+        if bookmark is self._marked:
+            row.add_css_class("reading-position")
+        else:
+            row.remove_css_class("reading-position")
 
     def toggle_all(self) -> None:
         """Unfold every branch, or fold them all if they are all unfolded."""
@@ -161,6 +216,15 @@ class BookmarksView(Gtk.Box):
         row.title.set_tooltip_text(bookmark.title)
         page = bookmark.page
         row.page.set_label("" if page is None or self.document is None else self.document.page_label(page))
+        row.bookmark_id = id(bookmark)
+        self._rows[id(bookmark)] = row
+        self._show_mark(row, bookmark)
+
+    def _on_unbind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        row = item.get_child()
+        if isinstance(row, BookmarkRow) and self._rows.get(row.bookmark_id) is row:
+            del self._rows[row.bookmark_id]
+            row.remove_css_class("reading-position")
 
     def _on_row_clicked(
         self, gesture: Gtk.GestureClick, _presses: int, _x: float, _y: float, item: Gtk.ListItem

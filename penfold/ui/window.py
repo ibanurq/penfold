@@ -365,6 +365,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self.document is not None:
             self.document_header.page_entry.show_page(self.document, view.current_page)
             self.pages_view.show_current_page(view.current_page)
+            self.annotations_view.show_reading_page(view.current_page)
 
     def _on_zoom_changed(self, view: DocumentView) -> None:
         self.zoom_controls.show_fit(view.fit)
@@ -377,6 +378,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_viewport_changed(self, view: DocumentView) -> None:
         """The panel follows the reading: the part shown on the thumbnails (D41)."""
         self.pages_view.show_visible_areas(view.visible_areas())
+        self.bookmarks_view.follow(*view.reading_point())
 
     def _on_page_chosen(self, _entry: Gtk.Widget, page: int) -> None:
         self.document_view.go_to(page)

@@ -7,12 +7,12 @@ deleting them, come with phase 6.
 from gettext import gettext as _
 from typing import ClassVar
 
-from gi.repository import Gdk, GObject, Graphene, Gtk, Pango
+from gi.repository import Gdk, GLib, GObject, Graphene, Gtk, Pango
 
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
-from penfold.ui.sidebar.view_header import empty_label, view_header
+from penfold.ui.sidebar.view_header import RecentUse, empty_label, view_header
 
 # Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
 FALLBACK_COLOR = (0xC6 / 255, 0x46 / 255, 0)
@@ -137,9 +137,12 @@ class AnnotationsView(Gtk.Box):
         self.list.add_css_class("navigation-sidebar")
         self.list.set_header_func(self._header)
         self.list.connect("row-activated", self._on_row_activated)
+        self._recent_use = RecentUse(self.list)
+        self.reading_page = -1
         self.empty = empty_label("")
         self.stack = Gtk.Stack(vexpand=True)
-        self.stack.add_named(Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER), "list")
+        self.scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        self.stack.add_named(self.scrolled, "list")
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
 
@@ -161,11 +164,51 @@ class AnnotationsView(Gtk.Box):
             self.list.append(row)
         if shown:
             self.stack.set_visible_child_name("list")
+            if self.reading_page >= 0:
+                page, self.reading_page = self.reading_page, -1
+                self.show_reading_page(page)
         else:
             self.empty.set_label(
                 _("No annotations of the types shown") if document.annotations else _("This PDF has no annotations")
             )
             self.stack.set_visible_child_name("empty")
+
+    def rows(self) -> list[AnnotationRow]:
+        """The rows of the list, in order."""
+        found = []
+        child = self.list.get_first_child()
+        while child is not None:
+            if isinstance(child, AnnotationRow):
+                found.append(child)
+            child = child.get_next_sibling()
+        return found
+
+    def show_reading_page(self, page: int) -> None:
+        """Mark the annotations of the page being read, and bring the first into sight unless the list is in use."""
+        changed = page != self.reading_page
+        self.reading_page = page
+        first = None
+        for row in self.rows():
+            if row.annotation.page == page:
+                row.add_css_class("reading-position")
+                first = first or row
+            else:
+                row.remove_css_class("reading-position")
+        if changed and first is not None and not self._recent_use.recently:
+            GLib.idle_add(self._scroll_to, first)
+
+    def _scroll_to(self, row: AnnotationRow) -> bool:
+        """Scroll the list so a row (with its group heading) is in sight, once it has been laid out."""
+        found, point = row.compute_point(self.list, Graphene.Point().init(0, 0))
+        if found:
+            adjustment = self.scrolled.get_vadjustment()
+            header = row.get_header()
+            top = point.y - (header.get_height() if header is not None else 0)
+            bottom = point.y + row.get_height()
+            shown_from, shown_to = adjustment.get_value(), adjustment.get_value() + adjustment.get_page_size()
+            if top < shown_from or bottom > shown_to:
+                adjustment.set_value(max(0.0, top))
+        return GLib.SOURCE_REMOVE
 
     def _row_text(self, annotation: Annotation) -> str:
         """The annotation's own text; for marks on text without one, the marked text in quotes."""

@@ -101,3 +101,27 @@ def test_a_looping_outline_ends(tmp_path: Path) -> None:
         pdf.save(path)
     with pikepdf.open(path) as pdf:
         assert [bookmark.title for bookmark in read_bookmarks(pdf)] == ["A", "B"]
+
+
+def test_the_bookmark_of_the_section_being_read(bookmarks: list[Bookmark]) -> None:
+    from penfold.document.bookmarks import ReadingIndex
+
+    index = ReadingIndex(bookmarks)
+    cover, intro, _broken, action = bookmarks
+    scope = intro.children[0]
+    assert index.at(0, 0) is cover
+    assert index.at(1, 100) is cover  # page 2 before the height where "1. Intro" starts (142)
+    assert index.at(1, 200) is intro
+    assert index.at(2, 0) is scope
+    assert index.at(3, 500) is scope  # page 4 has no bookmark of its own
+    assert index.at(4, 400) is action
+    assert index.ancestors(scope) == [intro]
+    assert index.ancestors(cover) == []
+
+
+def test_no_bookmark_before_the_first_one() -> None:
+    from penfold.document.bookmarks import ReadingIndex
+
+    index = ReadingIndex([Bookmark("Late", page=3)])
+    assert index.at(1, 0) is None
+    assert index.at(3, 0) is not None

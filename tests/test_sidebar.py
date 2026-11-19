@@ -285,3 +285,52 @@ def test_a_narrow_panel_shows_one_column_from_the_start(window: "PenfoldWindow",
     pages = window.pages_view
     wait_until_stable(lambda: (pages.get_width(), pages.grid.get_max_columns()))
     assert pages.grid.get_min_columns() == pages.grid.get_max_columns() == 1
+
+
+def test_bookmarks_follow_the_reading(window: "PenfoldWindow", tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    open_and_wait(window, path)
+    bookmarks, view = window.bookmarks_view, window.document_view
+    assert bookmarks.marked_bookmark is not None
+    assert bookmarks.marked_bookmark.title == "Cover"
+    view.go_to(2)
+    process_pending_events()
+    assert bookmarks.marked_bookmark.title == "1.1 Scope"
+    bookmarks.toggle_all()  # fold "1. Intro": its row shows the section being read
+    process_pending_events()
+    assert bookmarks.marked_bookmark.title == "1. Intro"
+
+
+def test_annotations_of_the_page_being_read_are_marked(window: "PenfoldWindow", tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "notes.pdf", page_count=3)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        for page in (0, 2):
+            note = pikepdf.Dictionary(
+                Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Text, Rect=[10, 10, 30, 30], Contents=pikepdf.String("n")
+            )
+            pdf.pages[page].Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(note)]))
+        pdf.save(path)
+    open_and_wait(window, path)
+    view = window.annotations_view
+
+    def marked() -> list[int]:
+        return [row.annotation.page for row in view.rows() if row.has_css_class("reading-position")]
+
+    assert marked() == [0]
+    window.document_view.go_to(2)
+    process_pending_events()
+    assert marked() == [2]
+
+
+def test_the_row_of_the_section_being_read_is_marked(window: "PenfoldWindow", tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    open_and_wait(window, path)
+    window.sidebar.show_view("bookmarks")
+    window.document_view.go_to(2)
+    wait_until_stable(lambda: tuple(window.bookmarks_view._rows))
+    marked = [
+        row.title.get_text() for row in window.bookmarks_view._rows.values() if row.has_css_class("reading-position")
+    ]
+    assert marked == ["1.1 Scope"]

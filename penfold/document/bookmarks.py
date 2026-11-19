@@ -4,6 +4,7 @@ Each bookmark keeps its title, its style (bold, italic, colour), whether it star
 and, if the destination gives one, the height to show, in points from the top of the page.
 """
 
+import bisect
 from dataclasses import dataclass, field
 
 import pikepdf
@@ -146,3 +147,45 @@ def _color(value: object) -> tuple[float, float, float] | None:
     if red == green == blue == 0:
         return None
     return red, green, blue
+
+
+class ReadingIndex:
+    """Finds the bookmark of the section being read: the last one whose destination is before the reading point.
+
+    Bookmarks are ordered by where they lead (page, then height), and by their place in the outline when they lead
+    to the same point, so the deepest of several bookmarks at one place wins.
+    """
+
+    def __init__(self, bookmarks: list[Bookmark]) -> None:
+        """Index the bookmarks of an outline (only those with a destination in the document)."""
+        entries: list[tuple[tuple[int, float, int], Bookmark]] = []
+        self.parents: dict[int, Bookmark | None] = {}
+        order = 0
+
+        def walk(items: list[Bookmark], parent: Bookmark | None) -> None:
+            nonlocal order
+            for bookmark in items:
+                self.parents[id(bookmark)] = parent
+                if bookmark.page is not None:
+                    entries.append(((bookmark.page, bookmark.top or 0.0, order), bookmark))
+                order += 1
+                walk(bookmark.children, bookmark)
+
+        walk(bookmarks, None)
+        entries.sort(key=lambda entry: entry[0])
+        self._keys = [key for key, _bookmark in entries]
+        self._bookmarks = [bookmark for _key, bookmark in entries]
+
+    def at(self, page: int, top: float) -> Bookmark | None:
+        """The bookmark of the section that contains this point (a page and a height from its top), if any."""
+        position = bisect.bisect_right(self._keys, (page, top, MAX_ITEMS))
+        return self._bookmarks[position - 1] if position > 0 else None
+
+    def ancestors(self, bookmark: Bookmark) -> list[Bookmark]:
+        """The bookmarks that contain this one, from its parent up to the top of the outline."""
+        chain = []
+        parent = self.parents.get(id(bookmark))
+        while parent is not None:
+            chain.append(parent)
+            parent = self.parents.get(id(parent))
+        return chain

@@ -1,4 +1,6 @@
-"""The header shared by the views of the side panel: the title in bold and the view's buttons (02-interfaz, 6)."""
+"""Pieces shared by the views of the side panel: their header (02-interfaz, 6) and noticing recent use (D40)."""
+
+import time
 
 from gi.repository import Gtk
 
@@ -30,3 +32,34 @@ def empty_label(text: str) -> Gtk.Label:
     label = Gtk.Label(label=text, wrap=True, justify=Gtk.Justification.CENTER, margin_start=24, margin_end=24)
     label.add_css_class("dim-label")
     return label
+
+
+class RecentUse:
+    """Notices when the user is using a list (pointer over it, scrolling it).
+
+    Following the reading then leaves the list where it is, so it does not move under the user (D40).
+    """
+
+    QUIET_SECONDS = 2.0
+
+    def __init__(self, widget: Gtk.Widget) -> None:
+        """Watch the pointer and the wheel over a widget."""
+        self._last_use = 0.0
+        motion = Gtk.EventControllerMotion()
+        motion.connect("motion", lambda _controller, _x, _y: self._used())
+        widget.add_controller(motion)
+        scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.BOTH_AXES)
+        scroll.connect("scroll", self._on_scroll)
+        widget.add_controller(scroll)
+
+    def _used(self) -> None:
+        self._last_use = time.monotonic()
+
+    def _on_scroll(self, _controller: Gtk.EventControllerScroll, _dx: float, _dy: float) -> bool:
+        self._used()
+        return False
+
+    @property
+    def recently(self) -> bool:
+        """Whether the list was used in the last two seconds."""
+        return time.monotonic() - self._last_use < self.QUIET_SECONDS
