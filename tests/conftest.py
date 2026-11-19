@@ -57,6 +57,12 @@ def application(build_directory: Path, settings_schemas: Path) -> Iterator["Penf
     # Not unique, so that a Penfold already open on the desktop does not receive the tests' windows.
     penfold_application.set_flags(penfold_application.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
     penfold_application.register(None)
+    # The app's own icons are installed with it; the tests run it from the source code, so tell GTK where they are.
+    from gi.repository import Gdk, Gtk
+
+    display = Gdk.Display.get_default()
+    if display is not None:
+        Gtk.IconTheme.get_for_display(display).add_search_path(str(PROJECT_DIRECTORY / "data" / "icons"))
     yield penfold_application
     for window in penfold_application.get_windows():
         window.destroy()
