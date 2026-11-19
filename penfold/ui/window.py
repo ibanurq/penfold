@@ -32,6 +32,8 @@ LAYOUT_CONTINUOUS = "continuous"
 LAYOUT_TWO_PAGES = "two-pages"
 # Room the document keeps beside the panel, besides what its header needs (0.6 kept 160 pixels).
 DOCUMENT_ROOM = 160
+# How long the panel waits, at most, for a growing window to make room for it.
+SIDEBAR_WAIT_MICROSECONDS = 500_000
 
 # Window actions and their shortcuts (0.6, apartado 2.8). They need a document, so they are off without one (A2).
 DOCUMENT_ACTIONS = {
@@ -291,8 +293,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.set_title(_("{file_name} — Penfold").format(file_name=document.file_name))
         self.protected_banner.set_revealed(document.is_protected)
         self.stack.set_visible_child_name("document")
-        # The panel opens by itself when a PDF is loaded, as in 0.6.
-        self.split_view.set_show_sidebar(True)
+        # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
+        self._show_sidebar_when_it_fits()
         self.document_view.set_document(document, renderer)
         self.pages_view.set_document(document, renderer)
         self.bookmarks_view.set_document(document)
@@ -311,6 +313,29 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 ),
             )
         return True
+
+    def _show_sidebar_when_it_fits(self) -> None:
+        """Show the panel as soon as the window is wide enough for it and the document (or after half a second).
+
+        A window that grows from the small welcome size takes a moment to do so; showing the panel before would ask
+        for more room than the window has.
+        """
+        if self.split_view.get_show_sidebar():
+            return
+        started = GLib.get_monotonic_time()
+
+        def check(_widget: Gtk.Widget, _clock: Gdk.FrameClock) -> bool:
+            content = self.split_view.get_content()
+            needed = self.split_view.get_max_sidebar_width() + (
+                content.measure(Gtk.Orientation.HORIZONTAL, -1)[0] if content is not None else 0
+            )
+            waited = GLib.get_monotonic_time() - started > SIDEBAR_WAIT_MICROSECONDS
+            if self.get_width() >= needed or self.split_view.get_collapsed() or waited:
+                self.split_view.set_show_sidebar(True)
+                return GLib.SOURCE_REMOVE
+            return GLib.SOURCE_CONTINUE
+
+        self.add_tick_callback(check)
 
     def _close_document(self) -> None:
         if self.renderer is not None:
