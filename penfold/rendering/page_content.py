@@ -3,12 +3,15 @@
 Positions are in PDF points from the top left corner of the page, like the rest of the interface.
 """
 
+from collections import OrderedDict
 from dataclasses import dataclass
 
 import cairo
 from gi.repository import Poppler
 
 Rectangle = tuple[float, float, float, float]  # left, top, right, bottom
+# Pages whose text, with the position of each character, is kept.
+CACHED_PAGES = 8
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,7 @@ class PageContent:
         """Read from Poppler's main-thread copy of the document."""
         self._document = document
         self._links: dict[int, list[Link]] = {}
+        self._texts: OrderedDict[int, tuple[str, list[Rectangle]]] = OrderedDict()
 
     def links(self, page: int) -> list[Link]:
         """Return the links of a page that Penfold follows: internal ones and web addresses."""
@@ -69,10 +73,31 @@ class PageContent:
         return self._document.get_page(page).get_selected_text(style, _poppler_rectangle(selection)) or ""
 
     def text_in_areas(self, page: int, areas: list[Rectangle]) -> str:
-        """Return the text inside some areas of a page (what a highlight marks), joined by spaces."""
-        poppler_page = self._document.get_page(page)
-        texts = [(poppler_page.get_text_for_area(_poppler_rectangle(area)) or "").strip() for area in areas]
-        return " ".join(" ".join(text.split()) for text in texts if text)
+        """Return the text inside some areas of a page (what a highlight marks), with runs of spaces as one.
+
+        A letter belongs to an area when its centre is inside it. Poppler's own reading of an area works like a mouse
+        selection, from corner to corner, and takes text from the next line when the area touches it.
+        """
+        text, boxes = self._page_text(page)
+        letters = []
+        for character, box in zip(text, boxes, strict=True):
+            x, y = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+            inside = any(left <= x <= right and top <= y <= bottom for left, top, right, bottom in areas)
+            letters.append(character if inside else " ")
+        return " ".join("".join(letters).split())
+
+    def _page_text(self, page: int) -> tuple[str, list[Rectangle]]:
+        """The text of a page with the box of each character, kept for the last pages read."""
+        if page not in self._texts:
+            poppler_page = self._document.get_page(page)
+            text = poppler_page.get_text() or ""
+            _found, layout = poppler_page.get_text_layout()
+            boxes = [(box.x1, box.y1, box.x2, box.y2) for box in layout or []]
+            self._texts[page] = (text, boxes) if len(boxes) == len(text) else ("", [])
+            while len(self._texts) > CACHED_PAGES:
+                self._texts.popitem(last=False)
+        self._texts.move_to_end(page)
+        return self._texts[page]
 
     def selection_rectangles(self, page: int, selection: Rectangle, style: Poppler.SelectionStyle) -> list[Rectangle]:
         """Return the areas to highlight for a selection on a page, in points."""

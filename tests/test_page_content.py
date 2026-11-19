@@ -111,3 +111,8 @@ def test_selection_rectangles_cover_the_text(content: PageContent) -> None:
     left, top, right, bottom = rectangles[0]
     assert left <= 72 < right
     assert top < 100 <= bottom
+
+
+def test_text_in_areas_takes_nothing_from_the_next_line(content: PageContent) -> None:
+    # An area around the first line that reaches into the second one, as highlight boxes often do.
+    assert content.text_in_areas(0, [(70, 88, 400, 112)]) == "Page 1 line 1"
