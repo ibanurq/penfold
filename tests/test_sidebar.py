@@ -126,7 +126,6 @@ def test_bookmarks_show_the_tree_and_go_to_their_destination(window: "PenfoldWin
 
 def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path: Path) -> None:
     from penfold.document.annotations import Kind
-    from penfold.ui.sidebar.annotations_view import AnnotationRow
 
     path = make_pdf(tmp_path / "notes.pdf", page_count=2)
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:
@@ -144,19 +143,12 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     open_and_wait(window, path)
     view = window.annotations_view
 
-    def rows() -> list[AnnotationRow]:
-        found = []
-        child = view.list.get_first_child()
-        while child is not None:
-            if isinstance(child, AnnotationRow):
-                found.append(child)
-            child = child.get_next_sibling()
-        return found
-
-    assert [row.annotation.kind for row in rows()] == [Kind.COMMENT]  # rectangles are hidden by default, as in 0.6
+    assert [annotation.kind for annotation in view.shown_annotations()] == [
+        Kind.COMMENT
+    ]  # rectangles are hidden by default, as in 0.6
     view.shown_kinds.add(Kind.RECTANGLE)
     view.refresh()
-    assert [row.annotation.kind for row in rows()] == [Kind.COMMENT, Kind.RECTANGLE]
+    assert [annotation.kind for annotation in view.shown_annotations()] == [Kind.COMMENT, Kind.RECTANGLE]
     view.emit("annotation-activated", 1, 700.0)
     assert window.document_view.current_page == 1
 
@@ -315,7 +307,8 @@ def test_annotations_of_the_page_being_read_are_marked(window: "PenfoldWindow", 
     view = window.annotations_view
 
     def marked() -> list[int]:
-        return [row.annotation.page for row in view.rows() if row.has_css_class("reading-position")]
+        rows = view.bound_rows()
+        return [row.annotation.page for row in rows if row.annotation and row.has_css_class("reading-position")]
 
     assert marked() == [0]
     window.document_view.go_to(2)
