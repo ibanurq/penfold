@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-18 18:14+0100\n"
+"POT-Creation-Date: 2026-11-19 16:15+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -164,7 +164,7 @@ msgstr "Página"
 msgid "Find"
 msgstr "Buscar"
 
-#: data/ui/sidebar/sidebar.blp:47 penfold/ui/sidebar/pages_view.py:114
+#: data/ui/sidebar/sidebar.blp:47 penfold/ui/sidebar/pages_view.py:185
 msgid "Pages"
 msgstr "Páginas"
 
@@ -269,27 +269,36 @@ msgstr "Alejar"
 msgid "Fit to page width"
 msgstr "Ajustar al ancho de página"
 
-#: penfold/ui/shortcuts_dialog.py:58
+#. The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel (D39).
+#: penfold/ui/shortcuts_dialog.py:56
+msgid "Larger thumbnails (with the focus on them)"
+msgstr "Miniaturas más grandes (con el foco en ellas)"
+
+#: penfold/ui/shortcuts_dialog.py:57
+msgid "Smaller thumbnails (with the focus on them)"
+msgstr "Miniaturas más pequeñas (con el foco en ellas)"
+
+#: penfold/ui/shortcuts_dialog.py:61
 msgid "Moving around"
 msgstr "Desplazarse"
 
-#: penfold/ui/shortcuts_dialog.py:60
+#: penfold/ui/shortcuts_dialog.py:63
 msgid "Next page"
 msgstr "Página siguiente"
 
-#: penfold/ui/shortcuts_dialog.py:61
+#: penfold/ui/shortcuts_dialog.py:64
 msgid "Previous page"
 msgstr "Página anterior"
 
-#: penfold/ui/shortcuts_dialog.py:62
+#: penfold/ui/shortcuts_dialog.py:65
 msgid "First page"
 msgstr "Primera página"
 
-#: penfold/ui/shortcuts_dialog.py:63
+#: penfold/ui/shortcuts_dialog.py:66
 msgid "Last page"
 msgstr "Última página"
 
-#: penfold/ui/shortcuts_dialog.py:64
+#: penfold/ui/shortcuts_dialog.py:67
 msgid "Go to page"
 msgstr "Ir a la página"
 
@@ -330,7 +339,7 @@ msgid "Other Types"
 msgstr "Otros tipos"
 
 #: penfold/ui/sidebar/annotations_view.py:89
-#: penfold/ui/sidebar/search_view.py:219
+#: penfold/ui/sidebar/search_view.py:103
 #, python-brace-format
 msgid "Page {label}"
 msgstr "Página {label}"
@@ -357,6 +366,7 @@ msgstr "Este PDF no tiene anotaciones"
 
 #. Translators: heading of a group of annotations, as in "Comments (2)".
 #: penfold/ui/sidebar/annotations_view.py:193
+#, python-brace-format
 msgid "{kind} ({count})"
 msgstr "{kind} ({count})"
 
@@ -372,7 +382,7 @@ msgstr "Sin título"
 msgid "Expand or Collapse All"
 msgstr "Desplegar o plegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:85 penfold/ui/sidebar/pages_view.py:115
+#: penfold/ui/sidebar/bookmarks_view.py:85 penfold/ui/sidebar/pages_view.py:186
 msgid "_Add"
 msgstr "_Añadir"
 
@@ -380,40 +390,40 @@ msgstr "_Añadir"
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
-#: penfold/ui/sidebar/pages_view.py:116
+#: penfold/ui/sidebar/pages_view.py:187
 msgid "_Extract"
 msgstr "_Extraer"
 
-#: penfold/ui/sidebar/search_view.py:57
+#: penfold/ui/sidebar/search_view.py:68
 msgid "Find in Document"
 msgstr "Buscar en el documento"
 
-#: penfold/ui/sidebar/search_view.py:186
+#: penfold/ui/sidebar/search_view.py:222
 msgid "No results"
 msgstr "Ningún resultado"
 
-#: penfold/ui/sidebar/search_view.py:188
+#: penfold/ui/sidebar/search_view.py:224
 #, python-brace-format
 msgid "{count} result"
 msgid_plural "{count} results"
 msgstr[0] "{count} resultado"
 msgstr[1] "{count} resultados"
 
-#: penfold/ui/window.py:252
+#: penfold/ui/window.py:285
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
-#: penfold/ui/window.py:258
+#: penfold/ui/window.py:291
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:274
+#: penfold/ui/window.py:307
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:276
+#: penfold/ui/window.py:309
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -421,6 +431,6 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:291
+#: penfold/ui/window.py:324
 msgid "_OK"
 msgstr "_Aceptar"

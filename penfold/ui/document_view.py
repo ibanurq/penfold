@@ -89,6 +89,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     __gsignals__: ClassVar = {
         "current-page-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "zoom-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "viewport-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     hscroll_policy = GObject.Property(type=Gtk.ScrollablePolicy, default=Gtk.ScrollablePolicy.MINIMUM)
@@ -389,6 +390,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             if box is not None:
                 self._vadjustment.set_value(box.y + fraction * box.height - self.get_height() / 3)
         self.queue_draw()
+        self.emit("viewport-changed")
 
     def _anchor(self) -> tuple[int, float] | None:
         """The page on the top third of the viewer and how far down it is (0 at its top, 1 at its bottom)."""
@@ -445,6 +447,31 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _on_scrolled(self, _adjustment: Gtk.Adjustment) -> None:
         self._update_current_page()
         self.queue_draw()
+        self.emit("viewport-changed")
+
+    def visible_areas(self) -> dict[int, tuple[float, float, float, float]]:
+        """The part of each visible page that is shown, in points from the page's top left corner."""
+        if self._hadjustment is None or self._vadjustment is None or self.zoom <= 0:
+            return {}
+        left, top = self._hadjustment.get_value(), self._vadjustment.get_value()
+        right, bottom = left + self.get_width(), top + self.get_height()
+        areas = {}
+        for box in self._visible_boxes():
+            areas[box.page] = (
+                (max(left, box.x) - box.x) / self.zoom,
+                (max(top, box.y) - box.y) / self.zoom,
+                (min(right, box.x + box.width) - box.x) / self.zoom,
+                (min(bottom, box.bottom) - box.y) / self.zoom,
+            )
+        return areas
+
+    def reading_point(self) -> tuple[int, float]:
+        """The page and the height, in points from its top, on the top third of the viewer: where the reader is."""
+        box = self._box(self.current_page)
+        if box is None or self._vadjustment is None or self.zoom <= 0:
+            return self.current_page, 0.0
+        line = self._vadjustment.get_value() + self.get_height() / 3
+        return box.page, max(0.0, (line - box.y) / self.zoom)
 
     def _update_current_page(self, force: int | None = None) -> None:
         """The current page is the one crossing the top third of the viewer (B1)."""

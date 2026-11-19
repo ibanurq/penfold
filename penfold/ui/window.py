@@ -81,6 +81,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._add_actions()
         self.document_view.connect("current-page-changed", self._on_current_page_changed)
         self.document_view.connect("zoom-changed", self._on_zoom_changed)
+        self.document_view.connect("viewport-changed", self._on_viewport_changed)
         self.document_header.page_entry.connect("page-chosen", self._on_page_chosen)
         drop_target = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop_target.connect("drop", self._on_drop)
@@ -126,6 +127,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _on_document_action(self, _action: Gio.SimpleAction, _parameter: None, name: str, handler: object) -> None:
         if name in KEYS_WITHOUT_CONTROL and isinstance(self.get_focus(), Gtk.Editable | Gtk.Text):
+            return
+        # With the focus on the thumbnails, Ctrl++ and Ctrl+- zoom them instead of the document (D39).
+        if name in {"zoom-in", "zoom-out"} and self.pages_view.has_focus_inside():
+            (self.pages_view.zoom_in if name == "zoom-in" else self.pages_view.zoom_out)()
             return
         assert callable(handler)
         handler()
@@ -368,6 +373,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_destination_activated(self, _view: Gtk.Widget, page: int, top: float) -> None:
         """Go to a destination from the panel, with its height on the top third (B8); -1 means no height."""
         self.document_view.go_to(page, None if top < 0 else top)
+
+    def _on_viewport_changed(self, view: DocumentView) -> None:
+        """The panel follows the reading: the part shown on the thumbnails (D41)."""
+        self.pages_view.show_visible_areas(view.visible_areas())
 
     def _on_page_chosen(self, _entry: Gtk.Widget, page: int) -> None:
         self.document_view.go_to(page)

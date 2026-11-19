@@ -40,9 +40,24 @@ def open_and_wait(window: "PenfoldWindow", path: Path) -> None:
     wait_until_stable(lambda: (window.get_width(), view.get_width(), view.zoom))
 
 
-@pytest.mark.parametrize(("width", "columns"), [(249, 1), (310, 1), (321, 2), (700, 3), (2000, 4)])
-def test_thumbnail_columns_follow_the_width_as_in_06(width: int, columns: int) -> None:
-    assert column_count(width) == columns
+@pytest.mark.parametrize(
+    ("available", "thumbnail", "columns"), [(100, 160, 1), (200, 160, 1), (360, 160, 2), (560, 160, 3), (540, 90, 4)]
+)
+def test_columns_are_those_that_fit(available: int, thumbnail: int, columns: int) -> None:
+    assert column_count(available, thumbnail) == columns
+
+
+def test_every_page_fits_in_the_same_cell_without_distortion() -> None:
+    from penfold.ui.sidebar.pages_view import fit_page
+
+    a4, a3, landscape = (595.0, 842.0), (842.0, 1191.0), (842.0, 595.0)
+    box = (160.0, 160.0 * 2**0.5)
+    assert fit_page(a4, *box) == pytest.approx((0.0, 0.0, 160.0, 226.4), abs=0.2)
+    assert fit_page(a3, *box) == pytest.approx(fit_page(a4, *box), abs=0.3)  # an A3 looks like an A4
+    x, y, width, height = fit_page(landscape, *box)
+    assert (x, width) == pytest.approx((0.0, 160.0))
+    assert y == pytest.approx((box[1] - height) / 2)  # centred vertically
+    assert width / height == pytest.approx(842 / 595)
 
 
 def test_panel_width_limits(application: "PenfoldApplication") -> None:  # noqa: ARG001 (loads the interface files)
@@ -199,20 +214,74 @@ def test_the_panel_leaves_room_for_the_document(window: "PenfoldWindow", tmp_pat
     assert window.split_view.get_max_sidebar_width() == widest  # the chosen width comes back
 
 
-def test_thumbnails_grow_with_the_panel_and_then_add_columns(window: "PenfoldWindow", tmp_path: Path) -> None:
-    from penfold.ui.sidebar.pages_view import LIST_MARGIN, SCROLLBAR_WIDTH
+def test_thumbnails_keep_their_size_and_the_columns_follow_the_panel(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.ui.sidebar.pages_view import widest_thumbnail
 
-    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=6))
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=12))
     window.set_default_size(1800, 800)
     pages = window.pages_view
-    sizes = []
-    # Wide first, then narrow: the thumbnails must shrink back to one column, and grow again.
-    for width in (700, 300, 330, 450, 700):
+    pages.set_thumbnail_width(120)
+    seen = []
+    for width in (700, 300, 450, 700):
         window.sidebar.emit("resized", width)
-        wait_until_stable(lambda: (pages.grid.get_min_columns(), pages.thumbnail_width))
-        available = pages.get_width() - SCROLLBAR_WIDTH - 2 * LIST_MARGIN
-        assert pages.grid.get_min_columns() == column_count(available)  # the panel may be narrower than asked
-        sizes.append((pages.grid.get_min_columns(), pages.thumbnail_width))
-    assert sizes[1][0] == 1
-    assert sizes[2][1] > sizes[1][1]  # a wider panel, bigger thumbnails, until a new column fits
-    assert sizes[-1][0] >= 2
+        wait_until_stable(lambda: (pages.get_width(), pages.grid.get_min_columns(), pages.thumbnail_width))
+        available = pages.available_width
+        expected_width = min(120, widest_thumbnail(available))
+        assert pages.thumbnail_width == expected_width
+        assert pages.grid.get_min_columns() == column_count(available, expected_width)
+        seen.append(pages.grid.get_min_columns())
+    assert seen[1] < seen[0]  # a narrower panel shows fewer columns of the same thumbnails
+    assert seen[3] == seen[0]
+
+
+def test_zooming_the_thumbnails_changes_the_columns_and_is_remembered(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from gi.repository import Gio
+
+    from penfold import config
+    from penfold.ui.sidebar.pages_view import MIN_THUMBNAIL_WIDTH
+
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=12))
+    pages = window.pages_view
+    window.sidebar.emit("resized", 400)
+    wait_until_stable(lambda: (pages.get_width(), pages.grid.get_min_columns()))
+    pages.set_thumbnail_width(MIN_THUMBNAIL_WIDTH)
+    wait_until_stable(pages.grid.get_min_columns)
+    many = pages.grid.get_min_columns()
+    for _ in range(20):
+        pages.zoom_in()
+    wait_until_stable(pages.grid.get_min_columns)
+    assert pages.grid.get_min_columns() == 1 < many  # at most one column filling the panel
+    assert Gio.Settings(schema_id=config.APP_ID).get_int("thumbnail-size") == pages.chosen_width
+    pages.zoom_out()
+    assert pages.chosen_width < pages.thumbnail_width * 1.0 + 1
+
+
+def test_control_plus_zooms_what_has_the_focus(window: "PenfoldWindow", tmp_path: Path) -> None:
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=4))
+    pages, view = window.pages_view, window.document_view
+    zoom, size = view.zoom, pages.chosen_width
+    pages.grid.grab_focus()
+    window.activate_action("win.zoom-out", None)
+    assert view.zoom == zoom
+    assert pages.chosen_width < size
+    view.grab_focus()
+    window.activate_action("win.zoom-out", None)
+    assert view.zoom < zoom
+
+
+def test_the_part_shown_is_marked_on_the_thumbnails(window: "PenfoldWindow", tmp_path: Path) -> None:
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=4))
+    areas = window.pages_view.visible_areas
+    assert 0 in areas
+    left, top, right, bottom = areas[0]
+    assert (left, top) == pytest.approx((0.0, 0.0), abs=1)
+    assert right == pytest.approx(595, abs=1)  # fitted to the width: the whole width is shown
+    assert 0 < bottom <= 842
+
+
+def test_a_narrow_panel_shows_one_column_from_the_start(window: "PenfoldWindow", tmp_path: Path) -> None:
+    window.sidebar.emit("resized", 300)
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=8))
+    pages = window.pages_view
+    wait_until_stable(lambda: (pages.get_width(), pages.grid.get_max_columns()))
+    assert pages.grid.get_min_columns() == pages.grid.get_max_columns() == 1

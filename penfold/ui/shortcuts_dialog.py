@@ -52,6 +52,9 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
                 (_("Zoom in"), "win.zoom-in"),
                 (_("Zoom out"), "win.zoom-out"),
                 (_("Fit to page width"), "win.fit-width"),
+                # The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel (D39).
+                (_("Larger thumbnails (with the focus on them)"), "win.zoom-in"),
+                (_("Smaller thumbnails (with the focus on them)"), "win.zoom-out"),
             ),
         ),
         ShortcutGroup(
