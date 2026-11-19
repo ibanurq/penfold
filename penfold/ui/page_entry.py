@@ -3,7 +3,7 @@
 from gettext import gettext as _
 from typing import ClassVar
 
-from gi.repository import Gdk, GObject, Gtk
+from gi.repository import Gdk, GLib, GObject, Gtk
 
 from penfold import config
 from penfold.document.document import OpenDocument
@@ -31,6 +31,7 @@ class PenfoldPageEntry(Gtk.Box):
         self._document: OpenDocument | None = None
         self._page = 0
         focus = Gtk.EventControllerFocus()
+        focus.connect("enter", lambda _controller: GLib.idle_add(self._select_all))
         focus.connect("leave", lambda _controller: self._show_current())
         self.entry.add_controller(focus)
         keys = Gtk.EventControllerKey()
@@ -42,6 +43,15 @@ class PenfoldPageEntry(Gtk.Box):
         self._document = document
         self._page = page
         self._show_current()
+
+    def _select_all(self) -> bool:
+        """Select the whole page, so typing replaces it; after the click, which puts the cursor where it lands."""
+        root = self.get_root()
+        focus = root.get_focus() if isinstance(root, Gtk.Window) else None
+        # The focus is on the text inside the entry, not on the entry itself.
+        if focus is not None and (focus == self.entry or focus.is_ancestor(self.entry)):
+            self.entry.select_region(0, -1)
+        return GLib.SOURCE_REMOVE
 
     def focus(self) -> None:
         """Put the cursor in the box with its text selected (Ctrl+L)."""

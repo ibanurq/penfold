@@ -301,3 +301,11 @@ def test_page_down_in_a_zoomed_pair_moves_inside_it_first(window: "PenfoldWindow
     view.vadjustment.set_value(view.vadjustment.get_upper())
     window.activate_action("win.next-page", None)
     assert [box.page for box in view._boxes] == [2, 3]
+
+
+def test_entering_the_page_box_selects_the_page(window: "PenfoldWindow", book: Path) -> None:
+    open_and_wait(window, book)
+    entry = window.document_header.page_entry.entry
+    entry.grab_focus_without_selecting()
+    process_pending_events()
+    assert entry.get_selection_bounds() == (0, len(entry.get_text()))  # typing replaces the page shown
