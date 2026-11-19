@@ -39,6 +39,7 @@
   <url type="bugtracker">https://github.com/ibanurq/penfold/issues</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.0.0-alpha.3" date="2026-11-19" type="development"/>
     <release version="1.0.0-alpha.2" date="2026-11-18" type="development"/>
     <release version="1.0.0-alpha.1" date="2026-11-18" type="development"/>
     <release version="0.6.0" date="2026-11-17"/>

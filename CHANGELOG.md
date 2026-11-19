@@ -5,6 +5,32 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.3 — 2026-11-19
+
+Third preview of Penfold 1.0: the side panel, to find your way around a PDF. Nothing can be changed or saved yet.
+
+### Added
+- Side panel, opened by itself with a PDF and shown or hidden with F9. Its edge can be dragged and its width is
+  remembered; it always leaves the document room, and goes over the document in narrow windows. The main menu moves
+  to the document header while the panel is hidden.
+- Pages: thumbnails with their page labels and a size of their own. Ctrl and the mouse wheel over them (or Ctrl++ and
+  Ctrl+− while they have the focus) make them larger or smaller, and the size is remembered; the panel shows as many
+  columns as fit. Every page sits in the same cell, so an A3 looks like an A4 and landscape pages are centred. The
+  page being read is marked, with a soft box over the part shown in the document.
+- Bookmarks: the outline with its bold, italic and colour, unfolded as the PDF says, and Expand or Collapse All.
+- Annotations: grouped by type with a count, with the page, the author (or “External”) and the text, next to a line
+  in the annotation's colour; a filter chooses the types shown (Comments and Text Boxes by default, as in 0.6).
+- Bookmarks and Annotations follow the reading: the section or the annotations of the page being read are marked.
+- Find (Ctrl+F): a list of every match, which fills while the PDF is searched, with the sentence around each one.
+  Case, accents and line breaks do not matter; Enter, Ctrl+G and Shift+Ctrl+G move between matches, highlighted on
+  the pages, and Esc goes back to the previous view.
+- A click on a thumbnail, a bookmark, an annotation or a match goes there.
+
+### Changed
+- The page box is narrower and selects the page when entering it, so typing replaces it.
+- Large PDFs stay smooth: searching 800 pages takes a few seconds without freezing the window, and hundreds of
+  annotations are listed at once.
+
 ## 1.0.0-alpha.2 — 2026-11-18
 
 Second preview of Penfold 1.0: it works as a PDF viewer. Nothing can be changed or saved yet.
