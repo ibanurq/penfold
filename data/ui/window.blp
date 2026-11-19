@@ -9,6 +9,9 @@ template $PenfoldWindow: Adw.ApplicationWindow {
 
   content: Stack stack {
     transition-type: crossfade;
+    // Only the page shown counts for the size of the window: the welcome page is small (D17).
+    hhomogeneous: false;
+    vhomogeneous: false;
 
     StackPage {
       name: "welcome";
