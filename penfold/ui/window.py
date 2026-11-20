@@ -71,9 +71,6 @@ SAVE_ACTIONS = {
 RESPONSE_CANCEL = "cancel"
 RESPONSE_DISCARD = "discard"
 RESPONSE_SAVE = "save"
-# Edits of the selected pages, from the action bar of the Pages view (02-interfaz, 6.1). Delete also has its key,
-# which does nothing while typing in a field (L4), so it is not one of the application's shortcuts (_add_delete_key).
-PAGE_ACTIONS = ("rotate-pages-left", "rotate-pages-right", "delete-pages")
 QUARTER_TURN = 90
 WINDOW_ACCELERATORS = {
     "win.close": ["<Control>w"],
@@ -151,23 +148,20 @@ class PenfoldWindow(Adw.ApplicationWindow):
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", self._on_document_action, name, handler)
             self.add_action(action)
-        for name, redo in (("undo", False), ("redo", True)):
+        editing: dict[str, Callable[[], object]] = {
+            "undo": lambda: self._undo_or_redo(redo=False),
+            "redo": lambda: self._undo_or_redo(redo=True),
+            "rotate-pages-left": lambda: self._rotate_selected_pages(-QUARTER_TURN),
+            "rotate-pages-right": lambda: self._rotate_selected_pages(QUARTER_TURN),
+            "delete-pages": self._delete_selected_pages,
+            "save": self.save,
+            "save-as": self.save_as,
+        }
+        for name, edit in editing.items():
             action = Gio.SimpleAction(name=name, enabled=False)
-            action.connect("activate", lambda _action, _parameter, redo=redo: self._undo_or_redo(redo=redo))
-            self.add_action(action)
-        for name, handler in (
-            ("rotate-pages-left", lambda: self._rotate_selected_pages(-QUARTER_TURN)),
-            ("rotate-pages-right", lambda: self._rotate_selected_pages(QUARTER_TURN)),
-            ("delete-pages", self._delete_selected_pages),
-        ):
-            action = Gio.SimpleAction(name=name, enabled=False)
-            action.connect("activate", lambda _action, _parameter, handler=handler: handler())
+            action.connect("activate", lambda _action, _parameter, edit=edit: edit())
             self.add_action(action)
         self._add_delete_key()
-        for name, handler in (("save", self.save), ("save-as", self.save_as)):
-            action = Gio.SimpleAction(name=name, enabled=False)
-            action.connect("activate", lambda _action, _parameter, handler=handler: handler())
-            self.add_action(action)
         layout = Gio.SimpleAction.new_stateful(
             "layout", GLib.VariantType.new("s"), GLib.Variant.new_string(LAYOUT_CONTINUOUS)
         )
@@ -185,6 +179,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
         assert callable(handler)
         handler()
 
+    def _enable_action(self, name: str, enabled: bool) -> None:
+        action = self.lookup_action(name)
+        assert isinstance(action, Gio.SimpleAction)
+        action.set_enabled(enabled)
+
     def _undo_or_redo(self, *, redo: bool) -> None:
         """Undo or redo the last edit of the document; while typing in a field, its own text instead."""
         focus = self.get_focus()
@@ -200,9 +199,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ("undo", document is not None and document.can_undo),
             ("redo", document is not None and document.can_redo),
         ):
-            action = self.lookup_action(name)
-            assert isinstance(action, Gio.SimpleAction)
-            action.set_enabled(enabled)
+            self._enable_action(name, enabled)
 
     def _add_delete_key(self) -> None:
         """Let the Delete key delete what is selected in the panel (E3).
@@ -237,9 +234,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ("rotate-pages-right", selected > 0),
             ("delete-pages", 0 < selected < page_count),
         ):
-            action = self.lookup_action(name)
-            assert isinstance(action, Gio.SimpleAction)
-            action.set_enabled(enabled)
+            self._enable_action(name, enabled)
 
     def _rotate_selected_pages(self, degrees: int) -> None:
         if self.document is not None:
@@ -346,9 +341,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         document = self.document
         enabled = document is not None and not document.is_protected and not self._saving
         for name in SAVE_ACTIONS:
-            action = self.lookup_action(name)
-            assert isinstance(action, Gio.SimpleAction)
-            action.set_enabled(enabled)
+            self._enable_action(name, enabled)
 
     def _show_title(self) -> None:
         """The document's title and file name in the header, and in the window's title, with "• " for changes."""
@@ -366,9 +359,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _set_document_actions_enabled(self, enabled: bool) -> None:
         for name in [*DOCUMENT_ACTIONS, "layout"]:
-            action = self.lookup_action(name)
-            assert isinstance(action, Gio.SimpleAction)
-            action.set_enabled(enabled)
+            self._enable_action(name, enabled)
         self._update_zoom_actions()
         self._update_edit_actions()
         self._update_page_actions()
@@ -379,9 +370,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ("zoom-in", self.document_view.can_zoom_in),
             ("zoom-out", self.document_view.can_zoom_out),
         ):
-            action = self.lookup_action(name)
-            assert isinstance(action, Gio.SimpleAction)
-            action.set_enabled(enabled)
+            self._enable_action(name, enabled)
 
     # Side panel.
 
