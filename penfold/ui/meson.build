@@ -3,6 +3,7 @@ install_data(
   'about.py',
   'document_header.py',
   'document_view.py',
+  'extraction.py',
   'file_dialogs.py',
   'menus.py',
   'page_entry.py',

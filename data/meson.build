@@ -2,6 +2,7 @@ blueprints = custom_target(
   'blueprints',
   input: files(
     'ui/dialogs/add_pages_dialog.blp',
+    'ui/dialogs/extract_pages_dialog.blp',
     'ui/document_header.blp',
     'ui/main_menu.blp',
     'ui/page_entry.blp',

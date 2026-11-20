@@ -14,6 +14,7 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-rectangle-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-text-box-symbolic.svg</file>
     <file preprocess="xml-stripblanks">ui/dialogs/add_pages_dialog.ui</file>
+    <file preprocess="xml-stripblanks">ui/dialogs/extract_pages_dialog.ui</file>
     <file preprocess="xml-stripblanks">ui/document_header.ui</file>
     <file preprocess="xml-stripblanks">ui/main_menu.ui</file>
     <file preprocess="xml-stripblanks">ui/page_entry.ui</file>

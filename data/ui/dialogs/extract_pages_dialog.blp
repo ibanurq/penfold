@@ -1,0 +1,88 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// "Extract Pages" (02-interfaz, 6.1 and 8; E7 and E8; D51): which pages, as one file or one per page, and whether to
+// delete them afterwards.
+template $PenfoldExtractPagesDialog: Adw.Dialog {
+  title: _("Extract Pages");
+  content-width: 440;
+  default-widget: extract_button;
+  focus-widget: pages_row;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+
+      [start]
+      Button {
+        label: _("_Cancel");
+        use-underline: true;
+        clicked => $_on_cancel_clicked();
+      }
+
+      [end]
+      Button extract_button {
+        label: _("_Extract");
+        use-underline: true;
+        clicked => $_on_extract_clicked();
+
+        styles [
+          "suggested-action",
+        ]
+      }
+    }
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup {
+        title: _("Pages to Extract");
+
+        Adw.EntryRow pages_row {
+          title: _("Pages");
+          activates-default: true;
+          changed => $_on_pages_changed();
+        }
+
+        Label {
+          // Hyphens that do not break, so that a range never splits at the end of a line.
+          label: _("Separate the pages with commas and use a dash for a range (10‑12). 56‑ means from page 56 to the end.");
+          wrap: true;
+          xalign: 0;
+          margin-top: 12;
+
+          styles [
+            "dim-label",
+            "caption",
+          ]
+        }
+
+        Label error_label {
+          visible: false;
+          wrap: true;
+          xalign: 0;
+          margin-top: 6;
+
+          styles [
+            "error",
+            "caption",
+          ]
+        }
+      }
+
+      Adw.PreferencesGroup {
+        title: _("Options");
+
+        Adw.SwitchRow separate_row {
+          title: _("Extract as Separate Pages");
+        }
+
+        Adw.SwitchRow delete_row {
+          title: _("Delete Pages After Extraction");
+        }
+      }
+    };
+  };
+}

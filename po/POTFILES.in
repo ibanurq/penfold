@@ -2,6 +2,7 @@
 data/io.github.ibanurq.Penfold.desktop.in
 data/io.github.ibanurq.Penfold.metainfo.xml.in
 data/ui/dialogs/add_pages_dialog.blp
+data/ui/dialogs/extract_pages_dialog.blp
 data/ui/document_header.blp
 data/ui/main_menu.blp
 data/ui/page_entry.blp
@@ -12,6 +13,8 @@ data/ui/zoom_controls.blp
 penfold/application.py
 penfold/ui/about.py
 penfold/ui/dialogs/add_pages_dialog.py
+penfold/ui/dialogs/extract_pages_dialog.py
+penfold/ui/extraction.py
 penfold/ui/file_dialogs.py
 penfold/ui/page_entry.py
 penfold/ui/shortcuts_dialog.py

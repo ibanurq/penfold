@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-20 17:19+0100\n"
+"POT-Creation-Date: 2026-11-20 17:49+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -91,7 +91,9 @@ msgstr "combinar"
 msgid "Add Pages"
 msgstr "Añadir páginas"
 
-#: data/ui/dialogs/add_pages_dialog.blp:20 penfold/ui/window.py:684
+#: data/ui/dialogs/add_pages_dialog.blp:20
+#: data/ui/dialogs/extract_pages_dialog.blp:22 penfold/ui/extraction.py:87
+#: penfold/ui/window.py:727
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -100,7 +102,8 @@ msgstr "_Cancelar"
 msgid "_Add"
 msgstr "_Añadir"
 
-#: data/ui/dialogs/add_pages_dialog.blp:39 data/ui/sidebar/sidebar.blp:47
+#: data/ui/dialogs/add_pages_dialog.blp:39
+#: data/ui/dialogs/extract_pages_dialog.blp:44 data/ui/sidebar/sidebar.blp:47
 #: penfold/ui/sidebar/pages_view.py:242
 msgid "Pages"
 msgstr "Páginas"
@@ -145,6 +148,40 @@ msgstr "Después de la página"
 msgid "Page"
 msgstr "Página"
 
+#: data/ui/dialogs/extract_pages_dialog.blp:9
+msgid "Extract Pages"
+msgstr "Extraer páginas"
+
+#: data/ui/dialogs/extract_pages_dialog.blp:29
+#: penfold/ui/sidebar/pages_view.py:244
+msgid "_Extract"
+msgstr "_Extraer"
+
+#: data/ui/dialogs/extract_pages_dialog.blp:41
+msgid "Pages to Extract"
+msgstr "Páginas que extraer"
+
+#. Hyphens that do not break, so that a range never splits at the end of a line.
+#: data/ui/dialogs/extract_pages_dialog.blp:51
+msgid ""
+"Separate the pages with commas and use a dash for a range (10‑12). 56‑ means "
+"from page 56 to the end."
+msgstr ""
+"Separa las páginas con comas y usa un guion para un intervalo (10‑12). 56‑ "
+"quiere decir desde la página 56 hasta el final."
+
+#: data/ui/dialogs/extract_pages_dialog.blp:76
+msgid "Options"
+msgstr "Opciones"
+
+#: data/ui/dialogs/extract_pages_dialog.blp:79
+msgid "Extract as Separate Pages"
+msgstr "Extraer como páginas sueltas"
+
+#: data/ui/dialogs/extract_pages_dialog.blp:83
+msgid "Delete Pages After Extraction"
+msgstr "Eliminar las páginas después"
+
 #: data/ui/document_header.blp:13
 msgid "Side Panel"
 msgstr "Panel lateral"
@@ -174,7 +211,7 @@ msgstr "Menú del documento"
 msgid "_Print…"
 msgstr "_Imprimir…"
 
-#: data/ui/document_header.blp:69 penfold/ui/window.py:686
+#: data/ui/document_header.blp:69 penfold/ui/window.py:729
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -283,6 +320,79 @@ msgstr "Elegir PDF"
 #, python-brace-format
 msgid "Page {label} ({number} of {count})"
 msgstr "Página {label} ({number} de {count})"
+
+#: penfold/ui/dialogs/extract_pages_dialog.py:37
+#, python-brace-format
+msgid "Invalid format: “{part}”."
+msgstr "Formato no válido: «{part}»."
+
+#: penfold/ui/dialogs/extract_pages_dialog.py:39
+#, python-brace-format
+msgid "Invalid range: “{part}”."
+msgstr "Intervalo no válido: «{part}»."
+
+#: penfold/ui/dialogs/extract_pages_dialog.py:41
+#, python-brace-format
+msgid "Page {page} does not exist (the document has {count})."
+msgstr "La página {page} no existe (el documento tiene {count})."
+
+#: penfold/ui/dialogs/extract_pages_dialog.py:43
+msgid "Enter at least one page."
+msgstr "Indica al menos una página."
+
+#: penfold/ui/dialogs/extract_pages_dialog.py:98
+msgid ""
+"You can’t delete all the pages: turn off “Delete Pages After Extraction”."
+msgstr ""
+"No puedes eliminar todas las páginas: desactiva «Eliminar las páginas "
+"después»."
+
+#: penfold/ui/extraction.py:51
+msgid "Choose a Folder"
+msgstr "Elegir una carpeta"
+
+#: penfold/ui/extraction.py:68
+msgid "extracted"
+msgstr "extraido"
+
+#: penfold/ui/extraction.py:80
+#, python-brace-format
+msgid "…and {count} more"
+msgid_plural "…and {count} more"
+msgstr[0] "…y {count} más"
+msgstr[1] "…y {count} más"
+
+#: penfold/ui/extraction.py:82
+msgid "Files Already in the Folder"
+msgstr "Archivos que ya están en la carpeta"
+
+#: penfold/ui/extraction.py:83
+#, python-brace-format
+msgid ""
+"{names}\n"
+"\n"
+"Do you want to overwrite them or rename the new ones?"
+msgstr ""
+"{names}\n"
+"\n"
+"¿Quieres sobrescribirlos o renombrar los nuevos?"
+
+#: penfold/ui/extraction.py:88
+msgid "_Rename"
+msgstr "_Renombrar"
+
+#: penfold/ui/extraction.py:89
+msgid "_Overwrite"
+msgstr "_Sobrescribir"
+
+#: penfold/ui/extraction.py:123 penfold/ui/window.py:421
+#, python-brace-format
+msgid "Could not save “{name}”"
+msgstr "No se pudo guardar «{name}»"
+
+#: penfold/ui/extraction.py:124 penfold/ui/window.py:694
+msgid "_OK"
+msgstr "_Aceptar"
 
 #: penfold/ui/file_dialogs.py:12
 msgid "PDF Documents"
@@ -457,10 +567,6 @@ msgstr "Desplegar o plegar todo"
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
-#: penfold/ui/sidebar/pages_view.py:244
-msgid "_Extract"
-msgstr "_Extraer"
-
 #: penfold/ui/sidebar/pages_view.py:378
 msgid "Delete"
 msgstr "Eliminar"
@@ -496,57 +602,73 @@ msgid_plural "{count} results"
 msgstr[0] "{count} resultado"
 msgstr[1] "{count} resultados"
 
-#: penfold/ui/window.py:266
+#: penfold/ui/window.py:270
 #, python-brace-format
 msgid "Page deleted"
 msgid_plural "{count} pages deleted"
 msgstr[0] "Página eliminada"
 msgstr[1] "{count} páginas eliminadas"
 
-#: penfold/ui/window.py:292
+#: penfold/ui/window.py:296
 #, python-brace-format
 msgid "“{name}” is protected against changes and cannot be added yet"
 msgstr "«{name}» está protegido contra cambios y todavía no se puede añadir"
 
-#: penfold/ui/window.py:296 penfold/ui/window.py:566
+#: penfold/ui/window.py:300 penfold/ui/window.py:609
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
-#: penfold/ui/window.py:302
+#: penfold/ui/window.py:306
 msgid "Blank page added"
 msgstr "Página en blanco añadida"
 
-#: penfold/ui/window.py:304
+#: penfold/ui/window.py:308
 #, python-brace-format
 msgid "{count} page added"
 msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:309
+#: penfold/ui/window.py:337
+#, python-brace-format
+msgid "{count} page extracted into its own file"
+msgid_plural "{count} pages extracted, one file each"
+msgstr[0] "{count} página extraída en su propio archivo"
+msgstr[1] "{count} páginas extraídas, cada una en su archivo"
+
+#: penfold/ui/window.py:340
+#, python-brace-format
+msgid "{count} page extracted"
+msgid_plural "{count} pages extracted"
+msgstr[0] "{count} página extraída"
+msgstr[1] "{count} páginas extraídas"
+
+#: penfold/ui/window.py:347
+#, python-brace-format
+msgid "{count} page extracted and deleted"
+msgid_plural "{count} pages extracted and deleted"
+msgstr[0] "{count} página extraída y eliminada"
+msgstr[1] "{count} páginas extraídas y eliminadas"
+
+#: penfold/ui/window.py:352
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:340
+#: penfold/ui/window.py:383
 msgid "Save As"
 msgstr "Guardar como"
 
-#: penfold/ui/window.py:378
-#, python-brace-format
-msgid "Could not save “{name}”"
-msgstr "No se pudo guardar «{name}»"
-
-#: penfold/ui/window.py:400
+#: penfold/ui/window.py:443
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:593
+#: penfold/ui/window.py:636
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:595
+#: penfold/ui/window.py:638
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -554,19 +676,15 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:651
-msgid "_OK"
-msgstr "_Aceptar"
-
-#: penfold/ui/window.py:679
+#: penfold/ui/window.py:722
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:680
+#: penfold/ui/window.py:723
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:685
+#: penfold/ui/window.py:728
 msgid "_Discard"
 msgstr "_Descartar"

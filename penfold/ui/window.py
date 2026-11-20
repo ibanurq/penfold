@@ -21,8 +21,10 @@ from penfold.rendering.text_search import ContextReader
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
 from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
+from penfold.ui.dialogs.extract_pages_dialog import PagesToExtract, PenfoldExtractPagesDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
+from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import main_menu
 from penfold.ui.sidebar import sidebar as sidebar_views
@@ -157,6 +159,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "rotate-pages-right": lambda: self._rotate_selected_pages(QUARTER_TURN),
             "delete-pages": self._delete_selected_pages,
             "add-pages": self._open_add_pages_dialog,
+            "extract-pages": self._open_extract_pages_dialog,
             "save": self.save,
             "save-as": self.save_as,
         }
@@ -231,7 +234,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _update_page_actions(self) -> None:
         """Turning needs pages selected; deleting, too, and never all of them (E3, D21).
 
-        Pages cannot be added to a protected PDF (2.7).
+        Pages cannot be added to a protected PDF, nor extracted from it (2.7).
         """
         selected = len(self.pages_view.selected_pages()) if self.document is not None else 0
         page_count = self.document.page_count if self.document is not None else 0
@@ -240,6 +243,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ("rotate-pages-right", selected > 0),
             ("delete-pages", 0 < selected < page_count),
             ("add-pages", self.document is not None and not self.document.is_protected),
+            ("extract-pages", self.document is not None and not self.document.is_protected),
         ):
             self._enable_action(name, enabled)
 
@@ -303,6 +307,45 @@ class PenfoldWindow(Adw.ApplicationWindow):
         else:
             message = ngettext("{count} page added", "{count} pages added", count)
         self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=count)))
+
+    def _open_extract_pages_dialog(self) -> None:
+        """Ask which pages to extract and how, starting with the selected ones (E7, E8)."""
+        if self.document is None:
+            return
+        dialog = PenfoldExtractPagesDialog(self.document.page_count, self.pages_view.selected_pages())
+        dialog.connect("extract-requested", lambda _dialog, request: self.extract_pages(request))
+        dialog.present(self)
+
+    def extract_pages(self, request: PagesToExtract) -> None:
+        """Extract the pages chosen into a folder; then say so, and delete them if asked, with Undo (E8, E9)."""
+        document = self.document
+        if document is None:
+            return
+        # The pages to delete after, by source index: the document may change while the files are written.
+        sources = [document.pages[position].source_index for position in request.positions]
+
+        def finished(extracted: bool) -> None:
+            if extracted and document is self.document:
+                self._after_extracting(document, request, sources)
+
+        PageExtraction(self, document, request, finished).start()
+
+    def _after_extracting(self, document: OpenDocument, request: PagesToExtract, sources: list[int]) -> None:
+        count = len(request.positions)
+        if request.separate:
+            message = ngettext(
+                "{count} page extracted into its own file", "{count} pages extracted, one file each", count
+            )
+        else:
+            message = ngettext("{count} page extracted", "{count} pages extracted", count)
+        positions = [position for source in sources if (position := document.page_position(source)) is not None]
+        if not request.delete_after or not positions or len(positions) == document.page_count:
+            self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=count)))
+            return
+        command = DeletePages(document, positions)
+        document.execute(command)
+        deleted = ngettext("{count} page extracted and deleted", "{count} pages extracted and deleted", count)
+        self._show_undo_toast(deleted.format(count=count), command)
 
     def _show_undo_toast(self, title: str, command: Command) -> None:
         """Show a notice with Undo for an edit; it goes away as soon as the edit is no longer the last one."""
