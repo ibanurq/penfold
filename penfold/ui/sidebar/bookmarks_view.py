@@ -11,6 +11,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from penfold.document.bookmarks import Bookmark, ReadingIndex
 from penfold.document.document import OpenDocument
+from penfold.rendering.renderer import Renderer
 from penfold.ui.sidebar.view_header import RecentUse, empty_label, header_button, view_header
 
 
@@ -53,7 +54,7 @@ class BookmarkRow(Gtk.Box):
     def __init__(self) -> None:
         """Create the row's widgets."""
         super().__init__(spacing=6)
-        self.bookmark_id = 0
+        self.bookmark: Bookmark | None = None
         self.expander = Gtk.TreeExpander(hexpand=True)
         self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.expander.set_child(self.title)
@@ -88,6 +89,7 @@ class BookmarksView(Gtk.Box):
             )
         )
         self.document: OpenDocument | None = None
+        self.renderer: Renderer | None = None
         self.tree = Gtk.TreeListModel.new(Gio.ListStore.new(BookmarkItem), False, False, self._children)
         self.selection = Gtk.MultiSelection.new(self.tree)
         factory = Gtk.SignalListItemFactory()
@@ -109,21 +111,47 @@ class BookmarksView(Gtk.Box):
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
 
-    def set_document(self, document: OpenDocument) -> None:
-        """Show the bookmarks of a PDF, unfolded as the PDF says."""
-        self.document = document
-        root = children_model(document.bookmarks)
+    def set_document(self, document: OpenDocument, renderer: Renderer) -> None:
+        """Show the bookmarks of a PDF, unfolded as the PDF says; the renderer says where their pages are shown."""
+        self.document, self.renderer = document, renderer
+        self.bookmarks_changed()
+
+    def bookmarks_changed(self) -> None:
+        """Show the outline again after an edit, unfolded as each bookmark says."""
+        if self.document is None:
+            return
+        bookmarks = self.document.bookmarks
         # Forget the old rows first: GTK may bind the new ones as soon as the model changes.
         self._rows.clear()
         self._reading = self._marked = None
-        self._index = ReadingIndex(document.bookmarks)
-        self.tree = Gtk.TreeListModel.new(root, False, False, self._children)
+        self._index = ReadingIndex(bookmarks, self._place)
+        self.tree = Gtk.TreeListModel.new(children_model(bookmarks), False, False, self._children)
         self.selection.set_model(self.tree)
         self._open_as_stored()
-        # Unfolding or folding a branch may change which row shows the section being read.
-        self.tree.connect("items-changed", lambda *_arguments: self._mark_reading(scroll=False))
-        self.stack.set_visible_child_name("list" if document.bookmarks else "empty")
-        self.expand_button.set_sensitive(any(bookmark.children for bookmark in document.bookmarks))
+        self.tree.connect("items-changed", self._on_tree_changed)
+        self.stack.set_visible_child_name("list" if bookmarks else "empty")
+        self.expand_button.set_sensitive(any(bookmark.children for bookmark in bookmarks))
+
+    def pages_changed(self) -> None:
+        """Show the new page of each bookmark after the pages were moved, turned or deleted."""
+        if self.document is None:
+            return
+        self._index = ReadingIndex(self.document.bookmarks, self._place)
+        self._reading = None
+        for row in self._rows.values():
+            self._show_page(row)
+
+    def _place(self, page: int, top: float | None) -> tuple[int, float | None] | None:
+        return self.renderer.layout.place(page, top) if self.renderer is not None else None
+
+    def _on_tree_changed(self, tree: Gtk.TreeListModel, _position: int, _removed: int, _added: int) -> None:
+        """Remember which branches are unfolded, to save it (G9); it may change which row shows the reading."""
+        for index in range(tree.get_n_items()):
+            row = tree.get_row(index)
+            item = row.get_item() if row is not None else None
+            if row is not None and isinstance(item, BookmarkItem) and row.is_expandable():
+                item.bookmark.is_open = row.get_expanded()
+        self._mark_reading(scroll=False)
 
     def follow(self, page: int, top: float) -> None:
         """Mark the bookmark of the section being read, and bring it into sight unless the list is in use (D40)."""
@@ -214,16 +242,21 @@ class BookmarksView(Gtk.Box):
         row.expander.set_list_row(tree_row)
         row.title.set_markup(title_markup(bookmark))
         row.title.set_tooltip_text(bookmark.title)
-        page = bookmark.page
-        row.page.set_label("" if page is None or self.document is None else self.document.page_label(page))
-        row.bookmark_id = id(bookmark)
+        row.bookmark = bookmark
+        self._show_page(row)
         self._rows[id(bookmark)] = row
         self._show_mark(row, bookmark)
 
+    def _show_page(self, row: "BookmarkRow") -> None:
+        """Show the label of the page a bookmark leads to, where that page is now."""
+        page = row.bookmark.page if row.bookmark is not None else None
+        place = self._place(page, None) if page is not None else None
+        row.page.set_label("" if place is None or self.document is None else self.document.page_label(place[0]))
+
     def _on_unbind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         row = item.get_child()
-        if isinstance(row, BookmarkRow) and self._rows.get(row.bookmark_id) is row:
-            del self._rows[row.bookmark_id]
+        if isinstance(row, BookmarkRow) and row.bookmark is not None and self._rows.get(id(row.bookmark)) is row:
+            del self._rows[id(row.bookmark)]
             row.remove_css_class("reading-position")
 
     def _on_row_clicked(
@@ -234,6 +267,9 @@ class BookmarksView(Gtk.Box):
             return
         tree_row = item.get_item()
         bookmark_item = tree_row.get_item() if isinstance(tree_row, Gtk.TreeListRow) else None
-        if isinstance(bookmark_item, BookmarkItem) and bookmark_item.bookmark.page is not None:
-            top = bookmark_item.bookmark.top
-            self.emit("destination-activated", bookmark_item.bookmark.page, -1.0 if top is None else top)
+        if not isinstance(bookmark_item, BookmarkItem) or bookmark_item.bookmark.page is None:
+            return
+        place = self._place(bookmark_item.bookmark.page, bookmark_item.bookmark.top)
+        if place is not None:
+            page, top = place
+            self.emit("destination-activated", page, -1.0 if top is None else top)

@@ -6,7 +6,16 @@ import cairo
 import pytest
 from gi.repository import GLib, Poppler
 
-from penfold.rendering.text_search import ContextReader, MatchContext, TextSearch, find_in_page, normalize_query
+from penfold.document.pages import Page
+from penfold.rendering.layout import PageLayout, ShownPage
+from penfold.rendering.text_search import (
+    ContextReader,
+    MatchContext,
+    SearchResult,
+    TextSearch,
+    find_in_page,
+    normalize_query,
+)
 from tests.gtk_helpers import wait_until
 from tests.test_page_content import A4, make_text_pdf
 
@@ -31,12 +40,15 @@ def document(tmp_path: Path) -> Poppler.Document:
     return Poppler.Document.new_from_file(GLib.filename_to_uri(str(path), None), None)
 
 
+PAGE = ShownPage(0, A4)
+
+
 def test_runs_of_spaces_count_as_one() -> None:
     assert normalize_query("  dos\n  años ") == "dos años"
 
 
 def test_ignores_case_and_accents(document: Poppler.Document) -> None:
-    results = find_in_page(document.get_page(0), 0, "GARANTIA")
+    results = find_in_page(document.get_page(0), 0, PAGE, "GARANTIA")
     assert len(results) == 3
     assert [result.page for result in results] == [0, 0, 0]
     left, top, right, bottom = results[0].rectangles[0]
@@ -45,7 +57,7 @@ def test_ignores_case_and_accents(document: Poppler.Document) -> None:
 
 
 def test_finds_text_across_a_line_break(document: Poppler.Document) -> None:
-    results = find_in_page(document.get_page(0), 0, "dos años desde la")
+    results = find_in_page(document.get_page(0), 0, PAGE, "dos años desde la")
     assert len(results) == 1
     assert len(results[0].rectangles) == 2  # one box per line
     assert results[0].top < 100
@@ -53,14 +65,14 @@ def test_finds_text_across_a_line_break(document: Poppler.Document) -> None:
 
 def test_the_sentence_around_a_match(document: Poppler.Document) -> None:
     reader = ContextReader(document)
-    context = reader.context(find_in_page(document.get_page(0), 0, "garantia legal")[0])
+    context = reader.context(find_in_page(document.get_page(0), 0, PAGE, "garantia legal")[0])
     assert (context.before, context.match, context.more_before) == ("defectos de una", "garantía legal", False)
     assert context.after.startswith("establecida en la")
     assert len(context.after) <= 40
     assert context.more_after
     assert context.after.split()[-1] in LINES[2].split()
     # A match at the end of a line takes nothing from the next one.
-    end_of_line = reader.context(find_in_page(document.get_page(0), 0, "dos años")[0])
+    end_of_line = reader.context(find_in_page(document.get_page(0), 0, PAGE, "dos años")[0])
     assert end_of_line == MatchContext("El plazo de Garantía será de", "dos años", "", False, False)
 
 
@@ -70,7 +82,11 @@ def test_searches_a_pdf_in_the_background_from_a_page_on(tmp_path: Path) -> None
     pages: list[int] = []
     finished: list[bool] = []
     search.start(
-        "LINE   2", 1, lambda results: pages.extend(item.page for item in results), lambda: finished.append(True)
+        "LINE   2",
+        1,
+        PageLayout([A4] * 3),
+        lambda results: pages.extend(item.page for item in results),
+        lambda: finished.append(True),
     )
     wait_until(lambda: bool(finished))
     assert pages == [1, 2, 0]  # from page 2 on, wrapping around
@@ -81,7 +97,30 @@ def test_a_new_search_stops_the_previous_one(tmp_path: Path) -> None:
     search = TextSearch(GLib.filename_to_uri(str(path), None))
     new: list[int] = []
     finished: list[bool] = []
-    search.start("page", 0, lambda _results: None, lambda: None)
-    search.start("page 3", 0, lambda results: new.extend(item.page for item in results), lambda: finished.append(True))
+    layout = PageLayout([A4] * 3)
+    search.start("page", 0, layout, lambda _results: None, lambda: None)
+    search.start(
+        "page 3", 0, layout, lambda results: new.extend(item.page for item in results), lambda: finished.append(True)
+    )
     wait_until(lambda: bool(finished))
     assert new == [2, 2]
+
+
+def test_searches_the_pages_in_their_order_and_turn(tmp_path: Path) -> None:
+    path = make_text_pdf(tmp_path / "text.pdf")
+    search = TextSearch(GLib.filename_to_uri(str(path), None))
+    found: list[SearchResult] = []
+    finished: list[bool] = []
+    layout = PageLayout([A4] * 3, [Page(2, rotation=180), Page(0)])
+    search.start("page 3 line 1", 0, layout, found.extend, lambda: finished.append(True))
+    wait_until(lambda: bool(finished))
+    assert [(result.page, result.source) for result in found] == [(0, 2)]
+    left, top, _right, _bottom = found[0].source_rectangles[0]
+    _left, _top, shown_right, shown_bottom = found[0].rectangles[0]
+    assert (shown_right, shown_bottom) == pytest.approx((A4[0] - left, A4[1] - top))
+
+
+def test_the_sentence_is_read_from_the_page_of_the_pdf(document: Poppler.Document) -> None:
+    turned = ShownPage(0, A4, rotation=90)
+    result = find_in_page(document.get_page(0), 4, turned, "dos años")[0]
+    assert ContextReader(document).context(result).match == "dos años"

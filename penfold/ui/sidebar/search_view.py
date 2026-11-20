@@ -13,6 +13,7 @@ from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
+from penfold.rendering.layout import PageLayout
 from penfold.rendering.text_search import MatchContext, SearchResult, TextSearch
 from penfold.ui.sidebar.view_header import HEADER_MARGIN
 
@@ -97,6 +98,7 @@ class SearchView(Gtk.Box):
         self._found_pages: list[int] = []
         self.last_added: list[SearchResult] = []
         self._page_label: Callable[[int], str] = str
+        self._layout: Callable[[], PageLayout] | None = None
         self._context: Callable[[SearchResult], MatchContext] | None = None
         # Rows are bound again whenever matches are inserted above them: read each sentence only once.
         self._contexts: dict[SearchResult, MatchContext] = {}
@@ -111,12 +113,24 @@ class SearchView(Gtk.Box):
         self._choosing = False
 
     def set_document(
-        self, uri: str, page_label: Callable[[int], str], context: Callable[[SearchResult], MatchContext]
+        self,
+        uri: str,
+        layout: Callable[[], PageLayout],
+        page_label: Callable[[int], str],
+        context: Callable[[SearchResult], MatchContext],
     ) -> None:
-        """Search this PDF; page_label names a page by its index (D14) and context reads the sentence of a match."""
+        """Search this PDF.
+
+        Args:
+            uri: where the PDF is.
+            layout: gives the pages of the document as they are shown when a search starts.
+            page_label: names a page by its position (D14).
+            context: reads the sentence of a match.
+        """
         if self._search is not None:
             self._search.cancel()
         self._search = TextSearch(uri)
+        self._layout = layout
         self._page_label = page_label
         self._context = context
         self.entry.set_text("")
@@ -132,17 +146,21 @@ class SearchView(Gtk.Box):
         """The matches found so far, in page order."""
         return self._found
 
-    def search(self) -> None:
+    def search(self, show_first: bool = True) -> None:
         """Search for the text of the box, from the current page on; the first match from there is shown."""
         self._clear()
         query = self.entry.get_text()
-        if self._search is None or not query.strip():
+        if self._search is None or self._layout is None or not query.strip():
             self._update_count()
             return
         self._searching = True
-        self._jump_to_first = True
+        self._jump_to_first = show_first
         self._update_count()
-        self._search.start(query, self.current_page, self._on_results, self._on_finished)
+        self._search.start(query, self.current_page, self._layout(), self._on_results, self._on_finished)
+
+    def pages_changed(self) -> None:
+        """Search again after an edit of the pages, without moving the view to a match."""
+        self.search(show_first=False)
 
     def next_result(self) -> None:
         """Go to the next match (Enter, Ctrl+G); the first one from the current page if none is chosen yet."""

@@ -13,6 +13,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
+from penfold.rendering.renderer import Renderer
 from penfold.ui.sidebar.view_header import RecentUse, empty_label, view_header
 
 # Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
@@ -155,6 +156,10 @@ class AnnotationsView(Gtk.Box):
         self.append(view_header(_("Annotations"), self.filter_button))
         self.document: OpenDocument | None = None
         self.content: PageContent | None = None
+        self.renderer: Renderer | None = None
+        # The annotations of the pages the document still has, and where each page is now.
+        self._present: list[Annotation] = []
+        self._positions: dict[int, int] = {}
         self._kind_names = kind_names()
         self._page_format = _("Page {label}")
         self._counts: dict[Kind, int] = {}
@@ -188,16 +193,35 @@ class AnnotationsView(Gtk.Box):
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
 
-    def set_document(self, document: OpenDocument, content: PageContent) -> None:
-        """List the annotations of a PDF."""
-        self.document, self.content = document, content
-        self._rows.clear()
+    def set_document(self, document: OpenDocument, content: PageContent, renderer: Renderer) -> None:
+        """List the annotations of a PDF; the renderer says where their pages are shown."""
+        self.document, self.content, self.renderer = document, content, renderer
         self._texts.clear()
+        self.pages_changed()
+
+    def pages_changed(self) -> None:
+        """List the annotations again after the pages were moved, turned or deleted: by group, page and position."""
+        document = self.document
+        if document is None:
+            return
+        self._rows.clear()
         self._pending_texts.clear()
+        self._positions = {}
+        for annotation in document.annotations:
+            position = document.page_position(annotation.page)
+            if position is not None:
+                self._positions[annotation.page] = position
         order = list(Kind)
-        annotations = sorted(document.annotations, key=lambda item: order.index(item.kind))
-        self.store.splice(0, self.store.get_n_items(), [AnnotationItem(annotation) for annotation in annotations])
+        self._present = sorted(
+            (annotation for annotation in document.annotations if annotation.page in self._positions),
+            key=lambda item: (order.index(item.kind), self._positions[item.page], item.rectangle[1], item.rectangle[0]),
+        )
+        self.store.splice(0, self.store.get_n_items(), [AnnotationItem(annotation) for annotation in self._present])
         self.refresh()
+
+    def position(self, annotation: Annotation) -> int:
+        """Where the page of a listed annotation is now."""
+        return self._positions[annotation.page]
 
     def refresh(self) -> None:
         """Show the annotations of the types chosen in the filter, without building the list again."""
@@ -205,7 +229,7 @@ class AnnotationsView(Gtk.Box):
         if document is None:
             return
         self._counts = {}
-        for annotation in document.annotations:
+        for annotation in self._present:
             if annotation.kind in self.shown_kinds:
                 self._counts[annotation.kind] = self._counts.get(annotation.kind, 0) + 1
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
@@ -216,7 +240,7 @@ class AnnotationsView(Gtk.Box):
                 self.show_reading_page(page)
         else:
             self.empty.set_label(
-                _("No annotations of the types shown") if document.annotations else _("This PDF has no annotations")
+                _("No annotations of the types shown") if self._present else _("This PDF has no annotations")
             )
             self.stack.set_visible_child_name("empty")
 
@@ -238,12 +262,12 @@ class AnnotationsView(Gtk.Box):
         if not changed or self._recent_use.recently:
             return
         for index, annotation in enumerate(self.shown_annotations()):
-            if annotation.page == page:
+            if self.position(annotation) == page:
                 self.list.scroll_to(index, Gtk.ListScrollFlags.NONE, None)
                 break
 
     def _show_mark(self, row: AnnotationRow) -> None:
-        if row.annotation is not None and row.annotation.page == self.reading_page:
+        if row.annotation is not None and self.position(row.annotation) == self.reading_page:
             row.add_css_class("reading-position")
         else:
             row.remove_css_class("reading-position")
@@ -267,7 +291,8 @@ class AnnotationsView(Gtk.Box):
         assert isinstance(row, AnnotationRow)
         annotation = annotation_item.annotation
         row.annotation = annotation
-        label = self.document.page_label(annotation.page) if self.document is not None else str(annotation.page + 1)
+        position = self.position(annotation)
+        label = self.document.page_label(position) if self.document is not None else str(position + 1)
         row.page.set_label(self._page_format.format(label=label))
         row.author.set_label(annotation.author or _("(External)"))
         row.color_bar.set_color(display_color(annotation))
@@ -316,8 +341,13 @@ class AnnotationsView(Gtk.Box):
         """A click without Ctrl or Shift goes to the annotation (its height on the top third, B8)."""
         if gesture.get_current_event_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK):
             return
-        if row.annotation is not None:
-            self.emit("annotation-activated", row.annotation.page, row.annotation.rectangle[1])
+        annotation = row.annotation
+        if annotation is None or self.renderer is None:
+            return
+        place = self.renderer.layout.place(annotation.page, annotation.rectangle[1])
+        if place is not None:
+            page, top = place
+            self.emit("annotation-activated", page, -1.0 if top is None else top)
 
     # Group headings.
 

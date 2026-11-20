@@ -327,3 +327,57 @@ def test_the_row_of_the_section_being_read_is_marked(window: "PenfoldWindow", tm
         row.title.get_text() for row in window.bookmarks_view._rows.values() if row.has_css_class("reading-position")
     ]
     assert marked == ["1.1 Scope"]
+
+
+def bookmark_pages(window: "PenfoldWindow") -> dict[str, str]:
+    """The page label each bookmark row shows, by title."""
+    process_pending_events()
+    return {
+        row.bookmark.title: row.page.get_label()
+        for row in window.bookmarks_view._rows.values()
+        if row.bookmark is not None
+    }
+
+
+def test_the_panel_follows_the_edited_pages(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.document.commands.pages import DeletePages, MovePages
+
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    open_and_wait(window, path)
+    document = window.document
+    assert document is not None
+    document.execute(MovePages(document, [4], 0))
+    assert bookmark_pages(window)["Cover"] == "2"
+    assert bookmark_pages(window)["Action"] == "1"
+    document.execute(DeletePages(document, [1]))
+    assert "Cover" not in bookmark_pages(window)
+    assert bookmark_pages(window)["1. Intro"] == "2"
+    document.undo()
+    assert bookmark_pages(window)["Cover"] == "2"
+
+
+def test_annotations_and_matches_follow_the_edited_pages(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
+
+    path = make_text_pdf(tmp_path / "text.pdf")
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        note = pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Text, Rect=[10, 10, 30, 30])
+        pdf.pages[1].Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(note)]))
+        pdf.save(path)
+    open_and_wait(window, path)
+    document = window.document
+    assert document is not None
+    window.activate_action("win.find", None)
+    search = window.search_view
+    search.entry.set_text("LINE 1")
+    wait_until(lambda: search.results.get_n_items() == 3 and not search._searching)
+    document.execute(RotatePages(document, [2], 180))
+    document.execute(MovePages(document, [2], 0))
+    wait_until(lambda: search.results.get_n_items() == 3 and not search._searching)
+    assert [(result.page, result.source) for result in search.result_list] == [(0, 2), (1, 0), (2, 1)]
+    annotations = window.annotations_view
+    assert [annotations.position(annotation) for annotation in annotations.shown_annotations()] == [2]
+    document.execute(DeletePages(document, [2]))
+    assert annotations.shown_annotations() == []
+    assert annotations.empty.get_label() == "This PDF has no annotations"

@@ -299,10 +299,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_sidebar_when_it_fits()
         self.document_view.set_document(document, renderer)
         self.pages_view.set_document(document, renderer)
-        self.bookmarks_view.set_document(document)
+        self.bookmarks_view.set_document(document, renderer)
         assert self.document_view.content is not None
-        self.annotations_view.set_document(document, self.document_view.content)
-        self.search_view.set_document(renderer.uri, document.page_label, ContextReader(renderer.document).context)
+        self.annotations_view.set_document(document, self.document_view.content, renderer)
+        self.search_view.set_document(
+            renderer.uri, lambda: renderer.layout, document.page_label, ContextReader(renderer.document).context
+        )
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
         self.document_view.grab_focus()
@@ -324,6 +326,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.renderer.set_pages(self.document.pages)
             self.document_view.pages_changed()
             self.pages_view.pages_changed()
+            self.search_view.pages_changed()
+            self.annotations_view.pages_changed()
+            self.bookmarks_view.pages_changed()
+        if Change.BOOKMARKS in changes:
+            self.bookmarks_view.bookmarks_changed()
 
     def _show_sidebar_when_it_fits(self) -> None:
         """Show the panel as soon as the window is wide enough for it and the document (or after half a second).

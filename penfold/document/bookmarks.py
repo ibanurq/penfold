@@ -5,7 +5,7 @@ and, if the destination gives one, the height to show, in points from the top of
 """
 
 import bisect
-from collections.abc import Set
+from collections.abc import Callable, Set
 from dataclasses import dataclass, field, replace
 
 import pikepdf
@@ -172,6 +172,14 @@ def _color(value: object) -> tuple[float, float, float] | None:
     return red, green, blue
 
 
+# Where a destination of the opened PDF (its page and height) is in the document now; None if its page was deleted.
+Place = Callable[[int, float | None], tuple[int, float | None] | None]
+
+
+def _unchanged(page: int, top: float | None) -> tuple[int, float | None]:
+    return page, top
+
+
 class ReadingIndex:
     """Finds the bookmark of the section being read: the last one whose destination is before the reading point.
 
@@ -179,8 +187,11 @@ class ReadingIndex:
     to the same point, so the deepest of several bookmarks at one place wins.
     """
 
-    def __init__(self, bookmarks: list[Bookmark]) -> None:
-        """Index the bookmarks of an outline (only those with a destination in the document)."""
+    def __init__(self, bookmarks: list[Bookmark], place: Place = _unchanged) -> None:
+        """Index the bookmarks of an outline (only those with a destination in the document).
+
+        place says where each destination is now, after the pages were moved or turned.
+        """
         entries: list[tuple[tuple[int, float, int], Bookmark]] = []
         self.parents: dict[int, Bookmark | None] = {}
         order = 0
@@ -189,8 +200,9 @@ class ReadingIndex:
             nonlocal order
             for bookmark in items:
                 self.parents[id(bookmark)] = parent
-                if bookmark.page is not None:
-                    entries.append(((bookmark.page, bookmark.top or 0.0, order), bookmark))
+                placed = place(bookmark.page, bookmark.top) if bookmark.page is not None else None
+                if placed is not None:
+                    entries.append(((placed[0], placed[1] or 0.0, order), bookmark))
                 order += 1
                 walk(bookmark.children, bookmark)
 

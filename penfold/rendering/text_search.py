@@ -4,6 +4,9 @@ Poppler finds the text itself, ignoring case and accents and across line breaks 
 what is searched count as one. The search runs in a thread with its own Poppler document and sends the matches to the
 main thread in batches, so the list fills while it searches. The sentence around a match is read only when its row is
 shown, from the text of its page in Poppler's main-thread copy of the document.
+
+The pages are searched in the order of the document, as laid out when the search starts; a match is placed on its
+page as shown (turned) and keeps where it is on the page of the PDF, to read its sentence.
 """
 
 import threading
@@ -14,6 +17,7 @@ from dataclasses import dataclass
 
 from gi.repository import GLib, Poppler
 
+from penfold.rendering.layout import PageLayout, ShownPage
 from penfold.rendering.page_content import Rectangle
 
 FIND_FLAGS = Poppler.FindFlags.IGNORE_DIACRITICS | Poppler.FindFlags.MULTILINE
@@ -26,10 +30,16 @@ CACHED_PAGES = 8
 
 @dataclass(frozen=True)
 class SearchResult:
-    """One match: its page and the boxes of its text, one per line, in points from the top left corner."""
+    """One match: its page and the boxes of its text, one per line, in points from the top left corner.
+
+    The page is its position in the document and the boxes are on the page as shown; the source and the source
+    boxes are the same on the unturned page of the PDF.
+    """
 
     page: int
     rectangles: tuple[Rectangle, ...]
+    source: int
+    source_rectangles: tuple[Rectangle, ...]
 
     @property
     def top(self) -> float:
@@ -56,20 +66,23 @@ def normalize_query(query: str) -> str:
     return " ".join(query.split())
 
 
-def find_in_page(page: Poppler.Page, page_index: int, query: str) -> list[SearchResult]:
-    """Find a text in a page; a match across a line break has one box per line."""
+def find_in_page(page: Poppler.Page, position: int, shown: ShownPage, query: str) -> list[SearchResult]:
+    """Find a text in the page shown at a position; a match across a line break has one box per line."""
     _width, height = page.get_size()
-    results = []
+    matches = []
     boxes: list[Rectangle] = []
     for box in page.find_text_with_options(query, FIND_FLAGS):
         # Poppler gives boxes from the bottom left corner of the page.
         boxes.append((box.x1, height - box.y2, box.x2, height - box.y1))
         if not box.find_get_match_continued():
-            results.append(SearchResult(page_index, tuple(boxes)))
+            matches.append(boxes)
             boxes = []
     if boxes:
-        results.append(SearchResult(page_index, tuple(boxes)))
-    return results
+        matches.append(boxes)
+    return [
+        SearchResult(position, tuple(shown.from_source(box) for box in match), shown.source, tuple(match))
+        for match in matches
+    ]
 
 
 class ContextReader:
@@ -82,7 +95,7 @@ class ContextReader:
 
     def context(self, result: SearchResult) -> MatchContext:
         """Return the rest of the first line of a match before it, the match and the rest of its last line."""
-        text, boxes = self._page_text(result.page)
+        text, boxes = self._page_text(result.source)
         inside = [index for index, box in enumerate(boxes) if not text[index].isspace() and _inside(box, result)]
         if not inside:
             return MatchContext("", "", "")
@@ -112,7 +125,7 @@ class ContextReader:
 def _inside(box: Rectangle, result: SearchResult) -> bool:
     """Whether the centre of a character box is inside one of the boxes of a match."""
     x, y = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-    return any(left <= x <= right and top <= y <= bottom for left, top, right, bottom in result.rectangles)
+    return any(left <= x <= right and top <= y <= bottom for left, top, right, bottom in result.source_rectangles)
 
 
 def _last_words(text: str) -> tuple[str, bool]:
@@ -133,6 +146,17 @@ def _first_words(text: str) -> tuple[str, bool]:
     return (piece[:space] if space >= 0 else piece), True
 
 
+@dataclass(frozen=True)
+class _Job:
+    """One search: what, from which page, in which pages, and where its answers go."""
+
+    query: str
+    first_page: int
+    layout: PageLayout
+    on_results: Callable[[list[SearchResult]], None]
+    on_finished: Callable[[], None]
+
+
 class TextSearch:
     """Searches a PDF in a thread; only the latest search runs, starting at a given page and wrapping around."""
 
@@ -146,10 +170,13 @@ class TextSearch:
         self,
         query: str,
         first_page: int,
+        layout: PageLayout,
         on_results: Callable[[list[SearchResult]], None],
         on_finished: Callable[[], None],
     ) -> None:
-        """Search for a text from a page on, wrapping around to the start; any earlier search stops.
+        """Search for a text from a page on, in the pages of a layout, wrapping around to the start.
+
+        Any earlier search stops.
 
         on_results is called in the main thread with batches of results, in search order (each page's results
         together), and on_finished once at the end.
@@ -159,7 +186,7 @@ class TextSearch:
             generation = self._generation
         thread = threading.Thread(
             target=self._search,
-            args=(generation, normalize_query(query), first_page, on_results, on_finished),
+            args=(generation, _Job(normalize_query(query), first_page, layout, on_results, on_finished)),
             name="penfold-search",
             daemon=True,
         )
@@ -174,30 +201,24 @@ class TextSearch:
         with self._lock:
             return generation == self._generation
 
-    def _search(
-        self,
-        generation: int,
-        query: str,
-        first_page: int,
-        on_results: Callable[[list[SearchResult]], None],
-        on_finished: Callable[[], None],
-    ) -> None:
+    def _search(self, generation: int, job: _Job) -> None:
         document = Poppler.Document.new_from_file(self._uri, None)
-        count = document.get_n_pages()
+        count = len(job.layout)
         batch: list[SearchResult] = []
         sent = 0.0
-        for step in range(count if query else 0):
+        for step in range(count if job.query else 0):
             if not self._current(generation):
                 return
-            page = (first_page + step) % count
-            batch.extend(find_in_page(document.get_page(page), page, query))
+            position = (job.first_page + step) % count
+            shown = job.layout[position]
+            batch.extend(find_in_page(document.get_page(shown.source), position, shown, job.query))
             # The first match goes at once, so the view can jump to it; then in batches.
             if batch and time.monotonic() - sent >= BATCH_INTERVAL:
-                GLib.idle_add(self._deliver, generation, on_results, batch)
+                GLib.idle_add(self._deliver, generation, job.on_results, batch)
                 batch, sent = [], time.monotonic()
         if batch:
-            GLib.idle_add(self._deliver, generation, on_results, batch)
-        GLib.idle_add(self._finish, generation, on_finished)
+            GLib.idle_add(self._deliver, generation, job.on_results, batch)
+        GLib.idle_add(self._finish, generation, job.on_finished)
 
     def _deliver(
         self, generation: int, on_results: Callable[[list[SearchResult]], None], results: list[SearchResult]
