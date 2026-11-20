@@ -5,6 +5,33 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.4 — 2026-11-20
+
+Fourth preview of Penfold 1.0: the first edits. Pages can be turned, deleted and reordered, every edit can be undone,
+and the PDF can be saved.
+
+### Added
+- Undo and Redo, in the document header and with Ctrl+Z and Shift+Ctrl+Z; greyed out when there is nothing to undo
+  or redo.
+- With pages selected in the Pages view, a bar at the bottom says how many and turns them left or right or deletes
+  them (also with the Delete key). Deleting asks nothing: a notice offers to undo it. Every page cannot be deleted.
+- Thumbnails can be dragged to reorder the pages, several at once if they are selected; a line shows where they will
+  go, and the list scrolls while dragging near its edges.
+- Save (Ctrl+S) and Save As… (Shift+Ctrl+S) in the document menu. The PDF is changed, not rebuilt: what Penfold does
+  not edit is kept as it was. Page labels follow their pages, bookmarks keep their destinations, style and unfolded
+  state, and the form fields of deleted pages are removed. The file is written next to the original, checked, and
+  only then put in its place, so a failure never damages it.
+- A “• ” in front of the title while there are unsaved changes; undoing back to the saved state removes it.
+- Closing a window, quitting, opening another PDF or dropping one on the window with unsaved changes asks first: Save,
+  Discard or Cancel.
+
+### Changed
+- Bookmarks, annotations, the thumbnails and Find follow the pages to their new place and turn; links and text
+  selection work on turned pages.
+
+### Fixed
+- Penfold could stop now and then with a memory error while drawing pages.
+
 ## 1.0.0-alpha.3 — 2026-11-19
 
 Third preview of Penfold 1.0: the side panel, to find your way around a PDF. Nothing can be changed or saved yet.
