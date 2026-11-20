@@ -9,3 +9,5 @@ install_data(
   'sources.py',
   install_dir: pkgdatadir / 'penfold' / 'document',
 )
+
+subdir('commands')

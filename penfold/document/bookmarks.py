@@ -5,7 +5,8 @@ and, if the destination gives one, the height to show, in points from the top of
 """
 
 import bisect
-from dataclasses import dataclass, field
+from collections.abc import Set
+from dataclasses import dataclass, field, replace
 
 import pikepdf
 
@@ -21,7 +22,7 @@ MAX_ITEMS = 100_000
 
 @dataclass
 class Bookmark:
-    """One bookmark and the ones under it."""
+    """One bookmark and the ones under it; its page is the index of the page it leads to in the opened PDF."""
 
     title: str
     page: int | None = None
@@ -31,6 +32,22 @@ class Bookmark:
     color: tuple[float, float, float] | None = None
     is_open: bool = False
     children: list["Bookmark"] = field(default_factory=list)
+
+
+def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
+    """Return the outline without the bookmarks that lead to these pages of the PDF, as 0.6 does on deleting pages.
+
+    The bookmarks under a removed one move up to its place. The outline given is left as it was: the bookmarks kept
+    are new copies, so it can be put back on undo.
+    """
+    kept = []
+    for bookmark in bookmarks:
+        children = without_pages(bookmark.children, source_indexes)
+        if bookmark.page is not None and bookmark.page in source_indexes:
+            kept.extend(children)
+        else:
+            kept.append(replace(bookmark, children=children))
+    return kept
 
 
 def read_bookmarks(pdf: pikepdf.Pdf) -> list[Bookmark]:

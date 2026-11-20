@@ -30,6 +30,7 @@ class OpenDocument:
         self.is_protected = pdf.is_encrypted
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
+        self._positions = self._index_positions()
         self._history = History()
         self._listeners: list[Callable[[Change], None]] = []
 
@@ -62,6 +63,16 @@ class OpenDocument:
         """Return the name of a page: its own label, or its number if it has none."""
         label = self.pages[page_index].label
         return str(page_index + 1) if label is None else label
+
+    def page_position(self, source_index: int) -> int | None:
+        """Return where a page of the opened PDF is now, or None if it was deleted.
+
+        Bookmarks and annotations name their page by its index in the opened PDF, which never changes.
+        """
+        return self._positions.get(source_index)
+
+    def _index_positions(self) -> dict[int, int]:
+        return {page.source_index: position for position, page in enumerate(self.pages)}
 
     def find_page(self, text: str) -> int | None:
         """Find the page that someone typed in the page box: a label first, then a page number.
@@ -115,6 +126,8 @@ class OpenDocument:
         self._notify(self._history.redo().changes)
 
     def _notify(self, changes: Change) -> None:
+        if Change.PAGES in changes:
+            self._positions = self._index_positions()
         for listener in self._listeners:
             listener(changes)
 
