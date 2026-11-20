@@ -6,15 +6,16 @@ proportions of an upright A4, fitted inside without being distorted, so an A3 lo
 centred vertically. The thumbnail of the page being read is marked, with a soft box over the part shown in the
 document.
 
-Phase 2 shows them and lets the user select them and go to a page; adding, extracting, rotating, deleting and
-reordering come with phases 3 and 4.
+With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6). Adding and extracting come with
+phase 4.
 """
 
 import math
 from gettext import gettext as _
+from gettext import npgettext
 from typing import ClassVar
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
 
 from penfold import config
 from penfold.document.document import OpenDocument
@@ -196,6 +197,8 @@ class PagesView(Gtk.Box):
         self.current_page = 0
         self.visible_areas: dict[int, Rectangle] = {}
         self._cells: dict[int, PageCell] = {}
+        # The pages selected, by their index in the opened PDF, to select them again once they have moved.
+        self._selected_sources: set[int] = set()
         self._request_pending = False
         self.pages = Gio.ListStore.new(PageItem)
         self.selection = Gtk.MultiSelection.new(self.pages)
@@ -209,6 +212,10 @@ class PagesView(Gtk.Box):
         self.grid.add_css_class("navigation-sidebar")
         self.scrolled = Gtk.ScrolledWindow(child=self.grid, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         self.append(self.scrolled)
+        self.selection_label, self.action_bar = self._action_bar()
+        self.append(self.action_bar)
+        self.selection.connect("selection-changed", lambda *_arguments: self._update_action_bar())
+        self.selection.connect("items-changed", lambda *_arguments: self._update_action_bar())
         zoom = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
         zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         zoom.connect("scroll", self._on_scroll)
@@ -237,13 +244,38 @@ class PagesView(Gtk.Box):
         self._request_thumbnails()
 
     def pages_changed(self) -> None:
-        """Show the pages again after an edit, with their labels."""
-        if self.document is None:
+        """Show the pages again after an edit, with their labels, keeping the same pages selected.
+
+        The list keeps its items, so it stays where it was scrolled: only their number and labels change.
+        """
+        document = self.document
+        if document is None:
             return
-        self._cells.clear()
-        self.pages.splice(0, self.pages.get_n_items(), self._items(self.document))
-        self.current_page = min(self.current_page, self.document.page_count - 1)
+        selected_sources = set(self._selected_sources)
+        old_count, new_count = self.pages.get_n_items(), document.page_count
+        if new_count < old_count:
+            self.pages.splice(new_count, old_count - new_count, [])
+        elif new_count > old_count:
+            self.pages.splice(old_count, 0, self._items(document)[old_count:])
+        for position in range(new_count):
+            item = self.pages.get_item(position)
+            assert isinstance(item, PageItem)
+            item.label = document.page_label(position)
+        for position, cell in self._cells.items():
+            cell.label.set_label(document.page_label(position))
+            cell.thumbnail.queue_draw()
+        self._select_sources(selected_sources)
+        self.current_page = min(self.current_page, new_count - 1)
         self._request_thumbnails()
+
+    def _select_sources(self, sources: set[int]) -> None:
+        """Select the thumbnails of these pages of the opened PDF, wherever they are now."""
+        assert self.document is not None
+        selected = Gtk.Bitset.new_empty()
+        for position, page in enumerate(self.document.pages):
+            if page.source_index in sources:
+                selected.add(position)
+        self.selection.set_selection(selected, Gtk.Bitset.new_range(0, self.pages.get_n_items()))
 
     @staticmethod
     def _items(document: OpenDocument) -> list[PageItem]:
@@ -272,6 +304,36 @@ class PagesView(Gtk.Box):
         """Indexes of the selected thumbnails, in page order."""
         bitset = self.selection.get_selection()
         return [bitset.get_nth(index) for index in range(bitset.get_size())]
+
+    # Action bar (02-interfaz, 6.1).
+
+    def _action_bar(self) -> tuple[Gtk.Label, Gtk.ActionBar]:
+        """The bar shown with pages selected: how many, turn left, turn right and delete."""
+        label = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        bar = Gtk.ActionBar(revealed=False)
+        bar.pack_start(label)
+        delete = Gtk.Button(icon_name="edit-delete-symbolic", tooltip_text=_("Delete"), action_name="win.delete-pages")
+        delete.add_css_class("destructive-action")
+        bar.pack_end(delete)
+        for icon_name, tooltip, action_name in (
+            ("object-rotate-right-symbolic", _("Rotate Right"), "win.rotate-pages-right"),
+            ("object-rotate-left-symbolic", _("Rotate Left"), "win.rotate-pages-left"),
+        ):
+            button = Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name)
+            # Until the user chooses icons that do not look like Undo and Redo (D19, D37).
+            button.add_css_class("provisional-icon")
+            bar.pack_end(button)
+        return label, bar
+
+    def _update_action_bar(self) -> None:
+        selected = self.selected_pages()
+        count = len(selected)
+        self.action_bar.set_revealed(count > 0)
+        self.selection_label.set_label(
+            npgettext("pages", "{count} selected", "{count} selected", count).format(count=count)
+        )
+        pages = self.document.pages if self.document is not None else []
+        self._selected_sources = {pages[position].source_index for position in selected if position < len(pages)}
 
     # Zoom of the thumbnails (D39).
 

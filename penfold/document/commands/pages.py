@@ -75,6 +75,11 @@ class DeletePages:
         self._deleted: list[Page] = []
         self._bookmarks: list[Bookmark] = []
 
+    @property
+    def positions(self) -> list[int]:
+        """The positions of the pages deleted, in order."""
+        return list(self._positions)
+
     def apply(self) -> None:
         """Delete the pages and the bookmarks that lead to them."""
         pages = self._document.pages

@@ -2,13 +2,15 @@
 
 import logging
 from gettext import gettext as _
+from gettext import ngettext
 from pathlib import Path
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
+from penfold.document.commands.pages import DeletePages, RotatePages
 from penfold.document.document import OpenDocument
-from penfold.document.history import Change
+from penfold.document.history import Change, Command
 from penfold.errors import DocumentOpenError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
@@ -56,6 +58,10 @@ EDIT_ACTIONS = {
     "undo": ["<Control>z"],
     "redo": ["<Shift><Control>z"],
 }
+# Edits of the selected pages, from the action bar of the Pages view (02-interfaz, 6.1). Delete also has its key,
+# which does nothing while typing in a field (L4), so it is not one of the application's shortcuts (_add_delete_key).
+PAGE_ACTIONS = ("rotate-pages-left", "rotate-pages-right", "delete-pages")
+QUARTER_TURN = 90
 WINDOW_ACCELERATORS = {
     "win.close": ["<Control>w"],
     **{f"win.{name}": keys for name, keys in EDIT_ACTIONS.items()},
@@ -78,6 +84,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     welcome_menu_button: Gtk.MenuButton = Gtk.Template.Child()
     document_header: PenfoldDocumentHeader = Gtk.Template.Child()
     protected_banner: Adw.Banner = Gtk.Template.Child()
+    toast_overlay: Adw.ToastOverlay = Gtk.Template.Child()
     document_view: DocumentView = Gtk.Template.Child()
     zoom_controls: PenfoldZoomControls = Gtk.Template.Child()
 
@@ -131,6 +138,15 @@ class PenfoldWindow(Adw.ApplicationWindow):
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", lambda _action, _parameter, redo=redo: self._undo_or_redo(redo=redo))
             self.add_action(action)
+        for name, handler in (
+            ("rotate-pages-left", lambda: self._rotate_selected_pages(-QUARTER_TURN)),
+            ("rotate-pages-right", lambda: self._rotate_selected_pages(QUARTER_TURN)),
+            ("delete-pages", self._delete_selected_pages),
+        ):
+            action = Gio.SimpleAction(name=name, enabled=False)
+            action.connect("activate", lambda _action, _parameter, handler=handler: handler())
+            self.add_action(action)
+        self._add_delete_key()
         layout = Gio.SimpleAction.new_stateful(
             "layout", GLib.VariantType.new("s"), GLib.Variant.new_string(LAYOUT_CONTINUOUS)
         )
@@ -167,6 +183,68 @@ class PenfoldWindow(Adw.ApplicationWindow):
             assert isinstance(action, Gio.SimpleAction)
             action.set_enabled(enabled)
 
+    def _add_delete_key(self) -> None:
+        """Let the Delete key delete what is selected in the panel (E3).
+
+        It is handled after the focused widget, so that it still deletes text while typing in a field (L4).
+        """
+        controller = Gtk.ShortcutController(propagation_phase=Gtk.PropagationPhase.BUBBLE)
+        controller.add_shortcut(
+            Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string("Delete"),
+                action=Gtk.CallbackAction.new(self._on_delete_key),
+            )
+        )
+        self.add_controller(controller)
+
+    def _on_delete_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
+        """Delete acts on the view of the panel shown, and never while a dialogue is open."""
+        if self.get_visible_dialog() is not None or self.sidebar.visible_view != sidebar_views.PAGES:
+            return False
+        action = self.lookup_action("delete-pages")
+        if action is None or not action.get_enabled():
+            return False
+        action.activate(None)
+        return True
+
+    def _update_page_actions(self) -> None:
+        """Turning needs pages selected; deleting, too, and never all of them (E3, D21)."""
+        selected = len(self.pages_view.selected_pages()) if self.document is not None else 0
+        page_count = self.document.page_count if self.document is not None else 0
+        for name, enabled in (
+            ("rotate-pages-left", selected > 0),
+            ("rotate-pages-right", selected > 0),
+            ("delete-pages", 0 < selected < page_count),
+        ):
+            action = self.lookup_action(name)
+            assert isinstance(action, Gio.SimpleAction)
+            action.set_enabled(enabled)
+
+    def _rotate_selected_pages(self, degrees: int) -> None:
+        if self.document is not None:
+            self.document.execute(RotatePages(self.document, self.pages_view.selected_pages(), degrees))
+
+    def _delete_selected_pages(self) -> None:
+        """Delete the selected pages at once, with a notice to undo it (D19)."""
+        document = self.document
+        if document is None:
+            return
+        command = DeletePages(document, self.pages_view.selected_pages())
+        document.execute(command)
+        count = len(command.positions)
+        self._show_undo_toast(ngettext("Page deleted", "{count} pages deleted", count).format(count=count), command)
+
+    def _show_undo_toast(self, title: str, command: Command) -> None:
+        """Show a notice with Undo, which undoes the edit only while it is still the last one."""
+        toast = Adw.Toast(title=title, button_label=_("_Undo"))
+
+        def undo(_toast: Adw.Toast) -> None:
+            if self.document is not None and self.document.last_edit is command:
+                self.document.undo()
+
+        toast.connect("button-clicked", undo)
+        self.toast_overlay.add_toast(toast)
+
     def _on_layout_changed(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         action.set_state(value)
         self.document_view.set_two_pages(value.get_string() == LAYOUT_TWO_PAGES)
@@ -178,6 +256,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             action.set_enabled(enabled)
         self._update_zoom_actions()
         self._update_edit_actions()
+        self._update_page_actions()
 
     def _update_zoom_actions(self) -> None:
         for name, enabled in (
@@ -211,6 +290,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.sidebar.connect("resize-finished", self._on_sidebar_resize_finished)
         self.pages_view = PagesView()
         self.pages_view.connect("page-activated", lambda _view, page: self.document_view.go_to(page))
+        self.pages_view.selection.connect("selection-changed", lambda *_arguments: self._update_page_actions())
         self.sidebar.add_view(sidebar_views.PAGES, self.pages_view)
         self.bookmarks_view = BookmarksView()
         self.bookmarks_view.connect("destination-activated", self._on_destination_activated)
@@ -354,6 +434,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return
         self._update_edit_actions()
         if Change.PAGES in changes:
+            self._update_page_actions()
             self.renderer.set_pages(self.document.pages)
             self.document_view.pages_changed()
             self.pages_view.pages_changed()

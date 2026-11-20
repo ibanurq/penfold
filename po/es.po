@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-19 16:15+0100\n"
+"POT-Creation-Date: 2026-11-20 04:25+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -95,16 +95,16 @@ msgstr "Panel lateral"
 msgid "Annotate"
 msgstr "Anotar"
 
-#: data/ui/document_header.blp:27
+#: data/ui/document_header.blp:27 penfold/ui/shortcuts_dialog.py:44
 msgid "Undo"
 msgstr "Deshacer"
 
-#: data/ui/document_header.blp:34
+#: data/ui/document_header.blp:34 penfold/ui/shortcuts_dialog.py:45
 msgid "Redo"
 msgstr "Rehacer"
 
 #: data/ui/document_header.blp:44 data/ui/sidebar/sidebar.blp:27
-#: data/ui/window.blp:23
+#: data/ui/window.blp:26
 msgid "Main Menu"
 msgstr "Menú principal"
 
@@ -168,11 +168,11 @@ msgstr "Buscar"
 msgid "Pages"
 msgstr "Páginas"
 
-#: data/ui/sidebar/sidebar.blp:58 penfold/ui/sidebar/bookmarks_view.py:84
+#: data/ui/sidebar/sidebar.blp:58 penfold/ui/sidebar/bookmarks_view.py:86
 msgid "Bookmarks"
 msgstr "Marcadores"
 
-#: data/ui/sidebar/sidebar.blp:69 penfold/ui/sidebar/annotations_view.py:133
+#: data/ui/sidebar/sidebar.blp:69 penfold/ui/sidebar/annotations_view.py:156
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -189,7 +189,7 @@ msgstr "Arrastra aquí un PDF para abrirlo, o varios para combinarlos"
 msgid "_Merge…"
 msgstr "_Combinar…"
 
-#: data/ui/window.blp:47
+#: data/ui/window.blp:52
 msgid ""
 "This PDF is protected against changes: Penfold cannot save it, print it or "
 "extract pages from it yet."
@@ -226,13 +226,13 @@ msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
 #. Translators: position of the current page when the PDF names its pages, as in "ix (11 of 800)".
-#: penfold/ui/page_entry.py:58
+#: penfold/ui/page_entry.py:68
 #, python-brace-format
 msgid "({number} of {count})"
 msgstr "({number} de {count})"
 
 #. Translators: next to the page number, as in "3 of 113".
-#: penfold/ui/page_entry.py:61
+#: penfold/ui/page_entry.py:71
 #, python-brace-format
 msgid "of {count}"
 msgstr "de {count}"
@@ -241,152 +241,152 @@ msgstr "de {count}"
 msgid "General"
 msgstr "General"
 
-#: penfold/ui/shortcuts_dialog.py:44
+#: penfold/ui/shortcuts_dialog.py:46
 msgid "Show the keyboard shortcuts"
 msgstr "Mostrar los atajos de teclado"
 
-#: penfold/ui/shortcuts_dialog.py:45
+#: penfold/ui/shortcuts_dialog.py:47
 msgid "Close the window"
 msgstr "Cerrar la ventana"
 
-#: penfold/ui/shortcuts_dialog.py:46
+#: penfold/ui/shortcuts_dialog.py:48
 msgid "Quit"
 msgstr "Salir"
 
-#: penfold/ui/shortcuts_dialog.py:50
+#: penfold/ui/shortcuts_dialog.py:52
 msgid "View"
 msgstr "Ver"
 
-#: penfold/ui/shortcuts_dialog.py:52
+#: penfold/ui/shortcuts_dialog.py:54
 msgid "Zoom in"
 msgstr "Acercar"
 
-#: penfold/ui/shortcuts_dialog.py:53
+#: penfold/ui/shortcuts_dialog.py:55
 msgid "Zoom out"
 msgstr "Alejar"
 
-#: penfold/ui/shortcuts_dialog.py:54
+#: penfold/ui/shortcuts_dialog.py:56
 msgid "Fit to page width"
 msgstr "Ajustar al ancho de página"
 
 #. The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel (D39).
-#: penfold/ui/shortcuts_dialog.py:56
+#: penfold/ui/shortcuts_dialog.py:58
 msgid "Larger thumbnails (with the focus on them)"
 msgstr "Miniaturas más grandes (con el foco en ellas)"
 
-#: penfold/ui/shortcuts_dialog.py:57
+#: penfold/ui/shortcuts_dialog.py:59
 msgid "Smaller thumbnails (with the focus on them)"
 msgstr "Miniaturas más pequeñas (con el foco en ellas)"
 
-#: penfold/ui/shortcuts_dialog.py:61
+#: penfold/ui/shortcuts_dialog.py:63
 msgid "Moving around"
 msgstr "Desplazarse"
 
-#: penfold/ui/shortcuts_dialog.py:63
+#: penfold/ui/shortcuts_dialog.py:65
 msgid "Next page"
 msgstr "Página siguiente"
 
-#: penfold/ui/shortcuts_dialog.py:64
+#: penfold/ui/shortcuts_dialog.py:66
 msgid "Previous page"
 msgstr "Página anterior"
 
-#: penfold/ui/shortcuts_dialog.py:65
+#: penfold/ui/shortcuts_dialog.py:67
 msgid "First page"
 msgstr "Primera página"
 
-#: penfold/ui/shortcuts_dialog.py:66
+#: penfold/ui/shortcuts_dialog.py:68
 msgid "Last page"
 msgstr "Última página"
 
-#: penfold/ui/shortcuts_dialog.py:67
+#: penfold/ui/shortcuts_dialog.py:69
 msgid "Go to page"
 msgstr "Ir a la página"
 
-#: penfold/ui/sidebar/annotations_view.py:40
+#: penfold/ui/sidebar/annotations_view.py:44
 msgid "Highlights"
 msgstr "Resaltados"
 
-#: penfold/ui/sidebar/annotations_view.py:41
+#: penfold/ui/sidebar/annotations_view.py:45
 msgid "Underlines"
 msgstr "Subrayados"
 
-#: penfold/ui/sidebar/annotations_view.py:42
+#: penfold/ui/sidebar/annotations_view.py:46
 msgid "Strikethroughs"
 msgstr "Tachados"
 
-#: penfold/ui/sidebar/annotations_view.py:43
+#: penfold/ui/sidebar/annotations_view.py:47
 msgid "Comments"
 msgstr "Comentarios"
 
-#: penfold/ui/sidebar/annotations_view.py:44
+#: penfold/ui/sidebar/annotations_view.py:48
 msgid "Text Boxes"
 msgstr "Cuadros de texto"
 
-#: penfold/ui/sidebar/annotations_view.py:45
+#: penfold/ui/sidebar/annotations_view.py:49
 msgid "Rectangles"
 msgstr "Rectángulos"
 
-#: penfold/ui/sidebar/annotations_view.py:46
+#: penfold/ui/sidebar/annotations_view.py:50
 msgid "Circles"
 msgstr "Círculos"
 
-#: penfold/ui/sidebar/annotations_view.py:47
+#: penfold/ui/sidebar/annotations_view.py:51
 msgid "Arrows"
 msgstr "Flechas"
 
-#: penfold/ui/sidebar/annotations_view.py:48
+#: penfold/ui/sidebar/annotations_view.py:52
 msgid "Other Types"
 msgstr "Otros tipos"
 
-#: penfold/ui/sidebar/annotations_view.py:89
-#: penfold/ui/sidebar/search_view.py:103
+#: penfold/ui/sidebar/annotations_view.py:131
+msgid "No text"
+msgstr "Sin texto"
+
+#: penfold/ui/sidebar/annotations_view.py:152
+msgid "Filter"
+msgstr "Filtro"
+
+#: penfold/ui/sidebar/annotations_view.py:164
+#: penfold/ui/sidebar/search_view.py:105
 #, python-brace-format
 msgid "Page {label}"
 msgstr "Página {label}"
 
-#: penfold/ui/sidebar/annotations_view.py:91
-msgid "(External)"
-msgstr "(Externa)"
-
-#: penfold/ui/sidebar/annotations_view.py:108
-msgid "No text"
-msgstr "Sin texto"
-
-#: penfold/ui/sidebar/annotations_view.py:129
-msgid "Filter"
-msgstr "Filtro"
-
-#: penfold/ui/sidebar/annotations_view.py:166
+#: penfold/ui/sidebar/annotations_view.py:243
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
 
-#: penfold/ui/sidebar/annotations_view.py:166
+#: penfold/ui/sidebar/annotations_view.py:243
 msgid "This PDF has no annotations"
 msgstr "Este PDF no tiene anotaciones"
 
+#: penfold/ui/sidebar/annotations_view.py:297
+msgid "(External)"
+msgstr "(Externa)"
+
 #. Translators: heading of a group of annotations, as in "Comments (2)".
-#: penfold/ui/sidebar/annotations_view.py:193
+#: penfold/ui/sidebar/annotations_view.py:367
 #, python-brace-format
 msgid "{kind} ({count})"
 msgstr "{kind} ({count})"
 
-#: penfold/ui/sidebar/annotations_view.py:212
+#: penfold/ui/sidebar/annotations_view.py:372
 msgid "Show"
 msgstr "Mostrar"
 
-#: penfold/ui/sidebar/bookmarks_view.py:37
+#: penfold/ui/sidebar/bookmarks_view.py:38
 msgid "Untitled"
 msgstr "Sin título"
 
-#: penfold/ui/sidebar/bookmarks_view.py:78
+#: penfold/ui/sidebar/bookmarks_view.py:80
 msgid "Expand or Collapse All"
 msgstr "Desplegar o plegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:85 penfold/ui/sidebar/pages_view.py:186
+#: penfold/ui/sidebar/bookmarks_view.py:87 penfold/ui/sidebar/pages_view.py:186
 msgid "_Add"
 msgstr "_Añadir"
 
-#: penfold/ui/sidebar/bookmarks_view.py:97
+#: penfold/ui/sidebar/bookmarks_view.py:108
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
@@ -394,36 +394,67 @@ msgstr "Este PDF no tiene marcadores"
 msgid "_Extract"
 msgstr "_Extraer"
 
-#: penfold/ui/sidebar/search_view.py:68
+#: penfold/ui/sidebar/pages_view.py:315
+msgid "Delete"
+msgstr "Eliminar"
+
+#: penfold/ui/sidebar/pages_view.py:319
+msgid "Rotate Right"
+msgstr "Girar a la derecha"
+
+#: penfold/ui/sidebar/pages_view.py:320
+msgid "Rotate Left"
+msgstr "Girar a la izquierda"
+
+#: penfold/ui/sidebar/pages_view.py:333
+#, python-brace-format
+msgctxt "pages"
+msgid "{count} selected"
+msgid_plural "{count} selected"
+msgstr[0] "{count} seleccionada"
+msgstr[1] "{count} seleccionadas"
+
+#: penfold/ui/sidebar/search_view.py:69
 msgid "Find in Document"
 msgstr "Buscar en el documento"
 
-#: penfold/ui/sidebar/search_view.py:222
+#: penfold/ui/sidebar/search_view.py:240
 msgid "No results"
 msgstr "Ningún resultado"
 
-#: penfold/ui/sidebar/search_view.py:224
+#: penfold/ui/sidebar/search_view.py:242
 #, python-brace-format
 msgid "{count} result"
 msgid_plural "{count} results"
 msgstr[0] "{count} resultado"
 msgstr[1] "{count} resultados"
 
-#: penfold/ui/window.py:285
+#: penfold/ui/window.py:235
+#, python-brace-format
+msgid "Page deleted"
+msgid_plural "{count} pages deleted"
+msgstr[0] "Página eliminada"
+msgstr[1] "{count} páginas eliminadas"
+
+#: penfold/ui/window.py:239
+msgid "_Undo"
+msgstr "_Deshacer"
+
+#: penfold/ui/window.py:398
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
-#: penfold/ui/window.py:291
+#: penfold/ui/window.py:405
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:307
+#: penfold/ui/window.py:423
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:309
+#: penfold/ui/window.py:425
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -431,6 +462,6 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:324
+#: penfold/ui/window.py:479
 msgid "_OK"
 msgstr "_Aceptar"

@@ -34,33 +34,36 @@ template $PenfoldWindow: Adw.ApplicationWindow {
     StackPage {
       name: "document";
 
-      child: Adw.OverlaySplitView split_view {
-        sidebar-width-fraction: 1;
+      // Brief messages, such as "Page deleted · Undo", at the bottom of the window (D18, D19).
+      child: Adw.ToastOverlay toast_overlay {
+        child: Adw.OverlaySplitView split_view {
+          sidebar-width-fraction: 1;
 
-        sidebar: $PenfoldSidebar sidebar {};
+          sidebar: $PenfoldSidebar sidebar {};
 
-        content: Adw.ToolbarView {
-          [top]
-          $PenfoldDocumentHeader document_header {}
+          content: Adw.ToolbarView {
+            [top]
+            $PenfoldDocumentHeader document_header {}
 
-          // Fixed reminder for protected PDFs (D18).
+            // Fixed reminder for protected PDFs (D18).
 
-          [top]
-          Adw.Banner protected_banner {
-            title: _("This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.");
-          }
+            [top]
+            Adw.Banner protected_banner {
+              title: _("This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.");
+            }
 
-          content: Overlay {
-            child: ScrolledWindow {
-              child: $PenfoldDocumentView document_view {
-                styles [
-                  "document-view",
-                ]
+            content: Overlay {
+              child: ScrolledWindow {
+                child: $PenfoldDocumentView document_view {
+                  styles [
+                    "document-view",
+                  ]
+                };
               };
-            };
 
-            [overlay]
-            $PenfoldZoomControls zoom_controls {}
+              [overlay]
+              $PenfoldZoomControls zoom_controls {}
+            };
           };
         };
       };

@@ -115,6 +115,11 @@ class OpenDocument:
         """Whether the document has changes that are not saved (D16)."""
         return self._history.is_modified
 
+    @property
+    def last_edit(self) -> Command | None:
+        """The edit that undo would undo now, if any."""
+        return self._history.checkpoint()
+
     def add_listener(self, listener: Callable[[Change], None]) -> None:
         """Call a function after every edit, undo and redo, with the parts of the document that changed."""
         self._listeners.append(listener)
