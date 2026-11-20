@@ -72,3 +72,16 @@ def test_missing_or_damaged_file_is_reported(tmp_path: Path, content: bytes | No
         path.write_bytes(content)
     with pytest.raises(DocumentOpenError):
         OpenDocument.open(path)
+
+
+def test_labels_follow_the_pages_when_they_move(labelled_document: OpenDocument) -> None:
+    labelled_document.pages.reverse()
+    assert [labelled_document.page_label(index) for index in range(5)] == ["3", "2", "1", "ii", "i"]
+    assert labelled_document.find_page("ii") == 3
+
+
+def test_pages_without_labels_are_named_by_their_position(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_pdf(tmp_path / "plain.pdf"))
+    del document.pages[0]
+    assert document.page_count == 2
+    assert [document.page_label(index) for index in range(2)] == ["1", "2"]
