@@ -8,6 +8,7 @@ from gi.repository import Adw, Gio, GLib, Gtk
 
 from penfold import config
 from penfold.ui.about import present_about_dialog
+from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.shortcuts_dialog import present_shortcuts_dialog
 from penfold.ui.window import WINDOW_ACCELERATORS, PenfoldWindow
 
@@ -17,7 +18,6 @@ ACCELERATORS = {
     "app.shortcuts": ["<Control>question"],
     **WINDOW_ACCELERATORS,
 }
-PDF_MIME_TYPE = "application/pdf"
 
 
 class PenfoldApplication(Adw.Application):
@@ -94,12 +94,7 @@ class PenfoldApplication(Adw.Application):
     def _on_open(self) -> None:
         """Choose a PDF and open it in the active window (Ctrl+O, A1)."""
         window = self.get_active_window()
-        pdf_filter = Gtk.FileFilter(name=_("PDF Documents"))
-        pdf_filter.add_mime_type(PDF_MIME_TYPE)
-        filters = Gio.ListStore.new(Gtk.FileFilter)
-        filters.append(pdf_filter)
-        dialog = Gtk.FileDialog(title=_("Open a PDF"), filters=filters, default_filter=pdf_filter)
-        dialog.open(window, None, self._on_open_chosen, window)
+        pdf_file_dialog(_("Open a PDF")).open(window, None, self._on_open_chosen, window)
 
     def _on_open_chosen(self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, window: Gtk.Window | None) -> None:
         try:

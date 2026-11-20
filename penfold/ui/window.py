@@ -1,6 +1,8 @@
 """The main window: the welcome page, or a PDF with its header and zoom buttons."""
 
 import logging
+import threading
+from collections.abc import Callable
 from gettext import gettext as _
 from gettext import ngettext
 from pathlib import Path
@@ -11,13 +13,15 @@ from penfold import config
 from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
-from penfold.errors import DocumentOpenError
+from penfold.document.saving import SavePlan, save
+from penfold.errors import DocumentOpenError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
-from penfold.ui.document_header import PenfoldDocumentHeader
+from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
+from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import main_menu
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
@@ -58,6 +62,11 @@ EDIT_ACTIONS = {
     "undo": ["<Control>z"],
     "redo": ["<Shift><Control>z"],
 }
+# Saving (J1): on while the document can be saved, which a protected PDF cannot (2.7), and not while saving.
+SAVE_ACTIONS = {
+    "save": ["<Control>s"],
+    "save-as": ["<Shift><Control>s"],
+}
 # Edits of the selected pages, from the action bar of the Pages view (02-interfaz, 6.1). Delete also has its key,
 # which does nothing while typing in a field (L4), so it is not one of the application's shortcuts (_add_delete_key).
 PAGE_ACTIONS = ("rotate-pages-left", "rotate-pages-right", "delete-pages")
@@ -65,6 +74,7 @@ QUARTER_TURN = 90
 WINDOW_ACCELERATORS = {
     "win.close": ["<Control>w"],
     **{f"win.{name}": keys for name, keys in EDIT_ACTIONS.items()},
+    **{f"win.{name}": keys for name, keys in SAVE_ACTIONS.items()},
     "win.show-sidebar": ["F9"],
     **{f"win.{name}": keys for name, keys in DOCUMENT_ACTIONS.items()},
 }
@@ -93,6 +103,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         super().__init__(application=application)
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
+        self._saving = False
         self.welcome_menu_button.set_menu_model(main_menu())
         self._add_actions()
         self.document_view.connect("current-page-changed", self._on_current_page_changed)
@@ -147,6 +158,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
             action.connect("activate", lambda _action, _parameter, handler=handler: handler())
             self.add_action(action)
         self._add_delete_key()
+        for name, handler in (("save", self.save), ("save-as", self.save_as)):
+            action = Gio.SimpleAction(name=name, enabled=False)
+            action.connect("activate", lambda _action, _parameter, handler=handler: handler())
+            self.add_action(action)
         layout = Gio.SimpleAction.new_stateful(
             "layout", GLib.VariantType.new("s"), GLib.Variant.new_string(LAYOUT_CONTINUOUS)
         )
@@ -253,6 +268,81 @@ class PenfoldWindow(Adw.ApplicationWindow):
         toast.connect("button-clicked", undo)
         self.toast_overlay.add_toast(toast)
 
+    # Saving (J1).
+
+    def save(self, then: Callable[[bool], None] | None = None) -> None:
+        """Save over the document's file, in the background; then says whether it was saved."""
+        if self.document is not None:
+            self._write(self.document.save_plan(), then)
+
+    def save_as(self, then: Callable[[bool], None] | None = None) -> None:
+        """Choose a file and save the document there; it becomes the document's file (J1)."""
+        if self.document is None:
+            return
+        dialog = pdf_file_dialog(_("Save As"), Gio.File.new_for_path(str(self.document.path)))
+        dialog.save(self, None, self._on_save_as_chosen, then)
+
+    def _on_save_as_chosen(
+        self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, then: Callable[[bool], None] | None
+    ) -> None:
+        try:
+            file = dialog.save_finish(result)
+        except GLib.Error:
+            file = None  # Cancelled.
+        path = file.get_path() if file is not None else None
+        if self.document is None or path is None:
+            if then is not None:
+                then(False)
+            return
+        self._write(self.document.save_plan(Path(path)), then)
+
+    def _write(self, plan: SavePlan, then: Callable[[bool], None] | None) -> None:
+        """Write a plan in a worker thread, keeping the window responsive; report how it went in the main thread."""
+        document = self.document
+        self._saving = True
+        self._update_save_actions()
+
+        def work() -> None:
+            try:
+                save(plan)
+            except SaveError:
+                logger.exception("Could not save %s", plan.target)
+                GLib.idle_add(finish, False)
+            else:
+                GLib.idle_add(finish, True)
+
+        def finish(saved: bool) -> bool:
+            self._saving = False
+            if document is not None and document is self.document:
+                if saved:
+                    document.mark_saved(plan)
+                else:
+                    self._show_message(_("Could not save “{name}”").format(name=plan.target.name))
+            self._update_save_actions()
+            if then is not None:
+                then(saved)
+            return GLib.SOURCE_REMOVE
+
+        threading.Thread(target=work, name="penfold-save", daemon=True).start()
+
+    def _update_save_actions(self) -> None:
+        document = self.document
+        enabled = document is not None and not document.is_protected and not self._saving
+        for name in SAVE_ACTIONS:
+            action = self.lookup_action(name)
+            assert isinstance(action, Gio.SimpleAction)
+            action.set_enabled(enabled)
+
+    def _show_title(self) -> None:
+        """The document's title and file name in the header, and in the window's title, with "• " for changes."""
+        document = self.document
+        if document is None:
+            self.set_title("Penfold")
+            return
+        self.document_header.show_document(document)
+        mark = UNSAVED_MARK if document.is_modified else ""
+        self.set_title(mark + _("{file_name} — Penfold").format(file_name=document.file_name))
+
     def _on_layout_changed(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         action.set_state(value)
         self.document_view.set_two_pages(value.get_string() == LAYOUT_TWO_PAGES)
@@ -265,6 +355,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._update_zoom_actions()
         self._update_edit_actions()
         self._update_page_actions()
+        self._update_save_actions()
 
     def _update_zoom_actions(self) -> None:
         for name, enabled in (
@@ -410,8 +501,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.document, self.renderer = document, renderer
         document.add_listener(self._on_document_changed)
         self._grow_for_document()
-        self.document_header.show_document(document)
-        self.set_title(_("{file_name} — Penfold").format(file_name=document.file_name))
+        self._show_title()
         self.protected_banner.set_revealed(document.is_protected)
         self.stack.set_visible_child_name("document")
         # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
@@ -442,6 +532,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self.document is None or self.renderer is None:
             return
         self._update_edit_actions()
+        self._show_title()
         if Change.PAGES in changes:
             self._update_page_actions()
             self.renderer.set_pages(self.document.pages)

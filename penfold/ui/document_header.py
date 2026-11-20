@@ -9,6 +9,9 @@ from penfold.ui.menus import main_menu
 # The template uses this widget by name: importing it also registers its type with GTK.
 from penfold.ui.page_entry import PenfoldPageEntry
 
+# In front of the title while the document has unsaved changes (D16).
+UNSAVED_MARK = "• "
+
 
 @Gtk.Template(resource_path=f"{config.RESOURCE_BASE_PATH}/ui/document_header.ui")
 class PenfoldDocumentHeader(Adw.Bin):
@@ -26,10 +29,14 @@ class PenfoldDocumentHeader(Adw.Bin):
         self.main_menu_button.set_menu_model(main_menu())
 
     def show_document(self, document: OpenDocument) -> None:
-        """Show the title of the PDF and, under it, the file name; without a title, only the file name."""
+        """Show the title of the PDF and, under it, the file name; without a title, only the file name.
+
+        With unsaved changes, the title starts with "• " (D16).
+        """
+        mark = UNSAVED_MARK if document.is_modified else ""
         if document.title:
-            self.title_widget.set_title(document.title)
+            self.title_widget.set_title(mark + document.title)
             self.title_widget.set_subtitle(document.file_name)
         else:
-            self.title_widget.set_title(document.file_name)
+            self.title_widget.set_title(mark + document.file_name)
             self.title_widget.set_subtitle("")

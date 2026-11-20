@@ -41,6 +41,8 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
             _("General"),
             shortcuts(
                 (_("Open a PDF"), "app.open"),
+                (_("Save"), "win.save"),
+                (_("Save as"), "win.save-as"),
                 (_("Undo"), "win.undo"),
                 (_("Redo"), "win.redo"),
                 (_("Show the keyboard shortcuts"), "app.shortcuts"),

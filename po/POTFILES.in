@@ -10,6 +10,7 @@ data/ui/window.blp
 data/ui/zoom_controls.blp
 penfold/application.py
 penfold/ui/about.py
+penfold/ui/file_dialogs.py
 penfold/ui/page_entry.py
 penfold/ui/shortcuts_dialog.py
 penfold/ui/sidebar/annotations_view.py

@@ -151,3 +151,69 @@ def test_dropped_thumbnails_move_their_pages(window: "PenfoldWindow") -> None:
     document.undo()
     assert [page.source_index for page in document.pages] == [0, 1, 2, 3, 4]
     assert not document.can_undo
+
+
+def test_changes_are_marked_and_saving_clears_the_mark(window: "PenfoldWindow") -> None:
+    import pikepdf
+
+    from tests.gtk_helpers import wait_until
+
+    document = window.document
+    assert document is not None
+    assert window.get_title() == "five.pdf — Penfold"
+    select(window, 0)
+    window.activate_action("win.rotate-pages-right", None)
+    assert window.get_title() == "• five.pdf — Penfold"
+    assert window.document_header.title_widget.get_title() == "• five.pdf"
+    window.activate_action("win.save", None)
+    wait_until(lambda: not document.is_modified)
+    assert window.get_title() == "five.pdf — Penfold"
+    with pikepdf.open(document.path) as pdf:
+        assert pdf.pages[0].obj.Rotate == 90
+    window.activate_action("win.undo", None)
+    assert window.get_title() == "• five.pdf — Penfold"
+
+
+def test_saving_to_another_file_makes_it_the_document(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from tests.gtk_helpers import wait_until
+
+    document = window.document
+    assert document is not None
+    saved: list[bool] = []
+    window._write(document.save_plan(tmp_path / "copy.pdf"), saved.append)
+    wait_until(lambda: bool(saved))
+    assert saved == [True]
+    assert window.get_title() == "copy.pdf — Penfold"
+
+
+def test_a_failed_save_is_reported_and_keeps_the_changes(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from tests.gtk_helpers import wait_until
+
+    document = window.document
+    assert document is not None
+    select(window, 0)
+    window.activate_action("win.rotate-pages-right", None)
+    saved: list[bool] = []
+    window._write(document.save_plan(tmp_path / "missing" / "copy.pdf"), saved.append)
+    wait_until(lambda: bool(saved))
+    assert saved == [False]
+    assert document.is_modified
+    dialog = window.get_visible_dialog()
+    assert isinstance(dialog, Adw.AlertDialog)
+    assert dialog.get_heading() == "Could not save “copy.pdf”"
+    dialog.force_close()
+
+
+def test_protected_pdfs_cannot_be_saved(application: "PenfoldApplication", tmp_path: Path) -> None:
+    from penfold.ui.window import PenfoldWindow
+
+    new_window = PenfoldWindow(application)
+    new_window.present()
+    open_and_wait(new_window, make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
+    assert not enabled(new_window, "save")
+    assert not enabled(new_window, "save-as")
+    dialog = new_window.get_visible_dialog()
+    if dialog is not None:
+        dialog.force_close()
+    new_window.destroy()
+    process_pending_events()
