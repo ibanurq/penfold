@@ -391,10 +391,14 @@ def test_a_click_clears_the_selection_only_away_from_the_rows(window: "PenfoldWi
     add_outline(path)
     open_and_wait(window, path)
     pages = window.pages_view
-    wait_until(lambda: {0, 1} <= set(pages._cells))
-    first, second = (_bounds(pages._cells[page].get_parent(), pages.scrolled) for page in (0, 1))
+    wait_until(lambda: 0 in pages._cells)
+    wait_until_stable(lambda: sorted(pages._cells))
+    boxes = [_bounds(pages._cells[page].get_parent(), pages.scrolled) for page in sorted(pages._cells)]
+    first = boxes[0]
+    # The first thumbnail of the next row, however many columns fit (another test may have made them smaller).
+    below = next(box for box in boxes if box.get_y() >= first.get_y() + first.get_height())
     beside_thumbnail = (first.get_x() + 2, first.get_y() + first.get_height() / 2)
-    between_rows = (first.get_x() + first.get_width() / 2, (first.get_y() + first.get_height() + second.get_y()) / 2)
+    between_rows = (first.get_x() + first.get_width() / 2, (first.get_y() + first.get_height() + below.get_y()) / 2)
     assert not is_away_from_rows(pages.scrolled, *beside_thumbnail)  # its selection box covers it
     assert is_away_from_rows(pages.scrolled, *between_rows)
     window.sidebar.show_view("bookmarks")
@@ -453,7 +457,7 @@ def test_added_pages_show_in_every_view(window: "PenfoldWindow", tmp_path: Path)
     assert renderer.layout[1].source == 2
     window.sidebar.show_view("bookmarks")
     wait_until(lambda: bool(window.bookmarks_view._rows))
-    assert bookmark_pages(window) == {"Added": "2"}
+    assert bookmark_pages(window) == {"text": "2"}  # named after the file, holding its own bookmarks (D50)
     document.undo()
     assert window.pages_view.pages.get_n_items() == 2
     assert bookmark_pages(window) == {}

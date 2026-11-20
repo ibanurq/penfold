@@ -300,8 +300,6 @@ class PenfoldWindow(Adw.ApplicationWindow):
         count = len(added.pages)
         if isinstance(source, PaperSize):
             message = _("Blank page added")
-        elif added.bookmarks:
-            message = ngettext("{count} page and its bookmarks added", "{count} pages and their bookmarks added", count)
         else:
             message = ngettext("{count} page added", "{count} pages added", count)
         self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=count)))

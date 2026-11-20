@@ -76,6 +76,16 @@ def test_the_annotations_of_the_added_pages_are_listed(document: OpenDocument, t
     assert [annotation.page for annotation in document.annotations] == [6]
 
 
+def test_the_pages_of_a_pdf_come_with_a_bookmark_named_after_it(document: OpenDocument, tmp_path: Path) -> None:
+    added = document.add_source(outlined_pdf(tmp_path / "Report 2025.pdf"))
+    [file_bookmark] = added.bookmarks
+    assert (file_bookmark.title, file_bookmark.page, file_bookmark.is_open) == ("Report 2025", 5, False)
+    assert [child.title for child in file_bookmark.children] == ["Cover", "1. Intro", "Action"]
+    without_outline = document.add_source(make_pdf(tmp_path / "plain.pdf", page_count=1))
+    assert [(bookmark.title, bookmark.children) for bookmark in without_outline.bookmarks] == [("plain", [])]
+    assert document.add_blank_page(PaperSize.A4).bookmarks == []
+
+
 def test_added_bookmarks_lead_to_the_new_pages_and_those_without_a_page_go(tmp_path: Path) -> None:
     with pikepdf.open(outlined_pdf(tmp_path / "outline.pdf")) as pdf:
         added = for_added_pages(read_bookmarks(pdf), 5)
@@ -129,9 +139,12 @@ def test_added_pages_and_bookmarks_are_saved(document: OpenDocument, tmp_path: P
     with pikepdf.open(plan.target) as saved:
         assert len(saved.pages) == 10
         with saved.open_outline() as saved_outline:
-            titles = [item.title for item in saved_outline.root]
-        assert titles == ["Cover", "1. Intro", "Action"]
-        action = saved.Root.Outlines.Last
+            [file_item] = saved_outline.root
+            assert file_item.title == "outline"
+            assert [item.title for item in file_item.children] == ["Cover", "1. Intro", "Action"]
+            assert file_item.is_closed
+        assert saved.Root.Outlines.First.Dest[0].objgen == saved.pages[5].obj.objgen
+        action = saved.Root.Outlines.First.Last
         assert action.Dest[0].objgen == saved.pages[9].obj.objgen
         assert str(action.Dest[1]) == "/FitH"
         assert int(action.Dest[2]) == 500

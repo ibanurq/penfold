@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-20 17:04+0100\n"
+"POT-Creation-Date: 2026-11-20 17:19+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -91,7 +91,7 @@ msgstr "combinar"
 msgid "Add Pages"
 msgstr "Añadir páginas"
 
-#: data/ui/dialogs/add_pages_dialog.blp:20 penfold/ui/window.py:686
+#: data/ui/dialogs/add_pages_dialog.blp:20 penfold/ui/window.py:684
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -174,7 +174,7 @@ msgstr "Menú del documento"
 msgid "_Print…"
 msgstr "_Imprimir…"
 
-#: data/ui/document_header.blp:69 penfold/ui/window.py:688
+#: data/ui/document_header.blp:69 penfold/ui/window.py:686
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -508,7 +508,7 @@ msgstr[1] "{count} páginas eliminadas"
 msgid "“{name}” is protected against changes and cannot be added yet"
 msgstr "«{name}» está protegido contra cambios y todavía no se puede añadir"
 
-#: penfold/ui/window.py:296 penfold/ui/window.py:568
+#: penfold/ui/window.py:296 penfold/ui/window.py:566
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
@@ -519,41 +519,34 @@ msgstr "Página en blanco añadida"
 
 #: penfold/ui/window.py:304
 #, python-brace-format
-msgid "{count} page and its bookmarks added"
-msgid_plural "{count} pages and their bookmarks added"
-msgstr[0] "{count} página y sus marcadores añadidos"
-msgstr[1] "{count} páginas y sus marcadores añadidos"
-
-#: penfold/ui/window.py:306
-#, python-brace-format
 msgid "{count} page added"
 msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:311
+#: penfold/ui/window.py:309
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:342
+#: penfold/ui/window.py:340
 msgid "Save As"
 msgstr "Guardar como"
 
-#: penfold/ui/window.py:380
+#: penfold/ui/window.py:378
 #, python-brace-format
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
 
-#: penfold/ui/window.py:402
+#: penfold/ui/window.py:400
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:595
+#: penfold/ui/window.py:593
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:597
+#: penfold/ui/window.py:595
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -561,19 +554,19 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:653
+#: penfold/ui/window.py:651
 msgid "_OK"
 msgstr "_Aceptar"
 
-#: penfold/ui/window.py:681
+#: penfold/ui/window.py:679
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:682
+#: penfold/ui/window.py:680
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:687
+#: penfold/ui/window.py:685
 msgid "_Discard"
 msgstr "_Descartar"

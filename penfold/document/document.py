@@ -90,32 +90,41 @@ class OpenDocument:
     def add_source(self, path: Path) -> AddedPdf:
         """Copy and open a PDF whose pages will be added (by the AddPages command).
 
-        Its annotations are listed from now on, while their pages are in the document.
+        Its pages come with a new bookmark, named after the file, that leads to the first of them and holds the PDF's
+        own bookmarks (D50). Its annotations are listed from now on, while their pages are in the document.
 
         Raises:
             ProtectedPdfError: the PDF is protected, and its pages cannot be added (2.7).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
-        source = SourceFile(path)
-        pdf = source.pdf
-        if pdf.is_encrypted:
-            source.close()
-            raise ProtectedPdfError(str(path))
-        start = self.sources.add(source).start
-        self.annotations = [*self.annotations, *read_annotations(pdf, start)]
-        labels = read_page_labels(pdf)
-        pages = [
-            Page(start + index, label=None if labels is None else labels[index]) for index in range(len(pdf.pages))
-        ]
-        return AddedPdf(pages, for_added_pages(read_bookmarks(pdf), start))
+        start, pdf = self._take_source(path)
+        own_bookmarks = for_added_pages(read_bookmarks(pdf), start)
+        return AddedPdf(_pages_of(pdf, start), [Bookmark(path.stem, page=start, children=own_bookmarks)])
 
     def add_blank_page(self, size: PaperSize) -> AddedPdf:
         """Make a blank page of a size, ready to be added (by the AddPages command) like the pages of a PDF (E5)."""
         with tempfile.TemporaryDirectory(prefix="penfold-") as folder:
             path = Path(folder) / "blank.pdf"
             write_blank_pdf(path, size)
-            return self.add_source(path)
+            start, pdf = self._take_source(path)
+            return AddedPdf(_pages_of(pdf, start), [])
+
+    def _take_source(self, path: Path) -> tuple[int, pikepdf.Pdf]:
+        """Copy and open a PDF as a new source, listing its annotations; return its first source index and the PDF.
+
+        Raises:
+            ProtectedPdfError: the PDF is protected (2.7).
+            PasswordRequiredError: the PDF needs a password to be opened.
+            DocumentOpenError: the file is missing, unreadable or not a PDF.
+        """
+        source = SourceFile(path)
+        if source.pdf.is_encrypted:
+            source.close()
+            raise ProtectedPdfError(str(path))
+        start = self.sources.add(source).start
+        self.annotations = [*self.annotations, *read_annotations(source.pdf, start)]
+        return start, source.pdf
 
     def find_page(self, text: str) -> int | None:
         """Find the page that someone typed in the page box: a label first, then a page number.
@@ -201,6 +210,12 @@ class OpenDocument:
     def close(self) -> None:
         """Release the source PDFs and their private copies."""
         self.sources.close()
+
+
+def _pages_of(pdf: pikepdf.Pdf, start: int) -> list[Page]:
+    """The pages of a source whose first source index is start, with their labels if it has any."""
+    labels = read_page_labels(pdf)
+    return [Page(start + index, label=None if labels is None else labels[index]) for index in range(len(pdf.pages))]
 
 
 def _read_title(pdf: pikepdf.Pdf) -> str | None:
