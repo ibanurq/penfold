@@ -22,6 +22,7 @@ from penfold import config
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import Rectangle
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
+from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.document_view import append_page_frame
 from penfold.ui.sidebar.view_header import header_button, unselect_all, unselect_on_empty_click, view_header
 
@@ -41,10 +42,6 @@ SHRINKING_WIDTH = 24
 CHANNEL = "thumbnails"
 VISIBLE_AREA_FILL = 0.12
 VISIBLE_AREA_EDGE = 0.6
-# While dragging thumbnails near the top or bottom of the list, it scrolls: within this distance, up to this speed
-# (pixels per frame, faster nearer the edge).
-AUTOSCROLL_EDGE = 48
-AUTOSCROLL_SPEED = 18
 DROP_LINE_WIDTH = 3
 
 
@@ -283,7 +280,8 @@ class PagesView(Gtk.Box):
         pinch.connect("scale-changed", lambda _gesture, scale: self.set_thumbnail_width(self._pinch_width * scale))
         self.scrolled.add_controller(pinch)
         self._pinch_width = self.chosen_width
-        self._add_autoscroll()
+        # While thumbnails are dragged near the top or bottom of the list, it scrolls, so pages can go far.
+        DragAutoscroll(self.scrolled)
         # Check the width at every frame (a cheap comparison) and lay the columns out again when it changes.
         self._fitted_width = -1
         self.add_tick_callback(self._on_tick)
@@ -586,33 +584,6 @@ class PagesView(Gtk.Box):
         page, before = place
         self.emit("move-requested", value.positions, page if before else page + 1)
         return True
-
-    def _add_autoscroll(self) -> None:
-        """While thumbnails are dragged near the top or bottom of the list, scroll it, so pages can go far."""
-        motion = Gtk.DropControllerMotion()
-        self._drag_y: float | None = None
-        motion.connect("enter", self._on_drag_motion)
-        motion.connect("motion", self._on_drag_motion)
-        motion.connect("leave", lambda _motion: setattr(self, "_drag_y", None))
-        self.scrolled.add_controller(motion)
-
-    def _on_drag_motion(self, _motion: Gtk.DropControllerMotion, _x: float, y: float) -> None:
-        if self._drag_y is None:
-            self._drag_y = y
-            self.scrolled.add_tick_callback(self._autoscroll)
-        self._drag_y = y
-
-    def _autoscroll(self, _widget: Gtk.Widget, _clock: Gdk.FrameClock) -> bool:
-        if self._drag_y is None:
-            return GLib.SOURCE_REMOVE
-        height = self.scrolled.get_height()
-        distance = min(self._drag_y, height - self._drag_y)
-        if distance < AUTOSCROLL_EDGE:
-            direction = -1 if self._drag_y < height / 2 else 1
-            adjustment = self.scrolled.get_vadjustment()
-            step = AUTOSCROLL_SPEED * (1 - max(0.0, distance) / AUTOSCROLL_EDGE)
-            adjustment.set_value(adjustment.get_value() + direction * step)
-        return GLib.SOURCE_CONTINUE
 
     def _on_bind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         page_item = item.get_item()

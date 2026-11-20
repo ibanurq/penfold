@@ -15,6 +15,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 from penfold import config
 from penfold.document.sources import count_pages
 from penfold.errors import DocumentOpenError, ProtectedPdfError
+from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.file_dialogs import pdf_file_dialog
 
 PDF_SUFFIX = ".pdf"
@@ -60,6 +61,7 @@ class PenfoldMergeDialog(Adw.Dialog):
     }
 
     merge_button: Gtk.Button = Gtk.Template.Child()
+    scrolled: Gtk.ScrolledWindow = Gtk.Template.Child()
     file_list: Gtk.ListBox = Gtk.Template.Child()
     total_label: Gtk.Label = Gtk.Template.Child()
     bookmark_per_file_row: Adw.SwitchRow = Gtk.Template.Child()
@@ -77,6 +79,7 @@ class PenfoldMergeDialog(Adw.Dialog):
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.connect("drop", self._on_files_dropped)
         self.add_controller(drop)
+        DragAutoscroll(self.scrolled)
         self._show_files()
 
     @property
@@ -171,8 +174,14 @@ class PenfoldMergeDialog(Adw.Dialog):
         _clear_drop_mark(row)
         if not isinstance(value, DraggedFile):
             return False
-        self.move_file(value.position, position if y < row.get_height() / 2 else position + 1)
+        before = position if y < row.get_height() / 2 else position + 1
+        # The rows are made again once the drag has ended: not while GTK is still delivering it to this row.
+        GLib.idle_add(self._move_after_drop, value.position, before)
         return True
+
+    def _move_after_drop(self, position: int, before: int) -> bool:
+        self.move_file(position, before)
+        return GLib.SOURCE_REMOVE
 
     def _on_files_dropped(self, _target: Gtk.DropTarget, value: Gdk.FileList, _x: float, _y: float) -> bool:
         paths = [Path(path) for file in value.get_files() if (path := file.get_path()) is not None]

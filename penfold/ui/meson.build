@@ -1,6 +1,7 @@
 install_data(
   '__init__.py',
   'about.py',
+  'autoscroll.py',
   'document_header.py',
   'document_view.py',
   'extraction.py',

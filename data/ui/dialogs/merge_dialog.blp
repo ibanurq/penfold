@@ -37,57 +37,76 @@ template $PenfoldMergeDialog: Adw.Dialog {
       }
     }
 
-    content: Adw.PreferencesPage {
-      Adw.PreferencesGroup files_group {
-        title: _("Files");
+    // A scrolled window of its own (not an AdwPreferencesPage, which keeps it inside), so the list can scroll by
+    // itself while a file is dragged near its edges; the clamp and margins are those of a preferences page.
+    content: ScrolledWindow scrolled {
+      hscrollbar-policy: never;
+      propagate-natural-height: true;
 
-        header-suffix: Button {
-          valign: center;
-          clicked => $_on_add_clicked();
+      child: Adw.Clamp {
+        maximum-size: 600;
+        tightening-threshold: 400;
+        margin-top: 24;
+        margin-bottom: 24;
+        margin-start: 12;
+        margin-end: 12;
 
-          child: Adw.ButtonContent {
-            icon-name: "list-add-symbolic";
-            label: _("_Add PDFs…");
-            use-underline: true;
-          };
+        child: Box {
+          orientation: vertical;
+          spacing: 24;
 
-          styles [
-            "flat",
-          ]
+          Adw.PreferencesGroup files_group {
+            title: _("Files");
+
+            header-suffix: Button {
+              valign: center;
+              clicked => $_on_add_clicked();
+
+              child: Adw.ButtonContent {
+                icon-name: "list-add-symbolic";
+                label: _("_Add PDFs…");
+                use-underline: true;
+              };
+
+              styles [
+                "flat",
+              ]
+            };
+
+            ListBox file_list {
+              selection-mode: none;
+
+              styles [
+                "boxed-list",
+              ]
+            }
+
+            Label total_label {
+              xalign: 0;
+              margin-top: 12;
+
+              styles [
+                "dim-label",
+                "caption",
+              ]
+            }
+          }
+
+          Adw.PreferencesGroup {
+            title: _("Bookmarks");
+
+            Adw.SwitchRow bookmark_per_file_row {
+              title: _("Create a Bookmark for Each File");
+              active: true;
+            }
+
+            Adw.SwitchRow keep_bookmarks_row {
+              title: _("Keep the Files’ Bookmarks");
+              active: true;
+            }
+          }
         };
-
-        ListBox file_list {
-          selection-mode: none;
-
-          styles [
-            "boxed-list",
-          ]
-        }
-
-        Label total_label {
-          xalign: 0;
-          margin-top: 12;
-
-          styles [
-            "dim-label",
-            "caption",
-          ]
-        }
-      }
-
-      Adw.PreferencesGroup {
-        title: _("Bookmarks");
-
-        Adw.SwitchRow bookmark_per_file_row {
-          title: _("Create a Bookmark for Each File");
-          active: true;
-        }
-
-        Adw.SwitchRow keep_bookmarks_row {
-          title: _("Keep the Files’ Bookmarks");
-          active: true;
-        }
-      }
+      };
     };
   };
 }
