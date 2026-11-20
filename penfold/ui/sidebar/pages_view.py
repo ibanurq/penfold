@@ -232,13 +232,22 @@ class PagesView(Gtk.Box):
         self._rendered_handler = renderer.connect("tile-rendered", self._on_tile_rendered)
         self._cells.clear()
         self.visible_areas = {}
-        self.pages.splice(
-            0,
-            self.pages.get_n_items(),
-            [PageItem(page, document.page_label(page)) for page in range(document.page_count)],
-        )
+        self.pages.splice(0, self.pages.get_n_items(), self._items(document))
         self.current_page = 0
         self._request_thumbnails()
+
+    def pages_changed(self) -> None:
+        """Show the pages again after an edit, with their labels."""
+        if self.document is None:
+            return
+        self._cells.clear()
+        self.pages.splice(0, self.pages.get_n_items(), self._items(self.document))
+        self.current_page = min(self.current_page, self.document.page_count - 1)
+        self._request_thumbnails()
+
+    @staticmethod
+    def _items(document: OpenDocument) -> list[PageItem]:
+        return [PageItem(page, document.page_label(page)) for page in range(document.page_count)]
 
     def show_current_page(self, page: int) -> None:
         """Mark the thumbnail of the page being read and keep it in sight."""
@@ -316,7 +325,7 @@ class PagesView(Gtk.Box):
         _x, _y, width, _height = fit_page(self.renderer.page_sizes[page], box_width, box_width * CELL_RATIO)
         page_width, _page_height = self.renderer.page_sizes[page]
         scale = self._device_scale() if device_scale is None else device_scale
-        return TileKey(page, round_scale(width / page_width * scale))
+        return self.renderer.tile_key(page, round_scale(width / page_width * scale))
 
     def texture(self, page: int) -> Gdk.Texture | None:
         """The drawn thumbnail of a page, or a drawing of it at another size while it is being drawn."""
@@ -349,8 +358,9 @@ class PagesView(Gtk.Box):
         self.renderer.request(wanted, CHANNEL)
         return GLib.SOURCE_REMOVE
 
-    def _on_tile_rendered(self, _renderer: Renderer, page: int) -> None:
-        cell = self._cells.get(page)
+    def _on_tile_rendered(self, renderer: Renderer, source: int) -> None:
+        position = renderer.layout.position(source)
+        cell = self._cells.get(position) if position is not None else None
         if cell is not None:
             cell.thumbnail.queue_draw()
 

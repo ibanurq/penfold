@@ -239,7 +239,7 @@ def test_pages_are_drawn_pixel_for_pixel(window: "PenfoldWindow", tmp_path: Path
     assert renderer is not None
     scale = round_scale(view.zoom * view._device_scale())
     view.queue_draw()
-    wait_until(lambda: any(key.page == 0 and key.scale == scale for key in renderer._cache))
+    wait_until(lambda: any(key.source == 0 and key.scale == scale for key in renderer._cache))
     view.queue_draw()
 
     def draw_view() -> "Gsk.RenderNode | None":
@@ -253,7 +253,7 @@ def test_pages_are_drawn_pixel_for_pixel(window: "PenfoldWindow", tmp_path: Path
     assert node is not None
     assert gsk_renderer is not None
     screen = gsk_renderer.render_texture(node, None)
-    tile = next(texture for key, texture in renderer._cache.items() if key.page == 0 and key.scale == scale)
+    tile = next(texture for key, texture in renderer._cache.items() if key.source == 0 and key.scale == scale)
     screen_bytes, screen_stride = Gdk.TextureDownloader.new(screen).download_bytes()
     tile_bytes, tile_stride = Gdk.TextureDownloader.new(tile).download_bytes()
     screen_data, tile_data = screen_bytes.get_data(), tile_bytes.get_data()
@@ -309,3 +309,22 @@ def test_entering_the_page_box_selects_the_page(window: "PenfoldWindow", book: P
     entry.grab_focus_without_selecting()
     process_pending_events()
     assert entry.get_selection_bounds() == (0, len(entry.get_text()))  # typing replaces the page shown
+
+
+def test_edited_pages_are_shown_in_their_new_order_and_turn(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
+
+    assert open_and_wait(window, make_pdf(tmp_path / "three.pdf", page_count=3))
+    document, renderer = window.document, window.renderer
+    assert document is not None
+    assert renderer is not None
+    document.execute(RotatePages(document, [2], 90))
+    document.execute(MovePages(document, [2], 0))
+    document.execute(DeletePages(document, [1]))
+    assert renderer.page_sizes == [(842, 595), (595, 842)]
+    assert [box.page for box in window.document_view._boxes] == [0, 1]
+    assert window.pages_view.pages.get_n_items() == 2
+    assert renderer.tile_key(0, 1.0).source == 2
+    document.undo()
+    assert window.pages_view.pages.get_n_items() == 3
+    assert window.document_view.page_count == 3

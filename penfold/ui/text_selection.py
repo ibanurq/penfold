@@ -1,9 +1,13 @@
-"""Text selected with the mouse, possibly across several pages (B9)."""
+"""Text selected with the mouse, possibly across several pages (B9).
+
+A selection is made on the pages as they are shown; Poppler reads the text from the unturned pages of the PDF.
+"""
 
 from dataclasses import dataclass
 
 from gi.repository import Poppler
 
+from penfold.rendering.layout import PageLayout, ShownPage
 from penfold.rendering.page_content import PageContent, Rectangle
 
 
@@ -42,10 +46,17 @@ class TextSelection:
             selections[page] = (from_x, from_y, to_x, to_y)
         return selections
 
-    def text(self, content: PageContent, page_sizes: list[tuple[float, float]]) -> str:
+    def text(self, content: PageContent, layout: PageLayout) -> str:
         """Return the selected text, one page after another."""
         texts = [
-            content.selected_text(page, selection, self.style)
-            for page, selection in self.page_selections(page_sizes).items()
+            content.selected_text(layout[page].source, source_selection(layout[page], selection), self.style)
+            for page, selection in self.page_selections(layout.sizes).items()
         ]
         return "\n".join(text for text in texts if text)
+
+
+def source_selection(page: ShownPage, selection: Rectangle) -> Rectangle:
+    """The selection of a page as shown (from a point to another) on the unturned page of the PDF."""
+    start_x, start_y = page.to_source(selection[0], selection[1])
+    end_x, end_y = page.to_source(selection[2], selection[3])
+    return start_x, start_y, end_x, end_y

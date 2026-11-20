@@ -8,6 +8,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
 from penfold.document.document import OpenDocument
+from penfold.document.history import Change
 from penfold.errors import DocumentOpenError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
@@ -281,13 +282,14 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Show a PDF in this window and return True; if it cannot be opened, say so and keep what was shown."""
         try:
             document = OpenDocument.open(path)
-            renderer = Renderer(path)
+            renderer = Renderer(document.source_path)
         except (DocumentOpenError, GLib.Error) as error:
             logger.warning("Could not open %s (%s)", path, type(error).__name__)
             self._show_message(_("Could not open “{name}”").format(name=path.name))
             return False
         self._close_document()
         self.document, self.renderer = document, renderer
+        document.add_listener(self._on_document_changed)
         self._grow_for_document()
         self.document_header.show_document(document)
         self.set_title(_("{file_name} — Penfold").format(file_name=document.file_name))
@@ -313,6 +315,15 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 ),
             )
         return True
+
+    def _on_document_changed(self, changes: Change) -> None:
+        """Show what an edit, an undo or a redo changed."""
+        if self.document is None or self.renderer is None:
+            return
+        if Change.PAGES in changes:
+            self.renderer.set_pages(self.document.pages)
+            self.document_view.pages_changed()
+            self.pages_view.pages_changed()
 
     def _show_sidebar_when_it_fits(self) -> None:
         """Show the panel as soon as the window is wide enough for it and the document (or after half a second).

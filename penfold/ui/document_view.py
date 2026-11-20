@@ -14,9 +14,9 @@ from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
-from penfold.rendering.renderer import Renderer, TileKey, round_scale
+from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
 from penfold.rendering.text_search import SearchResult
-from penfold.ui.text_selection import PagePoint, TextSelection
+from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
 # Zoom limits and step, as in 0.6: from 30 % to 400 %, 20 points at a time.
 MIN_ZOOM = 0.3
@@ -189,6 +189,20 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._start_pending = True
         self._allocated_width = 0
         self.queue_allocate()
+        self.emit("current-page-changed")
+
+    def pages_changed(self) -> None:
+        """Show the pages again after an edit (the renderer already has them), staying where the reader was.
+
+        The zoom is fitted again unless it is manual, since the current page may now be turned.
+        """
+        self.selection = None
+        self.current_page = min(self.current_page, self.page_count - 1)
+        if self.fit is not Fit.MANUAL:
+            self.zoom = self._fitting_zoom(self.fit)
+            self.emit("zoom-changed")
+        self._relayout(keep_position=True)
+        self._update_current_page()
         self.emit("current-page-changed")
 
     @property
@@ -557,14 +571,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             x = round((box.x - offset_x) * device_scale) / device_scale
             y = round((box.y - offset_y) * device_scale) / device_scale
             self._draw_page_frame(snapshot, x, y, box)
-            ready = []
+            ready, missing = [], False
             for key in self._visible_tiles(box, scale, offset_x, offset_y):
                 texture = self.renderer.texture(key)
                 if texture is None:
                     wanted[key] = abs(box.page - self.current_page)
+                    missing = True
                 else:
                     ready.append((key, texture))
-            if any(key.page == box.page for key in wanted):
+            if missing:
                 self._draw_placeholder(snapshot, x, y, box, scale)
             for key, texture in ready:
                 self._append_tile(snapshot, x, y, key, texture)
@@ -582,23 +597,23 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _visible_tiles(self, box: PageBox, scale: float, offset_x: float, offset_y: float) -> list[TileKey]:
         """Tiles of a page that intersect the visible part of the view."""
         assert self.renderer is not None
-        grid = self.renderer.grid(self.renderer.page_sizes[box.page], scale)
+        tiles = grid(self.renderer.page_sizes[box.page], scale)
         pixels_per_logical = scale / self.zoom
         left = max(0.0, (offset_x - box.x) * pixels_per_logical)
         top = max(0.0, (offset_y - box.y) * pixels_per_logical)
-        right = min(grid.width, (offset_x + self.get_width() - box.x) * pixels_per_logical)
-        bottom = min(grid.height, (offset_y + self.get_height() - box.y) * pixels_per_logical)
+        right = min(tiles.width, (offset_x + self.get_width() - box.x) * pixels_per_logical)
+        bottom = min(tiles.height, (offset_y + self.get_height() - box.y) * pixels_per_logical)
         return [
-            TileKey(box.page, scale, column, row)
-            for row in range(int(top // grid.tile_size), min(grid.rows, int(bottom // grid.tile_size) + 1))
-            for column in range(int(left // grid.tile_size), min(grid.columns, int(right // grid.tile_size) + 1))
+            self.renderer.tile_key(box.page, scale, column, row)
+            for row in range(int(top // tiles.tile_size), min(tiles.rows, int(bottom // tiles.tile_size) + 1))
+            for column in range(int(left // tiles.tile_size), min(tiles.columns, int(right // tiles.tile_size) + 1))
         ]
 
     def _all_tiles(self, page: int, scale: float) -> list[TileKey]:
         """Tiles of a page drawn ahead of time: only pages drawn whole, so preloading never eats much memory."""
         assert self.renderer is not None
-        grid = self.renderer.grid(self.renderer.page_sizes[page], scale)
-        return [TileKey(page, scale)] if grid.columns == grid.rows == 1 else []
+        tiles = grid(self.renderer.page_sizes[page], scale)
+        return [self.renderer.tile_key(page, scale)] if tiles.columns == tiles.rows == 1 else []
 
     def _nearby_pages(self, visible: list[PageBox]) -> list[int]:
         if not visible:
@@ -622,8 +637,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _append_tile(self, snapshot: Gtk.Snapshot, x: float, y: float, key: TileKey, texture: Gdk.Texture) -> None:
         """Draw a tile; exact tiles (at the current zoom) one texture pixel per device pixel, others stretched."""
         assert self.renderer is not None
-        grid = self.renderer.grid(self.renderer.page_sizes[key.page], key.scale)
-        tile_x, tile_y, width, height = grid.tile_rectangle(key.column, key.row)
+        tile_x, tile_y, width, height = self.renderer.key_grid(key).tile_rectangle(key.column, key.row)
         exact = key.scale == self._scale
         logical = self._pixel if exact else self.zoom / key.scale
         bounds = Graphene.Rect().init(x + tile_x * logical, y + tile_y * logical, width * logical, height * logical)
@@ -670,7 +684,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             return
         color = Adw.StyleManager.get_default().get_accent_color_rgba()
         color.alpha = SELECTION_OPACITY
-        for left, top, right, bottom in self.content.selection_rectangles(box.page, selection, self.selection.style):
+        page = self.renderer.layout[box.page]
+        rectangles = self.content.selection_rectangles(
+            page.source, source_selection(page, selection), self.selection.style
+        )
+        for left, top, right, bottom in (page.from_source(rectangle) for rectangle in rectangles):
             bounds = Graphene.Rect().init(
                 x + left * self.zoom, y + top * self.zoom, (right - left) * self.zoom, (bottom - top) * self.zoom
             )
@@ -714,9 +732,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def link_at(self, x: float, y: float) -> Link | None:
         """Return the link under a point of the widget, if any."""
         point = self.page_point(x, y)
-        if point is None or self.content is None:
+        if point is None or self.content is None or self.renderer is None:
             return None
-        return self.content.link_at(point.page, point.x, point.y)
+        page = self.renderer.layout[point.page]
+        return self.content.link_at(page.source, *page.to_source(point.x, point.y))
 
     def _on_pressed(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
         """A press starts a selection; a double click selects a word and a triple click a line."""
@@ -752,7 +771,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         """Go to an internal destination, or open a web address in the browser (B7)."""
         target = link.target
         if isinstance(target, InternalTarget):
-            self.go_to(target.page, target.top)
+            place = self.renderer.layout.place(target.page, target.top) if self.renderer is not None else None
+            if place is not None:
+                self.go_to(*place)
         elif isinstance(target, ExternalTarget):
             root = self.get_root()
             Gtk.UriLauncher(uri=target.uri).launch(root if isinstance(root, Gtk.Window) else None, None, None)
@@ -775,7 +796,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         """Copy the selected text to the clipboard; return whether there was any."""
         if self.selection is None or self.content is None or self.renderer is None:
             return False
-        text = self.selection.text(self.content, self.renderer.page_sizes)
+        text = self.selection.text(self.content, self.renderer.layout)
         if not text:
             return False
         self.get_clipboard().set(text)

@@ -7,10 +7,13 @@ import pikepdf
 import pytest
 from gi.repository import GLib, Poppler
 
+from penfold.document.pages import Page
+from penfold.rendering.layout import PageLayout
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, PageContent
 from penfold.ui.text_selection import PagePoint, TextSelection
 
 A4 = (595.0, 842.0)
+LAYOUT = PageLayout([A4] * 3)
 
 
 def make_text_pdf(path: Path) -> Path:
@@ -84,7 +87,7 @@ def test_link_under_a_point(content: PageContent) -> None:
 
 def test_selected_text_of_one_page(content: PageContent) -> None:
     selection = TextSelection(PagePoint(0, 95, 70), PagePoint(0, 125, 300))
-    assert selection.text(content, [A4] * 3) == "Page 1 line 1\nPage 1 line 2"
+    assert selection.text(content, LAYOUT) == "Page 1 line 1\nPage 1 line 2"
 
 
 def test_selection_across_pages_takes_the_pages_in_between_whole(content: PageContent) -> None:
@@ -95,14 +98,14 @@ def test_selection_across_pages_takes_the_pages_in_between_whole(content: PageCo
         2: (0.0, 0.0, 300, 125),
     }
     assert (
-        selection.text(content, [A4] * 3) == "Page 1 line 2\nPage 2 line 1\nPage 2 line 2\nPage 3 line 1\nPage 3 line 2"
+        selection.text(content, LAYOUT) == "Page 1 line 2\nPage 2 line 1\nPage 2 line 2\nPage 3 line 1\nPage 3 line 2"
     )
 
 
 def test_double_click_selects_a_word(content: PageContent) -> None:
     point = PagePoint(0, 97, 120)
     selection = TextSelection(point, point, Poppler.SelectionStyle.WORD)
-    assert selection.text(content, [A4] * 3) == "line"
+    assert selection.text(content, LAYOUT) == "line"
 
 
 def test_selection_rectangles_cover_the_text(content: PageContent) -> None:
@@ -116,3 +119,10 @@ def test_selection_rectangles_cover_the_text(content: PageContent) -> None:
 def test_text_in_areas_takes_nothing_from_the_next_line(content: PageContent) -> None:
     # An area around the first line that reaches into the second one, as highlight boxes often do.
     assert content.text_in_areas(0, [(70, 88, 400, 112)]) == "Page 1 line 1"
+
+
+def test_selection_on_a_turned_page_reads_the_text_under_it(content: PageContent) -> None:
+    turned = PageLayout([A4] * 3, [Page(0, rotation=180)])
+    # Turned upside down, the first lines are at the bottom of the page, read from right to left.
+    selection = TextSelection(PagePoint(0, 842 - 95, 595 - 70), PagePoint(0, 842 - 125, 595 - 300))
+    assert selection.text(content, turned) == "Page 1 line 1\nPage 1 line 2"

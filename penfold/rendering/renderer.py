@@ -6,17 +6,24 @@ copy of the document, because a Poppler document must not be shared between thre
 
 A page is drawn whole while it is small enough; at high zoom it is drawn in square tiles, so that it stays sharp
 without using too much memory (B10).
+
+The interface asks for pages by their position in the document; the layout says which page of the opened PDF that is,
+and its turn. Drawn tiles are kept by page of the PDF and turn, so moving pages does not draw them again.
 """
 
 import math
 import threading
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
 import cairo
 from gi.repository import Gdk, GLib, GObject, Poppler
+
+from penfold.document.pages import Page
+from penfold.rendering.layout import PageLayout, Size, turned_size
 
 # A page larger than this, in pixels, is drawn in tiles.
 MAX_WHOLE_PAGE_PIXELS = 16 * 1024 * 1024
@@ -28,12 +35,14 @@ SCALE_DECIMALS = 4
 
 @dataclass(frozen=True, order=True)
 class TileKey:
-    """One rendered piece of a page: its index, the scale (pixels per PDF point) and the tile's column and row.
+    """One rendered piece of a page.
 
-    A page drawn whole is the single tile (0, 0).
+    The page is its index in the opened PDF (its source), drawn with a turn; the scale is in pixels per PDF point; the
+    column and row place the tile in the page. A page drawn whole is the single tile (0, 0).
     """
 
-    page: int
+    source: int
+    rotation: int
     scale: float
     column: int = 0
     row: int = 0
@@ -72,6 +81,7 @@ class Renderer(GObject.Object):
     """Draws the pages of one PDF in the background and keeps the latest results."""
 
     __gsignals__: ClassVar = {
+        # The index, in the opened PDF, of the page a tile belongs to.
         "tile-rendered": (GObject.SignalFlags.RUN_FIRST, None, (int,)),
     }
 
@@ -80,9 +90,10 @@ class Renderer(GObject.Object):
         super().__init__()
         self._uri = GLib.filename_to_uri(str(path.resolve()), None)
         document = Poppler.Document.new_from_file(self._uri, None)
-        self.page_sizes: list[tuple[float, float]] = [
+        self._source_sizes: list[Size] = [
             document.get_page(index).get_size() for index in range(document.get_n_pages())
         ]
+        self.layout = PageLayout(self._source_sizes)
         self._main_document = document
         self._cache: OrderedDict[TileKey, Gdk.Texture] = OrderedDict()
         self._cache_bytes = 0
@@ -108,13 +119,23 @@ class Renderer(GObject.Object):
         """Poppler's copy of the document for the main thread (links, text), never used by the workers."""
         return self._main_document
 
-    @staticmethod
-    def grid(page_size: tuple[float, float], scale: float) -> TileGrid:
-        """Return how a page of this size, in points, is cut into tiles at a scale."""
-        width = max(1, math.ceil(page_size[0] * scale))
-        height = max(1, math.ceil(page_size[1] * scale))
-        tile_size = max(width, height) if width * height <= MAX_WHOLE_PAGE_PIXELS else TILE_SIZE
-        return TileGrid(width, height, tile_size)
+    @property
+    def page_sizes(self) -> list[Size]:
+        """The size of each page of the document as it is shown, in points."""
+        return self.layout.sizes
+
+    def set_pages(self, pages: Iterable[Page]) -> None:
+        """Show the pages of the document in their new order and turn (after an edit)."""
+        self.layout = PageLayout(self._source_sizes, pages)
+
+    def tile_key(self, position: int, scale: float, column: int = 0, row: int = 0) -> TileKey:
+        """The key of a tile of the page shown at a position of the document."""
+        page = self.layout[position]
+        return TileKey(page.source, page.rotation, scale, column, row)
+
+    def key_grid(self, key: TileKey) -> TileGrid:
+        """How the page of a tile is cut into tiles at the tile's scale."""
+        return grid(turned_size(self._source_sizes[key.source], key.rotation), key.scale)
 
     def texture(self, key: TileKey) -> Gdk.Texture | None:
         """Return a tile if it has already been drawn."""
@@ -123,17 +144,22 @@ class Renderer(GObject.Object):
             self._cache.move_to_end(key)
         return texture
 
-    def closest_textures(self, page: int, scale: float) -> list[tuple[TileKey, Gdk.Texture]]:
-        """Return the drawn tiles of a page at the cached scale nearest to the one wanted.
+    def closest_textures(self, position: int, scale: float) -> list[tuple[TileKey, Gdk.Texture]]:
+        """Return the drawn tiles of the page at a position, at the cached scale nearest to the one wanted.
 
         They are shown, stretched, while the tiles at the right scale are being drawn, so a page is never blank after
         zooming.
         """
-        scales = {key.scale for key in self._cache if key.page == page}
-        if not scales:
+        page = self.layout[position]
+        tiles = [
+            (key, texture)
+            for key, texture in self._cache.items()
+            if key.source == page.source and key.rotation == page.rotation
+        ]
+        if not tiles:
             return []
-        nearest = min(scales, key=lambda cached: abs(math.log(cached / scale)))
-        return [(key, texture) for key, texture in self._cache.items() if key.page == page and key.scale == nearest]
+        nearest = min({key.scale for key, _texture in tiles}, key=lambda cached: abs(math.log(cached / scale)))
+        return [(key, texture) for key, texture in tiles if key.scale == nearest]
 
     def request(self, wanted: dict[TileKey, int], channel: str = "view") -> None:
         """Ask for these tiles, with their priority (lower first), for one part of the interface.
@@ -172,7 +198,7 @@ class Renderer(GObject.Object):
         """Body of a worker thread: draw the requested tiles one after another."""
         document = Poppler.Document.new_from_file(self._uri, None)
         while (key := self._next_request()) is not None:
-            texture = draw_tile(document.get_page(key.page), key)
+            texture = draw_tile(document.get_page(key.source), key)
             GLib.idle_add(self._deliver, key, texture)
 
     def _deliver(self, key: TileKey, texture: Gdk.Texture) -> bool:
@@ -186,7 +212,7 @@ class Renderer(GObject.Object):
         self._cache[key] = texture
         self._cache_bytes += texture.get_width() * texture.get_height() * BYTES_PER_PIXEL
         self._trim_cache()
-        self.emit("tile-rendered", key.page)
+        self.emit("tile-rendered", key.source)
         return GLib.SOURCE_REMOVE
 
     def _trim_cache(self) -> None:
@@ -196,16 +222,26 @@ class Renderer(GObject.Object):
             self._cache_bytes -= texture.get_width() * texture.get_height() * BYTES_PER_PIXEL
 
 
+def grid(page_size: Size, scale: float) -> TileGrid:
+    """Return how a page of this size, in points, is cut into tiles at a scale."""
+    width = max(1, math.ceil(page_size[0] * scale))
+    height = max(1, math.ceil(page_size[1] * scale))
+    tile_size = max(width, height) if width * height <= MAX_WHOLE_PAGE_PIXELS else TILE_SIZE
+    return TileGrid(width, height, tile_size)
+
+
 def draw_tile(page: Poppler.Page, key: TileKey) -> Gdk.Texture:
-    """Draw one tile of a page on a white background and return it as a texture (in any thread)."""
-    grid = Renderer.grid(page.get_size(), key.scale)
-    x, y, width, height = grid.tile_rectangle(key.column, key.row)
+    """Draw one tile of a page, turned, on a white background and return it as a texture (in any thread)."""
+    source_size = page.get_size()
+    tile_grid = grid(turned_size(source_size, key.rotation), key.scale)
+    x, y, width, height = tile_grid.tile_rectangle(key.column, key.row)
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
     context = cairo.Context(surface)
     context.set_source_rgb(1, 1, 1)
     context.paint()
     context.translate(-x, -y)
     context.scale(key.scale, key.scale)
+    _turn(context, source_size, key.rotation)
     page.render(context)
     surface.flush()
     return Gdk.MemoryTexture.new(
@@ -215,3 +251,12 @@ def draw_tile(page: Poppler.Page, key: TileKey) -> Gdk.Texture:
         GLib.Bytes.new(bytes(surface.get_data())),
         surface.get_stride(),
     )
+
+
+def _turn(context: cairo.Context, source_size: Size, rotation: int) -> None:
+    """Turn the drawing clockwise, keeping the turned page at the top left corner (as layout.turn_point does)."""
+    width, height = source_size
+    origin = {90: (height, 0.0), 180: (width, height), 270: (0.0, width)}.get(rotation)
+    if origin is not None:
+        context.translate(*origin)
+        context.rotate(math.radians(rotation))
