@@ -44,12 +44,15 @@ class Command(Protocol):
 class History:
     """The commands applied to a document, in order, and those undone that can be redone."""
 
-    def __init__(self) -> None:
-        """Start an empty history for a document just opened, which has nothing to save."""
+    def __init__(self, *, saved: bool = True) -> None:
+        """Start an empty history for a document just opened, which has nothing to save.
+
+        A document that was never saved (merged, F6) has changes to save until it is, even with nothing to undo.
+        """
         self._applied: list[Command] = []
         self._undone: list[Command] = []
         # How many commands were applied when the document was last saved; None once that state cannot come back.
-        self._saved_at: int | None = 0
+        self._saved_at: int | None = 0 if saved else None
 
     @property
     def can_undo(self) -> bool:

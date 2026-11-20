@@ -61,6 +61,12 @@ class PaperSize(enum.Enum):
     A3 = (841.89, 1190.55)
 
 
+def write_empty_pdf(path: Path) -> None:
+    """Write a PDF without pages, on which a merged document is built (F6)."""
+    with pikepdf.new() as pdf:
+        pdf.save(path)
+
+
 def write_blank_pdf(path: Path, size: PaperSize) -> None:
     """Write a PDF with one blank page of a size, to add it to a document like any other PDF."""
     with pikepdf.new() as pdf:

@@ -147,3 +147,17 @@ def test_draws_the_pages_of_a_pdf_added_later(tmp_path: Path) -> None:
         assert not brightness_at_corners(page_renderer, page_renderer.tile_key(1, 0.25))["top left"]
     finally:
         page_renderer.close()
+
+
+def test_draws_a_merged_document(tmp_path: Path) -> None:
+    from penfold.document.document import OpenDocument
+
+    paths = [make_black_square_pdf(tmp_path / "square.pdf"), make_pdf(tmp_path / "blank.pdf", page_count=2)]
+    document = OpenDocument.merge(paths, tmp_path / "merged.pdf", bookmark_per_file=False, keep_bookmarks=False)
+    page_renderer = Renderer(document.sources.spans, worker_count=1)
+    try:
+        assert len(page_renderer.page_sizes) == 3  # the PDF without pages it is built on adds none
+        assert brightness_at_corners(page_renderer, page_renderer.tile_key(0, 0.25))["top left"]
+    finally:
+        page_renderer.close()
+        document.close()

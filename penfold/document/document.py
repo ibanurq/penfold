@@ -12,10 +12,10 @@ from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
-from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf
+from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
 from penfold.document.saving import SavePlan
 from penfold.document.sources import SourceFile, Sources
-from penfold.errors import ProtectedPdfError
+from penfold.errors import PenfoldError, ProtectedPdfError
 
 
 @dataclass(frozen=True)
@@ -33,9 +33,13 @@ class OpenDocument:
     is a command run through execute, so it can be undone (D19), and every change is announced to the listeners.
     """
 
-    def __init__(self, path: Path, source: SourceFile) -> None:
-        """Wrap a PDF already copied and opened; use OpenDocument.open to open a file."""
+    def __init__(self, path: Path, source: SourceFile, *, is_new: bool = False) -> None:
+        """Wrap a PDF already copied and opened; use OpenDocument.open to open a file, or merge to merge several.
+
+        A new document (merged) is not saved yet: path is where it is proposed to save it.
+        """
         self.path = path
+        self.is_new = is_new
         self.sources = Sources(source)
         pdf = source.pdf
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
@@ -44,7 +48,7 @@ class OpenDocument:
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
         self._positions = self._index_positions()
-        self._history = History()
+        self._history = History(saved=not is_new)
         self._listeners: list[Callable[[Change], None]] = []
 
     @classmethod
@@ -56,6 +60,44 @@ class OpenDocument:
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
         return cls(path, SourceFile(path))
+
+    @classmethod
+    def merge(cls, paths: list[Path], proposed: Path, *, bookmark_per_file: bool, keep_bookmarks: bool) -> Self:
+        """Merge PDFs, in order, into a new document that is not saved yet (F1, F2, F6); proposed is its file.
+
+        It is built on a PDF of its own, as 0.6 does, so it takes nothing from the first file but its pages. With
+        bookmark_per_file, each file has an unfolded bookmark named after it (D50), holding the file's own bookmarks if
+        keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another.
+
+        Raises:
+            ProtectedPdfError: a PDF is protected, and cannot be merged (F4).
+            PasswordRequiredError: a PDF needs a password to be opened.
+            DocumentOpenError: a file is missing, unreadable or not a PDF.
+        """
+        with tempfile.TemporaryDirectory(prefix="penfold-") as folder:
+            empty = Path(folder) / "empty.pdf"
+            write_empty_pdf(empty)
+            document = cls(proposed, SourceFile(empty), is_new=True)
+        try:
+            for path in paths:
+                document._append_merged(path, bookmark_per_file=bookmark_per_file, keep_bookmarks=keep_bookmarks)
+        except PenfoldError:
+            document.close()
+            raise
+        document._positions = document._index_positions()
+        return document
+
+    def _append_merged(self, path: Path, *, bookmark_per_file: bool, keep_bookmarks: bool) -> None:
+        """Put the pages of a PDF at the end of a document being merged, with the bookmarks chosen."""
+        added = self.add_source(path)
+        self.pages.extend(added.pages)
+        [file_bookmark] = added.bookmarks
+        own = file_bookmark.children if keep_bookmarks else []
+        if bookmark_per_file:
+            file_bookmark.children = own
+            self.bookmarks.append(file_bookmark)
+        else:
+            self.bookmarks.extend(own)
 
     @property
     def file_name(self) -> str:
@@ -214,6 +256,7 @@ class OpenDocument:
     def mark_saved(self, plan: SavePlan) -> None:
         """Record that a plan was saved: the document now belongs to its file, and has nothing to save up to it."""
         self.path = plan.target
+        self.is_new = False
         self._history.mark_saved(plan.checkpoint)
         self._notify(Change.FILE)
 

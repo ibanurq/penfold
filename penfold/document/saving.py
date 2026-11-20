@@ -30,6 +30,8 @@ from penfold.errors import SaveError
 OUTLINE_LINKS = frozenset({"/Parent", "/Prev", "/Next", "/First", "/Last", "/Count"})
 NEW_FILE_MODE = 0o666  # Narrowed by the user's umask, as for any new file.
 RANDOM_NAME_BYTES = 6
+# The owner of a field name given on renaming, which no PDF owns (F7).
+RENAMED = -1
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,7 @@ def save(plan: SavePlan) -> None:
             deleted = [original for index, original in enumerate(originals) if index not in placed]
             _write_labels(pdf, plan.pages)
             _remove_fields_of_pages(pdf, deleted)
+            _bring_in_forms(pdf, plan.pages, others)
             _write_outline(pdf, list(plan.bookmarks), placed)
             _write_safely(pdf, plan.target, len(plan.pages))
     except (pikepdf.PdfError, OSError) as error:
@@ -93,9 +96,22 @@ class _OtherSources(contextlib.ExitStack):
     def page(self, source_index: int) -> pikepdf.Page:
         """The page of an added PDF with this source index."""
         source, index = locate(self._spans, source_index)
+        return self.pdf(source).pages[index]
+
+    def pdf(self, source: int) -> pikepdf.Pdf:
+        """An added PDF, by its position among the sources."""
         if source not in self._opened:
             self._opened[source] = self.enter_context(pikepdf.open(self._spans[source].path))
-        return self._opened[source].pages[index]
+        return self._opened[source]
+
+    def pages_by_source(self, pages: tuple[Page, ...]) -> dict[int, set[int]]:
+        """The pages of each added PDF that are in the document, by their index in it; sources in order."""
+        chosen: dict[int, set[int]] = {}
+        for page in pages:
+            source, index = locate(self._spans, page.source_index)
+            if source:
+                chosen.setdefault(source, set()).add(index)
+        return dict(sorted(chosen.items()))
 
 
 def _arrange_pages(
@@ -134,6 +150,110 @@ def _remove_fields_of_pages(pdf: pikepdf.Pdf, pages: list[pikepdf.Page]) -> None
         return
     widgets = {annotation.objgen for page in pages for annotation in _items(page.obj.get("/Annots"))}
     form.Fields = pikepdf.Array(_fields_without(fields, widgets))
+
+
+def _bring_in_forms(pdf: pikepdf.Pdf, pages: tuple[Page, ...], others: _OtherSources) -> None:
+    """Add to the form the fields of the pages copied from other PDFs, as 0.6 does when merging (F7).
+
+    A field whose name a field of another PDF already has gets a number: "name_2", "name_3"… The form takes the
+    default appearance, alignment and resources (fonts) of the forms it receives, without replacing its own.
+    """
+    owners = dict.fromkeys(_field_names(pdf.Root.get("/AcroForm")), 0)
+    for source, indexes in others.pages_by_source(pages).items():
+        foreign = others.pdf(source)
+        form = foreign.Root.get("/AcroForm")
+        fields = form.get("/Fields") if isinstance(form, pikepdf.Dictionary) else None
+        if not isinstance(form, pikepdf.Dictionary) or not isinstance(fields, pikepdf.Array):
+            continue
+        left_out = [page for index, page in enumerate(foreign.pages) if index not in indexes]
+        widgets = {annotation.objgen for page in left_out for annotation in _items(page.obj.get("/Annots"))}
+        kept = _fields_without(fields, widgets)
+        if not kept:
+            continue
+        own_form = _form_of(pdf)
+        for field in kept:
+            copied = _copy_in(pdf, field)
+            _name_uniquely(copied, source, owners)
+            own_form.Fields.append(copied)
+        _take_form_settings(pdf, own_form, form)
+
+
+def _field_names(form: object) -> list[str]:
+    """The names of the top fields of a form."""
+    fields = form.get("/Fields") if isinstance(form, pikepdf.Dictionary) else None
+    return [str(field.T) for field in _items(fields) if isinstance(field, pikepdf.Dictionary) and "/T" in field]
+
+
+def _form_of(pdf: pikepdf.Pdf) -> pikepdf.Dictionary:
+    """The form of the PDF, made empty if it has none."""
+    form = pdf.Root.get("/AcroForm")
+    if not isinstance(form, pikepdf.Dictionary):
+        form = pdf.Root.AcroForm = pdf.make_indirect(pikepdf.Dictionary(Fields=pikepdf.Array()))
+    if not isinstance(form.get("/Fields"), pikepdf.Array):
+        form.Fields = pikepdf.Array()
+    return form
+
+
+def _name_uniquely(field: pikepdf.Object, source: int, owners: dict[str, int]) -> None:
+    """Rename a field whose name a field of another PDF has, adding the first free number from 2.
+
+    A name given this way belongs to no PDF, so no field takes it afterwards: 0.6 could end with two fields "name_2"
+    when a PDF had both "name" and "name_2".
+    """
+    if not isinstance(field, pikepdf.Dictionary) or "/T" not in field:
+        return
+    name = str(field.T)
+    if owners.get(name, source) == source:
+        owners[name] = source
+        return
+    number = 2
+    while f"{name}_{number}" in owners:
+        number += 1
+    field.T = pikepdf.String(f"{name}_{number}")
+    owners[f"{name}_{number}"] = RENAMED
+
+
+def _take_form_settings(pdf: pikepdf.Pdf, form: pikepdf.Dictionary, foreign_form: pikepdf.Dictionary) -> None:
+    """Take the default appearance, alignment, appearance flag and resources of another form, keeping its own."""
+    for key in ("/DA", "/Q"):
+        if key not in form and key in foreign_form:
+            form[key] = _copy_in(pdf, foreign_form[key])
+    if bool(foreign_form.get("/NeedAppearances")):
+        form.NeedAppearances = True
+    resources = foreign_form.get("/DR")
+    if isinstance(resources, pikepdf.Dictionary):
+        _take_resources(pdf, form, resources)
+
+
+def _take_resources(pdf: pikepdf.Pdf, form: pikepdf.Dictionary, resources: pikepdf.Dictionary) -> None:
+    """Add to the form's resources (fonts…) those of another form that it lacks."""
+    own = form.get("/DR")
+    if not isinstance(own, pikepdf.Dictionary):
+        form.DR = _copy_in(pdf, resources)
+        return
+    for kind, entries in resources.items():
+        if kind not in own:
+            own[kind] = _copy_in(pdf, entries)
+        elif isinstance(own[kind], pikepdf.Dictionary) and isinstance(entries, pikepdf.Dictionary):
+            for name, value in entries.items():
+                if name not in own[kind]:
+                    own[kind][name] = _copy_in(pdf, value)
+
+
+def _copy_in(pdf: pikepdf.Pdf, value: pikepdf.Object) -> pikepdf.Object:
+    """Copy an object of another PDF, with all it uses; what was already copied with the pages is not copied again."""
+    if value.is_indirect:
+        return pdf.copy_foreign(value)
+    if isinstance(value, pikepdf.Dictionary):
+        return pikepdf.Dictionary({key: _copy_in(pdf, item) for key, item in value.items()})
+    if isinstance(value, pikepdf.Array):
+        return pikepdf.Array([_copy_in(pdf, item) for item in _items(value)])
+    # Strings and names belong to their PDF too; numbers and booleans come as Python values.
+    if isinstance(value, pikepdf.String):
+        return pikepdf.String(bytes(value))
+    if isinstance(value, pikepdf.Name):
+        return pikepdf.Name(str(value))
+    return value
 
 
 def _items(array: object) -> Iterator[pikepdf.Object]:

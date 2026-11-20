@@ -144,6 +144,8 @@ class Renderer(GObject.Object):
         """Take sources added after the known ones, reading the size of their pages."""
         self._spans = (*self._spans, *added)
         for span in added:
+            if not span.page_count:
+                continue  # The PDF without pages a merged document is built on.
             document, _start = self._main_sources.document(span.start)
             self._source_sizes.extend(document.get_page(index).get_size() for index in range(span.page_count))
 
