@@ -109,14 +109,8 @@ class Sources:
         self._files = [opened]
         self.spans: Spans = (SourceSpan(opened.path, 0, len(opened.pdf.pages)),)
 
-    def add(self, path: Path) -> SourceSpan:
-        """Copy and open another PDF, and number its pages after those of the last source.
-
-        Raises:
-            PasswordRequiredError: the PDF needs a password to be opened.
-            DocumentOpenError: the file is missing, unreadable or not a PDF.
-        """
-        added = SourceFile(path)
+    def add(self, added: SourceFile) -> SourceSpan:
+        """Take another PDF, already copied and opened, numbering its pages after those of the last source."""
         last = self.spans[-1]
         span = SourceSpan(added.path, last.start + last.page_count, len(added.pdf.pages))
         self._files.append(added)

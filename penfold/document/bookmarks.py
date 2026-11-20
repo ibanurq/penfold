@@ -1,7 +1,8 @@
 """Bookmarks: the outline of a PDF (ISO 32000-1, 12.3.3), read as a tree.
 
 Each bookmark keeps its title, its style (bold, italic, colour), whether it starts open, and where it leads: a page
-and, if the destination gives one, the height to show, in points from the top of the page.
+and, if the destination gives one, the height to show, in points from the top of the page. Bookmarks of a PDF whose
+pages are added come with them (E4).
 """
 
 import bisect
@@ -18,6 +19,8 @@ TOP_ARGUMENT = {"/XYZ": 1, "/FitH": 0, "/FitBH": 0, "/FitR": 3}
 # A malformed outline could loop forever; no real outline is deeper or longer.
 MAX_DEPTH = 64
 MAX_ITEMS = 100_000
+# How a destination shows its page (ISO 32000-1, 12.3.2.2): its type (/XYZ, /FitH…) and its numbers (None for null).
+View = tuple[str, tuple[float | None, ...]]
 
 
 @dataclass
@@ -25,7 +28,8 @@ class Bookmark:
     """One bookmark and the ones under it.
 
     Its page is the source index of the page it leads to (sources.py), and its origin the object number of the outline
-    item it was read from, whose destination or action is kept on saving (G8).
+    item it was read from in the opened PDF, whose destination or action is kept on saving (G8). A bookmark of a PDF
+    added has no origin: its view keeps how its destination shows the page, to write it again on saving.
     """
 
     title: str
@@ -37,6 +41,7 @@ class Bookmark:
     is_open: bool = False
     children: list["Bookmark"] = field(default_factory=list)
     origin: tuple[int, int] | None = None
+    view: View | None = None
 
 
 def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
@@ -53,6 +58,50 @@ def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[B
         else:
             kept.append(replace(bookmark, children=children))
     return kept
+
+
+def for_added_pages(bookmarks: list[Bookmark], first_page: int) -> list[Bookmark]:
+    """Return the bookmarks of a PDF read to be added to another, whose pages are numbered from first_page.
+
+    Only those that lead to a page are kept, as 0.6 does; the bookmarks under a removed one move up to its place. They
+    lose their origin, which belongs to their own PDF.
+    """
+    kept = []
+    for bookmark in bookmarks:
+        children = for_added_pages(bookmark.children, first_page)
+        if bookmark.page is None:
+            kept.extend(children)
+        else:
+            kept.append(replace(bookmark, page=first_page + bookmark.page, origin=None, children=children))
+    return kept
+
+
+def with_inserted(
+    bookmarks: list[Bookmark], inserted: list[Bookmark], first: int, position: Callable[[int], int | None]
+) -> list[Bookmark]:
+    """Return the outline with some bookmarks put where pages were inserted, as 0.6 does (E4).
+
+    They go after the last bookmark of the level that leads before the first page inserted, or inside it (unfolding
+    it) if some bookmark under it leads to that page or after; first is the position of that page and position says
+    where a page is now. Bookmarks without a page count as leading before. The outline given is left as it was.
+    """
+
+    def before(bookmark: Bookmark) -> bool:
+        place = position(bookmark.page) if bookmark.page is not None else None
+        return place is None or place < first
+
+    def leads_from_first(level: list[Bookmark]) -> bool:
+        return any(not before(bookmark) or leads_from_first(bookmark.children) for bookmark in level)
+
+    earlier = [index for index, bookmark in enumerate(bookmarks) if before(bookmark)]
+    if not earlier:
+        return [*inserted, *bookmarks]
+    last = earlier[-1]
+    previous = bookmarks[last]
+    if leads_from_first(previous.children):
+        children = with_inserted(previous.children, inserted, first, position)
+        return [*bookmarks[:last], replace(previous, is_open=True, children=children), *bookmarks[last + 1 :]]
+    return [*bookmarks[: last + 1], *inserted, *bookmarks[last + 1 :]]
 
 
 def read_bookmarks(pdf: pikepdf.Pdf) -> list[Bookmark]:
@@ -87,7 +136,7 @@ class _OutlineReader:
         title = item.get("/Title")
         flags = _integer(item.get("/F"))
         count = _integer(item.get("/Count"))
-        page, top = self._destination(item)
+        page, top, view = self._destination(item)
         return Bookmark(
             title=str(title) if isinstance(title, pikepdf.String) else "",
             page=page,
@@ -98,9 +147,11 @@ class _OutlineReader:
             is_open=count > 0,
             children=self.read_siblings(item.get("/First"), depth + 1),
             origin=item.objgen if item.is_indirect else None,
+            view=view,
         )
 
-    def _destination(self, item: pikepdf.Dictionary) -> tuple[int | None, float | None]:
+    def _destination(self, item: pikepdf.Dictionary) -> tuple[int | None, float | None, View | None]:
+        """Where an item leads: the page, the height to show and how it shows the page; all None if nowhere."""
         destination: object = item.get("/Dest")
         action = item.get("/A")
         if destination is None and isinstance(action, pikepdf.Dictionary) and action.get("/S") == pikepdf.Name.GoTo:
@@ -109,12 +160,13 @@ class _OutlineReader:
         if isinstance(destination, pikepdf.Dictionary):
             destination = destination.get("/D")
         if not isinstance(destination, pikepdf.Array) or len(destination) < 2:  # noqa: PLR2004 (page and type)
-            return None, None
-        target = destination[0]
+            return None, None, None
+        target, kind = destination[0], destination[1]
         page = self._pages.get(target.objgen) if isinstance(target, pikepdf.Dictionary) else None
         if page is None:
-            return None, None
-        return page, self._top(destination, page)
+            return None, None, None
+        view = (str(kind), tuple(_number(destination[index]) for index in range(2, len(destination))))
+        return page, self._top(destination, page), view if isinstance(kind, pikepdf.Name) else None
 
     def _resolve_name(self, destination: object) -> object:
         """Look a named destination up in the catalog (/Names /Dests, or the older /Dests dictionary)."""

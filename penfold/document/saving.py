@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pikepdf
 
-from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark
+from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
 from penfold.document.history import Command
 from penfold.document.page_labels import PageLabel, write_page_labels
 from penfold.document.pages import Page
@@ -204,15 +204,18 @@ def _outline_item(pdf: pikepdf.Pdf, bookmark: Bookmark, placed: dict[int, pikepd
             if key not in OUTLINE_LINKS:
                 item[key] = value
     elif bookmark.page in placed:
-        item.Dest = _destination(placed[bookmark.page], bookmark.top)
+        item.Dest = _destination(placed[bookmark.page], bookmark.top, bookmark.view)
     item.Title = pikepdf.String(bookmark.title)
     _set_or_remove(item, "/F", (ITALIC_FLAG if bookmark.italic else 0) | (BOLD_FLAG if bookmark.bold else 0) or None)
     _set_or_remove(item, "/C", None if bookmark.color is None else pikepdf.Array(bookmark.color))
     return pdf.make_indirect(item)
 
 
-def _destination(page: pikepdf.Page, top: float | None) -> pikepdf.Array:
-    """A destination to a page, at a height in points from its top if there is one (ISO 32000-1, 12.3.2.2)."""
+def _destination(page: pikepdf.Page, top: float | None, view: View | None) -> pikepdf.Array:
+    """A destination to a page (ISO 32000-1, 12.3.2.2): as its view says, or else at a height from its top if any."""
+    if view is not None:
+        kind, numbers = view
+        return pikepdf.Array([page.obj, pikepdf.Name(kind), *numbers])
     if top is None:
         return pikepdf.Array([page.obj, pikepdf.Name.Fit])
     height = float(page.mediabox[3])

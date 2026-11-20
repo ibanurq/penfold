@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from penfold.document.sources import SourceFile, Sources, SourceSpan, locate
-from penfold.errors import DocumentOpenError
 from tests.sample_pdfs import make_pdf
 
 SPANS = (SourceSpan(Path("a.pdf"), 0, 3), SourceSpan(Path("b.pdf"), 3, 2), SourceSpan(Path("c.pdf"), 5, 1))
@@ -27,8 +26,8 @@ def test_a_page_of_no_source_is_refused(source_index: int) -> None:
 def test_added_pdfs_are_copied_and_numbered_after_the_others(tmp_path: Path) -> None:
     opened = make_pdf(tmp_path / "opened.pdf", page_count=3)
     sources = Sources(SourceFile(opened))
-    first = sources.add(make_pdf(tmp_path / "first.pdf", page_count=2))
-    second = sources.add(make_pdf(tmp_path / "second.pdf", page_count=4))
+    first = sources.add(SourceFile(make_pdf(tmp_path / "first.pdf", page_count=2)))
+    second = sources.add(SourceFile(make_pdf(tmp_path / "second.pdf", page_count=4)))
     assert [(span.start, span.page_count) for span in sources.spans] == [(0, 3), (3, 2), (5, 4)]
     assert sources.spans[1:] == (first, second)
     assert first.path.parent != tmp_path  # a private copy
@@ -36,11 +35,3 @@ def test_added_pdfs_are_copied_and_numbered_after_the_others(tmp_path: Path) -> 
     sources.close()
     assert not first.path.exists()
     assert not sources.spans[0].path.exists()
-
-
-def test_a_pdf_that_cannot_be_added_leaves_the_sources_as_they_were(tmp_path: Path) -> None:
-    sources = Sources(SourceFile(make_pdf(tmp_path / "opened.pdf")))
-    with pytest.raises(DocumentOpenError):
-        sources.add(tmp_path / "missing.pdf")
-    assert len(sources.spans) == 1
-    sources.close()

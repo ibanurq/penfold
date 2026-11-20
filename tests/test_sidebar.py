@@ -437,3 +437,30 @@ def test_escape_clears_the_selection_of_the_panel_view(window: "PenfoldWindow", 
 def press_escape(window: "PenfoldWindow") -> bool:
     """Send Esc to the window as nothing inside it used the key; return whether it did something."""
     return window._on_key_pressed(Gtk.EventControllerKey(), Gdk.KEY_Escape, 0, Gdk.ModifierType(0))
+
+
+def test_added_pages_show_in_every_view(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.document.commands.pages import AddPages
+
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=2))
+    document, renderer = window.document, window.renderer
+    assert document is not None
+    assert renderer is not None
+    path = make_text_pdf(tmp_path / "text.pdf")
+    add_outline_to_text_pdf(path)
+    document.execute(AddPages(document, document.add_source(path), 1))
+    assert window.pages_view.pages.get_n_items() == 5
+    assert renderer.layout[1].source == 2
+    window.sidebar.show_view("bookmarks")
+    wait_until(lambda: bool(window.bookmarks_view._rows))
+    assert bookmark_pages(window) == {"Added": "2"}
+    document.undo()
+    assert window.pages_view.pages.get_n_items() == 2
+    assert bookmark_pages(window) == {}
+
+
+def add_outline_to_text_pdf(path: Path) -> None:
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        with pdf.open_outline() as outline:
+            outline.root.append(pikepdf.OutlineItem("Added", 0))
+        pdf.save(path)

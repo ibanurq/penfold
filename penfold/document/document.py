@@ -1,18 +1,28 @@
 """The open document: one PDF and what Penfold knows about it."""
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
 import pikepdf
 
 from penfold.document.annotations import Annotation, read_annotations
-from penfold.document.bookmarks import Bookmark, read_bookmarks
+from penfold.document.bookmarks import Bookmark, for_added_pages, read_bookmarks
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, initial_pages
 from penfold.document.saving import SavePlan
 from penfold.document.sources import SourceFile, Sources
+from penfold.errors import ProtectedPdfError
+
+
+@dataclass(frozen=True)
+class AddedPdf:
+    """A PDF ready to have its pages added to the document (E4): its pages, with their labels, and its bookmarks."""
+
+    pages: list[Page]
+    bookmarks: list[Bookmark]
 
 
 class OpenDocument:
@@ -75,6 +85,29 @@ class OpenDocument:
 
     def _index_positions(self) -> dict[int, int]:
         return {page.source_index: position for position, page in enumerate(self.pages)}
+
+    def add_source(self, path: Path) -> AddedPdf:
+        """Copy and open a PDF whose pages will be added (by the AddPages command).
+
+        Its annotations are listed from now on, while their pages are in the document.
+
+        Raises:
+            ProtectedPdfError: the PDF is protected, and its pages cannot be added (2.7).
+            PasswordRequiredError: the PDF needs a password to be opened.
+            DocumentOpenError: the file is missing, unreadable or not a PDF.
+        """
+        source = SourceFile(path)
+        pdf = source.pdf
+        if pdf.is_encrypted:
+            source.close()
+            raise ProtectedPdfError(str(path))
+        start = self.sources.add(source).start
+        self.annotations = [*self.annotations, *read_annotations(pdf, start)]
+        labels = read_page_labels(pdf)
+        pages = [
+            Page(start + index, label=None if labels is None else labels[index]) for index in range(len(pdf.pages))
+        ]
+        return AddedPdf(pages, for_added_pages(read_bookmarks(pdf), start))
 
     def find_page(self, text: str) -> int | None:
         """Find the page that someone typed in the page box: a label first, then a page number.

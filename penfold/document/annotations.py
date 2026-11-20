@@ -56,10 +56,13 @@ class Annotation:
         return self.author == OWN_AUTHOR
 
 
-def read_annotations(pdf: pikepdf.Pdf) -> list[Annotation]:
-    """Return the annotations of every page, sorted by page and position (top to bottom, then left to right)."""
+def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:
+    """Return the annotations of every page, sorted by page and position (top to bottom, then left to right).
+
+    The pages are numbered from first_page: their source indexes (sources.py).
+    """
     annotations = []
-    for index, page in enumerate(pdf.pages):
+    for index, page in enumerate(pdf.pages, start=first_page):
         height = _page_height(page)
         annots = page.obj.get("/Annots")
         if not isinstance(annots, pikepdf.Array):

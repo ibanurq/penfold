@@ -1,9 +1,9 @@
-"""Page edits: turn, delete and move pages (E1, E2, E3)."""
+"""Page edits: turn, delete, move and add pages (E1 to E6)."""
 
 from collections.abc import Iterable
 
-from penfold.document.bookmarks import Bookmark, without_pages
-from penfold.document.document import OpenDocument
+from penfold.document.bookmarks import Bookmark, with_inserted, without_pages
+from penfold.document.document import AddedPdf, OpenDocument
 from penfold.document.history import Change
 from penfold.document.pages import QUARTER_TURN, Page
 
@@ -141,3 +141,43 @@ class MovePages:
     def _target(self) -> int:
         """Where the moved pages start once taken out of the list: `before`, less the moved pages ahead of it."""
         return self._before - sum(1 for position in self._positions if position < self._before)
+
+
+class AddPages:
+    """Add the pages of another PDF at a position, with its bookmarks put in their place (E4, E6)."""
+
+    changes = Change.PAGES | Change.BOOKMARKS
+
+    def __init__(self, document: OpenDocument, added: AddedPdf, position: int) -> None:
+        """Prepare adding the pages of a PDF (from document.add_source) before the page now at a position.
+
+        The position can be the number of pages, to add them at the end.
+
+        Raises:
+            ValueError: the position is outside the document.
+        """
+        if not 0 <= position <= document.page_count:
+            message = f"cannot add pages at position {position} of {document.page_count}"
+            raise ValueError(message)
+        self._document = document
+        self._added = added
+        self._position = position
+        self._bookmarks: list[Bookmark] = []
+
+    @property
+    def positions(self) -> range:
+        """Where the pages added are."""
+        return range(self._position, self._position + len(self._added.pages))
+
+    def apply(self) -> None:
+        """Insert the pages and their bookmarks."""
+        document = self._document
+        document.pages[self._position : self._position] = self._added.pages
+        self._bookmarks = document.bookmarks
+        positions = {page.source_index: position for position, page in enumerate(document.pages)}
+        document.bookmarks = with_inserted(self._bookmarks, self._added.bookmarks, self._position, positions.get)
+
+    def revert(self) -> None:
+        """Take the pages out again, and put the bookmarks back as they were."""
+        del self._document.pages[self.positions.start : self.positions.stop]
+        self._document.bookmarks = self._bookmarks

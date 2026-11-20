@@ -10,6 +10,7 @@ from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.pages import Page
 from penfold.document.saving import save
+from penfold.document.sources import SourceFile
 from penfold.errors import SaveError
 from tests.sample_pdfs import make_pdf
 
@@ -302,7 +303,7 @@ def test_pages_of_other_pdfs_are_copied_in_with_what_they_hold(document: OpenDoc
     )
     other.pages[0].obj.Annots = other.make_indirect(pikepdf.Array([other.make_indirect(link)]))
     other.save(tmp_path / "other.pdf")
-    added = document.sources.add(tmp_path / "other.pdf")
+    added = document.sources.add(SourceFile(tmp_path / "other.pdf"))
     document.pages = [document.pages[0], Page(added.start + 1, rotation=90), Page(added.start)]
     with save_over(document) as saved:
         assert widths(saved) == [100, 301, 300]
