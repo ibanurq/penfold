@@ -8,7 +8,7 @@ from pathlib import Path
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
-from penfold.document.commands.pages import DeletePages, RotatePages
+from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
 from penfold.errors import DocumentOpenError
@@ -224,6 +224,14 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self.document is not None:
             self.document.execute(RotatePages(self.document, self.pages_view.selected_pages(), degrees))
 
+    def _on_move_requested(self, _view: PagesView, positions: list[int], before: int) -> None:
+        """Move dragged thumbnails (E1); dropping them where they already are changes nothing."""
+        if self.document is None:
+            return
+        command = MovePages(self.document, positions, before)
+        if command.moves_anything:
+            self.document.execute(command)
+
     def _delete_selected_pages(self) -> None:
         """Delete the selected pages at once, with a notice to undo it (D19)."""
         document = self.document
@@ -291,6 +299,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.pages_view = PagesView()
         self.pages_view.connect("page-activated", lambda _view, page: self.document_view.go_to(page))
         self.pages_view.selection.connect("selection-changed", lambda *_arguments: self._update_page_actions())
+        self.pages_view.connect("move-requested", self._on_move_requested)
         self.sidebar.add_view(sidebar_views.PAGES, self.pages_view)
         self.bookmarks_view = BookmarksView()
         self.bookmarks_view.connect("destination-activated", self._on_destination_activated)

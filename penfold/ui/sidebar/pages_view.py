@@ -6,8 +6,8 @@ proportions of an upright A4, fitted inside without being distorted, so an A3 lo
 centred vertically. The thumbnail of the page being read is marked, with a soft box over the part shown in the
 document.
 
-With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6). Adding and extracting come with
-phase 4.
+With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6). Thumbnails are dragged to reorder
+the pages, several at once if the one dragged is selected (E1). Adding and extracting come with phase 4.
 """
 
 import math
@@ -40,6 +40,10 @@ SHRINKING_WIDTH = 24
 CHANNEL = "thumbnails"
 VISIBLE_AREA_FILL = 0.12
 VISIBLE_AREA_EDGE = 0.6
+# While dragging thumbnails near the top or bottom of the list, it scrolls: within this distance, up to this speed
+# (pixels per frame, faster nearer the edge).
+AUTOSCROLL_EDGE = 48
+AUTOSCROLL_SPEED = 18
 
 
 def column_count(available_width: float, thumbnail_width: float) -> int:
@@ -66,6 +70,22 @@ def rgba(red: float, green: float, blue: float, alpha: float) -> Gdk.RGBA:
     color = Gdk.RGBA()
     color.red, color.green, color.blue, color.alpha = red, green, blue, alpha
     return color
+
+
+def drop_position(page: int, x: float, width: float) -> int:
+    """Where pages dropped on a thumbnail go: before it if dropped on its left half, after it on its right half."""
+    return page if x < width / 2 else page + 1
+
+
+class DraggedPages(GObject.Object):
+    """The pages being dragged, by position: what a thumbnail carries while it is dragged."""
+
+    __gtype_name__ = "PenfoldDraggedPages"
+
+    def __init__(self, positions: list[int]) -> None:
+        """Carry the pages at these positions."""
+        super().__init__()
+        self.positions = positions
 
 
 class PageItem(GObject.Object):
@@ -169,12 +189,14 @@ class PageCell(Gtk.Box):
 class PagesView(Gtk.Box):
     """Thumbnails of every page, in as many columns as fit, following the page being read.
 
-    "page-activated" is emitted with a page index when a thumbnail is clicked without Ctrl or Shift.
+    "page-activated" is emitted with a page index when a thumbnail is clicked without Ctrl or Shift, and
+    "move-requested" with the positions of the pages dropped and the position they go before.
     """
 
     __gtype_name__ = "PenfoldPagesView"
     __gsignals__: ClassVar = {
         "page-activated": (GObject.SignalFlags.RUN_FIRST, None, (int,)),
+        "move-requested": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT, int)),
     }
 
     def __init__(self) -> None:
@@ -225,6 +247,7 @@ class PagesView(Gtk.Box):
         pinch.connect("scale-changed", lambda _gesture, scale: self.set_thumbnail_width(self._pinch_width * scale))
         self.scrolled.add_controller(pinch)
         self._pinch_width = self.chosen_width
+        self._add_autoscroll()
         # Check the width at every frame (a cheap comparison) and lay the columns out again when it changes.
         self._fitted_width = -1
         self.add_tick_callback(self._on_tick)
@@ -457,7 +480,74 @@ class PagesView(Gtk.Box):
         click = Gtk.GestureClick()
         click.connect("released", self._on_cell_clicked, item)
         cell.add_controller(click)
+        drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+        drag.connect("prepare", self._on_drag_prepare, cell)
+        drag.connect("drag-begin", self._on_drag_begin, cell)
+        cell.add_controller(drag)
+        drop = Gtk.DropTarget.new(DraggedPages, Gdk.DragAction.MOVE)
+        drop.connect("motion", self._on_drop_motion, cell)
+        drop.connect("leave", lambda _target: self._show_drop_side(cell, None))
+        drop.connect("drop", self._on_drop, cell)
+        cell.add_controller(drop)
         item.set_child(cell)
+
+    # Dragging thumbnails (E1).
+
+    def _on_drag_prepare(self, _source: Gtk.DragSource, _x: float, _y: float, cell: PageCell) -> Gdk.ContentProvider:
+        """Drag the selected pages if the thumbnail is one of them; otherwise only its page."""
+        page = cell.thumbnail.page
+        selected = self.selected_pages()
+        return Gdk.ContentProvider.new_for_value(DraggedPages(selected if page in selected else [page]))
+
+    def _on_drag_begin(self, source: Gtk.DragSource, _drag: Gdk.Drag, cell: PageCell) -> None:
+        source.set_icon(Gtk.WidgetPaintable.new(cell.thumbnail), cell.thumbnail.get_width() // 2, 0)
+
+    def _on_drop_motion(self, _target: Gtk.DropTarget, x: float, _y: float, cell: PageCell) -> Gdk.DragAction:
+        before = drop_position(cell.thumbnail.page, x, cell.get_width()) == cell.thumbnail.page
+        self._show_drop_side(cell, "drop-before" if before else "drop-after")
+        return Gdk.DragAction.MOVE
+
+    def _show_drop_side(self, cell: PageCell, side: str | None) -> None:
+        """Mark the side of the thumbnail where the pages would go."""
+        for name in ("drop-before", "drop-after"):
+            if name == side:
+                cell.add_css_class(name)
+            else:
+                cell.remove_css_class(name)
+
+    def _on_drop(self, _target: Gtk.DropTarget, value: object, x: float, _y: float, cell: PageCell) -> bool:
+        self._show_drop_side(cell, None)
+        if not isinstance(value, DraggedPages):
+            return False
+        self.emit("move-requested", value.positions, drop_position(cell.thumbnail.page, x, cell.get_width()))
+        return True
+
+    def _add_autoscroll(self) -> None:
+        """While thumbnails are dragged near the top or bottom of the list, scroll it, so pages can go far."""
+        motion = Gtk.DropControllerMotion()
+        self._drag_y: float | None = None
+        motion.connect("enter", self._on_drag_motion)
+        motion.connect("motion", self._on_drag_motion)
+        motion.connect("leave", lambda _motion: setattr(self, "_drag_y", None))
+        self.scrolled.add_controller(motion)
+
+    def _on_drag_motion(self, _motion: Gtk.DropControllerMotion, _x: float, y: float) -> None:
+        if self._drag_y is None:
+            self._drag_y = y
+            self.scrolled.add_tick_callback(self._autoscroll)
+        self._drag_y = y
+
+    def _autoscroll(self, _widget: Gtk.Widget, _clock: Gdk.FrameClock) -> bool:
+        if self._drag_y is None:
+            return GLib.SOURCE_REMOVE
+        height = self.scrolled.get_height()
+        distance = min(self._drag_y, height - self._drag_y)
+        if distance < AUTOSCROLL_EDGE:
+            direction = -1 if self._drag_y < height / 2 else 1
+            adjustment = self.scrolled.get_vadjustment()
+            step = AUTOSCROLL_SPEED * (1 - max(0.0, distance) / AUTOSCROLL_EDGE)
+            adjustment.set_value(adjustment.get_value() + direction * step)
+        return GLib.SOURCE_CONTINUE
 
     def _on_bind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         page_item = item.get_item()

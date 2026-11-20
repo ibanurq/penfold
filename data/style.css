@@ -22,3 +22,12 @@
 .document-view {
   background-color: color-mix(in srgb, var(--window-fg-color) 8%, var(--window-bg-color));
 }
+
+/* Where dragged thumbnails would go: a line in the accent colour on that side of a thumbnail (E1). */
+.drop-before {
+  box-shadow: inset 3px 0 0 var(--accent-bg-color);
+}
+
+.drop-after {
+  box-shadow: inset -3px 0 0 var(--accent-bg-color);
+}

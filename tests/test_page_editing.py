@@ -130,3 +130,24 @@ def test_the_delete_key_belongs_to_the_view_shown(window: "PenfoldWindow") -> No
     window.sidebar.show_view(sidebar_views.BOOKMARKS)
     assert not window._on_delete_key(window, None)
     assert document.page_count == 5
+
+
+@pytest.mark.parametrize(("x", "expected"), [(10, 3), (49, 3), (51, 4), (90, 4)])
+def test_dropping_on_a_thumbnail_puts_the_pages_on_that_side(x: float, expected: int) -> None:
+    from penfold.ui.sidebar.pages_view import drop_position
+
+    assert drop_position(3, x, 100) == expected
+
+
+def test_dropped_thumbnails_move_their_pages(window: "PenfoldWindow") -> None:
+    document = window.document
+    assert document is not None
+    select(window, 0, 1)
+    window.pages_view.emit("move-requested", [0, 1], 5)
+    assert [page.source_index for page in document.pages] == [2, 3, 4, 0, 1]
+    assert window.pages_view.selected_pages() == [3, 4]
+    window.pages_view.emit("move-requested", [3], 3)
+    assert not document.can_redo
+    document.undo()
+    assert [page.source_index for page in document.pages] == [0, 1, 2, 3, 4]
+    assert not document.can_undo
