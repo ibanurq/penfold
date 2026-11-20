@@ -145,11 +145,48 @@ def test_the_delete_key_belongs_to_the_view_shown(window: "PenfoldWindow") -> No
     assert document.page_count == 5
 
 
-@pytest.mark.parametrize(("x", "expected"), [(10, 3), (49, 3), (51, 4), (90, 4)])
-def test_dropping_on_a_thumbnail_puts_the_pages_on_that_side(x: float, expected: int) -> None:
-    from penfold.ui.sidebar.pages_view import drop_position
+# Two rows of two thumbnails, 100 wide and 150 high, with gaps of 20 between them.
+CELLS: dict[int, tuple[float, float, float, float]] = {
+    0: (10, 10, 100, 150),
+    1: (130, 10, 100, 150),
+    2: (10, 180, 100, 150),
+    3: (130, 180, 100, 150),
+}
 
-    assert drop_position(3, x, 100) == expected
+
+@pytest.mark.parametrize(
+    ("x", "y", "expected"),
+    [
+        (20, 50, (0, True)),  # left half of the first thumbnail
+        (100, 50, (0, False)),  # its right half
+        (125, 50, (1, True)),  # the gap between the two: next to the nearer one
+        (115, 50, (0, False)),
+        (180, 170, (1, False)),  # between the rows, nearer the first one
+        (180, 400, (3, False)),  # below the last thumbnail: after it
+        (0, 250, (2, True)),  # to the left of a row: before its first thumbnail
+    ],
+)
+def test_pages_dropped_anywhere_go_next_to_the_nearest_thumbnail(
+    x: float, y: float, expected: tuple[int, bool]
+) -> None:
+    from penfold.ui.sidebar.pages_view import drop_place
+
+    assert drop_place(CELLS, x, y) == expected
+
+
+@pytest.mark.parametrize(
+    ("page", "before", "expected"), [(1, True, 120), (0, False, 120), (0, True, 2), (1, False, 238), (2, True, 2)]
+)
+def test_the_line_goes_halfway_between_neighbours(page: int, before: bool, expected: float) -> None:
+    from penfold.ui.sidebar.pages_view import drop_line_x
+
+    assert drop_line_x(CELLS, page, before) == expected
+
+
+def test_with_no_thumbnail_shown_there_is_nowhere_to_drop() -> None:
+    from penfold.ui.sidebar.pages_view import drop_place
+
+    assert drop_place({}, 10, 10) is None
 
 
 def test_dropped_thumbnails_move_their_pages(window: "PenfoldWindow") -> None:

@@ -44,6 +44,7 @@ VISIBLE_AREA_EDGE = 0.6
 # (pixels per frame, faster nearer the edge).
 AUTOSCROLL_EDGE = 48
 AUTOSCROLL_SPEED = 18
+DROP_LINE_WIDTH = 3
 
 
 def column_count(available_width: float, thumbnail_width: float) -> int:
@@ -72,9 +73,42 @@ def rgba(red: float, green: float, blue: float, alpha: float) -> Gdk.RGBA:
     return color
 
 
-def drop_position(page: int, x: float, width: float) -> int:
-    """Where pages dropped on a thumbnail go: before it if dropped on its left half, after it on its right half."""
-    return page if x < width / 2 else page + 1
+Box = tuple[float, float, float, float]  # x, y, width, height
+
+
+def drop_place(cells: dict[int, Box], x: float, y: float) -> tuple[int, bool] | None:
+    """Where pages dropped at a point of the list go: next to the nearest thumbnail, on the side of its half.
+
+    The point may be in the gap between thumbnails, where people naturally drop them. Returns the page of that
+    thumbnail and whether they go before it (its left half) or after it; None if no thumbnail is shown.
+    """
+    if not cells:
+        return None
+
+    def distance(page: int) -> tuple[float, float]:
+        left, top, width, height = cells[page]
+        across = max(left - x, 0.0, x - left - width)
+        down = max(top - y, 0.0, y - top - height)
+        # Rows first: in the gap between two rows, the nearest row; then the nearest thumbnail in it.
+        return down, across
+
+    page = min(cells, key=distance)
+    left, _top, width, _height = cells[page]
+    return page, x < left + width / 2
+
+
+def drop_line_x(cells: dict[int, Box], page: int, before: bool) -> float:
+    """Where the line of a drop goes, across the list.
+
+    Halfway to the neighbouring thumbnail of the same row, or just outside the thumbnail at the end of a row.
+    """
+    left, top, width, _height = cells[page]
+    neighbour = cells.get(page - 1 if before else page + 1)
+    edge = left if before else left + width
+    if neighbour is not None and neighbour[1] == top:
+        neighbour_edge = neighbour[0] + neighbour[2] if before else neighbour[0]
+        return (edge + neighbour_edge) / 2
+    return edge - CELL_PADDING if before else edge + CELL_PADDING
 
 
 class DraggedPages(GObject.Object):
@@ -233,7 +267,7 @@ class PagesView(Gtk.Box):
         )
         self.grid.add_css_class("navigation-sidebar")
         self.scrolled = Gtk.ScrolledWindow(child=self.grid, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
-        self.append(self.scrolled)
+        self.append(self._add_drop_target())
         self.selection_label, self.action_bar = self._action_bar()
         self.append(self.action_bar)
         self.selection.connect("selection-changed", lambda *_arguments: self._update_action_bar())
@@ -484,11 +518,6 @@ class PagesView(Gtk.Box):
         drag.connect("prepare", self._on_drag_prepare, cell)
         drag.connect("drag-begin", self._on_drag_begin, cell)
         cell.add_controller(drag)
-        drop = Gtk.DropTarget.new(DraggedPages, Gdk.DragAction.MOVE)
-        drop.connect("motion", self._on_drop_motion, cell)
-        drop.connect("leave", lambda _target: self._show_drop_side(cell, None))
-        drop.connect("drop", self._on_drop, cell)
-        cell.add_controller(drop)
         item.set_child(cell)
 
     # Dragging thumbnails (E1).
@@ -502,24 +531,54 @@ class PagesView(Gtk.Box):
     def _on_drag_begin(self, source: Gtk.DragSource, _drag: Gdk.Drag, cell: PageCell) -> None:
         source.set_icon(Gtk.WidgetPaintable.new(cell.thumbnail), cell.thumbnail.get_width() // 2, 0)
 
-    def _on_drop_motion(self, _target: Gtk.DropTarget, x: float, _y: float, cell: PageCell) -> Gdk.DragAction:
-        before = drop_position(cell.thumbnail.page, x, cell.get_width()) == cell.thumbnail.page
-        self._show_drop_side(cell, "drop-before" if before else "drop-after")
+    def _add_drop_target(self) -> Gtk.Overlay:
+        """Let thumbnails be dropped anywhere on the list, gaps included, with a line where they will go.
+
+        Returns the overlay that holds the list and, above it, the line.
+        """
+        self.drop_line = Gtk.Box(halign=Gtk.Align.START, valign=Gtk.Align.START, visible=False, can_target=False)
+        self.drop_line.add_css_class("drop-line")
+        overlay = Gtk.Overlay(child=self.scrolled)
+        overlay.add_overlay(self.drop_line)
+        self._drop_overlay = overlay
+        drop = Gtk.DropTarget.new(DraggedPages, Gdk.DragAction.MOVE)
+        drop.connect("motion", self._on_drop_motion)
+        drop.connect("leave", lambda _target: self.drop_line.set_visible(False))
+        drop.connect("drop", self._on_drop)
+        overlay.add_controller(drop)
+        return overlay
+
+    def _cell_boxes(self) -> dict[int, Box]:
+        """Where the thumbnails shown are, in the overlay that holds the list."""
+        boxes = {}
+        for page, cell in self._cells.items():
+            found, bounds = cell.compute_bounds(self._drop_overlay)
+            if found and cell.get_mapped():
+                boxes[page] = (bounds.get_x(), bounds.get_y(), bounds.get_width(), bounds.get_height())
+        return boxes
+
+    def _on_drop_motion(self, _target: Gtk.DropTarget, x: float, y: float) -> Gdk.DragAction:
+        boxes = self._cell_boxes()
+        place = drop_place(boxes, x, y)
+        if place is None:
+            self.drop_line.set_visible(False)
+            return Gdk.DragAction.MOVE
+        page, before = place
+        _left, top, _width, height = boxes[page]
+        line_x = drop_line_x(boxes, page, before)
+        self.drop_line.set_margin_start(max(0, round(line_x - DROP_LINE_WIDTH / 2)))
+        self.drop_line.set_margin_top(max(0, round(top)))
+        self.drop_line.set_size_request(DROP_LINE_WIDTH, round(height))
+        self.drop_line.set_visible(True)
         return Gdk.DragAction.MOVE
 
-    def _show_drop_side(self, cell: PageCell, side: str | None) -> None:
-        """Mark the side of the thumbnail where the pages would go."""
-        for name in ("drop-before", "drop-after"):
-            if name == side:
-                cell.add_css_class(name)
-            else:
-                cell.remove_css_class(name)
-
-    def _on_drop(self, _target: Gtk.DropTarget, value: object, x: float, _y: float, cell: PageCell) -> bool:
-        self._show_drop_side(cell, None)
-        if not isinstance(value, DraggedPages):
+    def _on_drop(self, _target: Gtk.DropTarget, value: object, x: float, y: float) -> bool:
+        self.drop_line.set_visible(False)
+        place = drop_place(self._cell_boxes(), x, y)
+        if not isinstance(value, DraggedPages) or place is None:
             return False
-        self.emit("move-requested", value.positions, drop_position(cell.thumbnail.page, x, cell.get_width()))
+        page, before = place
+        self.emit("move-requested", value.positions, page if before else page + 1)
         return True
 
     def _add_autoscroll(self) -> None:

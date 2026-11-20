@@ -23,11 +23,8 @@
   background-color: color-mix(in srgb, var(--window-fg-color) 8%, var(--window-bg-color));
 }
 
-/* Where dragged thumbnails would go: a line in the accent colour on that side of a thumbnail (E1). */
-.drop-before {
-  box-shadow: inset 3px 0 0 var(--accent-bg-color);
-}
-
-.drop-after {
-  box-shadow: inset -3px 0 0 var(--accent-bg-color);
+/* Where dragged thumbnails would go: a line in the accent colour in the gap between two thumbnails (E1). */
+.drop-line {
+  background-color: var(--accent-bg-color);
+  border-radius: 2px;
 }
