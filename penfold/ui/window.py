@@ -10,15 +10,17 @@ from pathlib import Path
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
-from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
+from penfold.document.commands.pages import AddPages, DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
+from penfold.document.pages import PaperSize
 from penfold.document.saving import SavePlan, save
-from penfold.errors import DocumentOpenError, SaveError
+from penfold.errors import DocumentOpenError, ProtectedPdfError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
+from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
 from penfold.ui.file_dialogs import pdf_file_dialog
@@ -154,6 +156,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "rotate-pages-left": lambda: self._rotate_selected_pages(-QUARTER_TURN),
             "rotate-pages-right": lambda: self._rotate_selected_pages(QUARTER_TURN),
             "delete-pages": self._delete_selected_pages,
+            "add-pages": self._open_add_pages_dialog,
             "save": self.save,
             "save-as": self.save_as,
         }
@@ -226,13 +229,17 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return True
 
     def _update_page_actions(self) -> None:
-        """Turning needs pages selected; deleting, too, and never all of them (E3, D21)."""
+        """Turning needs pages selected; deleting, too, and never all of them (E3, D21).
+
+        Pages cannot be added to a protected PDF (2.7).
+        """
         selected = len(self.pages_view.selected_pages()) if self.document is not None else 0
         page_count = self.document.page_count if self.document is not None else 0
         for name, enabled in (
             ("rotate-pages-left", selected > 0),
             ("rotate-pages-right", selected > 0),
             ("delete-pages", 0 < selected < page_count),
+            ("add-pages", self.document is not None and not self.document.is_protected),
         ):
             self._enable_action(name, enabled)
 
@@ -257,6 +264,43 @@ class PenfoldWindow(Adw.ApplicationWindow):
         document.execute(command)
         count = len(command.positions)
         self._show_undo_toast(ngettext("Page deleted", "{count} pages deleted", count).format(count=count), command)
+
+    def _open_add_pages_dialog(self) -> None:
+        """Ask what pages to add and where (E4 to E6, D48)."""
+        if self.document is None:
+            return
+        dialog = PenfoldAddPagesDialog(
+            self.document.page_count, self.document_view.current_page, self.pages_view.selected_pages()
+        )
+        dialog.connect("add-requested", lambda _dialog, choice: self.add_pages(choice))
+        dialog.present(self)
+
+    def add_pages(self, choice: PagesToAdd) -> None:
+        """Add the pages chosen in the dialogue and go to the first of them; say so, or why they cannot be added."""
+        document = self.document
+        if document is None:
+            return
+        source = choice.source
+        try:
+            added = document.add_blank_page(source) if isinstance(source, PaperSize) else document.add_source(source)
+        except ProtectedPdfError:
+            self._show_message(
+                _("“{name}” is protected against changes and cannot be added yet").format(name=source.name)
+            )
+            return
+        except DocumentOpenError:
+            self._show_message(_("Could not open “{name}”").format(name=source.name))
+            return
+        document.execute(AddPages(document, added, choice.position))
+        self.document_view.go_to(choice.position)
+        count = len(added.pages)
+        if isinstance(source, PaperSize):
+            message = _("Blank page added")
+        elif added.bookmarks:
+            message = ngettext("{count} page and its bookmarks added", "{count} pages and their bookmarks added", count)
+        else:
+            message = ngettext("{count} page added", "{count} pages added", count)
+        self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=count)))
 
     def _show_undo_toast(self, title: str, command: Command) -> None:
         """Show a notice with Undo for an edit; it goes away as soon as the edit is no longer the last one."""

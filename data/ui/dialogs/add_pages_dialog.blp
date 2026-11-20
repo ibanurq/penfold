@@ -1,0 +1,134 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// "Add Pages" (02-interfaz, 6.1 and 8; E4 to E6; D48): the pages of a PDF or a blank page, and where they go.
+template $PenfoldAddPagesDialog: Adw.Dialog {
+  title: _("Add Pages");
+  content-width: 440;
+  default-widget: add_button;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+
+      [start]
+      Button {
+        label: _("_Cancel");
+        use-underline: true;
+        clicked => $_on_cancel_clicked();
+      }
+
+      [end]
+      Button add_button {
+        label: _("_Add");
+        use-underline: true;
+        clicked => $_on_add_clicked();
+
+        styles [
+          "suggested-action",
+        ]
+      }
+    }
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup {
+        title: _("Pages");
+
+        Adw.ActionRow pdf_row {
+          title: _("From a PDF");
+          subtitle: _("No file chosen");
+          activatable-widget: pdf_check;
+
+          [prefix]
+          CheckButton pdf_check {
+            active: true;
+            toggled => $_on_choice_toggled();
+          }
+
+          [suffix]
+          Button {
+            label: _("_Choose PDF…");
+            use-underline: true;
+            valign: center;
+            clicked => $_on_choose_clicked();
+          }
+        }
+
+        Adw.ActionRow {
+          title: _("Blank Page");
+          activatable-widget: blank_check;
+
+          [prefix]
+          CheckButton blank_check {
+            group: pdf_check;
+            toggled => $_on_choice_toggled();
+          }
+
+          [suffix]
+          DropDown size_dropdown {
+            valign: center;
+            notify::selected => $_on_size_changed();
+
+            accessibility {
+              label: _("Size");
+            }
+          }
+        }
+      }
+
+      Adw.PreferencesGroup {
+        title: _("Where");
+
+        Adw.ActionRow {
+          title: _("At the Start");
+          activatable-widget: start_check;
+
+          [prefix]
+          CheckButton start_check {}
+        }
+
+        Adw.ActionRow {
+          title: _("At the End");
+          activatable-widget: end_check;
+
+          [prefix]
+          CheckButton end_check {
+            group: start_check;
+          }
+        }
+
+        Adw.ActionRow {
+          title: _("After Page");
+          activatable-widget: after_check;
+
+          [prefix]
+          CheckButton after_check {
+            group: start_check;
+          }
+
+          [suffix]
+          SpinButton page_spin {
+            valign: center;
+            numeric: true;
+            value-changed => $_on_page_changed();
+
+            adjustment: Adjustment {
+              lower: 1;
+              upper: 1;
+              step-increment: 1;
+              page-increment: 10;
+            };
+
+            accessibility {
+              label: _("Page");
+            }
+          }
+        }
+      }
+    };
+  };
+}

@@ -14,4 +14,5 @@ install_data(
   install_dir: pkgdatadir / 'penfold' / 'ui',
 )
 
+subdir('dialogs')
 subdir('sidebar')
