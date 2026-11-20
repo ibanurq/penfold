@@ -1,5 +1,6 @@
 """The open document: one PDF and what Penfold knows about it."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Self
 
@@ -7,6 +8,7 @@ import pikepdf
 
 from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, read_bookmarks
+from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import page_labels
 from penfold.document.pages import Page, initial_pages
 from penfold.document.sources import open_source
@@ -15,7 +17,8 @@ from penfold.document.sources import open_source
 class OpenDocument:
     """A PDF opened in a window.
 
-    Its pages are a list of Page that the edits change; the PDF itself is left as it is until it is saved.
+    Its pages are a list of Page that the edits change; the PDF itself is left as it is until it is saved. Every edit
+    is a command run through execute, so it can be undone (D19), and every change is announced to the listeners.
     """
 
     def __init__(self, path: Path, pdf: pikepdf.Pdf) -> None:
@@ -27,6 +30,8 @@ class OpenDocument:
         self.is_protected = pdf.is_encrypted
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
+        self._history = History()
+        self._listeners: list[Callable[[Change], None]] = []
 
     @classmethod
     def open(cls, path: Path) -> Self:
@@ -76,6 +81,42 @@ class OpenDocument:
         if text.isdecimal() and 1 <= int(text) <= self.page_count:
             return int(text) - 1
         return None
+
+    @property
+    def can_undo(self) -> bool:
+        """Whether there is an edit to undo."""
+        return self._history.can_undo
+
+    @property
+    def can_redo(self) -> bool:
+        """Whether there is an undone edit to redo."""
+        return self._history.can_redo
+
+    @property
+    def is_modified(self) -> bool:
+        """Whether the document has changes that are not saved (D16)."""
+        return self._history.is_modified
+
+    def add_listener(self, listener: Callable[[Change], None]) -> None:
+        """Call a function after every edit, undo and redo, with the parts of the document that changed."""
+        self._listeners.append(listener)
+
+    def execute(self, command: Command) -> None:
+        """Make an edit that can be undone."""
+        self._history.execute(command)
+        self._notify(command.changes)
+
+    def undo(self) -> None:
+        """Undo the last edit; there must be one (can_undo)."""
+        self._notify(self._history.undo().changes)
+
+    def redo(self) -> None:
+        """Redo the last undone edit; there must be one (can_redo)."""
+        self._notify(self._history.redo().changes)
+
+    def _notify(self, changes: Change) -> None:
+        for listener in self._listeners:
+            listener(changes)
 
     def close(self) -> None:
         """Release the file."""
