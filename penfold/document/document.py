@@ -9,7 +9,7 @@ from typing import Self
 import pikepdf
 
 from penfold.document.annotations import Annotation, read_annotations
-from penfold.document.bookmarks import Bookmark, for_added_pages, read_bookmarks
+from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf
@@ -195,6 +195,21 @@ class OpenDocument:
         return SavePlan.take(
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
+
+    def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
+        """Take what writing some pages to another file needs (E8), to write it with saving.save.
+
+        The file gets those pages as they are now, in that order, with the bookmarks that lead to them.
+
+        Raises:
+            ValueError: the PDF is protected, and Penfold cannot extract its pages (2.7).
+        """
+        if self.is_protected:
+            message = "pages of protected PDFs cannot be extracted"
+            raise ValueError(message)
+        pages = [self.pages[position] for position in positions]
+        bookmarks = leading_to(self.bookmarks, {page.source_index for page in pages})
+        return SavePlan.take(self.sources.spans, target, pages, bookmarks, None)
 
     def mark_saved(self, plan: SavePlan) -> None:
         """Record that a plan was saved: the document now belongs to its file, and has nothing to save up to it."""

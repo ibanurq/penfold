@@ -60,6 +60,21 @@ def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[B
     return kept
 
 
+def leading_to(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
+    """Return only the bookmarks that lead to these pages, as 0.6 does for the pages extracted.
+
+    The bookmarks under a bookmark left out move up to its place. The outline given is left as it was.
+    """
+    kept = []
+    for bookmark in bookmarks:
+        children = leading_to(bookmark.children, source_indexes)
+        if bookmark.page is not None and bookmark.page in source_indexes:
+            kept.append(replace(bookmark, children=children))
+        else:
+            kept.extend(children)
+    return kept
+
+
 def for_added_pages(bookmarks: list[Bookmark], first_page: int) -> list[Bookmark]:
     """Return the bookmarks of a PDF read to be added to another, whose pages are numbered from first_page.
 
