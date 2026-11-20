@@ -457,7 +457,7 @@ def test_added_pages_show_in_every_view(window: "PenfoldWindow", tmp_path: Path)
     assert renderer.layout[1].source == 2
     window.sidebar.show_view("bookmarks")
     wait_until(lambda: bool(window.bookmarks_view._rows))
-    assert bookmark_pages(window) == {"text": "2"}  # named after the file, holding its own bookmarks (D50)
+    assert bookmark_pages(window) == {"text": "2", "Added": "2"}  # named after the file, holding its own (D50)
     document.undo()
     assert window.pages_view.pages.get_n_items() == 2
     assert bookmark_pages(window) == {}

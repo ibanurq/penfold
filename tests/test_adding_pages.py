@@ -79,7 +79,7 @@ def test_the_annotations_of_the_added_pages_are_listed(document: OpenDocument, t
 def test_the_pages_of_a_pdf_come_with_a_bookmark_named_after_it(document: OpenDocument, tmp_path: Path) -> None:
     added = document.add_source(outlined_pdf(tmp_path / "Report 2025.pdf"))
     [file_bookmark] = added.bookmarks
-    assert (file_bookmark.title, file_bookmark.page, file_bookmark.is_open) == ("Report 2025", 5, False)
+    assert (file_bookmark.title, file_bookmark.page, file_bookmark.is_open) == ("Report 2025", 5, True)
     assert [child.title for child in file_bookmark.children] == ["Cover", "1. Intro", "Action"]
     without_outline = document.add_source(make_pdf(tmp_path / "plain.pdf", page_count=1))
     assert [(bookmark.title, bookmark.children) for bookmark in without_outline.bookmarks] == [("plain", [])]
@@ -142,7 +142,7 @@ def test_added_pages_and_bookmarks_are_saved(document: OpenDocument, tmp_path: P
             [file_item] = saved_outline.root
             assert file_item.title == "outline"
             assert [item.title for item in file_item.children] == ["Cover", "1. Intro", "Action"]
-            assert file_item.is_closed
+            assert not file_item.is_closed
         assert saved.Root.Outlines.First.Dest[0].objgen == saved.pages[5].obj.objgen
         action = saved.Root.Outlines.First.Last
         assert action.Dest[0].objgen == saved.pages[9].obj.objgen

@@ -90,8 +90,9 @@ class OpenDocument:
     def add_source(self, path: Path) -> AddedPdf:
         """Copy and open a PDF whose pages will be added (by the AddPages command).
 
-        Its pages come with a new bookmark, named after the file, that leads to the first of them and holds the PDF's
-        own bookmarks (D50). Its annotations are listed from now on, while their pages are in the document.
+        Its pages come with a new bookmark, unfolded and named after the file, that leads to the first of them and
+        holds the PDF's own bookmarks (D50). Its annotations are listed from now on, while their pages are in the
+        document.
 
         Raises:
             ProtectedPdfError: the PDF is protected, and its pages cannot be added (2.7).
@@ -100,7 +101,7 @@ class OpenDocument:
         """
         start, pdf = self._take_source(path)
         own_bookmarks = for_added_pages(read_bookmarks(pdf), start)
-        return AddedPdf(_pages_of(pdf, start), [Bookmark(path.stem, page=start, children=own_bookmarks)])
+        return AddedPdf(_pages_of(pdf, start), [Bookmark(path.stem, page=start, is_open=True, children=own_bookmarks)])
 
     def add_blank_page(self, size: PaperSize) -> AddedPdf:
         """Make a blank page of a size, ready to be added (by the AddPages command) like the pages of a PDF (E5)."""
