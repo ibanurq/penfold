@@ -22,7 +22,11 @@ MAX_ITEMS = 100_000
 
 @dataclass
 class Bookmark:
-    """One bookmark and the ones under it; its page is the index of the page it leads to in the opened PDF."""
+    """One bookmark and the ones under it.
+
+    Its page is the index of the page it leads to in the opened PDF, and its origin the object number of the outline
+    item it was read from, whose destination or action is kept on saving (G8).
+    """
 
     title: str
     page: int | None = None
@@ -32,6 +36,7 @@ class Bookmark:
     color: tuple[float, float, float] | None = None
     is_open: bool = False
     children: list["Bookmark"] = field(default_factory=list)
+    origin: tuple[int, int] | None = None
 
 
 def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
@@ -92,6 +97,7 @@ class _OutlineReader:
             color=_color(item.get("/C")),
             is_open=count > 0,
             children=self.read_siblings(item.get("/First"), depth + 1),
+            origin=item.objgen if item.is_indirect else None,
         )
 
     def _destination(self, item: pikepdf.Dictionary) -> tuple[int | None, float | None]:

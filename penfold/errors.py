@@ -14,3 +14,7 @@ class DocumentOpenError(PenfoldError):
 
 class PasswordRequiredError(DocumentOpenError):
     """The PDF needs a password to be opened, which Penfold does not support until 1.2."""
+
+
+class SaveError(PenfoldError):
+    """The PDF could not be saved; the file that was there is left as it was."""

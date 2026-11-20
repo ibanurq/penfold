@@ -16,6 +16,8 @@ class Change(enum.Flag):
     ANNOTATIONS = enum.auto()
     BOOKMARKS = enum.auto()
     FORM = enum.auto()
+    FILE = enum.auto()
+    """Where the document is saved, or whether it has changes to save."""
 
 
 class Command(Protocol):
@@ -97,6 +99,17 @@ class History:
         self._applied.append(self._undone.pop())
         return command
 
-    def mark_saved(self) -> None:
-        """Remember that the document has just been saved as it is now."""
-        self._saved_at = len(self._applied)
+    def checkpoint(self) -> Command | None:
+        """Return the last command applied (None for none), to say later which state was saved."""
+        return self._applied[-1] if self._applied else None
+
+    def mark_saved(self, checkpoint: Command | None) -> None:
+        """Remember that the document was saved as it was at a checkpoint.
+
+        Saving takes a while, and the document may change meanwhile: what counts is the state that was written. If
+        that state can no longer come back (it was undone and replaced), the document has changes to save whatever
+        is done.
+        """
+        # The states in order: none applied, each applied command, then the undone ones as redo would apply them.
+        states = [None, *self._applied, *reversed(self._undone)]
+        self._saved_at = next((depth for depth, state in enumerate(states) if state is checkpoint), None)

@@ -11,7 +11,8 @@ from penfold.document.bookmarks import Bookmark, read_bookmarks
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, initial_pages
-from penfold.document.sources import open_source
+from penfold.document.saving import SavePlan
+from penfold.document.sources import SourceFile
 
 
 class OpenDocument:
@@ -21,10 +22,11 @@ class OpenDocument:
     is a command run through execute, so it can be undone (D19), and every change is announced to the listeners.
     """
 
-    def __init__(self, path: Path, pdf: pikepdf.Pdf) -> None:
-        """Wrap a PDF already opened with pikepdf; use OpenDocument.open to open a file."""
+    def __init__(self, path: Path, source: SourceFile) -> None:
+        """Wrap a PDF already copied and opened; use OpenDocument.open to open a file."""
         self.path = path
-        self._pdf = pdf
+        self._source = source
+        pdf = source.pdf
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
         self.is_protected = pdf.is_encrypted
@@ -42,7 +44,12 @@ class OpenDocument:
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
-        return cls(path, open_source(path))
+        return cls(path, SourceFile(path))
+
+    @property
+    def source_path(self) -> Path:
+        """The private copy of the PDF as it was opened, which is what Penfold reads its pages from."""
+        return self._source.path
 
     @property
     def file_name(self) -> str:
@@ -125,6 +132,25 @@ class OpenDocument:
         """Redo the last undone edit; there must be one (can_redo)."""
         self._notify(self._history.redo().changes)
 
+    def save_plan(self, target: Path | None = None) -> SavePlan:
+        """Take what saving needs, to write it in another thread with saving.save; by default, over the file.
+
+        Raises:
+            ValueError: the PDF is protected, and Penfold cannot save it (2.7).
+        """
+        if self.is_protected:
+            message = "protected PDFs cannot be saved"
+            raise ValueError(message)
+        return SavePlan.take(
+            self.source_path, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
+        )
+
+    def mark_saved(self, plan: SavePlan) -> None:
+        """Record that a plan was saved: the document now belongs to its file, and has nothing to save up to it."""
+        self.path = plan.target
+        self._history.mark_saved(plan.checkpoint)
+        self._notify(Change.FILE)
+
     def _notify(self, changes: Change) -> None:
         if Change.PAGES in changes:
             self._positions = self._index_positions()
@@ -132,8 +158,8 @@ class OpenDocument:
             listener(changes)
 
     def close(self) -> None:
-        """Release the file."""
-        self._pdf.close()
+        """Release the PDF and its private copy."""
+        self._source.close()
 
 
 def _read_title(pdf: pikepdf.Pdf) -> str | None:

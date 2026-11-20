@@ -78,7 +78,7 @@ def test_undoing_back_to_the_saved_point_leaves_nothing_to_save() -> None:
     history = History()
     steps = [
         lambda: history.execute(Append(values, 1)),
-        history.mark_saved,
+        lambda: history.mark_saved(history.checkpoint()),
         lambda: history.execute(Append(values, 2)),
         history.undo,
         history.undo,
@@ -95,12 +95,62 @@ def test_the_saved_point_is_lost_when_its_branch_is_replaced() -> None:
     values: list[int] = []
     history = History()
     history.execute(Append(values, 1))
-    history.mark_saved()
+    history.mark_saved(history.checkpoint())
     history.undo()
     history.execute(Append(values, 2))
     history.undo()
     assert history.is_modified
     assert values == []
+
+
+def test_saving_marks_the_state_that_was_written_even_if_it_changed_since() -> None:
+    values: list[int] = []
+    history = History()
+    first, second = Append(values, 1), Append(values, 2)
+    history.execute(first)
+    written = history.checkpoint()
+    history.execute(second)
+    history.mark_saved(written)
+    assert history.is_modified
+    history.undo()
+    assert not history.is_modified
+
+
+def test_saving_a_state_undone_meanwhile_is_reached_by_redo() -> None:
+    values: list[int] = []
+    history = History()
+    history.execute(Append(values, 1))
+    history.execute(Append(values, 2))
+    written = history.checkpoint()
+    history.undo()
+    history.undo()
+    history.mark_saved(written)
+    history.redo()
+    assert history.is_modified
+    history.redo()
+    assert not history.is_modified
+
+
+def test_saving_a_state_that_cannot_come_back_leaves_changes_to_save() -> None:
+    values: list[int] = []
+    history = History()
+    history.execute(Append(values, 1))
+    written = history.checkpoint()
+    history.undo()
+    history.execute(Append(values, 2))
+    history.mark_saved(written)
+    history.undo()
+    assert history.is_modified
+
+
+def test_saving_the_empty_history_is_the_state_before_any_edit() -> None:
+    values: list[int] = []
+    history = History()
+    written = history.checkpoint()
+    history.execute(Append(values, 1))
+    history.mark_saved(written)
+    history.undo()
+    assert not history.is_modified
 
 
 def test_a_failing_command_is_not_recorded() -> None:
