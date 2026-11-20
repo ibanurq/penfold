@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pikepdf
 import pytest
+from gi.repository import Gdk, Graphene, Gtk
 
 from penfold.ui.sidebar.pages_view import column_count
 from tests.gtk_helpers import process_pending_events, wait_until, wait_until_stable
@@ -381,3 +382,58 @@ def test_annotations_and_matches_follow_the_edited_pages(window: "PenfoldWindow"
     document.execute(DeletePages(document, [2]))
     assert annotations.shown_annotations() == []
     assert annotations.empty.get_label() == "This PDF has no annotations"
+
+
+def test_a_click_clears_the_selection_only_away_from_the_rows(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.ui.sidebar.view_header import is_away_from_rows
+
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    open_and_wait(window, path)
+    pages = window.pages_view
+    wait_until(lambda: {0, 1} <= set(pages._cells))
+    first, second = (_bounds(pages._cells[page].get_parent(), pages.scrolled) for page in (0, 1))
+    beside_thumbnail = (first.get_x() + 2, first.get_y() + first.get_height() / 2)
+    between_rows = (first.get_x() + first.get_width() / 2, (first.get_y() + first.get_height() + second.get_y()) / 2)
+    assert not is_away_from_rows(pages.scrolled, *beside_thumbnail)  # its selection box covers it
+    assert is_away_from_rows(pages.scrolled, *between_rows)
+    window.sidebar.show_view("bookmarks")
+    bookmarks = window.bookmarks_view.list
+    scrolled = bookmarks.get_parent()
+    assert isinstance(scrolled, Gtk.ScrolledWindow)
+    wait_until(lambda: bookmarks.get_height() > 0)
+    assert not is_away_from_rows(scrolled, 40, 10)
+    assert is_away_from_rows(scrolled, 40, scrolled.get_height() - 10)
+
+
+def _bounds(widget: Gtk.Widget | None, target: Gtk.Widget) -> Graphene.Rect:
+    assert widget is not None
+    found, bounds = widget.compute_bounds(target)
+    assert found
+    return bounds
+
+
+def test_escape_clears_the_selection_of_the_panel_view(window: "PenfoldWindow", tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    open_and_wait(window, path)
+    pages, bookmarks = window.pages_view, window.bookmarks_view
+    pages.selection.select_range(1, 2, True)
+    window.activate_action("win.find", None)
+    assert press_escape(window)  # it closes Find first
+    assert pages.selected_pages() == [1, 2]
+    window.split_view.set_show_sidebar(False)
+    assert not press_escape(window)  # a hidden selection is left alone
+    window.split_view.set_show_sidebar(True)
+    assert press_escape(window)
+    assert pages.selected_pages() == []
+    assert not press_escape(window)  # nothing left to do
+    window.sidebar.show_view("bookmarks")
+    bookmarks.selection.select_item(0, True)
+    assert press_escape(window)
+    assert bookmarks.selection.get_selection().is_empty()
+
+
+def press_escape(window: "PenfoldWindow") -> bool:
+    """Send Esc to the window as nothing inside it used the key; return whether it did something."""
+    return window._on_key_pressed(Gtk.EventControllerKey(), Gdk.KEY_Escape, 0, Gdk.ModifierType(0))

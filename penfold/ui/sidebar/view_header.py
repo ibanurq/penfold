@@ -1,4 +1,7 @@
-"""Pieces shared by the views of the side panel: their header (02-interfaz, 6) and noticing recent use (D40)."""
+"""Pieces shared by the views of the side panel.
+
+Their header (02-interfaz, 6), noticing recent use (D40) and clearing their selection (D47).
+"""
 
 import time
 
@@ -63,3 +66,31 @@ class RecentUse:
     def recently(self) -> bool:
         """Whether the list was used in the last two seconds."""
         return time.monotonic() - self._last_use < self.QUIET_SECONDS
+
+
+def unselect_all(selection: Gtk.SelectionModel) -> bool:
+    """Clear a list's selection (Esc, D47); return whether anything was selected."""
+    if selection.get_selection().is_empty():
+        return False
+    selection.unselect_all()
+    return True
+
+
+def unselect_on_empty_click(scrolled: Gtk.ScrolledWindow, selection: Gtk.SelectionModel) -> None:
+    """Clear the selection when the list is clicked away from its rows, in its gaps or below them (D47)."""
+    click = Gtk.GestureClick()
+
+    def on_pressed(_gesture: Gtk.GestureClick, _presses: int, x: float, y: float) -> None:
+        if is_away_from_rows(scrolled, x, y):
+            unselect_all(selection)
+
+    click.connect("pressed", on_pressed)
+    scrolled.add_controller(click)
+
+
+def is_away_from_rows(scrolled: Gtk.ScrolledWindow, x: float, y: float) -> bool:
+    """Whether a point of a scrolled list is in no row (nor its scrollbar): in a gap, below the rows, in a margin.
+
+    A row takes the whole box its selection shows, so the space beside a thumbnail belongs to it.
+    """
+    return scrolled.pick(x, y, Gtk.PickFlags.DEFAULT) in {scrolled, scrolled.get_child()}

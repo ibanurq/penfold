@@ -481,11 +481,27 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, _state: Gdk.ModifierType
     ) -> bool:
-        """Esc closes Find, when nothing in the window used the key before (a menu, a dialogue…)."""
-        if keyval == Gdk.KEY_Escape and self.sidebar.visible_view == sidebar_views.SEARCH:
+        """Esc, when nothing in the window used the key before (a menu, a dialogue…), does the first that applies.
+
+        It closes Find, or else clears the selection of the panel view shown (02-interfaz, 5; D47).
+        """
+        if keyval != Gdk.KEY_Escape:
+            return False
+        if self.sidebar.visible_view == sidebar_views.SEARCH:
             self.close_find()
             return True
-        return False
+        return self._unselect_panel_view()
+
+    def _unselect_panel_view(self) -> bool:
+        """Clear the selection of Pages or Bookmarks, if shown; return whether anything was selected."""
+        if not self.split_view.get_show_sidebar():
+            return False
+        views: dict[str, PagesView | BookmarksView] = {
+            sidebar_views.PAGES: self.pages_view,
+            sidebar_views.BOOKMARKS: self.bookmarks_view,
+        }
+        view = views.get(self.sidebar.visible_view)
+        return view is not None and view.unselect_all()
 
     def _on_sidebar_resize_finished(self, _sidebar: PenfoldSidebar) -> None:
         """The zoom is fitted once, when the border is released, not while dragging (B4)."""

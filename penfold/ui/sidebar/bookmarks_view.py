@@ -1,7 +1,7 @@
 """The Bookmarks view of the side panel (02-interfaz, 6.2; D23): the outline as a tree.
 
 Phase 2 shows it, with each bookmark's style and page, lets the user unfold it and go to a bookmark. Adding, editing,
-formatting and moving bookmarks come with phase 5.
+formatting and moving bookmarks come with phase 5. A click away from the rows, or Esc, clears the selection (D47).
 """
 
 from gettext import gettext as _
@@ -12,7 +12,14 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from penfold.document.bookmarks import Bookmark, ReadingIndex
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer
-from penfold.ui.sidebar.view_header import RecentUse, empty_label, header_button, view_header
+from penfold.ui.sidebar.view_header import (
+    RecentUse,
+    empty_label,
+    header_button,
+    unselect_all,
+    unselect_on_empty_click,
+    view_header,
+)
 
 
 class BookmarkItem(GObject.Object):
@@ -107,7 +114,9 @@ class BookmarksView(Gtk.Box):
         self._rows: dict[int, BookmarkRow] = {}
         self.empty = empty_label(_("This PDF has no bookmarks"))
         self.stack = Gtk.Stack(vexpand=True)
-        self.stack.add_named(Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER), "list")
+        scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        unselect_on_empty_click(scrolled, self.selection)
+        self.stack.add_named(scrolled, "list")
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
 
@@ -192,6 +201,10 @@ class BookmarksView(Gtk.Box):
             row.add_css_class("reading-position")
         else:
             row.remove_css_class("reading-position")
+
+    def unselect_all(self) -> bool:
+        """Clear the selection (Esc, D47); return whether any bookmark was selected."""
+        return unselect_all(self.selection)
 
     def toggle_all(self) -> None:
         """Unfold every branch, or fold them all if they are all unfolded."""

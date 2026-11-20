@@ -6,8 +6,9 @@ proportions of an upright A4, fitted inside without being distorted, so an A3 lo
 centred vertically. The thumbnail of the page being read is marked, with a soft box over the part shown in the
 document.
 
-With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6). Thumbnails are dragged to reorder
-the pages, several at once if the one dragged is selected (E1). Adding and extracting come with phase 4.
+With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6); a click away from the thumbnails, or
+Esc, clears the selection (D47). Thumbnails are dragged to reorder the pages, several at once if the one dragged is
+selected (E1). Adding and extracting come with phase 4.
 """
 
 import math
@@ -22,7 +23,7 @@ from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import Rectangle
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
 from penfold.ui.document_view import append_page_frame
-from penfold.ui.sidebar.view_header import header_button, view_header
+from penfold.ui.sidebar.view_header import header_button, unselect_all, unselect_on_empty_click, view_header
 
 # The cell of every thumbnail has the proportions of an upright A4.
 CELL_RATIO = math.sqrt(2)
@@ -267,6 +268,7 @@ class PagesView(Gtk.Box):
         )
         self.grid.add_css_class("navigation-sidebar")
         self.scrolled = Gtk.ScrolledWindow(child=self.grid, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        unselect_on_empty_click(self.scrolled, self.selection)
         self.append(self._add_drop_target())
         self.selection_label, self.action_bar = self._action_bar()
         self.append(self.action_bar)
@@ -361,6 +363,10 @@ class PagesView(Gtk.Box):
         """Indexes of the selected thumbnails, in page order."""
         bitset = self.selection.get_selection()
         return [bitset.get_nth(index) for index in range(bitset.get_size())]
+
+    def unselect_all(self) -> bool:
+        """Clear the selection (Esc, D47); return whether any page was selected."""
+        return unselect_all(self.selection)
 
     # Action bar (02-interfaz, 6.1).
 
