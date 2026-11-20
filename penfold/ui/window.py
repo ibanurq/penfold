@@ -51,8 +51,14 @@ DOCUMENT_ACTIONS = {
     "find-next": ["<Control>g"],
     "find-previous": ["<Shift><Control>g"],
 }
+# Edits of the document; each is on only while there is something for it to do (D19, D21).
+EDIT_ACTIONS = {
+    "undo": ["<Control>z"],
+    "redo": ["<Shift><Control>z"],
+}
 WINDOW_ACCELERATORS = {
     "win.close": ["<Control>w"],
+    **{f"win.{name}": keys for name, keys in EDIT_ACTIONS.items()},
     "win.show-sidebar": ["F9"],
     **{f"win.{name}": keys for name, keys in DOCUMENT_ACTIONS.items()},
 }
@@ -121,6 +127,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", self._on_document_action, name, handler)
             self.add_action(action)
+        for name, redo in (("undo", False), ("redo", True)):
+            action = Gio.SimpleAction(name=name, enabled=False)
+            action.connect("activate", lambda _action, _parameter, redo=redo: self._undo_or_redo(redo=redo))
+            self.add_action(action)
         layout = Gio.SimpleAction.new_stateful(
             "layout", GLib.VariantType.new("s"), GLib.Variant.new_string(LAYOUT_CONTINUOUS)
         )
@@ -138,6 +148,25 @@ class PenfoldWindow(Adw.ApplicationWindow):
         assert callable(handler)
         handler()
 
+    def _undo_or_redo(self, *, redo: bool) -> None:
+        """Undo or redo the last edit of the document; while typing in a field, its own text instead."""
+        focus = self.get_focus()
+        if isinstance(focus, Gtk.Text):
+            focus.activate_action("text.redo" if redo else "text.undo", None)
+        elif self.document is not None:
+            (self.document.redo if redo else self.document.undo)()
+
+    def _update_edit_actions(self) -> None:
+        """Undo and Redo are on while there is something to undo or redo (D21)."""
+        document = self.document
+        for name, enabled in (
+            ("undo", document is not None and document.can_undo),
+            ("redo", document is not None and document.can_redo),
+        ):
+            action = self.lookup_action(name)
+            assert isinstance(action, Gio.SimpleAction)
+            action.set_enabled(enabled)
+
     def _on_layout_changed(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         action.set_state(value)
         self.document_view.set_two_pages(value.get_string() == LAYOUT_TWO_PAGES)
@@ -148,6 +177,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             assert isinstance(action, Gio.SimpleAction)
             action.set_enabled(enabled)
         self._update_zoom_actions()
+        self._update_edit_actions()
 
     def _update_zoom_actions(self) -> None:
         for name, enabled in (
@@ -322,6 +352,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Show what an edit, an undo or a redo changed."""
         if self.document is None or self.renderer is None:
             return
+        self._update_edit_actions()
         if Change.PAGES in changes:
             self.renderer.set_pages(self.document.pages)
             self.document_view.pages_changed()

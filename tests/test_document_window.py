@@ -328,3 +328,35 @@ def test_edited_pages_are_shown_in_their_new_order_and_turn(window: "PenfoldWind
     document.undo()
     assert window.pages_view.pages.get_n_items() == 3
     assert window.document_view.page_count == 3
+
+
+def test_undo_and_redo_are_on_only_when_there_is_something_to_do(window: "PenfoldWindow", book: Path) -> None:
+    from penfold.document.commands.pages import RotatePages
+
+    assert not action_enabled(window, "undo")
+    assert open_and_wait(window, book)
+    document = window.document
+    assert document is not None
+    assert (action_enabled(window, "undo"), action_enabled(window, "redo")) == (False, False)
+    document.execute(RotatePages(document, [0], 90))
+    assert (action_enabled(window, "undo"), action_enabled(window, "redo")) == (True, False)
+    window.document_view.grab_focus()
+    window.activate_action("win.undo", None)
+    assert document.pages[0].rotation == 0
+    assert (action_enabled(window, "undo"), action_enabled(window, "redo")) == (False, True)
+    window.activate_action("win.redo", None)
+    assert document.pages[0].rotation == 90
+
+
+def test_undo_while_typing_undoes_the_text(window: "PenfoldWindow", book: Path) -> None:
+    from penfold.document.commands.pages import RotatePages
+
+    assert open_and_wait(window, book)
+    document = window.document
+    assert document is not None
+    document.execute(RotatePages(document, [0], 90))
+    window.activate_action("win.find", None)
+    window.search_view.entry.set_text("abc")
+    process_pending_events()
+    window.activate_action("win.undo", None)
+    assert document.pages[0].rotation == 90
