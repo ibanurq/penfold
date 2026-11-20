@@ -7,6 +7,8 @@ PDF is rewritten from that list only when it is saved (03-arquitectura, 6).
 from dataclasses import dataclass, replace
 from typing import Self
 
+from penfold.document.page_labels import PageLabel
+
 QUARTER_TURN = 90
 FULL_TURN = 360
 
@@ -24,7 +26,7 @@ class Page:
 
     source_index: int
     rotation: int = 0
-    label: str | None = None
+    label: PageLabel | None = None
 
     def rotated(self, degrees: int) -> Self:
         """Return the page turned clockwise by some degrees, a multiple of 90 (negative degrees turn it left).
@@ -38,7 +40,7 @@ class Page:
         return replace(self, rotation=(self.rotation + degrees) % FULL_TURN)
 
 
-def initial_pages(page_count: int, labels: list[str] | None) -> list[Page]:
+def initial_pages(page_count: int, labels: list[PageLabel] | None) -> list[Page]:
     """Return the pages of a PDF as it was opened: in order, not turned, with their labels if it has any."""
     if labels is None:
         return [Page(index) for index in range(page_count)]

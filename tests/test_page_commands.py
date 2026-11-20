@@ -115,5 +115,5 @@ def test_move_refuses_a_place_outside_the_document(document: OpenDocument, befor
 def test_moved_pages_keep_their_turn(document: OpenDocument) -> None:
     document.execute(RotatePages(document, [0], 180))
     document.execute(MovePages(document, [0], 5))
-    assert (document.pages[4].label, document.pages[4].rotation) == ("a", 180)
+    assert (document.page_label(4), document.pages[4].rotation) == ("a", 180)
     assert document.page_position(0) == 4

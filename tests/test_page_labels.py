@@ -5,13 +5,21 @@ from pathlib import Path
 import pikepdf
 import pytest
 
-from penfold.document.page_labels import format_number, page_labels, to_letters, to_roman
+from penfold.document.page_labels import (
+    PageLabel,
+    format_number,
+    read_page_labels,
+    to_letters,
+    to_roman,
+    write_page_labels,
+)
 from tests.sample_pdfs import make_pdf
 
 
 def labels_of(path: Path) -> list[str] | None:
     with pikepdf.open(path) as pdf:
-        return page_labels(pdf)
+        labels = read_page_labels(pdf)
+        return None if labels is None else [label.text for label in labels]
 
 
 @pytest.mark.parametrize(
@@ -64,3 +72,39 @@ def test_entries_outside_the_document_or_of_the_wrong_type_are_ignored(tmp_path:
         pdf.Root.PageLabels.Nums = pikepdf.Array([0, roman, 5, decimal, 1, pikepdf.Array([1])])
         pdf.save(path)
     assert labels_of(path) == ["I", "II"]
+
+
+DECIMAL, ROMAN = pikepdf.Name.D, pikepdf.Name.r
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [
+        (["i", "ii", "1", "2"], [0, {"/S": ROMAN}, 2, {"/S": DECIMAL}]),
+        (["1", "2", "5", "6"], [0, {"/S": DECIMAL}, 2, {"/S": DECIMAL, "/St": 5}]),
+        (["2", "1"], [0, {"/S": DECIMAL, "/St": 2}, 1, {"/S": DECIMAL}]),
+        (["A-8", "A-9", "Cover", "Cover"], [0, {"/S": DECIMAL, "/P": "A-", "/St": 8}, 2, {"/P": "Cover"}]),
+    ],
+)
+def test_written_labels_use_as_few_ranges_as_possible(
+    tmp_path: Path, labels: list[str], expected: list[int | dict[str, object]]
+) -> None:
+    parsed = {
+        "i": PageLabel("r", number=1),
+        "ii": PageLabel("r", number=2),
+        "1": PageLabel(number=1),
+        "2": PageLabel(number=2),
+        "5": PageLabel(number=5),
+        "6": PageLabel(number=6),
+        "A-8": PageLabel(prefix="A-", number=8),
+        "A-9": PageLabel(prefix="A-", number=9),
+        "Cover": PageLabel(None, "Cover"),
+    }
+    path = make_pdf(tmp_path / "labels.pdf", page_count=len(labels))
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        write_page_labels(pdf, [parsed[label] for label in labels])
+        assert pdf.Root.PageLabels.Nums == pikepdf.Array(
+            [item if isinstance(item, int) else pikepdf.Dictionary(item) for item in expected]
+        )
+        pdf.save(path)
+    assert labels_of(path) == labels

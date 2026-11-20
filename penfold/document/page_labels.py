@@ -1,7 +1,8 @@
 """Page labels: the page names a PDF shows instead of its numbers (i, ii, 1, 2, A-1…).
 
 They are stored in the /PageLabels number tree of the catalog (ISO 32000-1, 12.4.2). Each entry starts a range at a
-page index and gives a numbering style, a prefix and the first number of the range.
+page index and gives a numbering style, a prefix and the first number of the range. Penfold reads the label of every
+page and, on saving, writes the ranges again for the pages in their new order (D14).
 """
 
 from dataclasses import dataclass
@@ -27,6 +28,26 @@ LETTERS_IN_ALPHABET = 26
 
 
 @dataclass(frozen=True)
+class PageLabel:
+    """The label of one page: its numbering style (D, R, r, A, a, or None for the prefix alone), prefix and number."""
+
+    style: str | None = "D"
+    prefix: str = ""
+    number: int = 1
+
+    @property
+    def text(self) -> str:
+        """The label as it is shown."""
+        return self.prefix + format_number(self.number, self.style)
+
+    def follows(self, previous: "PageLabel") -> bool:
+        """Whether a range that gives the previous page its label gives this one to the next page."""
+        if self.style != previous.style or self.prefix != previous.prefix:
+            return False
+        return self.style is None or self.number == previous.number + 1
+
+
+@dataclass(frozen=True)
 class LabelRange:
     """One entry of /PageLabels: the pages from first_page on, up to the next range."""
 
@@ -35,9 +56,9 @@ class LabelRange:
     prefix: str = ""
     start: int = 1
 
-    def label(self, page_index: int) -> str:
+    def label(self, page_index: int) -> PageLabel:
         """Return the label of a page of this range, given its index in the document."""
-        return self.prefix + format_number(self.start + page_index - self.first_page, self.style)
+        return PageLabel(self.style, self.prefix, self.start + page_index - self.first_page)
 
 
 def format_number(number: int, style: str | None) -> str:
@@ -101,7 +122,7 @@ def _positive_integer(value: object) -> int:
     return 1
 
 
-def page_labels(pdf: pikepdf.Pdf) -> list[str] | None:
+def read_page_labels(pdf: pikepdf.Pdf) -> list[PageLabel] | None:
     """Return the label of every page, or None if the PDF has no page labels.
 
     Pages before the first range have no label of their own: they are named by their number, as Papers does.
@@ -116,5 +137,28 @@ def page_labels(pdf: pikepdf.Pdf) -> list[str] | None:
     for page_index in range(len(pdf.pages)):
         while upcoming is not None and upcoming.first_page == page_index:
             current, upcoming = upcoming, next(remaining, None)
-        labels.append(current.label(page_index) if current else str(page_index + 1))
+        labels.append(current.label(page_index) if current else PageLabel(number=page_index + 1))
     return labels
+
+
+def write_page_labels(pdf: pikepdf.Pdf, labels: list[PageLabel]) -> None:
+    """Replace the page labels of a PDF with these, one per page, grouped in as few ranges as possible."""
+    numbers: list[int | pikepdf.Dictionary] = []
+    previous: PageLabel | None = None
+    for page_index, label in enumerate(labels):
+        if previous is None or not label.follows(previous):
+            numbers += [page_index, _range_entry(label)]
+        previous = label
+    pdf.Root.PageLabels = pikepdf.Dictionary(Nums=pikepdf.Array(numbers))
+
+
+def _range_entry(label: PageLabel) -> pikepdf.Dictionary:
+    """The /PageLabels entry of a range that starts with this label, leaving out what is the default."""
+    entry = pikepdf.Dictionary()
+    if label.style is not None:
+        entry.S = pikepdf.Name(f"/{label.style}")
+        if label.number != 1:
+            entry.St = label.number
+    if label.prefix:
+        entry.P = pikepdf.String(label.prefix)
+    return entry

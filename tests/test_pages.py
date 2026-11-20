@@ -2,6 +2,7 @@
 
 import pytest
 
+from penfold.document.page_labels import PageLabel
 from penfold.document.pages import Page, initial_pages
 
 
@@ -10,8 +11,9 @@ def test_initial_pages_keep_the_order_of_the_pdf() -> None:
 
 
 def test_initial_pages_carry_their_labels() -> None:
-    pages = initial_pages(3, ["i", "ii", "1"])
-    assert [page.label for page in pages] == ["i", "ii", "1"]
+    labels = [PageLabel("r", number=1), PageLabel("r", number=2), PageLabel(number=1)]
+    pages = initial_pages(3, labels)
+    assert [page.label for page in pages] == labels
     assert [page.source_index for page in pages] == [0, 1, 2]
 
 
@@ -20,8 +22,8 @@ def test_initial_pages_carry_their_labels() -> None:
     [(0, 90, 90), (0, -90, 270), (270, 90, 0), (90, 180, 270), (180, -360, 180), (0, 450, 90)],
 )
 def test_rotated_turns_in_quarter_turns(start: int, degrees: int, expected: int) -> None:
-    page = Page(4, rotation=start, label="x")
-    assert page.rotated(degrees) == Page(4, rotation=expected, label="x")
+    page = Page(4, rotation=start, label=PageLabel(prefix="x"))
+    assert page.rotated(degrees) == Page(4, rotation=expected, label=PageLabel(prefix="x"))
 
 
 @pytest.mark.parametrize("degrees", [1, 45, -100])

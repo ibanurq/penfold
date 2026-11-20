@@ -9,7 +9,7 @@ import pikepdf
 from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, read_bookmarks
 from penfold.document.history import Change, Command, History
-from penfold.document.page_labels import page_labels
+from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, initial_pages
 from penfold.document.sources import open_source
 
@@ -25,7 +25,7 @@ class OpenDocument:
         """Wrap a PDF already opened with pikepdf; use OpenDocument.open to open a file."""
         self.path = path
         self._pdf = pdf
-        self.pages: list[Page] = initial_pages(len(pdf.pages), page_labels(pdf))
+        self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
         self.is_protected = pdf.is_encrypted
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
@@ -62,7 +62,7 @@ class OpenDocument:
     def page_label(self, page_index: int) -> str:
         """Return the name of a page: its own label, or its number if it has none."""
         label = self.pages[page_index].label
-        return str(page_index + 1) if label is None else label
+        return str(page_index + 1) if label is None else label.text
 
     def page_position(self, source_index: int) -> int | None:
         """Return where a page of the opened PDF is now, or None if it was deleted.
@@ -82,7 +82,7 @@ class OpenDocument:
         text = text.strip()
         if not text:
             return None
-        labels = [page.label for page in self.pages]
+        labels = [None if page.label is None else page.label.text for page in self.pages]
         if text in labels:
             return labels.index(text)
         lowered = text.casefold()
