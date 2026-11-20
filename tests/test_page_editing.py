@@ -98,6 +98,19 @@ def test_deleting_shows_a_notice_that_undoes_it(window: "PenfoldWindow", monkeyp
     assert document.page_count == 5
 
 
+def test_the_notice_goes_away_once_its_edit_is_undone(window: "PenfoldWindow") -> None:
+    dismissed: list[bool] = []
+    select(window, 0)
+    window.activate_action("win.delete-pages", None)
+    notice = window._undo_toast
+    assert notice is not None
+    notice[0].connect("dismissed", lambda _toast: dismissed.append(True))
+    window.activate_action("win.undo", None)
+    process_pending_events()
+    assert window._undo_toast is None
+    assert dismissed == [True]
+
+
 def test_the_notice_does_not_undo_a_later_edit(window: "PenfoldWindow", monkeypatch: pytest.MonkeyPatch) -> None:
     toasts: list[Adw.Toast] = []
     monkeypatch.setattr(window.toast_overlay, "add_toast", toasts.append)

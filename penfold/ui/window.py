@@ -109,6 +109,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.renderer: Renderer | None = None
         self._saving = False
         self._close_confirmed = False
+        self._undo_toast: tuple[Adw.Toast, Command] | None = None
         self.welcome_menu_button.set_menu_model(main_menu())
         self._add_actions()
         self.document_view.connect("current-page-changed", self._on_current_page_changed)
@@ -263,7 +264,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_undo_toast(ngettext("Page deleted", "{count} pages deleted", count).format(count=count), command)
 
     def _show_undo_toast(self, title: str, command: Command) -> None:
-        """Show a notice with Undo, which undoes the edit only while it is still the last one."""
+        """Show a notice with Undo for an edit; it goes away as soon as the edit is no longer the last one."""
         toast = Adw.Toast(title=title, button_label=_("_Undo"))
 
         def undo(_toast: Adw.Toast) -> None:
@@ -271,7 +272,18 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 self.document.undo()
 
         toast.connect("button-clicked", undo)
+        toast.connect("dismissed", lambda _toast: setattr(self, "_undo_toast", None))
+        self._undo_toast = (toast, command)
         self.toast_overlay.add_toast(toast)
+
+    def _dismiss_stale_undo_toast(self) -> None:
+        """Take away the notice to undo an edit once that edit was undone or another one came after it."""
+        if self._undo_toast is None:
+            return
+        toast, command = self._undo_toast
+        if self.document is None or self.document.last_edit is not command:
+            self._undo_toast = None
+            toast.dismiss()
 
     # Saving (J1).
 
@@ -537,6 +549,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self.document is None or self.renderer is None:
             return
         self._update_edit_actions()
+        self._dismiss_stale_undo_toast()
         self._show_title()
         if Change.PAGES in changes:
             self._update_page_actions()
