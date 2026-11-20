@@ -1,0 +1,93 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// "Merge PDFs" (02-interfaz, 8; F1 to F4; D50): a list of files, added with a button or dropped on it, reordered by
+// dragging their handle and removed with their button; and how their bookmarks are kept.
+template $PenfoldMergeDialog: Adw.Dialog {
+  title: _("Merge PDFs");
+  content-width: 480;
+  content-height: 600;
+  default-widget: merge_button;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+
+      [start]
+      Button {
+        label: _("_Cancel");
+        use-underline: true;
+        clicked => $_on_cancel_clicked();
+      }
+
+      [end]
+      Button merge_button {
+        label: _("_Merge");
+        use-underline: true;
+        sensitive: false;
+        clicked => $_on_merge_clicked();
+
+        styles [
+          "suggested-action",
+        ]
+      }
+    }
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup files_group {
+        title: _("Files");
+
+        header-suffix: Button {
+          valign: center;
+          clicked => $_on_add_clicked();
+
+          child: Adw.ButtonContent {
+            icon-name: "list-add-symbolic";
+            label: _("_Add PDFs…");
+            use-underline: true;
+          };
+
+          styles [
+            "flat",
+          ]
+        };
+
+        ListBox file_list {
+          selection-mode: none;
+
+          styles [
+            "boxed-list",
+          ]
+        }
+
+        Label total_label {
+          xalign: 0;
+          margin-top: 12;
+
+          styles [
+            "dim-label",
+            "caption",
+          ]
+        }
+      }
+
+      Adw.PreferencesGroup {
+        title: _("Bookmarks");
+
+        Adw.SwitchRow bookmark_per_file_row {
+          title: _("Create a Bookmark for Each File");
+          active: true;
+        }
+
+        Adw.SwitchRow keep_bookmarks_row {
+          title: _("Keep the Files’ Bookmarks");
+          active: true;
+        }
+      }
+    };
+  };
+}

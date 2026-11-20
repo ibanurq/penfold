@@ -33,6 +33,7 @@ class PenfoldApplication(Adw.Application):
         self._add_action("about", self._on_about)
         self._add_action("shortcuts", self._on_shortcuts)
         self._add_action("open", self._on_open)
+        self._add_action("merge", self._on_merge)
         self._add_action("new-window", self.new_window)
         self._add_action("quit", self._on_quit)
         for action, accelerators in ACCELERATORS.items():
@@ -60,11 +61,15 @@ class PenfoldApplication(Adw.Application):
         window.present()
 
     def do_open(self, files: Sequence[Gio.File], _n_files: int, _hint: str) -> None:
-        """Open each PDF from the desktop in an empty window, the active one first, or else in a new window (A4)."""
-        for file in files:
-            path = file.get_path()
-            if path is not None:
-                self._empty_window().open_file(Path(path))
+        """Open a PDF from the desktop in an empty window, the active one first, or else in a new window (A4).
+
+        Several at once open Merge PDFs with them in the list, in such a window (D17).
+        """
+        paths = [Path(path) for file in files if (path := file.get_path()) is not None]
+        if len(paths) > 1:
+            self._empty_window().merge_files(paths)
+        elif paths:
+            self._empty_window().open_file(paths[0])
 
     def new_window(self) -> PenfoldWindow:
         """Open an empty window and return it."""
@@ -103,6 +108,12 @@ class PenfoldApplication(Adw.Application):
             window.confirm_discard(choose)
         else:
             choose(True)
+
+    def _on_merge(self) -> None:
+        """Open Merge PDFs in the active window, asking first about unsaved changes (F5, J4)."""
+        window = self.get_active_window()
+        target = window if isinstance(window, PenfoldWindow) else self._empty_window()
+        target.merge_files([])
 
     def _on_open_chosen(self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, window: Gtk.Window | None) -> None:
         try:

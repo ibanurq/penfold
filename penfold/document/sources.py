@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pikepdf
 
-from penfold.errors import DocumentOpenError, PasswordRequiredError
+from penfold.errors import DocumentOpenError, PasswordRequiredError, ProtectedPdfError
 
 COPY_NAME = "source.pdf"
 
@@ -125,3 +125,20 @@ class Sources:
         """Release every PDF and remove their copies."""
         for source in self._files:
             source.close()
+
+
+def count_pages(path: Path) -> int:
+    """Return how many pages a PDF has, to list it before merging it (F1).
+
+    Raises:
+        ProtectedPdfError: the PDF is protected, and cannot be merged (F4).
+        DocumentOpenError: the file is missing, unreadable or not a PDF.
+    """
+    try:
+        pdf = open_source(path)
+    except PasswordRequiredError as error:
+        raise ProtectedPdfError(str(path)) from error
+    with pdf:
+        if pdf.is_encrypted:
+            raise ProtectedPdfError(str(path))
+        return len(pdf.pages)

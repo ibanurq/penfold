@@ -15,13 +15,14 @@ from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
 from penfold.document.pages import PaperSize
 from penfold.document.saving import SavePlan, save
-from penfold.errors import DocumentOpenError, ProtectedPdfError, SaveError
+from penfold.errors import DocumentOpenError, PenfoldError, ProtectedPdfError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
 from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
 from penfold.ui.dialogs.extract_pages_dialog import PagesToExtract, PenfoldExtractPagesDialog
+from penfold.ui.dialogs.merge_dialog import PdfsToMerge, PenfoldMergeDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
@@ -376,8 +377,13 @@ class PenfoldWindow(Adw.ApplicationWindow):
     # Saving (J1).
 
     def save(self, then: Callable[[bool], object] | None = None) -> None:
-        """Save over the document's file, in the background; then says whether it was saved."""
-        if self.document is not None:
+        """Save over the document's file, in the background; then says whether it was saved.
+
+        A new document (merged) has no file yet: it is saved as Save As does (F6).
+        """
+        if self.document is not None and self.document.is_new:
+            self.save_as(then)
+        elif self.document is not None:
             self._write(self.document.save_plan(), then)
 
     def save_as(self, then: Callable[[bool], object] | None = None) -> None:
@@ -607,10 +613,56 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Show a PDF in this window and return True; if it cannot be opened, say so and keep what was shown."""
         try:
             document = OpenDocument.open(path)
-            renderer = Renderer(document.sources.spans)
-        except (DocumentOpenError, GLib.Error) as error:
+        except DocumentOpenError as error:
             logger.warning("Could not open %s (%s)", path, type(error).__name__)
             self._show_message(_("Could not open “{name}”").format(name=path.name))
+            return False
+        return self._show_document(document)
+
+    def merge_files(self, paths: list[Path]) -> None:
+        """Open Merge PDFs, with these files in the list, asking first about unsaved changes (F5, J4, D17)."""
+
+        def open_dialog(proceed: bool) -> None:
+            if not proceed:
+                return
+            dialog = PenfoldMergeDialog()
+            dialog.add_files(paths)
+            dialog.connect("merge-requested", lambda _dialog, request: self.merge(request))
+            dialog.present(self)
+
+        self.confirm_discard(open_dialog)
+
+    def merge(self, request: PdfsToMerge) -> None:
+        """Show the merged PDFs, unsaved, with its bookmarks in sight (F2, F6); say so, or why they cannot be merged."""
+        proposed = request.paths[0].parent / _("merged.pdf")
+        try:
+            document = OpenDocument.merge(
+                request.paths,
+                proposed,
+                bookmark_per_file=request.bookmark_per_file,
+                keep_bookmarks=request.keep_bookmarks,
+            )
+        except PenfoldError as error:
+            logger.warning("Could not merge (%s)", type(error).__name__)
+            self._show_message(_("Could not merge the PDFs"))
+            return
+        if self._show_document(document):
+            self.sidebar.show_view(sidebar_views.BOOKMARKS)
+            count = document.page_count
+            self.toast_overlay.add_toast(
+                Adw.Toast(
+                    title=ngettext("PDFs merged: {count} page", "PDFs merged: {count} pages", count).format(count=count)
+                )
+            )
+
+    def _show_document(self, document: OpenDocument) -> bool:
+        """Show a document in this window, instead of the one shown, and return True; False if it cannot be drawn."""
+        try:
+            renderer = Renderer(document.sources.spans)
+        except GLib.Error:
+            logger.warning("Poppler could not open %s", document.path)
+            self._show_message(_("Could not open “{name}”").format(name=document.file_name))
+            document.close()
             return False
         self._close_document()
         self.document, self.renderer = document, renderer
@@ -701,14 +753,14 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_drop(self, _target: Gtk.DropTarget, value: Gdk.FileList, _x: float, _y: float) -> bool:
         """A PDF dropped on the window opens in it, asking first about unsaved changes (A5, J4).
 
-        Several at once will open Merge (phase 4).
+        Several at once open Merge PDFs with them in the list (D17).
         """
-        files = value.get_files()
-        path = files[0].get_path() if len(files) == 1 else None
-        if path is None:
-            return False
-        self.confirm_discard(lambda proceed: proceed and self.open_file(Path(path)))
-        return True
+        paths = [Path(path) for file in value.get_files() if (path := file.get_path()) is not None]
+        if len(paths) > 1:
+            self.merge_files(paths)
+        elif paths:
+            self.confirm_discard(lambda proceed: proceed and self.open_file(paths[0]))
+        return bool(paths)
 
     # Unsaved changes (J4, J5).
 

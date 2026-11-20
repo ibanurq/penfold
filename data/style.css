@@ -28,3 +28,12 @@
   background-color: var(--accent-bg-color);
   border-radius: 2px;
 }
+
+/* Where a dragged file goes in the list of Merge PDFs: a line in the accent colour above or below a row (F1). */
+.drop-above {
+  box-shadow: inset 0 2px var(--accent-bg-color);
+}
+
+.drop-below {
+  box-shadow: inset 0 -2px var(--accent-bg-color);
+}
