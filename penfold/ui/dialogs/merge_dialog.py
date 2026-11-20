@@ -71,6 +71,8 @@ class PenfoldMergeDialog(Adw.Dialog):
         """Prepare an empty list."""
         super().__init__()
         self.files: list[FileToMerge] = []
+        # A file dropped on another row, moved when its drag ends: its position and the one it goes before.
+        self._pending_move: tuple[int, int] | None = None
         placeholder = Gtk.Label(
             label=_("Drag PDFs here or click “Add PDFs…”"), wrap=True, margin_top=48, margin_bottom=48
         )
@@ -156,6 +158,7 @@ class PenfoldMergeDialog(Adw.Dialog):
         drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
         drag.connect("prepare", lambda _source, _x, _y: Gdk.ContentProvider.new_for_value(DraggedFile(position)))
         drag.connect("drag-begin", lambda source, _drag: source.set_icon(Gtk.WidgetPaintable.new(row), 0, 0))
+        drag.connect("drag-end", self._on_drag_end)
         row.add_controller(drag)
         drop = Gtk.DropTarget.new(DraggedFile, Gdk.DragAction.MOVE)
         drop.connect("motion", self._on_row_motion, row)
@@ -174,12 +177,21 @@ class PenfoldMergeDialog(Adw.Dialog):
         _clear_drop_mark(row)
         if not isinstance(value, DraggedFile):
             return False
-        before = position if y < row.get_height() / 2 else position + 1
-        # The rows are made again once the drag has ended: not while GTK is still delivering it to this row.
-        GLib.idle_add(self._move_after_drop, value.position, before)
+        self._pending_move = (value.position, position if y < row.get_height() / 2 else position + 1)
         return True
 
-    def _move_after_drop(self, position: int, before: int) -> bool:
+    def _on_drag_end(self, _source: Gtk.DragSource, _drag: Gdk.Drag, _delete_data: bool) -> None:
+        """Move the file dropped once its drag has wholly ended.
+
+        Making the rows again destroys the row dragged; on Wayland a drag ends a moment after the drop, and destroying
+        its row before confuses GTK.
+        """
+        if self._pending_move is not None:
+            position, before = self._pending_move
+            self._pending_move = None
+            GLib.idle_add(self._move_later, position, before)
+
+    def _move_later(self, position: int, before: int) -> bool:
         self.move_file(position, before)
         return GLib.SOURCE_REMOVE
 
