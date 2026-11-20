@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-20 16:53+0100\n"
+"POT-Creation-Date: 2026-11-20 17:04+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -91,7 +91,7 @@ msgstr "combinar"
 msgid "Add Pages"
 msgstr "Añadir páginas"
 
-#: data/ui/dialogs/add_pages_dialog.blp:20 penfold/ui/window.py:682
+#: data/ui/dialogs/add_pages_dialog.blp:20 penfold/ui/window.py:686
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -174,7 +174,7 @@ msgstr "Menú del documento"
 msgid "_Print…"
 msgstr "_Imprimir…"
 
-#: data/ui/document_header.blp:69 penfold/ui/window.py:684
+#: data/ui/document_header.blp:69 penfold/ui/window.py:688
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -271,13 +271,18 @@ msgstr "Abrir una ventana nueva"
 msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
-#: penfold/ui/dialogs/add_pages_dialog.py:29
+#: penfold/ui/dialogs/add_pages_dialog.py:31
 msgid "Letter"
 msgstr "Carta"
 
-#: penfold/ui/dialogs/add_pages_dialog.py:107
+#: penfold/ui/dialogs/add_pages_dialog.py:121
 msgid "Choose PDF"
 msgstr "Elegir PDF"
+
+#: penfold/ui/dialogs/add_pages_dialog.py:152
+#, python-brace-format
+msgid "Page {label} ({number} of {count})"
+msgstr "Página {label} ({number} de {count})"
 
 #: penfold/ui/file_dialogs.py:12
 msgid "PDF Documents"
@@ -498,57 +503,57 @@ msgid_plural "{count} pages deleted"
 msgstr[0] "Página eliminada"
 msgstr[1] "{count} páginas eliminadas"
 
-#: penfold/ui/window.py:288
+#: penfold/ui/window.py:292
 #, python-brace-format
 msgid "“{name}” is protected against changes and cannot be added yet"
 msgstr "«{name}» está protegido contra cambios y todavía no se puede añadir"
 
-#: penfold/ui/window.py:292 penfold/ui/window.py:564
+#: penfold/ui/window.py:296 penfold/ui/window.py:568
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
-#: penfold/ui/window.py:298
+#: penfold/ui/window.py:302
 msgid "Blank page added"
 msgstr "Página en blanco añadida"
 
-#: penfold/ui/window.py:300
+#: penfold/ui/window.py:304
 #, python-brace-format
 msgid "{count} page and its bookmarks added"
 msgid_plural "{count} pages and their bookmarks added"
 msgstr[0] "{count} página y sus marcadores añadidos"
 msgstr[1] "{count} páginas y sus marcadores añadidos"
 
-#: penfold/ui/window.py:302
+#: penfold/ui/window.py:306
 #, python-brace-format
 msgid "{count} page added"
 msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:307
+#: penfold/ui/window.py:311
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:338
+#: penfold/ui/window.py:342
 msgid "Save As"
 msgstr "Guardar como"
 
-#: penfold/ui/window.py:376
+#: penfold/ui/window.py:380
 #, python-brace-format
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
 
-#: penfold/ui/window.py:398
+#: penfold/ui/window.py:402
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:591
+#: penfold/ui/window.py:595
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:593
+#: penfold/ui/window.py:597
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -556,19 +561,19 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:649
+#: penfold/ui/window.py:653
 msgid "_OK"
 msgstr "_Aceptar"
 
-#: penfold/ui/window.py:677
+#: penfold/ui/window.py:681
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:678
+#: penfold/ui/window.py:682
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:683
+#: penfold/ui/window.py:687
 msgid "_Discard"
 msgstr "_Descartar"

@@ -1,9 +1,11 @@
 """The "Add Pages" dialogue (02-interfaz, 6.1 and 8; E4 to E6): the pages of a PDF or a blank page, and where.
 
 As in 0.6, choosing a file, a size or a page number also chooses the option it belongs to. With pages selected, it
-proposes to add the new ones after the last of them; otherwise at the end (D48).
+proposes to add the new ones after the last of them; otherwise at the end (D48). The page number is a position; in a
+PDF with page labels, the label of that page is shown under it (D49).
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from gettext import gettext as _
 from pathlib import Path
@@ -45,13 +47,24 @@ class PenfoldAddPagesDialog(Adw.Dialog):
     size_dropdown: Gtk.DropDown = Gtk.Template.Child()
     start_check: Gtk.CheckButton = Gtk.Template.Child()
     end_check: Gtk.CheckButton = Gtk.Template.Child()
+    after_row: Adw.ActionRow = Gtk.Template.Child()
     after_check: Gtk.CheckButton = Gtk.Template.Child()
     page_spin: Gtk.SpinButton = Gtk.Template.Child()
 
-    def __init__(self, page_count: int, current_page: int, selected_pages: list[int]) -> None:
-        """Prepare the dialogue for a document of page_count pages; pages are positions from 0."""
+    def __init__(
+        self,
+        page_count: int,
+        current_page: int,
+        selected_pages: list[int],
+        page_label: Callable[[int], str] | None = None,
+    ) -> None:
+        """Prepare the dialogue for a document of page_count pages; pages are positions from 0.
+
+        page_label names a page by its position, for a PDF with page labels; None for one without.
+        """
         super().__init__()
         self._page_count = page_count
+        self._page_label = page_label
         self._file: Path | None = None
         # Filling in the dialogue must not choose options as the user's changes do.
         self._ready = False
@@ -64,6 +77,7 @@ class PenfoldAddPagesDialog(Adw.Dialog):
             self.page_spin.set_value(current_page + 1)
             self.end_check.set_active(True)
         self._ready = True
+        self._show_page_label()
         self._update_add_button()
 
     @property
@@ -128,3 +142,14 @@ class PenfoldAddPagesDialog(Adw.Dialog):
     def _on_page_changed(self, _spin: Gtk.SpinButton) -> None:
         if self._ready:
             self.after_check.set_active(True)
+            self._show_page_label()
+
+    def _show_page_label(self) -> None:
+        """Under the page number, the label of that page and its position, as the page box shows them (D49)."""
+        if self._page_label is None:
+            return
+        number = self.page_spin.get_value_as_int()
+        text = _("Page {label} ({number} of {count})").format(
+            label=self._page_label(number - 1), number=number, count=self._page_count
+        )
+        self.after_row.set_subtitle(GLib.markup_escape_text(text))

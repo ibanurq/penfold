@@ -1,6 +1,6 @@
 """The "Add Pages" dialogue and adding pages from the window (E4 to E6, D48)."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -33,10 +33,12 @@ def window(application: "PenfoldApplication") -> Iterator["PenfoldWindow"]:
     process_pending_events()
 
 
-def make_dialog(page_count: int, current_page: int, selected: list[int]) -> "PenfoldAddPagesDialog":
+def make_dialog(
+    page_count: int, current_page: int, selected: list[int], page_label: Callable[[int], str] | None = None
+) -> "PenfoldAddPagesDialog":
     from penfold.ui.dialogs.add_pages_dialog import PenfoldAddPagesDialog
 
-    return PenfoldAddPagesDialog(page_count, current_page, selected)
+    return PenfoldAddPagesDialog(page_count, current_page, selected, page_label)
 
 
 def test_without_selection_it_proposes_the_end(application: "PenfoldApplication") -> None:  # noqa: ARG001
@@ -105,3 +107,12 @@ def test_the_window_says_why_pages_cannot_be_added(window: "PenfoldWindow", tmp_
 def test_pages_cannot_be_added_to_a_protected_pdf(window: "PenfoldWindow", tmp_path: Path) -> None:
     open_and_wait(window, make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
     assert not action_enabled(window, "add-pages")
+
+
+def test_with_page_labels_the_label_of_the_page_is_shown(application: "PenfoldApplication") -> None:  # noqa: ARG001
+    labels = ["i", "ii", "1", "2", "3"]
+    dialog = make_dialog(5, 0, [3], labels.__getitem__)
+    assert dialog.after_row.get_subtitle() == "Page 2 (4 of 5)"
+    dialog.page_spin.set_value(1)
+    assert dialog.after_row.get_subtitle() == "Page i (1 of 5)"
+    assert make_dialog(5, 0, [3]).after_row.get_subtitle() in {None, ""}  # nothing without labels

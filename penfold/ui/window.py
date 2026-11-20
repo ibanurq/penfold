@@ -269,8 +269,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Ask what pages to add and where (E4 to E6, D48)."""
         if self.document is None:
             return
+        document = self.document
         dialog = PenfoldAddPagesDialog(
-            self.document.page_count, self.document_view.current_page, self.pages_view.selected_pages()
+            document.page_count,
+            self.document_view.current_page,
+            self.pages_view.selected_pages(),
+            document.page_label if document.has_page_labels else None,
         )
         dialog.connect("add-requested", lambda _dialog, choice: self.add_pages(choice))
         dialog.present(self)
