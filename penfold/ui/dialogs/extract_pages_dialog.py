@@ -1,7 +1,8 @@
 """The "Extract Pages" dialogue (02-interfaz, 6.1 and 8; E7 and E8; D51): which pages, and how.
 
 It starts with the selected pages written as a list. A list that cannot be read is explained under it, and the
-dialogue stays open until the list is right.
+dialogue stays open until the list is right. The numbers are positions; in a PDF with page labels, a line says so
+(D53).
 """
 
 from dataclasses import dataclass
@@ -54,15 +55,17 @@ class PenfoldExtractPagesDialog(Adw.Dialog):
 
     extract_button: Gtk.Button = Gtk.Template.Child()
     pages_row: Adw.EntryRow = Gtk.Template.Child()
+    positions_note: Gtk.Label = Gtk.Template.Child()
     error_label: Gtk.Label = Gtk.Template.Child()
     separate_row: Adw.SwitchRow = Gtk.Template.Child()
     delete_row: Adw.SwitchRow = Gtk.Template.Child()
 
-    def __init__(self, page_count: int, selected_pages: list[int]) -> None:
+    def __init__(self, page_count: int, selected_pages: list[int], *, has_page_labels: bool = False) -> None:
         """Prepare the dialogue for a document of page_count pages, with the selected ones (positions from 0)."""
         super().__init__()
         self._page_count = page_count
         self.pages_row.set_text(format_page_ranges(selected_pages))
+        self.positions_note.set_visible(has_page_labels)
 
     def request(self) -> PagesToExtract:
         """What is chosen now.

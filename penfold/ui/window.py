@@ -312,7 +312,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Ask which pages to extract and how, starting with the selected ones (E7, E8)."""
         if self.document is None:
             return
-        dialog = PenfoldExtractPagesDialog(self.document.page_count, self.pages_view.selected_pages())
+        dialog = PenfoldExtractPagesDialog(
+            self.document.page_count,
+            self.pages_view.selected_pages(),
+            has_page_labels=self.document.has_page_labels,
+        )
         dialog.connect("extract-requested", lambda _dialog, request: self.extract_pages(request))
         dialog.present(self)
 

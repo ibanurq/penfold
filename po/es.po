@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-20 17:49+0100\n"
+"POT-Creation-Date: 2026-11-20 17:55+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -93,7 +93,7 @@ msgstr "Añadir páginas"
 
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:727
+#: penfold/ui/window.py:731
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -170,15 +170,19 @@ msgstr ""
 "Separa las páginas con comas y usa un guion para un intervalo (10‑12). 56‑ "
 "quiere decir desde la página 56 hasta el final."
 
-#: data/ui/dialogs/extract_pages_dialog.blp:76
+#: data/ui/dialogs/extract_pages_dialog.blp:64
+msgid "The numbers are the position of each page, not its label."
+msgstr "Los números son la posición de cada página, no su etiqueta."
+
+#: data/ui/dialogs/extract_pages_dialog.blp:90
 msgid "Options"
 msgstr "Opciones"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:79
+#: data/ui/dialogs/extract_pages_dialog.blp:93
 msgid "Extract as Separate Pages"
 msgstr "Extraer como páginas sueltas"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:83
+#: data/ui/dialogs/extract_pages_dialog.blp:97
 msgid "Delete Pages After Extraction"
 msgstr "Eliminar las páginas después"
 
@@ -211,7 +215,7 @@ msgstr "Menú del documento"
 msgid "_Print…"
 msgstr "_Imprimir…"
 
-#: data/ui/document_header.blp:69 penfold/ui/window.py:729
+#: data/ui/document_header.blp:69 penfold/ui/window.py:733
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -321,26 +325,26 @@ msgstr "Elegir PDF"
 msgid "Page {label} ({number} of {count})"
 msgstr "Página {label} ({number} de {count})"
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:37
+#: penfold/ui/dialogs/extract_pages_dialog.py:38
 #, python-brace-format
 msgid "Invalid format: “{part}”."
 msgstr "Formato no válido: «{part}»."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:39
+#: penfold/ui/dialogs/extract_pages_dialog.py:40
 #, python-brace-format
 msgid "Invalid range: “{part}”."
 msgstr "Intervalo no válido: «{part}»."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:41
+#: penfold/ui/dialogs/extract_pages_dialog.py:42
 #, python-brace-format
 msgid "Page {page} does not exist (the document has {count})."
 msgstr "La página {page} no existe (el documento tiene {count})."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:43
+#: penfold/ui/dialogs/extract_pages_dialog.py:44
 msgid "Enter at least one page."
 msgstr "Indica al menos una página."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:98
+#: penfold/ui/dialogs/extract_pages_dialog.py:101
 msgid ""
 "You can’t delete all the pages: turn off “Delete Pages After Extraction”."
 msgstr ""
@@ -385,12 +389,12 @@ msgstr "_Renombrar"
 msgid "_Overwrite"
 msgstr "_Sobrescribir"
 
-#: penfold/ui/extraction.py:123 penfold/ui/window.py:421
+#: penfold/ui/extraction.py:123 penfold/ui/window.py:425
 #, python-brace-format
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
 
-#: penfold/ui/extraction.py:124 penfold/ui/window.py:694
+#: penfold/ui/extraction.py:124 penfold/ui/window.py:698
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -614,7 +618,7 @@ msgstr[1] "{count} páginas eliminadas"
 msgid "“{name}” is protected against changes and cannot be added yet"
 msgstr "«{name}» está protegido contra cambios y todavía no se puede añadir"
 
-#: penfold/ui/window.py:300 penfold/ui/window.py:609
+#: penfold/ui/window.py:300 penfold/ui/window.py:613
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
@@ -630,45 +634,45 @@ msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:337
+#: penfold/ui/window.py:341
 #, python-brace-format
 msgid "{count} page extracted into its own file"
 msgid_plural "{count} pages extracted, one file each"
 msgstr[0] "{count} página extraída en su propio archivo"
 msgstr[1] "{count} páginas extraídas, cada una en su archivo"
 
-#: penfold/ui/window.py:340
+#: penfold/ui/window.py:344
 #, python-brace-format
 msgid "{count} page extracted"
 msgid_plural "{count} pages extracted"
 msgstr[0] "{count} página extraída"
 msgstr[1] "{count} páginas extraídas"
 
-#: penfold/ui/window.py:347
+#: penfold/ui/window.py:351
 #, python-brace-format
 msgid "{count} page extracted and deleted"
 msgid_plural "{count} pages extracted and deleted"
 msgstr[0] "{count} página extraída y eliminada"
 msgstr[1] "{count} páginas extraídas y eliminadas"
 
-#: penfold/ui/window.py:352
+#: penfold/ui/window.py:356
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:383
+#: penfold/ui/window.py:387
 msgid "Save As"
 msgstr "Guardar como"
 
-#: penfold/ui/window.py:443
+#: penfold/ui/window.py:447
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:636
+#: penfold/ui/window.py:640
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:638
+#: penfold/ui/window.py:642
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -676,15 +680,15 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:722
+#: penfold/ui/window.py:726
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:723
+#: penfold/ui/window.py:727
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:728
+#: penfold/ui/window.py:732
 msgid "_Discard"
 msgstr "_Descartar"

@@ -80,6 +80,13 @@ def test_a_wrong_list_is_explained_and_nothing_is_extracted(
     assert not dialog.error_label.get_visible()  # it goes away while the list is corrected
 
 
+def test_with_page_labels_a_line_says_the_numbers_are_positions(application: "PenfoldApplication") -> None:  # noqa: ARG001
+    from penfold.ui.dialogs.extract_pages_dialog import PenfoldExtractPagesDialog
+
+    assert PenfoldExtractPagesDialog(5, [], has_page_labels=True).positions_note.get_visible()
+    assert not make_dialog(5, []).positions_note.get_visible()
+
+
 def test_every_page_cannot_be_deleted_after(application: "PenfoldApplication") -> None:  # noqa: ARG001
     dialog = make_dialog(3, [0, 1, 2])
     requests = requests_of(dialog)
