@@ -81,6 +81,13 @@ class PenfoldMergeDialog(Adw.Dialog):
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.connect("drop", self._on_files_dropped)
         self.add_controller(drop)
+        # One target for the whole list, as for the thumbnails: one per row made GTK warn as a drag crossed them.
+        rows_drop = Gtk.DropTarget.new(DraggedFile, Gdk.DragAction.MOVE)
+        rows_drop.connect("motion", self._on_row_motion)
+        rows_drop.connect("leave", lambda _target: self._mark_drop(None))
+        rows_drop.connect("drop", self._on_row_drop)
+        self.file_list.add_controller(rows_drop)
+        self._marked_row: Gtk.ListBoxRow | None = None
         DragAutoscroll(self.scrolled)
         self._show_files()
 
@@ -154,30 +161,41 @@ class PenfoldMergeDialog(Adw.Dialog):
         return row
 
     def _make_draggable(self, row: Adw.ActionRow, position: int) -> None:
-        """Let a row be dragged, and dropped on another one: above its middle it goes before it, below, after."""
+        """Let a row be dragged to another place in the list."""
         drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
         drag.connect("prepare", lambda _source, _x, _y: Gdk.ContentProvider.new_for_value(DraggedFile(position)))
         drag.connect("drag-begin", lambda source, _drag: source.set_icon(Gtk.WidgetPaintable.new(row), 0, 0))
         drag.connect("drag-end", self._on_drag_end)
         row.add_controller(drag)
-        drop = Gtk.DropTarget.new(DraggedFile, Gdk.DragAction.MOVE)
-        drop.connect("motion", self._on_row_motion, row)
-        drop.connect("leave", lambda _target: _clear_drop_mark(row))
-        drop.connect("drop", self._on_row_drop, row, position)
-        row.add_controller(drop)
 
-    def _on_row_motion(self, _target: Gtk.DropTarget, _x: float, y: float, row: Adw.ActionRow) -> Gdk.DragAction:
-        _clear_drop_mark(row)
-        row.add_css_class(DROP_ABOVE if y < row.get_height() / 2 else DROP_BELOW)
-        return Gdk.DragAction.MOVE
+    def _drop_place(self, y: float) -> tuple[Gtk.ListBoxRow, bool] | None:
+        """The row under a point of the list, and whether the point is in its upper half (the file goes before it)."""
+        row = self.file_list.get_row_at_y(int(y))
+        if row is None:
+            return None
+        found, bounds = row.compute_bounds(self.file_list)
+        return row, not found or y < bounds.get_y() + bounds.get_height() / 2
 
-    def _on_row_drop(
-        self, _target: Gtk.DropTarget, value: object, _x: float, y: float, row: Adw.ActionRow, position: int
-    ) -> bool:
-        _clear_drop_mark(row)
-        if not isinstance(value, DraggedFile):
+    def _mark_drop(self, place: tuple[Gtk.ListBoxRow, bool] | None) -> None:
+        """Show a line above or below the row where a dragged file would go; none for None."""
+        if self._marked_row is not None:
+            _clear_drop_mark(self._marked_row)
+        self._marked_row = place[0] if place is not None else None
+        if place is not None:
+            place[0].add_css_class(DROP_ABOVE if place[1] else DROP_BELOW)
+
+    def _on_row_motion(self, _target: Gtk.DropTarget, _x: float, y: float) -> Gdk.DragAction:
+        place = self._drop_place(y)
+        self._mark_drop(place)
+        return Gdk.DragAction.MOVE if place is not None else Gdk.DragAction(0)
+
+    def _on_row_drop(self, _target: Gtk.DropTarget, value: object, _x: float, y: float) -> bool:
+        place = self._drop_place(y)
+        self._mark_drop(None)
+        if not isinstance(value, DraggedFile) or place is None:
             return False
-        self._pending_move = (value.position, position if y < row.get_height() / 2 else position + 1)
+        row, before = place
+        self._pending_move = (value.position, row.get_index() if before else row.get_index() + 1)
         return True
 
     def _on_drag_end(self, _source: Gtk.DragSource, _drag: Gdk.Drag, _delete_data: bool) -> None:
