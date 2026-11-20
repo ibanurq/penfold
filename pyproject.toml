@@ -30,6 +30,9 @@ select = [
     "RUF",  # Ruff-specific
 ]
 
+# The interface writes apostrophes as GNOME's guidelines ask (don’t), not as straight quotes.
+allowed-confusables = ["’"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 

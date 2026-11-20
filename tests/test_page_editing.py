@@ -217,3 +217,100 @@ def test_protected_pdfs_cannot_be_saved(application: "PenfoldApplication", tmp_p
         dialog.force_close()
     new_window.destroy()
     process_pending_events()
+
+
+def unsaved_question(window: "PenfoldWindow") -> Adw.AlertDialog:
+    dialog = window.get_visible_dialog()
+    assert isinstance(dialog, Adw.AlertDialog)
+    assert dialog.get_heading() == "Save changes to “five.pdf”?"
+    return dialog
+
+
+def answer(question: Adw.AlertDialog, response: str) -> None:
+    """Answer a question as its buttons do: the response, then the question closes."""
+    question.emit("response", response)
+    question.close()
+    process_pending_events()
+
+
+def make_change(window: "PenfoldWindow") -> None:
+    select(window, 0)
+    window.activate_action("win.rotate-pages-right", None)
+
+
+def test_closing_without_changes_asks_nothing(application: "PenfoldApplication", tmp_path: Path) -> None:
+    from penfold.ui.window import PenfoldWindow
+
+    new_window = PenfoldWindow(application)
+    new_window.present()
+    open_and_wait(new_window, make_pdf(tmp_path / "plain.pdf"))
+    new_window.close()
+    process_pending_events()
+    assert new_window not in application.get_windows()
+
+
+def test_closing_with_changes_asks_and_cancel_keeps_the_window(window: "PenfoldWindow") -> None:
+    make_change(window)
+    window.close()
+    answer(unsaved_question(window), "cancel")
+    assert window.get_visible()
+    assert window.document is not None
+    assert window.document.is_modified
+
+
+def test_discarding_closes_the_window_without_saving(window: "PenfoldWindow") -> None:
+    document = window.document
+    assert document is not None
+    before = document.path.read_bytes()
+    make_change(window)
+    window.close()
+    answer(unsaved_question(window), "discard")
+    assert not window.get_visible()
+    assert document.path.read_bytes() == before
+
+
+def test_saving_from_the_question_saves_then_closes(window: "PenfoldWindow") -> None:
+    import pikepdf
+
+    from tests.gtk_helpers import wait_until
+
+    path = window.document.path if window.document is not None else None
+    assert path is not None
+    make_change(window)
+    window.close()
+    answer(unsaved_question(window), "save")
+    wait_until(lambda: not window.get_visible())
+    with pikepdf.open(path) as pdf:
+        assert pdf.pages[0].obj.Rotate == 90
+
+
+def test_quitting_asks_in_each_window_with_changes_and_cancel_stops(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.ui.window import PenfoldWindow
+
+    application = window.get_application()
+    assert application is not None
+    other = PenfoldWindow(application)
+    other.present()
+    open_and_wait(other, make_pdf(tmp_path / "other.pdf"))
+    make_change(window)
+    application.activate_action("quit", None)
+    process_pending_events()
+    answer(unsaved_question(window), "cancel")
+    assert window.get_visible()
+    application.activate_action("quit", None)
+    process_pending_events()
+    answer(unsaved_question(window), "discard")
+    assert not window.get_visible()
+    assert not other.get_visible()
+
+
+def test_a_pdf_dropped_on_a_changed_document_asks_first(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from gi.repository import Gdk, Gio
+
+    other = make_pdf(tmp_path / "other.pdf", page_count=2)
+    make_change(window)
+    files = Gdk.FileList.new_from_list([Gio.File.new_for_path(str(other))])
+    assert window._on_drop(Gtk.DropTarget(), files, 0, 0)
+    answer(unsaved_question(window), "discard")
+    assert window.document is not None
+    assert window.document.file_name == "other.pdf"

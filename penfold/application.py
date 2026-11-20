@@ -92,9 +92,17 @@ class PenfoldApplication(Adw.Application):
         present_shortcuts_dialog(self.get_active_window(), self)
 
     def _on_open(self) -> None:
-        """Choose a PDF and open it in the active window (Ctrl+O, A1)."""
+        """Choose a PDF and open it in the active window (Ctrl+O, A1), asking first about unsaved changes (J4)."""
         window = self.get_active_window()
-        pdf_file_dialog(_("Open a PDF")).open(window, None, self._on_open_chosen, window)
+
+        def choose(proceed: bool) -> None:
+            if proceed:
+                pdf_file_dialog(_("Open a PDF")).open(window, None, self._on_open_chosen, window)
+
+        if isinstance(window, PenfoldWindow):
+            window.confirm_discard(choose)
+        else:
+            choose(True)
 
     def _on_open_chosen(self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, window: Gtk.Window | None) -> None:
         try:
@@ -108,6 +116,11 @@ class PenfoldApplication(Adw.Application):
         target.open_file(Path(path))
 
     def _on_quit(self) -> None:
-        """Close every window in turn (Ctrl+Q); later phases will ask about unsaved changes in each."""
-        for window in list(self.get_windows()):
-            window.close()
+        """Close every window in turn (Ctrl+Q), asking in each with unsaved changes; Cancel stops quitting (A8)."""
+        windows = [window for window in self.get_windows() if isinstance(window, PenfoldWindow)]
+
+        def close_next(proceed: bool = True) -> None:
+            if proceed and windows:
+                windows.pop(0).close_after_asking(close_next)
+
+        close_next()

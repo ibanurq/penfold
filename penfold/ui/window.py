@@ -67,6 +67,10 @@ SAVE_ACTIONS = {
     "save": ["<Control>s"],
     "save-as": ["<Shift><Control>s"],
 }
+# Answers to the question about unsaved changes (J5).
+RESPONSE_CANCEL = "cancel"
+RESPONSE_DISCARD = "discard"
+RESPONSE_SAVE = "save"
 # Edits of the selected pages, from the action bar of the Pages view (02-interfaz, 6.1). Delete also has its key,
 # which does nothing while typing in a field (L4), so it is not one of the application's shortcuts (_add_delete_key).
 PAGE_ACTIONS = ("rotate-pages-left", "rotate-pages-right", "delete-pages")
@@ -104,6 +108,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
         self._saving = False
+        self._close_confirmed = False
         self.welcome_menu_button.set_menu_model(main_menu())
         self._add_actions()
         self.document_view.connect("current-page-changed", self._on_current_page_changed)
@@ -270,12 +275,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     # Saving (J1).
 
-    def save(self, then: Callable[[bool], None] | None = None) -> None:
+    def save(self, then: Callable[[bool], object] | None = None) -> None:
         """Save over the document's file, in the background; then says whether it was saved."""
         if self.document is not None:
             self._write(self.document.save_plan(), then)
 
-    def save_as(self, then: Callable[[bool], None] | None = None) -> None:
+    def save_as(self, then: Callable[[bool], object] | None = None) -> None:
         """Choose a file and save the document there; it becomes the document's file (J1)."""
         if self.document is None:
             return
@@ -283,7 +288,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         dialog.save(self, None, self._on_save_as_chosen, then)
 
     def _on_save_as_chosen(
-        self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, then: Callable[[bool], None] | None
+        self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, then: Callable[[bool], object] | None
     ) -> None:
         try:
             file = dialog.save_finish(result)
@@ -296,7 +301,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return
         self._write(self.document.save_plan(Path(path)), then)
 
-    def _write(self, plan: SavePlan, then: Callable[[bool], None] | None) -> None:
+    def _write(self, plan: SavePlan, then: Callable[[bool], object] | None) -> None:
         """Write a plan in a worker thread, keeping the window responsive; report how it went in the main thread."""
         document = self.document
         self._saving = True
@@ -580,10 +585,66 @@ class PenfoldWindow(Adw.ApplicationWindow):
         dialog.present(self)
 
     def _on_drop(self, _target: Gtk.DropTarget, value: Gdk.FileList, _x: float, _y: float) -> bool:
-        """A PDF dropped on the window opens in it (A5); several at once will open Merge (phase 4)."""
+        """A PDF dropped on the window opens in it, asking first about unsaved changes (A5, J4).
+
+        Several at once will open Merge (phase 4).
+        """
         files = value.get_files()
         path = files[0].get_path() if len(files) == 1 else None
-        return path is not None and self.open_file(Path(path))
+        if path is None:
+            return False
+        self.confirm_discard(lambda proceed: proceed and self.open_file(Path(path)))
+        return True
+
+    # Unsaved changes (J4, J5).
+
+    def confirm_discard(self, then: Callable[[bool], object]) -> None:
+        """Before the document is replaced or closed, ask what to do with unsaved changes; then says whether to go on.
+
+        Without unsaved changes nothing is asked. Save saves (asking where if it has to) and goes on only if it was
+        saved; Discard goes on; Cancel, or closing the question, does not (D16, 0.6).
+        """
+        document = self.document
+        if document is None or not document.is_modified:
+            then(True)
+            return
+        dialog = Adw.AlertDialog(
+            heading=_("Save changes to “{name}”?").format(name=document.file_name),
+            body=_("If you don’t save, your changes will be lost."),
+            close_response=RESPONSE_CANCEL,
+            default_response=RESPONSE_SAVE,
+        )
+        dialog.add_response(RESPONSE_CANCEL, _("_Cancel"))
+        dialog.add_response(RESPONSE_DISCARD, _("_Discard"))
+        dialog.add_response(RESPONSE_SAVE, _("_Save"))
+        dialog.set_response_appearance(RESPONSE_DISCARD, Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_response_appearance(RESPONSE_SAVE, Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_unsaved_response, then)
+        self.present()
+        dialog.present(self)
+
+    def _on_unsaved_response(self, _dialog: Adw.AlertDialog, response: str, then: Callable[[bool], object]) -> None:
+        if response == RESPONSE_SAVE:
+            self.save(then)
+        else:
+            then(response == RESPONSE_DISCARD)
+
+    def close_after_asking(self, then: Callable[[bool], object] | None = None) -> None:
+        """Close the window, asking first about unsaved changes; then says whether it closed (Ctrl+Q, A8)."""
+
+        def close(proceed: bool) -> None:
+            if proceed:
+                self._close_confirmed = True
+                # The window refuses to close while the question is still on it: close once it has gone.
+                question = self.get_visible_dialog()
+                if question is None:
+                    self.close()
+                else:
+                    question.connect("closed", lambda _question: self.close())
+            if then is not None:
+                then(proceed)
+
+        self.confirm_discard(close)
 
     # Window size (D17): small without a document; with one, the size it had the last time.
 
@@ -610,6 +671,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return Gio.Settings(schema_id=config.APP_ID)
 
     def _on_close_request(self, _window: Gtk.Window) -> bool:
+        """Closing the window (Ctrl+W, its button) asks first about unsaved changes (A8)."""
+        if not self._close_confirmed and self.document is not None and self.document.is_modified:
+            self.close_after_asking()
+            return True
         self._remember_size()
         self._close_document()
         return False
