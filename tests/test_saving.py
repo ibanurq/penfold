@@ -219,3 +219,71 @@ def test_protected_pdfs_cannot_be_saved(tmp_path: Path) -> None:
     document = OpenDocument.open(make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
     with pytest.raises(ValueError, match="protected"):
         document.save_plan()
+
+
+def test_fields_with_kids_lose_only_the_kids_of_deleted_pages(tmp_path: Path) -> None:
+    pdf = pikepdf.new()
+    for _ in range(3):
+        pdf.add_blank_page()
+    parent = pdf.make_indirect(pikepdf.Dictionary(T=pikepdf.String("group"), FT=pikepdf.Name.Btn))
+    kids = []
+    for page in pdf.pages[:2]:
+        widget = pdf.make_indirect(
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Widget, Rect=[0, 0, 9, 9], Parent=parent)
+        )
+        page.obj.Annots = pdf.make_indirect(pikepdf.Array([widget]))
+        kids.append(widget)
+    parent.Kids = pikepdf.Array(kids)
+    only_on_two = pdf.make_indirect(
+        pikepdf.Dictionary(T=pikepdf.String("solo"), Kids=pikepdf.Array([pdf.make_indirect(pikepdf.Dictionary())]))
+    )
+    pdf.pages[2].obj.Annots = pdf.make_indirect(pikepdf.Array([only_on_two.Kids[0]]))
+    pdf.Root.AcroForm = pdf.make_indirect(pikepdf.Dictionary(Fields=pikepdf.Array([parent, only_on_two, 7])))
+    path = tmp_path / "form.pdf"
+    pdf.save(path)
+    document = OpenDocument.open(path)
+    document.execute(DeletePages(document, [1, 2]))
+    with save_over(document) as saved:
+        fields = saved.Root.AcroForm.Fields
+        assert len(fields) == 2  # the group with one kid left, and a stray number kept as it was
+        assert len(fields[0].Kids) == 1
+
+
+def test_an_outline_without_bookmarks_left_is_removed(document: OpenDocument) -> None:
+    document.execute(DeletePages(document, [0, 1, 2, 3]))
+    document.bookmarks = [bookmark for bookmark in document.bookmarks if bookmark.page is not None]
+    with save_over(document) as pdf:
+        assert "/Outlines" not in pdf.Root
+
+
+def test_bookmarks_keep_the_style_they_have_now(document: OpenDocument) -> None:
+    cover = document.bookmarks[0]
+    cover.bold, cover.color = False, None
+    with save_over(document) as pdf:
+        item = pdf.Root.Outlines.First
+        assert ("/F" in item, "/C" in item) == (False, False)
+
+
+def test_new_bookmarks_lead_to_their_page_and_height(document: OpenDocument) -> None:
+    from penfold.document.bookmarks import Bookmark
+
+    document.bookmarks = [Bookmark("Top", page=4, top=50), Bookmark("Whole", page=3)]
+    with save_over(document) as pdf, pdf.open_outline() as outline:
+        top, whole = outline.root
+        assert list(top.destination)[1:] == [pikepdf.Name.XYZ, None, 150, None]
+        assert top.destination[0].objgen == pdf.pages[4].obj.objgen
+        assert list(whole.destination)[1:] == [pikepdf.Name.Fit]
+
+
+def test_a_result_with_the_wrong_pages_is_not_put_in_place(
+    document: OpenDocument, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from penfold.document import saving
+
+    before = document.path.read_bytes()
+    plan = document.save_plan()
+    monkeypatch.setattr(saving, "_arrange_pages", lambda _pdf, _originals, _pages: [])
+    document.execute(DeletePages(document, [0]))
+    with pytest.raises(SaveError):
+        save(saving.SavePlan(plan.source, plan.target, tuple(document.pages), (), None))
+    assert document.path.read_bytes() == before
