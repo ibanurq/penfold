@@ -12,7 +12,7 @@ from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, initial_pages
 from penfold.document.saving import SavePlan
-from penfold.document.sources import SourceFile
+from penfold.document.sources import SourceFile, Sources
 
 
 class OpenDocument:
@@ -25,7 +25,7 @@ class OpenDocument:
     def __init__(self, path: Path, source: SourceFile) -> None:
         """Wrap a PDF already copied and opened; use OpenDocument.open to open a file."""
         self.path = path
-        self._source = source
+        self.sources = Sources(source)
         pdf = source.pdf
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
@@ -45,11 +45,6 @@ class OpenDocument:
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
         return cls(path, SourceFile(path))
-
-    @property
-    def source_path(self) -> Path:
-        """The private copy of the PDF as it was opened, which is what Penfold reads its pages from."""
-        return self._source.path
 
     @property
     def file_name(self) -> str:
@@ -72,9 +67,9 @@ class OpenDocument:
         return str(page_index + 1) if label is None else label.text
 
     def page_position(self, source_index: int) -> int | None:
-        """Return where a page of the opened PDF is now, or None if it was deleted.
+        """Return where a page is now, by its source index (sources.py), or None if it is not in the document.
 
-        Bookmarks and annotations name their page by its index in the opened PDF, which never changes.
+        Bookmarks and annotations name their page by its source index, which never changes.
         """
         return self._positions.get(source_index)
 
@@ -147,7 +142,7 @@ class OpenDocument:
             message = "protected PDFs cannot be saved"
             raise ValueError(message)
         return SavePlan.take(
-            self.source_path, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
+            self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
 
     def mark_saved(self, plan: SavePlan) -> None:
@@ -163,8 +158,8 @@ class OpenDocument:
             listener(changes)
 
     def close(self) -> None:
-        """Release the PDF and its private copy."""
-        self._source.close()
+        """Release the source PDFs and their private copies."""
+        self.sources.close()
 
 
 def _read_title(pdf: pikepdf.Pdf) -> str | None:

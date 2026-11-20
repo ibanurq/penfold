@@ -5,12 +5,14 @@ from pathlib import Path
 import cairo
 import pikepdf
 import pytest
-from gi.repository import GLib, Poppler
+from gi.repository import Poppler
 
 from penfold.document.pages import Page
 from penfold.rendering.layout import PageLayout
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, PageContent
+from penfold.rendering.poppler_sources import PopplerSources
 from penfold.ui.text_selection import PagePoint, TextSelection
+from tests.sample_pdfs import make_pdf, source_spans
 
 A4 = (595.0, 842.0)
 LAYOUT = PageLayout([A4] * 3)
@@ -65,7 +67,8 @@ def make_text_pdf(path: Path) -> Path:
 @pytest.fixture
 def content(tmp_path: Path) -> PageContent:
     path = make_text_pdf(tmp_path / "text.pdf")
-    return PageContent(Poppler.Document.new_from_file(GLib.filename_to_uri(str(path), None), None))
+    spans = source_spans(path)
+    return PageContent(PopplerSources(lambda: spans))
 
 
 def test_links_are_read_from_the_top_of_the_page(content: PageContent) -> None:
@@ -126,3 +129,13 @@ def test_selection_on_a_turned_page_reads_the_text_under_it(content: PageContent
     # Turned upside down, the first lines are at the bottom of the page, read from right to left.
     selection = TextSelection(PagePoint(0, 842 - 95, 595 - 70), PagePoint(0, 842 - 125, 595 - 300))
     assert selection.text(content, turned) == "Page 1 line 1\nPage 1 line 2"
+
+
+def test_links_of_an_added_pdf_lead_to_its_own_pages(tmp_path: Path) -> None:
+    spans = source_spans(make_pdf(tmp_path / "opened.pdf", page_count=3), make_text_pdf(tmp_path / "added.pdf"))
+    content = PageContent(PopplerSources(lambda: spans))
+    targets = {link.target for link in content.links(3)}
+    assert InternalTarget(5, 842 - 600) in targets  # its third page, after the three of the opened PDF
+    assert content.links(0) == []
+    selection = TextSelection(PagePoint(3, 95, 70), PagePoint(3, 125, 300))
+    assert selection.text(content, PageLayout([A4] * 6)) == "Page 1 line 1\nPage 1 line 2"

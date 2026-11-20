@@ -1,6 +1,6 @@
-"""Where the pages of the opened PDF are shown: in the order of the document and with the turn Penfold adds.
+"""Where the source pages are shown: in the order of the document and with the turn Penfold adds.
 
-Poppler, bookmarks and annotations know a page by its index in the opened PDF (its source) and measure it unturned.
+Poppler, bookmarks and annotations know a page by its source index (document/sources.py) and measure it unturned.
 The interface shows the pages of the document by their position, turned. A layout translates one into the other.
 Positions in a page are in points from its top left corner, before (source) or after (shown) the turn.
 """
@@ -50,7 +50,7 @@ def turn_rectangle(rectangle: Rectangle, size: Size, rotation: int) -> Rectangle
 
 @dataclass(frozen=True)
 class ShownPage:
-    """A page as it is shown: which page of the opened PDF it is, its unturned size and its turn."""
+    """A page as it is shown: which source page it is (its source index), its unturned size and its turn."""
 
     source: int
     source_size: Size
@@ -83,7 +83,7 @@ class PageLayout:
     """The pages of the document as they are shown, by position."""
 
     def __init__(self, source_sizes: list[Size], pages: Iterable[Page] | None = None) -> None:
-        """Lay out these pages of a PDF whose pages have these sizes; by default, all of them in order, unturned."""
+        """Lay out these pages, given the size of every source page; by default, all of them in order, unturned."""
         chosen = pages if pages is not None else (Page(index) for index in range(len(source_sizes)))
         self.pages = [ShownPage(page.source_index, source_sizes[page.source_index], page.rotation) for page in chosen]
         self.sizes = [page.size for page in self.pages]
@@ -98,11 +98,11 @@ class PageLayout:
         return self.pages[position]
 
     def position(self, source: int) -> int | None:
-        """Where a page of the opened PDF is shown, or None if it was deleted."""
+        """Where a page is shown, by its source index, or None if it is not in the document."""
         return self._positions.get(source)
 
     def place(self, source: int, top: float | None) -> tuple[int, float | None] | None:
-        """Where a destination of the opened PDF (a page and a height) is shown; None if its page was deleted."""
+        """Where a destination (a page's source index and a height) is shown; None if its page is not shown."""
         position = self.position(source)
         if position is None:
             return None

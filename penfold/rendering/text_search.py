@@ -1,9 +1,9 @@
-"""Finding text in a PDF, in the background (D13; as 0.6's Find).
+"""Finding text in a document, in the background (D13; as 0.6's Find).
 
 Poppler finds the text itself, ignoring case and accents and across line breaks (0.6's rules); runs of spaces in
-what is searched count as one. The search runs in a thread with its own Poppler document and sends the matches to the
+what is searched count as one. The search runs in a thread with its own Poppler documents and sends the matches to the
 main thread in batches, so the list fills while it searches. The sentence around a match is read only when its row is
-shown, from the text of its page in Poppler's main-thread copy of the document.
+shown, from the text of its page in Poppler's main-thread copies of the source PDFs.
 
 The pages are searched in the order of the document, as laid out when the search starts; a match is placed on its
 page as shown (turned) and keeps where it is on the page of the PDF, to read its sentence.
@@ -17,8 +17,10 @@ from dataclasses import dataclass
 
 from gi.repository import GLib, Poppler
 
+from penfold.document.sources import Spans
 from penfold.rendering.layout import PageLayout, ShownPage
 from penfold.rendering.page_content import Rectangle
+from penfold.rendering.poppler_sources import PopplerSources
 
 FIND_FLAGS = Poppler.FindFlags.IGNORE_DIACRITICS | Poppler.FindFlags.MULTILINE
 # Results are sent to the main thread in batches, at most this often (seconds), so a common word does not flood it.
@@ -88,9 +90,9 @@ def find_in_page(page: Poppler.Page, position: int, shown: ShownPage, query: str
 class ContextReader:
     """Reads the sentence around matches from the text of their pages, keeping the last pages read."""
 
-    def __init__(self, document: Poppler.Document) -> None:
-        """Read from Poppler's main-thread copy of the document."""
-        self._document = document
+    def __init__(self, sources: PopplerSources) -> None:
+        """Read from Poppler's main-thread copies of the source PDFs."""
+        self._sources = sources
         self._pages: OrderedDict[int, tuple[str, list[Rectangle]]] = OrderedDict()
 
     def context(self, result: SearchResult) -> MatchContext:
@@ -109,7 +111,7 @@ class ContextReader:
 
     def _page_text(self, page: int) -> tuple[str, list[Rectangle]]:
         if page not in self._pages:
-            poppler_page = self._document.get_page(page)
+            poppler_page = self._sources.page(page)
             text = poppler_page.get_text() or ""
             _found, layout = poppler_page.get_text_layout()
             boxes = [(box.x1, box.y1, box.x2, box.y2) for box in layout or []]
@@ -158,11 +160,11 @@ class _Job:
 
 
 class TextSearch:
-    """Searches a PDF in a thread; only the latest search runs, starting at a given page and wrapping around."""
+    """Searches a document in a thread; only the latest search runs, starting at a given page and wrapping around."""
 
-    def __init__(self, uri: str) -> None:
-        """Prepare to search the PDF at this address (its own Poppler document is opened in the thread)."""
-        self._uri = uri
+    def __init__(self, sources: Callable[[], Spans]) -> None:
+        """Prepare to search the source PDFs a function gives (they are opened again in the thread)."""
+        self._sources = sources
         self._generation = 0
         self._lock = threading.Lock()
 
@@ -202,7 +204,7 @@ class TextSearch:
             return generation == self._generation
 
     def _search(self, generation: int, job: _Job) -> None:
-        document = Poppler.Document.new_from_file(self._uri, None)
+        sources = PopplerSources(self._sources)
         count = len(job.layout)
         batch: list[SearchResult] = []
         sent = 0.0
@@ -211,7 +213,7 @@ class TextSearch:
                 return
             position = (job.first_page + step) % count
             shown = job.layout[position]
-            batch.extend(find_in_page(document.get_page(shown.source), position, shown, job.query))
+            batch.extend(find_in_page(sources.page(shown.source), position, shown, job.query))
             # The first match goes at once, so the view can jump to it; then in batches.
             if batch and time.monotonic() - sent >= BATCH_INTERVAL:
                 GLib.idle_add(self._deliver, generation, job.on_results, batch)

@@ -8,6 +8,7 @@ import pytest
 
 from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
+from penfold.document.pages import Page
 from penfold.document.saving import save
 from penfold.errors import SaveError
 from tests.sample_pdfs import make_pdf
@@ -282,8 +283,31 @@ def test_a_result_with_the_wrong_pages_is_not_put_in_place(
 
     before = document.path.read_bytes()
     plan = document.save_plan()
-    monkeypatch.setattr(saving, "_arrange_pages", lambda _pdf, _originals, _pages: [])
+    monkeypatch.setattr(saving, "_arrange_pages", lambda _pdf, _originals, _pages, _others: {})
     document.execute(DeletePages(document, [0]))
     with pytest.raises(SaveError):
-        save(saving.SavePlan(plan.source, plan.target, tuple(document.pages), (), None))
+        save(saving.SavePlan(plan.sources, plan.target, tuple(document.pages), (), None))
     assert document.path.read_bytes() == before
+
+
+def test_pages_of_other_pdfs_are_copied_in_with_what_they_hold(document: OpenDocument, tmp_path: Path) -> None:
+    other = pikepdf.new()
+    other.add_blank_page(page_size=(300, 200))
+    other.add_blank_page(page_size=(301, 200))
+    link = pikepdf.Dictionary(
+        Type=pikepdf.Name.Annot,
+        Subtype=pikepdf.Name.Link,
+        Rect=[0, 0, 10, 10],
+        Dest=pikepdf.Array([other.pages[1].obj, pikepdf.Name.Fit]),
+    )
+    other.pages[0].obj.Annots = other.make_indirect(pikepdf.Array([other.make_indirect(link)]))
+    other.save(tmp_path / "other.pdf")
+    added = document.sources.add(tmp_path / "other.pdf")
+    document.pages = [document.pages[0], Page(added.start + 1, rotation=90), Page(added.start)]
+    with save_over(document) as saved:
+        assert widths(saved) == [100, 301, 300]
+        assert saved.pages[1].obj.Rotate == 90
+        saved_link = saved.pages[2].obj.Annots[0]
+        assert saved_link.Dest[0].objgen == saved.pages[1].obj.objgen  # it still leads to its page
+    reopened = OpenDocument.open(document.path)
+    assert [reopened.page_label(position) for position in range(3)] == ["i", "2", "3"]

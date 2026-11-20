@@ -18,7 +18,8 @@ class Page:
     """One page of the document as it is now.
 
     Attributes:
-        source_index: index of the page in the opened PDF.
+        source_index: the page's number among the pages of all the source PDFs (sources.py): its index in the
+            opened PDF, or after those for the pages of a PDF added.
         rotation: clockwise turn that Penfold adds to the page's own, in degrees: 0, 90, 180 or 270.
         label: the page's own label (D14), which it keeps wherever it goes; None if it has none, and then it is named
             by its position.

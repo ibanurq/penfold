@@ -13,6 +13,7 @@ from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
+from penfold.document.sources import Spans
 from penfold.rendering.layout import PageLayout
 from penfold.rendering.text_search import MatchContext, SearchResult, TextSearch
 from penfold.ui.sidebar.view_header import HEADER_MARGIN
@@ -114,7 +115,7 @@ class SearchView(Gtk.Box):
 
     def set_document(
         self,
-        uri: str,
+        sources: Callable[[], Spans],
         layout: Callable[[], PageLayout],
         page_label: Callable[[int], str],
         context: Callable[[SearchResult], MatchContext],
@@ -122,14 +123,14 @@ class SearchView(Gtk.Box):
         """Search this PDF.
 
         Args:
-            uri: where the PDF is.
+            sources: gives the source PDFs when a search starts.
             layout: gives the pages of the document as they are shown when a search starts.
             page_label: names a page by its position (D14).
             context: reads the sentence of a match.
         """
         if self._search is not None:
             self._search.cancel()
-        self._search = TextSearch(uri)
+        self._search = TextSearch(sources)
         self._layout = layout
         self._page_label = page_label
         self._context = context

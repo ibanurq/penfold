@@ -2,13 +2,13 @@
 
 The interface never waits for Poppler: it says which pieces of which pages it wants, and the renderer draws them in the
 background, nearest first, and announces each one with the "tile-rendered" signal. Each worker thread opens its own
-copy of the document, because a Poppler document must not be shared between threads.
+copy of the source PDFs, because a Poppler document must not be shared between threads.
 
 A page is drawn whole while it is small enough; at high zoom it is drawn in square tiles, so that it stays sharp
 without using too much memory (B10).
 
-The interface asks for pages by their position in the document; the layout says which page of the opened PDF that is,
-and its turn. Drawn tiles are kept by page of the PDF and turn, so moving pages does not draw them again.
+The interface asks for pages by their position in the document; the layout says which source page that is (its
+source index) and its turn. Drawn tiles are kept by source index and turn, so moving pages does not draw them again.
 """
 
 import math
@@ -16,14 +16,15 @@ import threading
 from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import ClassVar
 
 import cairo
 from gi.repository import Gdk, GLib, GObject, Poppler
 
 from penfold.document.pages import Page
+from penfold.document.sources import Spans
 from penfold.rendering.layout import PageLayout, Size, turned_size
+from penfold.rendering.poppler_sources import PopplerSources
 
 # A page larger than this, in pixels, is drawn in tiles.
 MAX_WHOLE_PAGE_PIXELS = 16 * 1024 * 1024
@@ -41,7 +42,7 @@ _POPPLER_DRAWING = threading.Lock()
 class TileKey:
     """One rendered piece of a page.
 
-    The page is its index in the opened PDF (its source), drawn with a turn; the scale is in pixels per PDF point; the
+    The page is its source index (document/sources.py), drawn with a turn; the scale is in pixels per PDF point; the
     column and row place the tile in the page. A page drawn whole is the single tile (0, 0).
     """
 
@@ -82,23 +83,25 @@ def round_scale(scale: float) -> float:
 
 
 class Renderer(GObject.Object):
-    """Draws the pages of one PDF in the background and keeps the latest results."""
+    """Draws the pages of a document in the background and keeps the latest results."""
 
     __gsignals__: ClassVar = {
-        # The index, in the opened PDF, of the page a tile belongs to.
+        # The source index of the page a tile belongs to.
         "tile-rendered": (GObject.SignalFlags.RUN_FIRST, None, (int,)),
     }
 
-    def __init__(self, path: Path, worker_count: int = 3) -> None:
-        """Open the PDF for rendering; it raises GLib.Error if Poppler cannot open it."""
+    def __init__(self, sources: Spans, worker_count: int = 3) -> None:
+        """Open the source PDFs for rendering, showing all their pages in order.
+
+        Raises:
+            GLib.Error: Poppler cannot open one of them.
+        """
         super().__init__()
-        self._uri = GLib.filename_to_uri(str(path.resolve()), None)
-        document = Poppler.Document.new_from_file(self._uri, None)
-        self._source_sizes: list[Size] = [
-            document.get_page(index).get_size() for index in range(document.get_n_pages())
-        ]
+        self._spans: Spans = ()
+        self._main_sources = PopplerSources(lambda: self._spans)
+        self._source_sizes: list[Size] = []
+        self._add_sources(sources)
         self.layout = PageLayout(self._source_sizes)
-        self._main_document = document
         self._cache: OrderedDict[TileKey, Gdk.Texture] = OrderedDict()
         self._cache_bytes = 0
         # What each part of the interface wants (the document, the thumbnails…), so they do not replace each other.
@@ -114,23 +117,35 @@ class Renderer(GObject.Object):
             thread.start()
 
     @property
-    def uri(self) -> str:
-        """Address of the PDF, to open it again in other threads (the search)."""
-        return self._uri
+    def sources(self) -> Spans:
+        """The source PDFs, to open them again in other threads (the search)."""
+        return self._spans
 
     @property
-    def document(self) -> Poppler.Document:
-        """Poppler's copy of the document for the main thread (links, text), never used by the workers."""
-        return self._main_document
+    def poppler(self) -> PopplerSources:
+        """Poppler's copies of the source PDFs for the main thread (links, text), never used by the workers."""
+        return self._main_sources
 
     @property
     def page_sizes(self) -> list[Size]:
         """The size of each page of the document as it is shown, in points."""
         return self.layout.sizes
 
-    def set_pages(self, pages: Iterable[Page]) -> None:
-        """Show the pages of the document in their new order and turn (after an edit)."""
+    def set_pages(self, pages: Iterable[Page], sources: Spans) -> None:
+        """Show the pages of the document in their new order and turn (after an edit), with any source added.
+
+        Raises:
+            GLib.Error: Poppler cannot open a source added.
+        """
+        self._add_sources(sources[len(self._spans) :])
         self.layout = PageLayout(self._source_sizes, pages)
+
+    def _add_sources(self, added: Spans) -> None:
+        """Take sources added after the known ones, reading the size of their pages."""
+        self._spans = (*self._spans, *added)
+        for span in added:
+            document, _start = self._main_sources.document(span.start)
+            self._source_sizes.extend(document.get_page(index).get_size() for index in range(span.page_count))
 
     def tile_key(self, position: int, scale: float, column: int = 0, row: int = 0) -> TileKey:
         """The key of a tile of the page shown at a position of the document."""
@@ -200,9 +215,9 @@ class Renderer(GObject.Object):
 
     def _work(self) -> None:
         """Body of a worker thread: draw the requested tiles one after another."""
-        document = Poppler.Document.new_from_file(self._uri, None)
+        sources = PopplerSources(lambda: self._spans)
         while (key := self._next_request()) is not None:
-            texture = draw_tile(document.get_page(key.source), key)
+            texture = draw_tile(sources.page(key.source), key)
             GLib.idle_add(self._deliver, key, texture)
 
     def _deliver(self, key: TileKey, texture: Gdk.Texture) -> bool:

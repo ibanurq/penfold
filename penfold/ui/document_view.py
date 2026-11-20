@@ -182,7 +182,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.document = document
         self.renderer = renderer
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
-        self.content = PageContent(renderer.document)
+        self.content = PageContent(renderer.poppler)
         self.selection = None
         self.current_page = 0
         self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH

@@ -11,6 +11,7 @@ from penfold.document.pages import Page
 from penfold.rendering import renderer as renderer_module
 from penfold.rendering.renderer import MAX_WHOLE_PAGE_PIXELS, TILE_SIZE, Renderer, TileGrid, TileKey, grid, round_scale
 from tests.gtk_helpers import wait_until
+from tests.sample_pdfs import make_pdf, source_spans
 
 A4 = (595.0, 842.0)
 
@@ -27,7 +28,7 @@ def make_black_square_pdf(path: Path) -> Path:
 
 @pytest.fixture
 def renderer(tmp_path: Path) -> Iterator[Renderer]:
-    page_renderer = Renderer(make_black_square_pdf(tmp_path / "square.pdf"), worker_count=2)
+    page_renderer = Renderer(source_spans(make_black_square_pdf(tmp_path / "square.pdf")), worker_count=2)
     yield page_renderer
     page_renderer.close()
 
@@ -112,7 +113,7 @@ def test_draws_turned_pages(renderer: Renderer) -> None:
 
 
 def test_pages_are_asked_for_by_their_position(renderer: Renderer) -> None:
-    renderer.set_pages([Page(0, rotation=90)])
+    renderer.set_pages([Page(0, rotation=90)], renderer.sources)
     assert renderer.page_sizes == [(A4[1], A4[0])]
     assert renderer.tile_key(0, 0.5) == TileKey(0, 90, 0.5)
 
@@ -131,3 +132,18 @@ def test_cache_forgets_the_oldest_tiles(renderer: Renderer, monkeypatch: pytest.
         draw(renderer, key)
     assert renderer.texture(first) is None
     assert renderer.texture(second) is not None
+
+
+def test_draws_the_pages_of_a_pdf_added_later(tmp_path: Path) -> None:
+    spans = source_spans(make_pdf(tmp_path / "blank.pdf", page_count=2), make_black_square_pdf(tmp_path / "square.pdf"))
+    page_renderer = Renderer(spans[:1], worker_count=1)
+    try:
+        assert len(page_renderer.page_sizes) == 2
+        page_renderer.set_pages([Page(2), Page(0)], spans)
+        assert page_renderer.sources == spans
+        key = page_renderer.tile_key(0, 0.25)
+        assert key == TileKey(2, 0, 0.25)
+        assert brightness_at_corners(page_renderer, key)["top left"]
+        assert not brightness_at_corners(page_renderer, page_renderer.tile_key(1, 0.25))["top left"]
+    finally:
+        page_renderer.close()

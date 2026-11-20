@@ -1,13 +1,14 @@
 """Saving: writing the document to a PDF file (03-arquitectura, 6).
 
-The PDF as it was opened is changed, not rebuilt (D15): its pages are put in their new order and turn, their labels
-written again (D14), the outline written from the bookmarks, and everything else is left as it was. The result is
-written to a temporary file next to the target, checked, and only then put in the target's place, so a failure never
-damages the file that was there.
+The PDF as it was opened is changed, not rebuilt (D15): its pages are put in their new order and turn, the pages added
+from other PDFs copied in, their labels written again (D14), the outline written from the bookmarks, and everything
+else is left as it was. The result is written to a temporary file next to the target, checked, and only then put in
+the target's place, so a failure never damages the file that was there.
 
 Saving runs in a worker thread: the main thread takes a SavePlan, a copy of all it needs, and keeps working.
 """
 
+import contextlib
 import copy
 import os
 import secrets
@@ -22,6 +23,7 @@ from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark
 from penfold.document.history import Command
 from penfold.document.page_labels import PageLabel, write_page_labels
 from penfold.document.pages import Page
+from penfold.document.sources import Spans, locate
 from penfold.errors import SaveError
 
 # Keys of an outline item that tie it into the tree; the others (destination, action…) are kept on saving.
@@ -35,14 +37,14 @@ class SavePlan:
     """What saving needs, copied from the document at the moment the user saves.
 
     Attributes:
-        source: the private copy of the PDF as it was opened.
+        sources: the private copies of the source PDFs, the one opened first, and where their pages are numbered.
         target: the file to write.
         pages: the pages in their order, with their turn and label.
         bookmarks: the outline, copied so that later edits do not reach it.
         checkpoint: the last edit included, so the document knows what was saved even if it changes meanwhile.
     """
 
-    source: Path
+    sources: Spans
     target: Path
     pages: tuple[Page, ...]
     bookmarks: tuple[Bookmark, ...]
@@ -50,10 +52,15 @@ class SavePlan:
 
     @classmethod
     def take(
-        cls, source: Path, target: Path, pages: list[Page], bookmarks: list[Bookmark], checkpoint: Command | None
+        cls,
+        sources: Spans,
+        target: Path,
+        pages: list[Page],
+        bookmarks: list[Bookmark],
+        checkpoint: Command | None,
     ) -> "SavePlan":
         """Copy what will be saved, so that the document can keep changing while it is written."""
-        return cls(source, target, tuple(pages), tuple(copy.deepcopy(bookmarks)), checkpoint)
+        return cls(sources, target, tuple(pages), tuple(copy.deepcopy(bookmarks)), checkpoint)
 
 
 def save(plan: SavePlan) -> None:
@@ -63,29 +70,49 @@ def save(plan: SavePlan) -> None:
         SaveError: the PDF could not be written or the result is not valid; the target is left as it was.
     """
     try:
-        with pikepdf.open(plan.source) as pdf:
+        with pikepdf.open(plan.sources[0].path) as pdf, _OtherSources(plan.sources) as others:
             originals = list(pdf.pages)
-            deleted = _arrange_pages(pdf, originals, plan.pages)
+            placed = _arrange_pages(pdf, originals, plan.pages, others)
+            deleted = [original for index, original in enumerate(originals) if index not in placed]
             _write_labels(pdf, plan.pages)
             _remove_fields_of_pages(pdf, deleted)
-            _write_outline(pdf, list(plan.bookmarks), originals)
+            _write_outline(pdf, list(plan.bookmarks), placed)
             _write_safely(pdf, plan.target, len(plan.pages))
     except (pikepdf.PdfError, OSError) as error:
         raise SaveError(str(plan.target)) from error
 
 
-def _arrange_pages(pdf: pikepdf.Pdf, originals: list[pikepdf.Page], pages: tuple[Page, ...]) -> list[pikepdf.Page]:
-    """Put the pages in their new order and turn them; return the pages left out (deleted)."""
-    kept = {page.source_index for page in pages}
-    deleted = [original for index, original in enumerate(originals) if index not in kept]
+class _OtherSources(contextlib.ExitStack):
+    """The source PDFs other than the opened one, opened when one of their pages is needed and closed at the end."""
+
+    def __init__(self, spans: Spans) -> None:
+        super().__init__()
+        self._spans = spans
+        self._opened: dict[int, pikepdf.Pdf] = {}
+
+    def page(self, source_index: int) -> pikepdf.Page:
+        """The page of an added PDF with this source index."""
+        source, index = locate(self._spans, source_index)
+        if source not in self._opened:
+            self._opened[source] = self.enter_context(pikepdf.open(self._spans[source].path))
+        return self._opened[source].pages[index]
+
+
+def _arrange_pages(
+    pdf: pikepdf.Pdf, originals: list[pikepdf.Page], pages: tuple[Page, ...], others: _OtherSources
+) -> dict[int, pikepdf.Page]:
+    """Put the pages in their new order and turn, copying in those of other PDFs; return them by source index."""
     for index in reversed(range(len(originals))):
         del pdf.pages[index]
+    placed = {}
     for page in pages:
-        original = originals[page.source_index]
-        pdf.pages.append(original)
+        opened = page.source_index < len(originals)
+        # pikepdf copies a page of another PDF, with all it uses, when it is appended.
+        pdf.pages.append(originals[page.source_index] if opened else others.page(page.source_index))
+        placed[page.source_index] = pdf.pages[-1]
         if page.rotation:
-            original.rotate(page.rotation, relative=True)
-    return deleted
+            placed[page.source_index].rotate(page.rotation, relative=True)
+    return placed
 
 
 def _write_labels(pdf: pikepdf.Pdf, pages: tuple[Page, ...]) -> None:
@@ -135,24 +162,24 @@ def _fields_without(fields: pikepdf.Array, widgets: set[tuple[int, int]]) -> lis
     return kept
 
 
-def _write_outline(pdf: pikepdf.Pdf, bookmarks: list[Bookmark], originals: list[pikepdf.Page]) -> None:
+def _write_outline(pdf: pikepdf.Pdf, bookmarks: list[Bookmark], placed: dict[int, pikepdf.Page]) -> None:
     """Write the outline from the bookmarks, opening the PDF on it as 0.6 does (G9); remove it if there are none."""
     if not bookmarks:
         if "/Outlines" in pdf.Root:
             del pdf.Root.Outlines
         return
     root = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.Outlines))
-    items = _write_items(pdf, bookmarks, root, originals)
+    items = _write_items(pdf, bookmarks, root, placed)
     root.First, root.Last, root.Count = items[0], items[-1], _visible_count(bookmarks)
     pdf.Root.Outlines = root
     pdf.Root.PageMode = pikepdf.Name.UseOutlines
 
 
 def _write_items(
-    pdf: pikepdf.Pdf, bookmarks: list[Bookmark], parent: pikepdf.Dictionary, originals: list[pikepdf.Page]
+    pdf: pikepdf.Pdf, bookmarks: list[Bookmark], parent: pikepdf.Dictionary, placed: dict[int, pikepdf.Page]
 ) -> list[pikepdf.Dictionary]:
     """Write one level of the outline, linked to its parent and to each other, and the levels under it."""
-    items = [_outline_item(pdf, bookmark, originals) for bookmark in bookmarks]
+    items = [_outline_item(pdf, bookmark, placed) for bookmark in bookmarks]
     for position, (item, bookmark) in enumerate(zip(items, bookmarks, strict=True)):
         item.Parent = parent
         if position > 0:
@@ -160,7 +187,7 @@ def _write_items(
         if position < len(items) - 1:
             item.Next = items[position + 1]
         if bookmark.children:
-            children = _write_items(pdf, bookmark.children, item, originals)
+            children = _write_items(pdf, bookmark.children, item, placed)
             item.First, item.Last = children[0], children[-1]
             count = _visible_count(bookmark.children)
             # ISO 32000-1, 12.3.3: negative when closed, counting what would show if it were opened.
@@ -168,7 +195,7 @@ def _write_items(
     return items
 
 
-def _outline_item(pdf: pikepdf.Pdf, bookmark: Bookmark, originals: list[pikepdf.Page]) -> pikepdf.Dictionary:
+def _outline_item(pdf: pikepdf.Pdf, bookmark: Bookmark, placed: dict[int, pikepdf.Page]) -> pikepdf.Dictionary:
     """Make the item of one bookmark: what its original item had, with the title and style of the bookmark."""
     item = pikepdf.Dictionary()
     original = pdf.get_object(bookmark.origin) if bookmark.origin is not None else None
@@ -176,8 +203,8 @@ def _outline_item(pdf: pikepdf.Pdf, bookmark: Bookmark, originals: list[pikepdf.
         for key, value in original.items():
             if key not in OUTLINE_LINKS:
                 item[key] = value
-    elif bookmark.page is not None:
-        item.Dest = _destination(originals[bookmark.page], bookmark.top)
+    elif bookmark.page in placed:
+        item.Dest = _destination(placed[bookmark.page], bookmark.top)
     item.Title = pikepdf.String(bookmark.title)
     _set_or_remove(item, "/F", (ITALIC_FLAG if bookmark.italic else 0) | (BOLD_FLAG if bookmark.bold else 0) or None)
     _set_or_remove(item, "/C", None if bookmark.color is None else pikepdf.Array(bookmark.color))

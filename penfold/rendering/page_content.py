@@ -1,6 +1,7 @@
 """What a page holds besides its drawing: links and text, read with Poppler in the main thread.
 
-Positions are in PDF points from the top left corner of the page, like the rest of the interface.
+Pages are named by their source index (document/sources.py). Positions are in PDF points from the top left corner of the
+page, like the rest of the interface.
 """
 
 from collections import OrderedDict
@@ -9,6 +10,8 @@ from dataclasses import dataclass
 import cairo
 from gi.repository import Poppler
 
+from penfold.rendering.poppler_sources import PopplerSources
+
 Rectangle = tuple[float, float, float, float]  # left, top, right, bottom
 # Pages whose text, with the position of each character, is kept.
 CACHED_PAGES = 8
@@ -16,7 +19,7 @@ CACHED_PAGES = 8
 
 @dataclass(frozen=True)
 class InternalTarget:
-    """A place in the same PDF: a page and, if the link gives one, the height to show (B8)."""
+    """A place in the same PDF: a page (its source index) and, if the link gives one, the height to show (B8)."""
 
     page: int
     top: float | None = None
@@ -50,11 +53,11 @@ DESTINATIONS_WITH_TOP = frozenset({Poppler.DestType.XYZ, Poppler.DestType.FITH, 
 
 
 class PageContent:
-    """Links and text of the pages of one PDF, read when first needed and then kept."""
+    """Links and text of the pages of a document, read when first needed and then kept."""
 
-    def __init__(self, document: Poppler.Document) -> None:
-        """Read from Poppler's main-thread copy of the document."""
-        self._document = document
+    def __init__(self, sources: PopplerSources) -> None:
+        """Read from Poppler's main-thread copies of the source PDFs."""
+        self._sources = sources
         self._links: dict[int, list[Link]] = {}
         self._texts: OrderedDict[int, tuple[str, list[Rectangle]]] = OrderedDict()
 
@@ -70,7 +73,7 @@ class PageContent:
 
     def selected_text(self, page: int, selection: Rectangle, style: Poppler.SelectionStyle) -> str:
         """Return the text of a page between the two corners of a selection (from where it starts to where it ends)."""
-        return self._document.get_page(page).get_selected_text(style, _poppler_rectangle(selection)) or ""
+        return self._sources.page(page).get_selected_text(style, _poppler_rectangle(selection)) or ""
 
     def text_in_areas(self, page: int, areas: list[Rectangle]) -> str:
         """Return the text inside some areas of a page (what a highlight marks), with runs of spaces as one.
@@ -89,7 +92,7 @@ class PageContent:
     def _page_text(self, page: int) -> tuple[str, list[Rectangle]]:
         """The text of a page with the box of each character, kept for the last pages read."""
         if page not in self._texts:
-            poppler_page = self._document.get_page(page)
+            poppler_page = self._sources.page(page)
             text = poppler_page.get_text() or ""
             _found, layout = poppler_page.get_text_layout()
             boxes = [(box.x1, box.y1, box.x2, box.y2) for box in layout or []]
@@ -101,7 +104,7 @@ class PageContent:
 
     def selection_rectangles(self, page: int, selection: Rectangle, style: Poppler.SelectionStyle) -> list[Rectangle]:
         """Return the areas to highlight for a selection on a page, in points."""
-        region = self._document.get_page(page).get_selected_region(1.0, style, _poppler_rectangle(selection))
+        region = self._sources.page(page).get_selected_region(1.0, style, _poppler_rectangle(selection))
         rectangles: list[Rectangle] = []
         for index in range(region.num_rectangles()):
             area: cairo.RectangleInt = region.get_rectangle(index)
@@ -109,11 +112,11 @@ class PageContent:
         return rectangles
 
     def _read_links(self, page: int) -> list[Link]:
-        poppler_page = self._document.get_page(page)
+        poppler_page = self._sources.page(page)
         _width, height = poppler_page.get_size()
         links = []
         for mapping in poppler_page.get_link_mapping():
-            target = self._target(mapping.action)
+            target = self._target(mapping.action, page)
             if target is None:
                 continue
             area = mapping.area
@@ -121,25 +124,28 @@ class PageContent:
             links.append(Link((area.x1, height - area.y2, area.x2, height - area.y1), target))
         return links
 
-    def _target(self, action: Poppler.Action) -> Target | None:
+    def _target(self, action: Poppler.Action, page: int) -> Target | None:
+        """Where a link of a page leads."""
         if action.type == Poppler.ActionType.URI:
             uri = action.uri.uri
             return ExternalTarget(uri) if uri else None
         if action.type == Poppler.ActionType.GOTO_DEST:
-            return self._internal_target(action.goto_dest.dest)
+            return self._internal_target(action.goto_dest.dest, page)
         return None
 
-    def _internal_target(self, destination: Poppler.Dest | None) -> InternalTarget | None:
+    def _internal_target(self, destination: Poppler.Dest | None, page: int) -> InternalTarget | None:
+        """A destination of a page, in the PDF it comes from: a page of that PDF, named by its source index."""
+        document, start = self._sources.document(page)
         if destination is not None and destination.type == Poppler.DestType.NAMED:
-            destination = self._document.find_dest(destination.named_dest)
-        if destination is None or not 1 <= destination.page_num <= self._document.get_n_pages():
+            destination = document.find_dest(destination.named_dest)
+        if destination is None or not 1 <= destination.page_num <= document.get_n_pages():
             return None
-        page = destination.page_num - 1
+        index = destination.page_num - 1
         top = None
         if destination.type in DESTINATIONS_WITH_TOP and (destination.change_top or destination.top):
-            _width, height = self._document.get_page(page).get_size()
+            _width, height = document.get_page(index).get_size()
             top = max(0.0, height - destination.top)
-        return InternalTarget(page, top)
+        return InternalTarget(start + index, top)
 
 
 def _poppler_rectangle(rectangle: Rectangle) -> Poppler.Rectangle:

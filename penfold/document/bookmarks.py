@@ -24,7 +24,7 @@ MAX_ITEMS = 100_000
 class Bookmark:
     """One bookmark and the ones under it.
 
-    Its page is the index of the page it leads to in the opened PDF, and its origin the object number of the outline
+    Its page is the source index of the page it leads to (sources.py), and its origin the object number of the outline
     item it was read from, whose destination or action is kept on saving (G8).
     """
 
@@ -172,7 +172,7 @@ def _color(value: object) -> tuple[float, float, float] | None:
     return red, green, blue
 
 
-# Where a destination of the opened PDF (its page and height) is in the document now; None if its page was deleted.
+# Where a destination (its page's source index and a height) is in the document now; None if its page is not in it.
 Place = Callable[[int, float | None], tuple[int, float | None] | None]
 
 

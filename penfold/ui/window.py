@@ -514,7 +514,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Show a PDF in this window and return True; if it cannot be opened, say so and keep what was shown."""
         try:
             document = OpenDocument.open(path)
-            renderer = Renderer(document.source_path)
+            renderer = Renderer(document.sources.spans)
         except (DocumentOpenError, GLib.Error) as error:
             logger.warning("Could not open %s (%s)", path, type(error).__name__)
             self._show_message(_("Could not open “{name}”").format(name=path.name))
@@ -534,7 +534,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
         assert self.document_view.content is not None
         self.annotations_view.set_document(document, self.document_view.content, renderer)
         self.search_view.set_document(
-            renderer.uri, lambda: renderer.layout, document.page_label, ContextReader(renderer.document).context
+            lambda: renderer.sources,
+            lambda: renderer.layout,
+            document.page_label,
+            ContextReader(renderer.poppler).context,
         )
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
@@ -558,7 +561,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_title()
         if Change.PAGES in changes:
             self._update_page_actions()
-            self.renderer.set_pages(self.document.pages)
+            self.renderer.set_pages(self.document.pages, self.document.sources.spans)
             self.document_view.pages_changed()
             self.pages_view.pages_changed()
             self.search_view.pages_changed()

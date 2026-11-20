@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pikepdf
 
+from penfold.document.sources import SourceSpan, Spans
+
 A4 = (595, 842)
 
 
@@ -35,3 +37,13 @@ def make_pdf(
     encryption = pikepdf.Encryption(owner=passwords[0], user=passwords[1]) if passwords else False
     pdf.save(path, encryption=encryption)
     return path
+
+
+def source_spans(*paths: Path) -> Spans:
+    """The sources of a document made of these PDFs, numbered one after another, read from the files themselves."""
+    spans: list[SourceSpan] = []
+    for path in paths:
+        with pikepdf.open(path) as pdf:
+            start = spans[-1].start + spans[-1].page_count if spans else 0
+            spans.append(SourceSpan(path, start, len(pdf.pages)))
+    return tuple(spans)

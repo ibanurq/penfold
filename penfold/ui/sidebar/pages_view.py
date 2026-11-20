@@ -254,7 +254,7 @@ class PagesView(Gtk.Box):
         self.current_page = 0
         self.visible_areas: dict[int, Rectangle] = {}
         self._cells: dict[int, PageCell] = {}
-        # The pages selected, by their index in the opened PDF, to select them again once they have moved.
+        # The pages selected, by their source index, to select them again once they have moved.
         self._selected_sources: set[int] = set()
         self._request_pending = False
         self.pages = Gio.ListStore.new(PageItem)
@@ -328,7 +328,7 @@ class PagesView(Gtk.Box):
         self._request_thumbnails()
 
     def _select_sources(self, sources: set[int]) -> None:
-        """Select the thumbnails of these pages of the opened PDF, wherever they are now."""
+        """Select the thumbnails of these pages (by source index), wherever they are now."""
         assert self.document is not None
         selected = Gtk.Bitset.new_empty()
         for position, page in enumerate(self.document.pages):
