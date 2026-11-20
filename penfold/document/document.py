@@ -1,5 +1,6 @@
 """The open document: one PDF and what Penfold knows about it."""
 
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, read_bookmarks
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
-from penfold.document.pages import Page, initial_pages
+from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf
 from penfold.document.saving import SavePlan
 from penfold.document.sources import SourceFile, Sources
 from penfold.errors import ProtectedPdfError
@@ -108,6 +109,13 @@ class OpenDocument:
             Page(start + index, label=None if labels is None else labels[index]) for index in range(len(pdf.pages))
         ]
         return AddedPdf(pages, for_added_pages(read_bookmarks(pdf), start))
+
+    def add_blank_page(self, size: PaperSize) -> AddedPdf:
+        """Make a blank page of a size, ready to be added (by the AddPages command) like the pages of a PDF (E5)."""
+        with tempfile.TemporaryDirectory(prefix="penfold-") as folder:
+            path = Path(folder) / "blank.pdf"
+            write_blank_pdf(path, size)
+            return self.add_source(path)
 
     def find_page(self, text: str) -> int | None:
         """Find the page that someone typed in the page box: a label first, then a page number.

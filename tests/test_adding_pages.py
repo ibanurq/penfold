@@ -8,6 +8,7 @@ import pytest
 from penfold.document.bookmarks import Bookmark, for_added_pages, read_bookmarks, with_inserted
 from penfold.document.commands.pages import AddPages
 from penfold.document.document import OpenDocument
+from penfold.document.pages import PaperSize
 from penfold.document.saving import save
 from penfold.errors import ProtectedPdfError
 from tests.sample_pdfs import make_pdf
@@ -134,3 +135,27 @@ def test_added_pages_and_bookmarks_are_saved(document: OpenDocument, tmp_path: P
         assert action.Dest[0].objgen == saved.pages[9].obj.objgen
         assert str(action.Dest[1]) == "/FitH"
         assert int(action.Dest[2]) == 500
+
+
+@pytest.mark.parametrize(
+    ("size", "points"),
+    [
+        (PaperSize.A4, (595.28, 841.89)),
+        (PaperSize.LETTER, (612, 792)),
+        (PaperSize.A5, (419.53, 595.28)),
+        (PaperSize.A3, (841.89, 1190.55)),
+    ],
+)
+def test_a_blank_page_of_each_size_is_added_and_saved(
+    document: OpenDocument, size: PaperSize, points: tuple[float, float]
+) -> None:
+    document.execute(AddPages(document, document.add_blank_page(size), 1))
+    assert labels(document) == ["a", "2", "b", "c", "d", "e"]
+    plan = document.save_plan()
+    save(plan)
+    with pikepdf.open(plan.target) as saved:
+        width, height = (float(saved.pages[1].mediabox[index]) for index in (2, 3))
+        assert (width, height) == pytest.approx(points)
+        assert not saved.pages[1].obj.get("/Annots")
+    document.undo()
+    assert document.page_count == 5

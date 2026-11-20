@@ -4,8 +4,12 @@ Penfold does not change the PDF while it is open. Its pages are a list that the 
 PDF is rewritten from that list only when it is saved (03-arquitectura, 6).
 """
 
+import enum
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Self
+
+import pikepdf
 
 from penfold.document.page_labels import PageLabel
 
@@ -46,3 +50,19 @@ def initial_pages(page_count: int, labels: list[PageLabel] | None) -> list[Page]
     if labels is None:
         return [Page(index) for index in range(page_count)]
     return [Page(index, label=label) for index, label in enumerate(labels)]
+
+
+class PaperSize(enum.Enum):
+    """The sizes of a blank page, upright, in points (E5; as 0.6, which keeps the choice short on purpose)."""
+
+    A4 = (595.28, 841.89)
+    LETTER = (612.0, 792.0)
+    A5 = (419.53, 595.28)
+    A3 = (841.89, 1190.55)
+
+
+def write_blank_pdf(path: Path, size: PaperSize) -> None:
+    """Write a PDF with one blank page of a size, to add it to a document like any other PDF."""
+    with pikepdf.new() as pdf:
+        pdf.add_blank_page(page_size=size.value)
+        pdf.save(path)
