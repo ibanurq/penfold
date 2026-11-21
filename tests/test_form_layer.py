@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 import pytest
 from gi.repository import Gtk, Pango
 
-from penfold.ui.form_layer import FieldEditor, font_size
+from penfold.ui.form_choice import DropdownField, ListField
+from penfold.ui.form_text import FieldEditor, font_size
 from penfold.ui.form_toggle import ToggleField
 from tests.gtk_helpers import process_pending_events, wait_until
 from tests.test_document_window import open_and_wait, window
@@ -41,6 +42,17 @@ def size_of(editor: FieldEditor, window: "PenfoldWindow") -> tuple[int, int]:
     found, bounds = editor.view.compute_bounds(window.document_view)
     assert found
     return round(bounds.get_width()), round(bounds.get_height())
+
+
+def shown_field(window: "PenfoldWindow", name: str) -> object:
+    """The widget shown for the only place of a field."""
+    shown = window.document_view._form_layer._editors.values()
+    return next(item for item in shown if item.field.name == name)
+
+
+def undo(window: "PenfoldWindow") -> None:
+    window.activate_action("win.undo", None)
+    process_pending_events()
 
 
 def type_in(editor: FieldEditor, text: str) -> None:
@@ -139,3 +151,45 @@ def test_a_radio_button_is_chosen_but_not_unchosen(form_window: "PenfoldWindow")
     form_window.activate_action("win.undo", None)
     process_pending_events()
     assert (small.selected, document.field_value(small.field), document.can_undo) == (False, "L", False)
+
+
+def test_a_dropdown_shows_and_chooses_options(form_window: "PenfoldWindow") -> None:
+    document = form_window.document
+    assert document is not None
+    colour = shown_field(form_window, "colour")
+    assert isinstance(colour, DropdownField)
+    assert colour.text == "Blue"  # The value is "b"; the option shows "Blue".
+    colour.choose(colour.field.options[0])
+    process_pending_events()
+    assert (colour.text, document.field_value(colour.field)) == ("Red", "Red")
+    undo(form_window)
+    assert (colour.text, document.field_value(colour.field)) == ("Blue", "b")
+
+
+def test_a_dropdown_that_lets_the_reader_write_takes_a_text(form_window: "PenfoldWindow") -> None:
+    document = form_window.document
+    assert document is not None
+    colour = shown_field(form_window, "colour")
+    assert isinstance(colour, DropdownField)
+    assert colour._text is not None
+    colour._text.grab_focus()
+    colour._text.set_text("Green")
+    process_pending_events()
+    assert document.field_value(colour.field) == "Green"
+    undo(form_window)
+    assert (colour.text, document.can_undo) == ("Blue", False)
+
+
+def test_a_list_chooses_several_options(form_window: "PenfoldWindow") -> None:
+    document = form_window.document
+    assert document is not None
+    pets = shown_field(form_window, "pets")
+    assert isinstance(pets, ListField)
+    chosen = [pets.chosen]
+    pets.choose(("Dog",))
+    process_pending_events()
+    chosen.append(pets.chosen)
+    undo(form_window)
+    chosen.append(pets.chosen)
+    assert chosen == [("Cat", "Dog"), ("Dog",), ("Cat", "Dog")]
+    assert document.field_value(pets.field) == ("Cat", "Dog")

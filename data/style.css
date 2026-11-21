@@ -80,6 +80,33 @@ textview.form-field > text {
   color: black;
 }
 
+/* Dropdowns and lists take the size of the field: no padding, corners or button background of their own. */
+.form-field.dropdown,
+.form-field.dropdown button,
+.form-field.list list,
+.form-field.list row {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: black;
+}
+
+.form-field.dropdown {
+  background-color: rgb(53 132 228 / 12%);
+}
+
+.form-field.dropdown label {
+  font-weight: normal;
+}
+
+.form-field.list row:selected {
+  background-color: rgb(53 132 228 / 45%);
+}
+
 .form-field.radio {
   border-radius: 50%;
 }
