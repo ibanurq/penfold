@@ -2,7 +2,7 @@
 
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Self
 
@@ -262,9 +262,10 @@ class OpenDocument:
         if self.is_protected:
             message = "protected PDFs cannot be saved"
             raise ValueError(message)
-        return SavePlan.take(
+        plan = SavePlan.take(
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
+        return replace(plan, form_values=self._filled_in())
 
     def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
         """Take what writing some pages to another file needs (E8), to write it with saving.save.
@@ -279,7 +280,14 @@ class OpenDocument:
             raise ValueError(message)
         pages = [self.pages[position] for position in positions]
         bookmarks = leading_to(self.bookmarks, {page.source_index for page in pages})
-        return SavePlan.take(self.sources.spans, target, pages, bookmarks, None)
+        plan = SavePlan.take(self.sources.spans, target, pages, bookmarks, None)
+        return replace(plan, form_values=self._filled_in())
+
+    def _filled_in(self) -> tuple[tuple[FormField, FieldValue], ...]:
+        """The fields whose values differ from the PDF's, with those values, to write them (I5, I7)."""
+        return tuple(
+            (field, self._form_values[field.key]) for field in self.form_fields if field.key in self._form_values
+        )
 
     def mark_saved(self, plan: SavePlan) -> None:
         """Record that a plan was saved: the document now belongs to its file, and has nothing to save up to it."""

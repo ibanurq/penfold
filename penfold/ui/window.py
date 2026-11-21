@@ -422,15 +422,23 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
         def work() -> None:
             try:
-                save(plan)
+                failed = save(plan)
             except SaveError:
                 logger.exception("Could not save %s", plan.target)
-                GLib.idle_add(finish, False)
+                GLib.idle_add(finish, False, 0)
             else:
-                GLib.idle_add(finish, True)
+                GLib.idle_add(finish, True, failed)
 
-        def finish(saved: bool) -> bool:
+        def finish(saved: bool, failed_fields: int) -> bool:
             self._saving = False
+            if failed_fields:
+                # A field that fails does not stop the save, but the reader must know (I5).
+                message = ngettext(
+                    "The value of {count} form field could not be saved",
+                    "The values of {count} form fields could not be saved",
+                    failed_fields,
+                )
+                self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=failed_fields)))
             if document is not None and document is self.document:
                 if saved:
                     document.mark_saved(plan)

@@ -20,6 +20,8 @@ from pathlib import Path
 import pikepdf
 
 from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
+from penfold.document.form_filling import fill_in
+from penfold.document.forms import FieldValue, FormField
 from penfold.document.history import Command
 from penfold.document.page_labels import PageLabel, write_page_labels
 from penfold.document.pages import Page
@@ -44,6 +46,7 @@ class SavePlan:
         pages: the pages in their order, with their turn and label.
         bookmarks: the outline, copied so that later edits do not reach it.
         checkpoint: the last edit included, so the document knows what was saved even if it changes meanwhile.
+        form_values: the values filled in that differ from the PDF's, with their fields (I5).
     """
 
     sources: Spans
@@ -51,6 +54,7 @@ class SavePlan:
     pages: tuple[Page, ...]
     bookmarks: tuple[Bookmark, ...]
     checkpoint: Command | None
+    form_values: tuple[tuple[FormField, FieldValue], ...] = ()
 
     @classmethod
     def take(
@@ -61,18 +65,24 @@ class SavePlan:
         bookmarks: list[Bookmark],
         checkpoint: Command | None,
     ) -> "SavePlan":
-        """Copy what will be saved, so that the document can keep changing while it is written."""
+        """Copy what will be saved, so that the document can keep changing while it is written.
+
+        The form values are added with dataclasses.replace; they are frozen already.
+        """
         return cls(sources, target, tuple(pages), tuple(copy.deepcopy(bookmarks)), checkpoint)
 
 
-def save(plan: SavePlan) -> None:
-    """Write the document to its target file (in any thread).
+def save(plan: SavePlan) -> int:
+    """Write the document to its target file (in any thread); return how many form fields could not be written.
+
+    A field that fails does not stop the save (I5).
 
     Raises:
         SaveError: the PDF could not be written or the result is not valid; the target is left as it was.
     """
     try:
         with pikepdf.open(plan.sources[0].path) as pdf, _OtherSources(plan.sources) as others:
+            failed = _fill_in_forms(pdf, others, plan.form_values)
             originals = list(pdf.pages)
             placed = _arrange_pages(pdf, originals, plan.pages, others)
             deleted = [original for index, original in enumerate(originals) if index not in placed]
@@ -83,6 +93,7 @@ def save(plan: SavePlan) -> None:
             _write_safely(pdf, plan.target, len(plan.pages))
     except (pikepdf.PdfError, OSError) as error:
         raise SaveError(str(plan.target)) from error
+    return failed
 
 
 class _OtherSources(contextlib.ExitStack):
@@ -90,28 +101,37 @@ class _OtherSources(contextlib.ExitStack):
 
     def __init__(self, spans: Spans) -> None:
         super().__init__()
-        self._spans = spans
+        self.spans = spans
         self._opened: dict[int, pikepdf.Pdf] = {}
 
     def page(self, source_index: int) -> pikepdf.Page:
         """The page of an added PDF with this source index."""
-        source, index = locate(self._spans, source_index)
+        source, index = locate(self.spans, source_index)
         return self.pdf(source).pages[index]
 
     def pdf(self, source: int) -> pikepdf.Pdf:
         """An added PDF, by its position among the sources."""
         if source not in self._opened:
-            self._opened[source] = self.enter_context(pikepdf.open(self._spans[source].path))
+            self._opened[source] = self.enter_context(pikepdf.open(self.spans[source].path))
         return self._opened[source]
 
     def pages_by_source(self, pages: tuple[Page, ...]) -> dict[int, set[int]]:
         """The pages of each added PDF that are in the document, by their index in it; sources in order."""
         chosen: dict[int, set[int]] = {}
         for page in pages:
-            source, index = locate(self._spans, page.source_index)
+            source, index = locate(self.spans, page.source_index)
             if source:
                 chosen.setdefault(source, set()).add(index)
         return dict(sorted(chosen.items()))
+
+
+def _fill_in_forms(pdf: pikepdf.Pdf, others: "_OtherSources", values: tuple[tuple[FormField, FieldValue], ...]) -> int:
+    """Write the values into the forms of their source PDFs, before their pages are arranged and copied."""
+    by_source: dict[int, list[tuple[FormField, FieldValue]]] = {}
+    for field, value in values:
+        source, _index = locate(others.spans, field.source_start)
+        by_source.setdefault(source, []).append((field, value))
+    return sum(fill_in(pdf if source == 0 else others.pdf(source), chosen) for source, chosen in by_source.items())
 
 
 def _arrange_pages(

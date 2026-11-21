@@ -4,6 +4,7 @@ install_data(
   'bookmarks.py',
   'document.py',
   'extracting.py',
+  'form_filling.py',
   'forms.py',
   'geometry.py',
   'history.py',

@@ -133,6 +133,37 @@ def read_form_fields(pdf: pikepdf.Pdf, first_page: int = 0) -> list[FormField]:
     return read
 
 
+def field_dictionaries(pdf: pikepdf.Pdf) -> dict[str, pikepdf.Dictionary]:
+    """Return the terminal fields of a PDF's form by full name, to write values into them."""
+    form = pdf.Root.get("/AcroForm")
+    fields = form.get("/Fields") if isinstance(form, pikepdf.Dictionary) else None
+    if not isinstance(form, pikepdf.Dictionary) or not isinstance(fields, pikepdf.Array):
+        return {}
+    return {name: node for node, name, _inherited in _terminal_fields(fields, _Inherited.of_form(form))}
+
+
+def widget_dictionaries(field: pikepdf.Dictionary) -> list[pikepdf.Dictionary]:
+    """Return the widgets of a terminal field: its kids, or the field itself when it is its only widget."""
+    kids = field.get("/Kids")
+    candidates = [kids[index] for index in range(len(kids))] if isinstance(kids, pikepdf.Array) else [field]
+    return [widget for widget in candidates if isinstance(widget, pikepdf.Dictionary)]
+
+
+def on_state(widget: pikepdf.Dictionary) -> str:
+    """Return the name of the state that selects a checkbox or radio button widget (its appearance other than Off).
+
+    The names are read from the dictionary as qpdf writes it, because pikepdf cannot list keys that are not UTF-8
+    (real forms have states like "Sí" in Latin-1). They keep qpdf's #-escapes (see _name).
+    """
+    appearances = widget.get("/AP")
+    normal = appearances.get("/N") if isinstance(appearances, pikepdf.Dictionary) else None
+    if not isinstance(normal, pikepdf.Dictionary):
+        return ""
+    entries = APPEARANCE_STATES.fullmatch(normal.unparse())
+    names = APPEARANCE_STATE.findall(entries.group(1)) if entries else []
+    return next((name.decode("ascii") for name in names if name != OFF.encode()), "")
+
+
 @dataclass(frozen=True)
 class _Inherited:
     """The entries a field takes from its ancestors, or from the form, when it does not have them (12.7.3.1)."""
@@ -291,32 +322,15 @@ def _kind(field_type: str, flags: int) -> FieldKind | None:
 
 def _widgets(node: pikepdf.Dictionary, places: dict[tuple[int, int], _PageFrame]) -> Iterator[Widget]:
     """Give the visible widgets of a field that are on a page: its kids, or the field itself when it is one."""
-    kids = node.get("/Kids")
-    candidates = [kids[index] for index in range(len(kids))] if isinstance(kids, pikepdf.Array) else [node]
-    for widget in candidates:
-        if not isinstance(widget, pikepdf.Dictionary) or not widget.is_indirect:
+    for widget in widget_dictionaries(node):
+        if not widget.is_indirect:
             continue
         frame = places.get(widget.objgen)
         if frame is None or (_integer(widget.get("/F")) or 0) & HIDDEN:
             continue
         area = frame.place(widget.get("/Rect"))
         if area is not None:
-            yield Widget(page=frame.page, rectangle=area, state=_on_state(widget))
-
-
-def _on_state(widget: pikepdf.Dictionary) -> str:
-    """Return the name of the state that selects a checkbox or radio button widget (its appearance other than Off).
-
-    The names are read from the dictionary as qpdf writes it, because pikepdf cannot list keys that are not UTF-8
-    (real forms have states like "Sí" in Latin-1).
-    """
-    appearances = widget.get("/AP")
-    normal = appearances.get("/N") if isinstance(appearances, pikepdf.Dictionary) else None
-    if not isinstance(normal, pikepdf.Dictionary):
-        return ""
-    entries = APPEARANCE_STATES.fullmatch(normal.unparse())
-    names = APPEARANCE_STATE.findall(entries.group(1)) if entries else []
-    return next((name.decode("ascii") for name in names if name != OFF.encode()), "")
+            yield Widget(page=frame.page, rectangle=area, state=on_state(widget))
 
 
 def _name(value: pikepdf.Name) -> str:
