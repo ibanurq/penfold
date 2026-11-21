@@ -2,7 +2,8 @@
 
 It shows each bookmark's style and page, lets the user unfold it and go to a bookmark, and follows the reading (D40).
 With bookmarks selected, a bar at the bottom edits them through the window's actions. A click away from the rows, or
-Esc, clears the selection (D47).
+Esc, clears the selection (D47). Bookmarks are dragged before, after or inside another (G6), several at once if the
+one dragged is selected.
 """
 
 from gettext import gettext as _
@@ -10,9 +11,11 @@ from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
-from penfold.document.bookmarks import Bookmark, ReadingIndex
+from penfold.document.bookmarks import Bookmark, ReadingIndex, topmost
+from penfold.document.commands.bookmarks import Placement, can_move
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer
+from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.sidebar.bookmark_format import color_to_hex, format_button
 from penfold.ui.sidebar.view_header import (
     RecentUse,
@@ -22,6 +25,33 @@ from penfold.ui.sidebar.view_header import (
     unselect_on_empty_click,
     view_header,
 )
+
+# Dropping on the top part of a row puts the bookmarks before it, on the bottom part after it, and otherwise inside it,
+# as in 0.6 (G6).
+DROP_EDGE = 0.3
+# The style class that marks where dropped bookmarks go, for each placement.
+DROP_MARKS = {Placement.BEFORE: "drop-above", Placement.AFTER: "drop-below", Placement.INSIDE: "drop-inside"}
+
+
+def drop_placement(y: float, top: float, height: float) -> Placement:
+    """Where bookmarks dropped at a height on a row (its top and height) go next to its bookmark."""
+    share = (y - top) / height if height > 0 else 0.5
+    if share < DROP_EDGE:
+        return Placement.BEFORE
+    if share > 1 - DROP_EDGE:
+        return Placement.AFTER
+    return Placement.INSIDE
+
+
+class DraggedBookmarks(GObject.Object):
+    """The bookmarks being dragged: what a row carries while it is dragged."""
+
+    __gtype_name__ = "PenfoldDraggedBookmarks"
+
+    def __init__(self, bookmarks: list[Bookmark]) -> None:
+        """Carry these bookmarks."""
+        super().__init__()
+        self.bookmarks = bookmarks
 
 
 class BookmarkItem(GObject.Object):
@@ -74,11 +104,16 @@ class BookmarkRow(Gtk.Box):
 
 
 class BookmarksView(Gtk.Box):
-    """The outline tree; "destination-activated" is emitted with a page and a height (-1 for none) on a click."""
+    """The outline tree.
+
+    "destination-activated" is emitted with a page and a height (-1 for none) on a click; "move-requested" with the
+    bookmarks dropped, the bookmark they were dropped on (None below the rows: to the end) and the Placement.
+    """
 
     __gtype_name__ = "PenfoldBookmarksView"
     __gsignals__: ClassVar = {
         "destination-activated": (GObject.SignalFlags.RUN_FIRST, None, (int, float)),
+        "move-requested": (GObject.SignalFlags.RUN_FIRST, None, (object, object, object)),
     }
 
     def __init__(self) -> None:
@@ -119,9 +154,11 @@ class BookmarksView(Gtk.Box):
         self._rows: dict[int, BookmarkRow] = {}
         self.empty = empty_label(_("This PDF has no bookmarks"))
         self.stack = Gtk.Stack(vexpand=True)
-        scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
-        unselect_on_empty_click(scrolled, self.selection)
-        self.stack.add_named(scrolled, "list")
+        self.scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        unselect_on_empty_click(self.scrolled, self.selection)
+        self._add_drop_target()
+        DragAutoscroll(self.scrolled)
+        self.stack.add_named(self.scrolled, "list")
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
         self.action_bar = self._action_bar()
@@ -305,7 +342,100 @@ class BookmarksView(Gtk.Box):
         click = Gtk.GestureClick()
         click.connect("released", self._on_row_clicked, item)
         row.add_controller(click)
+        drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+        drag.connect("prepare", self._on_drag_prepare, row)
+        drag.connect("drag-begin", self._on_drag_begin, row)
+        drag.connect("drag-end", self._on_drag_end)
+        row.add_controller(drag)
         item.set_child(row)
+
+    # Dragging bookmarks (G6).
+
+    def _on_drag_prepare(
+        self, _source: Gtk.DragSource, _x: float, _y: float, row: BookmarkRow
+    ) -> Gdk.ContentProvider | None:
+        """Drag the bookmarks selected if the row is one of them (without those under another); otherwise its own."""
+        if row.bookmark is None or self.document is None:
+            return None
+        selected = self.selected_bookmarks()
+        if any(bookmark is row.bookmark for bookmark in selected):
+            dragged = topmost(self.document.bookmarks, selected)
+        else:
+            dragged = [row.bookmark]
+        return Gdk.ContentProvider.new_for_value(DraggedBookmarks(dragged))
+
+    def _on_drag_begin(self, source: Gtk.DragSource, _drag: Gdk.Drag, row: BookmarkRow) -> None:
+        source.set_icon(Gtk.WidgetPaintable.new(row.title), 0, 0)
+
+    def _add_drop_target(self) -> None:
+        """Let bookmarks be dropped on the rows, with a mark where they will go: one target for the whole list."""
+        self._drop_mark: tuple[BookmarkRow, Placement] | None = None
+        self._pending_move: tuple[list[Bookmark], Bookmark | None, Placement] | None = None
+        drop = Gtk.DropTarget.new(DraggedBookmarks, Gdk.DragAction.MOVE)
+        # The bookmarks dragged are needed while the drag moves, to refuse dropping them on themselves.
+        drop.set_preload(True)
+        drop.connect("motion", self._on_drop_motion)
+        drop.connect("leave", lambda _target: self._mark_drop(None))
+        drop.connect("drop", self._on_drop)
+        self.scrolled.add_controller(drop)
+
+    def _drop_place(self, dragged: list[Bookmark], y: float) -> tuple[Bookmark | None, Placement] | None:
+        """Where bookmarks dropped at a height of the list go.
+
+        Next to or inside the bookmark of the row there; below the rows, to the end (bookmark None). None where they
+        cannot go: on themselves or under one of them.
+        """
+        bottom = 0.0
+        for row in self._rows.values():
+            found, bounds = row.compute_bounds(self.scrolled)
+            if not found or not row.get_mapped() or row.bookmark is None:
+                continue
+            top, height = bounds.get_y(), bounds.get_height()
+            bottom = max(bottom, top + height)
+            if top <= y < top + height:
+                if self.document is None or not can_move(self.document.bookmarks, dragged, row.bookmark):
+                    return None
+                return row.bookmark, drop_placement(y, top, height)
+        return (None, Placement.AFTER) if self._rows and y >= bottom else None
+
+    def _mark_drop(self, place: tuple[Bookmark | None, Placement] | None) -> None:
+        """Mark the row where dragged bookmarks would go (none below the rows); take the mark away for None."""
+        if self._drop_mark is not None:
+            marked, placement = self._drop_mark
+            marked.remove_css_class(DROP_MARKS[placement])
+            self._drop_mark = None
+        bookmark = place[0] if place is not None else None
+        row = self._rows.get(id(bookmark)) if bookmark is not None else None
+        if place is not None and row is not None:
+            row.add_css_class(DROP_MARKS[place[1]])
+            self._drop_mark = (row, place[1])
+
+    def _on_drop_motion(self, target: Gtk.DropTarget, _x: float, y: float) -> Gdk.DragAction:
+        value = target.get_value()
+        place = self._drop_place(value.bookmarks, y) if isinstance(value, DraggedBookmarks) else None
+        self._mark_drop(place)
+        return Gdk.DragAction.MOVE if place is not None else Gdk.DragAction(0)
+
+    def _on_drop(self, _target: Gtk.DropTarget, value: object, _x: float, y: float) -> bool:
+        self._mark_drop(None)
+        place = self._drop_place(value.bookmarks, y) if isinstance(value, DraggedBookmarks) else None
+        if place is None or not isinstance(value, DraggedBookmarks):
+            return False
+        self._pending_move = (value.bookmarks, *place)
+        return True
+
+    def _on_drag_end(self, _source: Gtk.DragSource, _drag: Gdk.Drag, _delete_data: bool) -> None:
+        """Ask to move the bookmarks dropped once their drag has wholly ended.
+
+        Showing the outline again destroys the row dragged, and destroying it before the drag ends confuses GTK.
+        """
+        if self._pending_move is not None:
+            GLib.idle_add(self._request_move, *self._pending_move)
+            self._pending_move = None
+
+    def _request_move(self, dragged: list[Bookmark], target: Bookmark | None, placement: Placement) -> bool:
+        self.emit("move-requested", dragged, target, placement)
+        return GLib.SOURCE_REMOVE
 
     def _on_bind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         tree_row = item.get_item()

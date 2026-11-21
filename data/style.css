@@ -51,3 +51,9 @@
   box-shadow: 0 0 0 2px var(--popover-bg-color), 0 0 0 4px var(--window-fg-color);
 }
 
+
+/* Where dragged bookmarks go inside another (G6): the row in the accent colour (above and below: drop-above/below). */
+.drop-inside {
+  background-color: color-mix(in srgb, var(--accent-bg-color) 25%, transparent);
+  border-radius: 6px;
+}

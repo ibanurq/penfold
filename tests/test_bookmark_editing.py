@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from gi.repository import Gtk
 
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until_stable
 from tests.sample_pdfs import make_pdf
 from tests.test_bookmarks import add_outline
 from tests.test_page_editing import enabled
@@ -305,3 +305,67 @@ def test_colours_go_to_and_from_hex() -> None:
     assert [color_to_hex(hex_to_color(value)) for value in BOOKMARK_COLORS] == list(BOOKMARK_COLORS)
     with pytest.raises(ValueError, match="not a colour"):
         hex_to_color("red")
+
+
+@pytest.mark.parametrize(
+    ("y", "expected"), [(10, "BEFORE"), (15.9, "BEFORE"), (16.1, "INSIDE"), (23.9, "INSIDE"), (24.1, "AFTER")]
+)
+def test_dropping_on_a_row_goes_before_inside_or_after_by_height(y: float, expected: str) -> None:
+    from penfold.document.commands.bookmarks import Placement
+    from penfold.ui.sidebar.bookmarks_view import drop_placement
+
+    assert drop_placement(y, 10, 20) is Placement[expected]
+
+
+def row_middle(window: "PenfoldWindow", title: str, share: float = 0.5) -> float:
+    """A height of the list over the row of a bookmark: share 0 is its top, 1 its bottom."""
+    view = window.bookmarks_view
+    for row in view._rows.values():
+        if row.bookmark is not None and row.bookmark.title == title:
+            found, bounds = row.compute_bounds(view.scrolled)
+            assert found
+            return bounds.get_y() + bounds.get_height() * share
+    raise LookupError(title)
+
+
+def test_bookmarks_dropped_on_a_row_move_once_the_drag_ends(window: "PenfoldWindow") -> None:
+    from penfold.document.commands.bookmarks import Placement
+    from penfold.ui.sidebar.bookmarks_view import DraggedBookmarks
+
+    view = window.bookmarks_view
+    wait_until_stable(lambda: row_middle(window, "Action"))
+    document = window.document
+    assert document is not None
+    action, cover = document.bookmarks[3], document.bookmarks[0]
+    assert view._drop_place([action], row_middle(window, "Cover", 0.5)) == (cover, Placement.INSIDE)
+    assert view._drop_place([action], row_middle(window, "Cover", 0.1)) == (cover, Placement.BEFORE)
+    assert view._drop_place([cover], row_middle(window, "Cover")) is None  # on itself
+    assert view._on_drop(Gtk.DropTarget(), DraggedBookmarks([action]), 0, row_middle(window, "Cover", 0.1))
+    assert rows(window)[0] == "Cover"  # not before the drag has ended
+    view._on_drag_end(Gtk.DragSource(), None, False)  # type: ignore[arg-type]
+    process_pending_events()
+    assert rows(window) == ["Action", "Cover", "1. Intro", "  1.1 Scope", "Broken"]
+    assert selected_titles(window) == ["Action"]
+
+
+def test_bookmarks_dropped_below_the_rows_go_to_the_end(window: "PenfoldWindow") -> None:
+    from penfold.document.commands.bookmarks import Placement
+
+    view = window.bookmarks_view
+    wait_until_stable(lambda: row_middle(window, "Action"))
+    document = window.document
+    assert document is not None
+    scope = document.bookmarks[1].children[0]
+    assert view._drop_place([scope], row_middle(window, "Action", 1) + 50) == (None, Placement.AFTER)
+    view.emit("move-requested", [scope], None, Placement.AFTER)
+    assert rows(window) == ["Cover", "1. Intro", "Broken", "Action", "1.1 Scope"]
+
+
+def test_dropping_bookmarks_where_they_are_changes_nothing(window: "PenfoldWindow") -> None:
+    from penfold.document.commands.bookmarks import Placement
+
+    document = window.document
+    assert document is not None
+    cover, intro = document.bookmarks[0], document.bookmarks[1]
+    window.bookmarks_view.emit("move-requested", [cover], intro, Placement.BEFORE)
+    assert not document.can_undo

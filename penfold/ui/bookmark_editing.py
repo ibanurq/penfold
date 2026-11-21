@@ -17,7 +17,9 @@ from penfold.document.commands.bookmarks import (
     DeleteBookmarks,
     FormatBookmarks,
     IndentBookmarks,
+    MoveBookmarks,
     OutdentBookmarks,
+    Placement,
     PointBookmark,
     RenameBookmark,
     can_indent,
@@ -64,6 +66,7 @@ class BookmarkEditing:
             self._actions[name] = action
         for signal in ("selection-changed", "items-changed"):
             view.selection.connect(signal, lambda *_arguments: self.update_actions())
+        view.connect("move-requested", self._on_move_requested)
         # The style the bookmarks selected share, shown by the Format panel (G7).
         for name, state in (
             ("bookmark-bold", GLib.Variant.new_boolean(False)),
@@ -197,6 +200,14 @@ class BookmarkEditing:
         if document is not None:
             selected = self._view.selected_bookmarks()
             self._execute(document, FormatBookmarks(document, selected, bold=False, italic=False, color=None))
+
+    def _on_move_requested(
+        self, _view: BookmarksView, dragged: list[Bookmark], target: Bookmark | None, placement: Placement
+    ) -> None:
+        """Move dragged bookmarks (G6); dropping them where they already are changes nothing."""
+        document = self._document()
+        if document is not None:
+            self._execute(document, MoveBookmarks(document, dragged, target, placement))
 
     def _execute(self, document: OpenDocument, command: BookmarkEdit) -> None:
         """Make an edit, unless it changes nothing, and select the bookmarks it edited."""
