@@ -10,7 +10,7 @@ from penfold.document.commands.pages import AddPages
 from penfold.document.document import OpenDocument
 from penfold.document.pages import PaperSize
 from penfold.document.saving import save
-from penfold.errors import ProtectedPdfError
+from penfold.errors import RestrictedPdfError
 from tests.sample_pdfs import make_pdf
 from tests.test_bookmarks import add_outline
 
@@ -63,7 +63,7 @@ def test_a_position_outside_the_document_is_refused(document: OpenDocument, tmp_
 
 
 def test_protected_pdfs_cannot_be_added(document: OpenDocument, tmp_path: Path) -> None:
-    with pytest.raises(ProtectedPdfError):
+    with pytest.raises(RestrictedPdfError):
         document.add_source(make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
     assert len(document.sources.spans) == 1
 

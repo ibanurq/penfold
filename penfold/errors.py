@@ -16,8 +16,11 @@ class PasswordRequiredError(DocumentOpenError):
     """The PDF needs a password to be opened, which Penfold does not support until 1.2."""
 
 
-class ProtectedPdfError(PenfoldError):
-    """The PDF is protected against changes, so its pages cannot be added to another or merged (2.7)."""
+class RestrictedPdfError(PenfoldError):
+    """The PDF is encrypted (with restrictions), so its pages cannot be added to another or merged (2.7, D59).
+
+    They would end up in a file without its encryption.
+    """
 
 
 class SaveError(PenfoldError):

@@ -45,13 +45,6 @@ template $PenfoldWindow: Adw.ApplicationWindow {
             [top]
             $PenfoldDocumentHeader document_header {}
 
-            // Fixed reminder for protected PDFs (D18).
-
-            [top]
-            Adw.Banner protected_banner {
-              title: _("This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet.");
-            }
-
             content: Overlay {
               child: ScrolledWindow {
                 child: $PenfoldDocumentView document_view {

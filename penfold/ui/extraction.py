@@ -120,7 +120,8 @@ class PageExtraction:
 
     def _finish(self, failed_name: str | None) -> bool:
         if failed_name is not None:
-            dialog = Adw.AlertDialog(heading=_("Could not save “{name}”").format(name=failed_name))
+            heading = _("Could not save “{name}”").format(name=failed_name)
+            dialog = Adw.AlertDialog(heading=heading, default_response="ok", close_response="ok")
             dialog.add_response("ok", _("_OK"))
             dialog.present(self._parent)
         self._on_finished(failed_name is None)

@@ -15,7 +15,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
 from penfold.document.pages import PaperSize
 from penfold.document.saving import SavePlan, save
-from penfold.errors import DocumentOpenError, PenfoldError, ProtectedPdfError, SaveError
+from penfold.errors import DocumentOpenError, PenfoldError, RestrictedPdfError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 from penfold.ui.bookmark_editing import BookmarkEditing
@@ -65,7 +65,7 @@ DOCUMENT_ACTIONS = {
     "find": ["<Control>f"],
     "find-next": ["<Control>g"],
     "find-previous": ["<Shift><Control>g"],
-    # Ctrl+P: prints, or in a protected PDF says why it cannot (K3); the menu item is win.print.
+    # Ctrl+P: prints, or in a PDF that does not allow it says so (K3, D59); the menu item is win.print.
     "print-shortcut": ["<Control>p"],
 }
 # Edits of the document; each is on only while there is something for it to do (D19, D21).
@@ -73,8 +73,7 @@ EDIT_ACTIONS = {
     "undo": ["<Control>z"],
     "redo": ["<Shift><Control>z"],
 }
-# Saving (J1) and printing (D57): on while the document can be saved, which a protected PDF cannot (2.7), and not
-# while saving.
+# Saving (J1) and printing (D57): on while not saving; printing, also if the PDF allows it (D59).
 SAVE_ACTIONS = {
     "save": ["<Control>s"],
     "save-as": ["<Shift><Control>s"],
@@ -107,7 +106,6 @@ class PenfoldWindow(Adw.ApplicationWindow):
     sidebar: PenfoldSidebar = Gtk.Template.Child()
     welcome_menu_button: Gtk.MenuButton = Gtk.Template.Child()
     document_header: PenfoldDocumentHeader = Gtk.Template.Child()
-    protected_banner: Adw.Banner = Gtk.Template.Child()
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child()
     document_view: DocumentView = Gtk.Template.Child()
     zoom_controls: PenfoldZoomControls = Gtk.Template.Child()
@@ -310,10 +308,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         source = choice.source
         try:
             added = document.add_blank_page(source) if isinstance(source, PaperSize) else document.add_source(source)
-        except ProtectedPdfError:
-            self._show_message(
-                _("“{name}” is protected against changes and cannot be added yet").format(name=source.name)
-            )
+        except RestrictedPdfError:
+            self._show_message(_("“{name}” has restrictions, so its pages cannot be added").format(name=source.name))
             return
         except DocumentOpenError:
             self._show_message(_("Could not open “{name}”").format(name=source.name))
@@ -448,12 +444,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._write(self.document.save_plan(Path(path), flatten=flatten), then)
 
     def _print_shortcut(self) -> None:
-        """Ctrl+P prints; in a protected PDF, where Print is greyed out, it says why, as 0.6 did (K3)."""
-        if self.document is not None and self.document.is_restricted:
-            message = _(
-                "This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet."
-            )
-            self.toast_overlay.add_toast(Adw.Toast(title=message))
+        """Ctrl+P prints; in a PDF that does not allow it, where Print is greyed out, it says so (K3, D59)."""
+        if self.document is not None and not self.document.restrictions.print:
+            self.toast_overlay.add_toast(Adw.Toast(title=_("This PDF does not allow printing")))
         else:
             self.activate_action("win.print", None)
 
@@ -747,7 +740,6 @@ class PenfoldWindow(Adw.ApplicationWindow):
         document.add_listener(self._on_document_changed)
         self._grow_for_document()
         self._show_title()
-        self.protected_banner.set_revealed(document.is_restricted)
         self.stack.set_visible_child_name("document")
         # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
         self._show_sidebar_when_it_fits()
@@ -765,14 +757,6 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
         self.document_view.grab_focus()
-        if document.is_restricted:
-            self._show_message(
-                _("Protected PDF"),
-                _(
-                    "This PDF is protected. Any changes made to it cannot be saved. It cannot be printed and pages "
-                    "cannot be extracted either."
-                ),
-            )
         return True
 
     def _on_document_changed(self, changes: Change) -> None:
@@ -827,7 +811,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.document, self.renderer = None, None
 
     def _show_message(self, heading: str, body: str = "") -> None:
-        dialog = Adw.AlertDialog(heading=heading, body=body)
+        # A single button answers both Enter and Esc, as GNOME's guidelines say.
+        dialog = Adw.AlertDialog(heading=heading, body=body, default_response="ok", close_response="ok")
         dialog.add_response("ok", _("_OK"))
         dialog.present(self)
 
@@ -849,14 +834,13 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Before the document is replaced or closed, ask what to do with unsaved changes; then says whether to go on.
 
         Without unsaved changes nothing is asked. Save saves (asking where if it has to) and goes on only if it was
-        saved; Discard goes on; Cancel, or closing the question, does not (D16, 0.6). A protected PDF cannot be saved,
-        so it is only asked whether to discard the changes (J6).
+        saved; Discard goes on; Cancel, or closing the question, does not (D16, 0.6).
         """
         document = self.document
         if document is None or not document.is_modified:
             then(True)
             return
-        dialog = _discard_question(document.file_name) if document.is_restricted else _save_question(document.file_name)
+        dialog = _save_question(document.file_name)
         dialog.connect("response", self._on_unsaved_response, then)
         self.present()
         dialog.present(self)
@@ -958,18 +942,4 @@ def _save_question(name: str) -> Adw.AlertDialog:
     dialog.add_response(RESPONSE_SAVE, _("_Save"))
     dialog.set_response_appearance(RESPONSE_DISCARD, Adw.ResponseAppearance.DESTRUCTIVE)
     dialog.set_response_appearance(RESPONSE_SAVE, Adw.ResponseAppearance.SUGGESTED)
-    return dialog
-
-
-def _discard_question(name: str) -> Adw.AlertDialog:
-    """Discard or keep the changes of a protected PDF, which cannot be saved (J6)."""
-    dialog = Adw.AlertDialog(
-        heading=_("Discard the changes to “{name}”?").format(name=name),
-        body=_("This PDF is protected: its changes cannot be saved and will be lost."),
-        close_response=RESPONSE_CANCEL,
-        default_response=RESPONSE_CANCEL,
-    )
-    dialog.add_response(RESPONSE_CANCEL, _("_Cancel"))
-    dialog.add_response(RESPONSE_DISCARD, _("_Discard"))
-    dialog.set_response_appearance(RESPONSE_DISCARD, Adw.ResponseAppearance.DESTRUCTIVE)
     return dialog

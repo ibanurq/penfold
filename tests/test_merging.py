@@ -8,7 +8,7 @@ import pytest
 from penfold.document.commands.pages import AddPages, DeletePages
 from penfold.document.document import OpenDocument
 from penfold.document.saving import save
-from penfold.errors import ProtectedPdfError
+from penfold.errors import RestrictedPdfError
 from tests.sample_pdfs import make_pdf
 from tests.test_adding_pages import outlined_pdf
 
@@ -91,7 +91,7 @@ def test_the_bookmarks_of_the_files_as_chosen(
 
 def test_a_protected_pdf_cannot_be_merged(tmp_path: Path) -> None:
     paths = [make_pdf(tmp_path / "plain.pdf"), make_pdf(tmp_path / "locked.pdf", passwords=("owner", ""))]
-    with pytest.raises(ProtectedPdfError):
+    with pytest.raises(RestrictedPdfError):
         merge(paths, tmp_path)
 
 

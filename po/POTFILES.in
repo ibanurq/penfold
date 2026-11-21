@@ -20,6 +20,7 @@ penfold/ui/dialogs/add_pages_dialog.py
 penfold/ui/dialogs/extract_pages_dialog.py
 penfold/ui/dialogs/merge_dialog.py
 penfold/ui/dialogs/text_question.py
+penfold/ui/document_header.py
 penfold/ui/extraction.py
 penfold/ui/file_dialogs.py
 penfold/ui/page_entry.py

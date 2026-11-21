@@ -9,7 +9,6 @@ from gi.repository import Adw, Gtk, Poppler
 
 from penfold.document.commands.pages import RotatePages
 from penfold.ui.text_selection import PagePoint, TextSelection
-from tests.gtk_helpers import process_pending_events
 from tests.sample_pdfs import allowing, make_pdf, make_restricted_pdf
 from tests.test_document_window import action_enabled, open_and_wait, window
 from tests.test_forms import build_form
@@ -23,28 +22,30 @@ __all__ = ["window"]
 TOOLS = ("save", "save-as", "print", "add-pages", "extract-pages", "add-bookmark")
 
 
-def close_notice(window: "PenfoldWindow") -> None:
-    notice = window.get_visible_dialog()
-    assert notice is not None
-    notice.force_close()
-    process_pending_events()
-
-
 @pytest.fixture
 def locked_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
     assert open_and_wait(window, make_restricted_pdf(tmp_path / "locked.pdf"))
-    close_notice(window)
     return window
 
 
-def test_a_protected_pdf_has_a_red_lock_in_the_header(locked_window: "PenfoldWindow", tmp_path: Path) -> None:
-    icon = locked_window.document_header.protected_icon
+def test_a_pdf_with_restrictions_has_a_red_lock_that_says_what_it_does_not_allow(
+    window: "PenfoldWindow", tmp_path: Path
+) -> None:
+    assert open_and_wait(window, make_restricted_pdf(tmp_path / "locked.pdf", "print_lowres", "extract"))
+    icon = window.document_header.protected_icon
     assert (icon.get_visible(), icon.has_css_class("error")) == (True, True)
-    assert open_and_wait(locked_window, make_pdf(tmp_path / "open.pdf"))
+    assert icon.get_tooltip_text() == (
+        "This PDF has restrictions:\n"
+        "• Its forms cannot be filled in\n"
+        "• It cannot be annotated\n"
+        "• Its pages and bookmarks cannot be changed\n"
+        "• Its form cannot be flattened"
+    )
+    assert open_and_wait(window, make_pdf(tmp_path / "open.pdf"))
     assert not icon.get_visible()
 
 
-def test_ctrl_p_says_why_a_protected_pdf_cannot_be_printed(
+def test_ctrl_p_says_a_pdf_does_not_allow_printing(
     locked_window: "PenfoldWindow", monkeypatch: pytest.MonkeyPatch
 ) -> None:
     toasts: list[str] = []
@@ -52,25 +53,19 @@ def test_ctrl_p_says_why_a_protected_pdf_cannot_be_printed(
     assert not action_enabled(locked_window, "print")
     assert action_enabled(locked_window, "print-shortcut")
     locked_window.activate_action("win.print-shortcut", None)
-    assert toasts == [
-        "This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet."
-    ]
+    assert toasts == ["This PDF does not allow printing"]
     assert locked_window.get_visible_dialog() is None
 
 
-def test_changes_to_a_protected_pdf_can_only_be_discarded(locked_window: "PenfoldWindow") -> None:
+def test_changes_to_a_pdf_with_restrictions_are_offered_to_be_saved(locked_window: "PenfoldWindow") -> None:
     document = locked_window.document
     assert document is not None
     document.execute(RotatePages(document, [0], 90))
-    answers: list[bool] = []
-    locked_window.confirm_discard(answers.append)
+    locked_window.confirm_discard(lambda _proceed: None)
     dialog = locked_window.get_visible_dialog()
     assert isinstance(dialog, Adw.AlertDialog)
-    assert dialog.get_heading() == "Discard the changes to “locked.pdf”?"
-    assert (dialog.has_response("save"), dialog.get_default_response()) == (False, "cancel")
-    dialog.emit("response", "discard")
-    dialog.close()
-    assert answers == [True]
+    assert dialog.get_heading() == "Save changes to “locked.pdf”?"
+    dialog.force_close()
 
 
 def restrict(path: Path, *permissions: str) -> Path:
@@ -82,7 +77,6 @@ def restrict(path: Path, *permissions: str) -> Path:
 
 def test_tools_follow_what_the_pdf_allows(window: "PenfoldWindow", tmp_path: Path) -> None:
     assert open_and_wait(window, make_restricted_pdf(tmp_path / "locked.pdf"))
-    close_notice(window)
     enabled = {name: action_enabled(window, name) for name in TOOLS}
     assert enabled == {
         "save": True,
@@ -93,7 +87,6 @@ def test_tools_follow_what_the_pdf_allows(window: "PenfoldWindow", tmp_path: Pat
         "add-bookmark": False,
     }
     assert open_and_wait(window, make_restricted_pdf(tmp_path / "open.pdf", "print_lowres", "modify_assembly"))
-    close_notice(window)
     assert {name: action_enabled(window, name) for name in ("print", "add-pages", "add-bookmark")} == dict.fromkeys(
         ("print", "add-pages", "add-bookmark"), True
     )
@@ -109,7 +102,6 @@ def test_text_cannot_be_selected_if_the_pdf_does_not_allow_copying(locked_window
 
 def test_fields_are_read_only_if_the_pdf_does_not_allow_filling_them(window: "PenfoldWindow", tmp_path: Path) -> None:
     assert open_and_wait(window, restrict(build_form(tmp_path / "form.pdf"), "print_lowres"))
-    close_notice(window)
     editors = [item for item in window.document_view._form_layer._editors.values() if item.field.name == "notes"]
     assert editors
     view = editors[0].view

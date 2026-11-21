@@ -74,7 +74,7 @@ def test_opening_shows_the_document_and_its_header(window: "PenfoldWindow", book
     assert (title.get_title(), title.get_subtitle()) == ("A Book", "book.pdf")
     entry = window.document_header.page_entry
     assert (entry.entry.get_text(), entry.position_label.get_label()) == ("i", "(1 of 12)")
-    assert not window.protected_banner.get_revealed()
+    assert not window.document_header.protected_icon.get_visible()
     assert action_enabled(window, "next-page")
 
 
@@ -156,13 +156,10 @@ def test_two_pages_shows_pairs_fitted_whole(window: "PenfoldWindow", book: Path)
     assert len(view._boxes) == 12
 
 
-def test_protected_pdf_opens_with_a_notice_and_a_banner(window: "PenfoldWindow", tmp_path: Path) -> None:
+def test_a_pdf_with_restrictions_opens_without_a_notice(window: "PenfoldWindow", tmp_path: Path) -> None:
     path = make_pdf(tmp_path / "locked.pdf", passwords=("owner", ""))
     assert open_and_wait(window, path)
-    assert window.protected_banner.get_revealed()
-    dialog = window.get_visible_dialog()
-    assert isinstance(dialog, Adw.AlertDialog)
-    assert dialog.get_heading() == "Protected PDF"
+    assert window.get_visible_dialog() is None  # The red lock says it (D59).
 
 
 def test_pdf_with_a_password_is_not_opened(window: "PenfoldWindow", tmp_path: Path) -> None:

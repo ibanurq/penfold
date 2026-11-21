@@ -1,6 +1,6 @@
 """The "Merge PDFs" dialogue (02-interfaz, 8; F1 to F4; D50): the files to merge, in order, and their bookmarks.
 
-Files are added with the button or dropped on the dialogue; only PDFs are listed. Protected PDFs stay in the list, in
+Files are added with the button or dropped on the dialogue; only PDFs are listed. Encrypted PDFs stay in the list, in
 red, so it is clear that they will be left out (F4). At least two files that can be merged are needed (F3).
 """
 
@@ -14,7 +14,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
 from penfold.document.sources import count_pages
-from penfold.errors import DocumentOpenError, ProtectedPdfError
+from penfold.errors import DocumentOpenError, RestrictedPdfError
 from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.file_dialogs import pdf_file_dialog
 
@@ -25,7 +25,7 @@ DROP_BELOW = "drop-below"
 
 @dataclass(frozen=True)
 class FileToMerge:
-    """A file in the list: its path and how many pages it has; None for a protected PDF, which cannot be merged."""
+    """A file in the list: its path and how many pages it has; None for an encrypted PDF, which cannot be merged."""
 
     path: Path
     page_count: int | None
@@ -105,13 +105,14 @@ class PenfoldMergeDialog(Adw.Dialog):
                 continue
             try:
                 self.files.append(FileToMerge(path, count_pages(path)))
-            except ProtectedPdfError:
+            except RestrictedPdfError:
                 self.files.append(FileToMerge(path, None))
             except DocumentOpenError:
                 unreadable.append(path.name)
         self._show_files()
         if unreadable:
-            message = Adw.AlertDialog(heading=_("Could not open “{name}”").format(name=", ".join(unreadable)))
+            heading = _("Could not open “{name}”").format(name=", ".join(unreadable))
+            message = Adw.AlertDialog(heading=heading, default_response="ok", close_response="ok")
             message.add_response("ok", _("_OK"))
             message.present(self)
 

@@ -17,7 +17,7 @@ from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_p
 from penfold.document.restrictions import Restrictions
 from penfold.document.saving import SavePlan
 from penfold.document.sources import SourceFile, Sources
-from penfold.errors import PenfoldError, ProtectedPdfError
+from penfold.errors import PenfoldError, RestrictedPdfError
 
 
 @dataclass(frozen=True)
@@ -75,7 +75,7 @@ class OpenDocument:
         keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another.
 
         Raises:
-            ProtectedPdfError: a PDF is protected, and cannot be merged (F4).
+            RestrictedPdfError: a PDF is encrypted, and cannot be merged (F4, D59).
             PasswordRequiredError: a PDF needs a password to be opened.
             DocumentOpenError: a file is missing, unreadable or not a PDF.
         """
@@ -147,7 +147,7 @@ class OpenDocument:
         document.
 
         Raises:
-            ProtectedPdfError: the PDF is protected, and its pages cannot be added (2.7).
+            RestrictedPdfError: the PDF is encrypted, and its pages cannot be added (2.7, D59).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
@@ -167,14 +167,14 @@ class OpenDocument:
         """Copy and open a PDF as a new source, listing its annotations and fields; return its first index and the PDF.
 
         Raises:
-            ProtectedPdfError: the PDF is protected (2.7).
+            RestrictedPdfError: the PDF is encrypted (2.7, D59).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
         source = SourceFile(path)
         if source.pdf.is_encrypted:
             source.close()
-            raise ProtectedPdfError(str(path))
+            raise RestrictedPdfError(str(path))
         start = self.sources.add(source).start
         self.annotations = [*self.annotations, *read_annotations(source.pdf, start)]
         self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]

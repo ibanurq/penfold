@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from penfold.document.sources import SourceFile, Sources, SourceSpan, count_pages, locate
-from penfold.errors import DocumentOpenError, ProtectedPdfError
+from penfold.errors import DocumentOpenError, RestrictedPdfError
 from tests.sample_pdfs import make_pdf
 
 SPANS = (SourceSpan(Path("a.pdf"), 0, 3), SourceSpan(Path("b.pdf"), 3, 2), SourceSpan(Path("c.pdf"), 5, 1))
@@ -41,7 +41,7 @@ def test_added_pdfs_are_copied_and_numbered_after_the_others(tmp_path: Path) -> 
 def test_pages_are_counted_before_merging(tmp_path: Path) -> None:
     assert count_pages(make_pdf(tmp_path / "four.pdf", page_count=4)) == 4
     for passwords in (("owner", ""), ("owner", "user")):
-        with pytest.raises(ProtectedPdfError):
+        with pytest.raises(RestrictedPdfError):
             count_pages(make_pdf(tmp_path / f"locked-{passwords[1]}.pdf", passwords=passwords))
     with pytest.raises(DocumentOpenError):
         count_pages(tmp_path / "missing.pdf")
