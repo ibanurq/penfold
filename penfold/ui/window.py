@@ -251,16 +251,18 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _update_page_actions(self) -> None:
         """Turning needs pages selected; deleting, too, and never all of them (E3, D21).
 
-        Pages cannot be added to a protected PDF, nor extracted from it (2.7).
+        A PDF that does not allow assembling it has all of them off (D59).
         """
-        selected = len(self.pages_view.selected_pages()) if self.document is not None else 0
-        page_count = self.document.page_count if self.document is not None else 0
+        document = self.document
+        assemble = document is not None and document.restrictions.assemble
+        selected = len(self.pages_view.selected_pages()) if assemble else 0
+        page_count = document.page_count if document is not None else 0
         for name, enabled in (
             ("rotate-pages-left", selected > 0),
             ("rotate-pages-right", selected > 0),
             ("delete-pages", 0 < selected < page_count),
-            ("add-pages", self.document is not None and not self.document.is_restricted),
-            ("extract-pages", self.document is not None and not self.document.is_restricted),
+            ("add-pages", assemble),
+            ("extract-pages", assemble),
         ):
             self._enable_action(name, enabled)
 
@@ -270,7 +272,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _on_move_requested(self, _view: PagesView, positions: list[int], before: int) -> None:
         """Move dragged thumbnails (E1); dropping them where they already are changes nothing."""
-        if self.document is None:
+        if self.document is None or not self.document.restrictions.assemble:
             return
         command = MovePages(self.document, positions, before)
         if command.moves_anything:
@@ -405,11 +407,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def save_as(self, then: Callable[[bool], object] | None = None) -> None:
         """Choose a file and save the document there; it becomes the document's file (J1).
 
-        Asked by the user (without then) for a document with a form, it first asks whether to flatten it (I6).
+        Asked by the user (without then) for a document with a form, it first asks whether to flatten it (I6), if the
+        PDF allows changing its content (D59).
         """
         if self.document is None:
             return
-        if then is None and self.document.form_fields:
+        if then is None and self.document.form_fields and self.document.restrictions.modify:
             dialog = PenfoldSaveAsDialog()
             dialog.connect("continue-requested", lambda _dialog, flatten: self._choose_target(None, flatten=flatten))
             dialog.present(self)
@@ -506,10 +509,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
         threading.Thread(target=work, name="penfold-save", daemon=True).start()
 
     def _update_save_actions(self) -> None:
+        """Save while not saving; a PDF with restrictions too, keeping them. Print only if the PDF allows it (D59)."""
         document = self.document
-        enabled = document is not None and not document.is_restricted and not self._saving
+        enabled = document is not None and not self._saving
         for name in SAVE_ACTIONS:
-            self._enable_action(name, enabled)
+            allowed = name != "print" or (document is not None and document.restrictions.print)
+            self._enable_action(name, enabled and allowed)
 
     def _show_title(self) -> None:
         """The document's title and file name in the header, and in the window's title, with "• " for changes."""

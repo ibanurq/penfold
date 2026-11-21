@@ -254,14 +254,17 @@ def test_a_failed_save_is_reported_and_keeps_the_changes(window: "PenfoldWindow"
     dialog.force_close()
 
 
-def test_protected_pdfs_cannot_be_saved(application: "PenfoldApplication", tmp_path: Path) -> None:
+def test_pdfs_with_restrictions_can_be_saved_but_not_rearranged(
+    application: "PenfoldApplication", tmp_path: Path
+) -> None:
     from penfold.ui.window import PenfoldWindow
 
     new_window = PenfoldWindow(application)
     new_window.present()
     open_and_wait(new_window, make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
-    assert not enabled(new_window, "save")
-    assert not enabled(new_window, "save-as")
+    assert enabled(new_window, "save")
+    assert enabled(new_window, "save-as")
+    assert not enabled(new_window, "add-pages")
     dialog = new_window.get_visible_dialog()
     if dialog is not None:
         dialog.force_close()

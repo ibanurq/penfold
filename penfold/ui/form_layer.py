@@ -5,7 +5,7 @@ the pages that can be seen get their widgets, so a long form costs nothing while
 edit that can be undone; typing in one field is a single edit (SetFieldValue.retype).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from gi.repository import Graphene, Gsk, Gtk
@@ -72,7 +72,10 @@ class FormLayer:
         self._places = {}
         if self._document is None:
             return
-        for field in self._document.form_fields:
+        # A PDF that does not allow filling in its form shows the fields as they are, to read (D59).
+        locked = not self._document.restrictions.fill_forms
+        for form_field in self._document.form_fields:
+            field = replace(form_field, read_only=True) if locked else form_field
             for widget in field.widgets:
                 self._places.setdefault(widget.page, []).append((field, widget))
 

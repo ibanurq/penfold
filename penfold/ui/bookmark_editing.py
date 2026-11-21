@@ -82,12 +82,16 @@ class BookmarkEditing:
         self._actions["bookmark-color"] = color
 
     def update_actions(self) -> None:
-        """Turn on what can be done with the bookmarks selected, and off the rest (D21)."""
+        """Turn on what can be done with the bookmarks selected, and off the rest (D21).
+
+        A PDF that does not allow assembling it does not let its bookmarks change (D59).
+        """
         document = self._document()
-        outline = document.bookmarks if document is not None else []
-        selected = self._view.selected_bookmarks() if document is not None else []
+        editable = document is not None and document.restrictions.assemble
+        outline = document.bookmarks if editable and document is not None else []
+        selected = self._view.selected_bookmarks() if editable else []
         for name, enabled in (
-            ("add-bookmark", document is not None),
+            ("add-bookmark", editable),
             ("delete-bookmarks", bool(selected)),
             ("indent-bookmarks", can_indent(outline, selected)),
             ("outdent-bookmarks", can_outdent(outline, selected)),

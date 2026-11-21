@@ -814,16 +814,23 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             Gtk.UriLauncher(uri=target.uri).launch(root if isinstance(root, Gtk.Window) else None, None, None)
 
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
-        """A hand over links, the text cursor over pages."""
+        """A hand over links, the text cursor over pages (if the PDF lets its text be copied, D59)."""
         self._pointer = (x, y)
         if self.link_at(x, y) is not None:
             self.set_cursor_from_name("pointer")
-        elif self.page_point(x, y) is not None:
+        elif self._can_copy and self.page_point(x, y) is not None:
             self.set_cursor_from_name("text")
         else:
             self.set_cursor_from_name(None)
 
+    @property
+    def _can_copy(self) -> bool:
+        return self.document is None or self.document.restrictions.copy
+
     def _set_selection(self, selection: TextSelection | None) -> None:
+        """Select text; a PDF that does not let its text be copied has none selected (D59)."""
+        if selection is not None and not self._can_copy:
+            return
         self.selection = selection
         self.queue_draw()
 

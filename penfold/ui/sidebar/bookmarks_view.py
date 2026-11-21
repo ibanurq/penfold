@@ -354,8 +354,11 @@ class BookmarksView(Gtk.Box):
     def _on_drag_prepare(
         self, _source: Gtk.DragSource, _x: float, _y: float, row: BookmarkRow
     ) -> Gdk.ContentProvider | None:
-        """Drag the bookmarks selected if the row is one of them (without those under another); otherwise its own."""
-        if row.bookmark is None or self.document is None:
+        """Drag the bookmarks selected if the row is one of them (without those under another); otherwise its own.
+
+        A PDF that does not allow assembling it does not let its bookmarks move (D59).
+        """
+        if row.bookmark is None or self.document is None or not self.document.restrictions.assemble:
             return None
         selected = self.selected_bookmarks()
         if any(bookmark is row.bookmark for bookmark in selected):

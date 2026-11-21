@@ -526,8 +526,15 @@ class PagesView(Gtk.Box):
 
     # Dragging thumbnails (E1).
 
-    def _on_drag_prepare(self, _source: Gtk.DragSource, _x: float, _y: float, cell: PageCell) -> Gdk.ContentProvider:
-        """Drag the selected pages if the thumbnail is one of them; otherwise only its page."""
+    def _on_drag_prepare(
+        self, _source: Gtk.DragSource, _x: float, _y: float, cell: PageCell
+    ) -> Gdk.ContentProvider | None:
+        """Drag the selected pages if the thumbnail is one of them; otherwise only its page.
+
+        A PDF that does not allow assembling it does not let its pages move (D59).
+        """
+        if self.document is None or not self.document.restrictions.assemble:
+            return None
         page = cell.thumbnail.page
         selected = self.selected_pages()
         return Gdk.ContentProvider.new_for_value(DraggedPages(selected if page in selected else [page]))
