@@ -5,6 +5,26 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.6 — 2026-11-21
+
+Sixth preview of Penfold 1.0: bookmarks can be edited, and every change can be undone.
+
+### Added
+- Add, in the Bookmarks view: a bookmark titled with the text selected in the document, at the page where the selection
+  starts; with no text selected, it asks for a title, proposing “Page N” with the label of the current page. The new
+  bookmark goes in page order and is selected.
+- With bookmarks selected in the Bookmarks view, a bar at the bottom formats them, points one to the current page,
+  edits the text of one, decreases or increases their indent, and deletes them (also with the Delete key, with a
+  notice to undo it). What cannot be done with the bookmarks selected is greyed out.
+- Format opens a panel with Bold, Italic, the eight bookmark colours as a row of circles, and Clear Formatting; it
+  shows the style the bookmarks selected share.
+- Bookmarks can be dragged before, after or inside another, several at once if the one dragged is selected; a line or
+  a highlighted row shows where they will go, and the list scrolls near its edges.
+
+### Changed
+- Unlike 0.6, bookmarks that lead nowhere do not decide where a new bookmark goes, and the hover and editing menus of
+  each row are gone: everything is in the bar at the bottom.
+
 ## 1.0.0-alpha.5 — 2026-11-21
 
 Fifth preview of Penfold 1.0: pages from other PDFs. Pages can be added, extracted and merged.
