@@ -5,8 +5,8 @@ from gettext import gettext as _
 from gi.repository import Adw, Gtk
 
 from penfold import config
+from penfold.document.access_permissions import AccessPermissions
 from penfold.document.document import OpenDocument
-from penfold.document.restrictions import Restrictions
 from penfold.ui.menus import main_menu
 
 # The template uses this widget by name: importing it also registers its type with GTK.
@@ -35,11 +35,11 @@ class PenfoldDocumentHeader(Adw.Bin):
     def show_document(self, document: OpenDocument) -> None:
         """Show the title of the PDF and, under it, the file name; without a title, only the file name.
 
-        With unsaved changes, the title starts with "• " (D16); a PDF with restrictions has a red lock in front, whose
-        tooltip says what it does not allow (D58, D59).
+        With unsaved changes, the title starts with "• " (D16); a PDF with permissions that deny something has a red
+        lock in front, whose tooltip says what they do not allow (D58, D59).
         """
-        self.protected_icon.set_visible(document.is_restricted)
-        self.protected_icon.set_tooltip_text(describe_restrictions(document.restrictions))
+        self.protected_icon.set_visible(document.denies_anything)
+        self.protected_icon.set_tooltip_text(describe_denied_permissions(document.access_permissions))
         mark = UNSAVED_MARK if document.is_modified else ""
         if document.title:
             self.title_widget.set_title(mark + document.title)
@@ -49,8 +49,8 @@ class PenfoldDocumentHeader(Adw.Bin):
             self.title_widget.set_subtitle("")
 
 
-def describe_restrictions(restrictions: Restrictions) -> str:
-    """Say what a PDF with restrictions does not allow, one line each (the tooltip of the lock, D59)."""
+def describe_denied_permissions(permissions: AccessPermissions) -> str:
+    """Say what the user access permissions of a PDF do not allow, one line each (the tooltip of the lock, D59)."""
     sentences = {
         "print": _("It cannot be printed"),
         "fill_forms": _("Its forms cannot be filled in"),
@@ -59,5 +59,5 @@ def describe_restrictions(restrictions: Restrictions) -> str:
         "copy": _("Its text cannot be copied"),
         "modify": _("Its form cannot be flattened"),
     }
-    lines = [f"• {sentences[name]}" for name in restrictions.denied]
+    lines = [f"• {sentences[name]}" for name in permissions.denied]
     return "\n".join([_("This PDF has restrictions:"), *lines])

@@ -1,5 +1,6 @@
 install_data(
   '__init__.py',
+  'access_permissions.py',
   'annotations.py',
   'bookmarks.py',
   'document.py',
@@ -11,7 +12,6 @@ install_data(
   'page_labels.py',
   'pages.py',
   'pdf_values.py',
-  'restrictions.py',
   'saving.py',
   'sources.py',
   install_dir: pkgdatadir / 'penfold' / 'document',

@@ -254,7 +254,7 @@ def test_a_failed_save_is_reported_and_keeps_the_changes(window: "PenfoldWindow"
     dialog.force_close()
 
 
-def test_pdfs_with_restrictions_can_be_saved_but_not_rearranged(
+def test_pdfs_that_deny_assembling_can_be_saved_but_not_rearranged(
     application: "PenfoldApplication", tmp_path: Path
 ) -> None:
     from penfold.ui.window import PenfoldWindow

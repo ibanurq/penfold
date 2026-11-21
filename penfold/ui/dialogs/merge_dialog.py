@@ -14,7 +14,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
 from penfold.document.sources import count_pages
-from penfold.errors import DocumentOpenError, RestrictedPdfError
+from penfold.errors import AssemblyNotAllowedError, DocumentOpenError
 from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.file_dialogs import pdf_file_dialog
 
@@ -105,7 +105,7 @@ class PenfoldMergeDialog(Adw.Dialog):
                 continue
             try:
                 self.files.append(FileToMerge(path, count_pages(path)))
-            except RestrictedPdfError:
+            except AssemblyNotAllowedError:
                 self.files.append(FileToMerge(path, None))
             except DocumentOpenError:
                 unreadable.append(path.name)

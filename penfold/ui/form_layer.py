@@ -73,7 +73,7 @@ class FormLayer:
         if self._document is None:
             return
         # A PDF that does not allow filling in its form shows the fields as they are, to read (D59).
-        locked = not self._document.restrictions.fill_forms
+        locked = not self._document.access_permissions.fill_forms
         for form_field in self._document.form_fields:
             field = replace(form_field, read_only=True) if locked else form_field
             for widget in field.widgets:

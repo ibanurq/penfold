@@ -12,7 +12,7 @@ from penfold.document.pages import Page
 from penfold.document.saving import save
 from penfold.document.sources import SourceFile
 from penfold.errors import SaveError
-from tests.sample_pdfs import make_pdf, make_restricted_pdf
+from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
 
 PAGE_WIDTHS = [100, 101, 102, 103, 104]
 URI = "https://example.org/"
@@ -217,8 +217,8 @@ def test_a_folder_that_cannot_be_written_is_reported(document: OpenDocument, tmp
         save(document.save_plan(tmp_path / "missing" / "copy.pdf"))
 
 
-def test_pdfs_with_restrictions_are_saved_keeping_them(tmp_path: Path) -> None:
-    document = OpenDocument.open(make_restricted_pdf(tmp_path / "locked.pdf", "modify_form"))
+def test_pdfs_with_permissions_are_saved_keeping_them(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_pdf_with_permissions(tmp_path / "locked.pdf", "modify_form"))
     target = tmp_path / "saved.pdf"
     save(document.save_plan(target))
     with pikepdf.open(target) as pdf:

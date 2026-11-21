@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pikepdf
 
-from penfold.errors import DocumentOpenError, PasswordRequiredError, RestrictedPdfError
+from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordRequiredError
 
 COPY_NAME = "source.pdf"
 
@@ -131,14 +131,14 @@ def count_pages(path: Path) -> int:
     """Return how many pages a PDF has, to list it before merging it (F1).
 
     Raises:
-        RestrictedPdfError: the PDF is encrypted, and cannot be merged (F4, D59).
+        AssemblyNotAllowedError: the PDF is encrypted, and cannot be merged (F4, D59).
         DocumentOpenError: the file is missing, unreadable or not a PDF.
     """
     try:
         pdf = open_source(path)
     except PasswordRequiredError as error:
-        raise RestrictedPdfError(str(path)) from error
+        raise AssemblyNotAllowedError(str(path)) from error
     with pdf:
         if pdf.is_encrypted:
-            raise RestrictedPdfError(str(path))
+            raise AssemblyNotAllowedError(str(path))
         return len(pdf.pages)

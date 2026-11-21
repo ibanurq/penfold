@@ -1,4 +1,4 @@
-"""PDFs with restrictions (D58, D59): the red lock, the tools each one allows, Ctrl+P and the question about changes."""
+"""PDFs with permissions (D58, D59): the red lock, the tools each one allows, Ctrl+P and the question about changes."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,7 +9,7 @@ from gi.repository import Adw, Gtk, Poppler
 
 from penfold.document.commands.pages import RotatePages
 from penfold.ui.text_selection import PagePoint, TextSelection
-from tests.sample_pdfs import allowing, make_pdf, make_restricted_pdf
+from tests.sample_pdfs import allowing, make_pdf, make_pdf_with_permissions
 from tests.test_document_window import action_enabled, open_and_wait, window
 from tests.test_forms import build_form
 
@@ -24,14 +24,14 @@ TOOLS = ("save", "save-as", "print", "add-pages", "extract-pages", "add-bookmark
 
 @pytest.fixture
 def locked_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
-    assert open_and_wait(window, make_restricted_pdf(tmp_path / "locked.pdf"))
+    assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "locked.pdf"))
     return window
 
 
-def test_a_pdf_with_restrictions_has_a_red_lock_that_says_what_it_does_not_allow(
+def test_a_pdf_that_denies_something_has_a_red_lock_that_says_what_it_does_not_allow(
     window: "PenfoldWindow", tmp_path: Path
 ) -> None:
-    assert open_and_wait(window, make_restricted_pdf(tmp_path / "locked.pdf", "print_lowres", "extract"))
+    assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "locked.pdf", "print_lowres", "extract"))
     icon = window.document_header.protected_icon
     assert (icon.get_visible(), icon.has_css_class("error")) == (True, True)
     assert icon.get_tooltip_text() == (
@@ -57,7 +57,7 @@ def test_ctrl_p_says_a_pdf_does_not_allow_printing(
     assert locked_window.get_visible_dialog() is None
 
 
-def test_changes_to_a_pdf_with_restrictions_are_offered_to_be_saved(locked_window: "PenfoldWindow") -> None:
+def test_changes_to_a_pdf_that_denies_something_are_offered_to_be_saved(locked_window: "PenfoldWindow") -> None:
     document = locked_window.document
     assert document is not None
     document.execute(RotatePages(document, [0], 90))
@@ -68,15 +68,15 @@ def test_changes_to_a_pdf_with_restrictions_are_offered_to_be_saved(locked_windo
     dialog.force_close()
 
 
-def restrict(path: Path, *permissions: str) -> Path:
-    """Give a PDF restrictions that allow only these (pikepdf names)."""
+def allow_only(path: Path, *permissions: str) -> Path:
+    """Give a PDF user access permissions that allow only these (pikepdf names)."""
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:
         pdf.save(path, encryption=pikepdf.Encryption(owner="owner", user="", allow=allowing(*permissions)))
     return path
 
 
 def test_tools_follow_what_the_pdf_allows(window: "PenfoldWindow", tmp_path: Path) -> None:
-    assert open_and_wait(window, make_restricted_pdf(tmp_path / "locked.pdf"))
+    assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "locked.pdf"))
     enabled = {name: action_enabled(window, name) for name in TOOLS}
     assert enabled == {
         "save": True,
@@ -86,7 +86,7 @@ def test_tools_follow_what_the_pdf_allows(window: "PenfoldWindow", tmp_path: Pat
         "extract-pages": False,
         "add-bookmark": False,
     }
-    assert open_and_wait(window, make_restricted_pdf(tmp_path / "open.pdf", "print_lowres", "modify_assembly"))
+    assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "open.pdf", "print_lowres", "modify_assembly"))
     assert {name: action_enabled(window, name) for name in ("print", "add-pages", "add-bookmark")} == dict.fromkeys(
         ("print", "add-pages", "add-bookmark"), True
     )
@@ -101,7 +101,7 @@ def test_text_cannot_be_selected_if_the_pdf_does_not_allow_copying(locked_window
 
 
 def test_fields_are_read_only_if_the_pdf_does_not_allow_filling_them(window: "PenfoldWindow", tmp_path: Path) -> None:
-    assert open_and_wait(window, restrict(build_form(tmp_path / "form.pdf"), "print_lowres"))
+    assert open_and_wait(window, allow_only(build_form(tmp_path / "form.pdf"), "print_lowres"))
     editors = [item for item in window.document_view._form_layer._editors.values() if item.field.name == "notes"]
     assert editors
     view = editors[0].view

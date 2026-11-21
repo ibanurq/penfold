@@ -34,7 +34,7 @@ def make_pdf(
         page_count: number of pages.
         title: the /Title of its document information, if any.
         label_ranges: /PageLabels entries as (first page index, label dictionary).
-        passwords: encrypt it with these (owner, user) passwords, allowing nothing (a PDF with restrictions, D59); an
+        passwords: encrypt it with these (owner, user) passwords, allowing nothing (it denies everything, D59); an
             empty user password opens without one.
     """
     pdf = pikepdf.new()
@@ -65,8 +65,8 @@ def allowing(*permissions: str) -> pikepdf.Permissions:
     return pikepdf.Permissions(**{name: name in permissions for name in PERMISSIONS})
 
 
-def make_restricted_pdf(path: Path, *permissions: str) -> Path:
-    """Write a PDF with restrictions (D59), which opens without a password and allows only these; return its path."""
+def make_pdf_with_permissions(path: Path, *permissions: str) -> Path:
+    """Write a PDF with permissions (D59), which opens without a password and allows only these; return its path."""
     make_pdf(path)
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:
         pdf.save(path, encryption=pikepdf.Encryption(owner="owner", user="", allow=allowing(*permissions)))

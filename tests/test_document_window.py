@@ -156,7 +156,7 @@ def test_two_pages_shows_pairs_fitted_whole(window: "PenfoldWindow", book: Path)
     assert len(view._boxes) == 12
 
 
-def test_a_pdf_with_restrictions_opens_without_a_notice(window: "PenfoldWindow", tmp_path: Path) -> None:
+def test_a_pdf_that_denies_something_opens_without_a_notice(window: "PenfoldWindow", tmp_path: Path) -> None:
     path = make_pdf(tmp_path / "locked.pdf", passwords=("owner", ""))
     assert open_and_wait(window, path)
     assert window.get_visible_dialog() is None  # The red lock says it (D59).

@@ -825,7 +825,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     @property
     def _can_copy(self) -> bool:
-        return self.document is None or self.document.restrictions.copy
+        return self.document is None or self.document.access_permissions.copy
 
     def _set_selection(self, selection: TextSelection | None) -> None:
         """Select text; a PDF that does not let its text be copied has none selected (D59)."""

@@ -8,16 +8,16 @@ from typing import Self
 
 import pikepdf
 
+from penfold.document.access_permissions import AccessPermissions
 from penfold.document.annotations import Annotation, PrintGroup, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
 from penfold.document.forms import FieldValue, FormField, read_form_fields
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
-from penfold.document.restrictions import Restrictions
 from penfold.document.saving import SavePlan
 from penfold.document.sources import SourceFile, Sources
-from penfold.errors import PenfoldError, RestrictedPdfError
+from penfold.errors import AssemblyNotAllowedError, PenfoldError
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,7 @@ class OpenDocument:
         pdf = source.pdf
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
-        self.restrictions = Restrictions.of(pdf)
+        self.access_permissions = AccessPermissions.of(pdf)
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
         self.form_fields: list[FormField] = read_form_fields(pdf)
@@ -75,7 +75,7 @@ class OpenDocument:
         keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another.
 
         Raises:
-            RestrictedPdfError: a PDF is encrypted, and cannot be merged (F4, D59).
+            AssemblyNotAllowedError: a PDF is encrypted, and cannot be merged (F4, D59).
             PasswordRequiredError: a PDF needs a password to be opened.
             DocumentOpenError: a file is missing, unreadable or not a PDF.
         """
@@ -105,9 +105,9 @@ class OpenDocument:
             self.bookmarks.extend(own)
 
     @property
-    def is_restricted(self) -> bool:
-        """Whether the PDF denies something (D59); an encrypted PDF that allows everything has no restrictions."""
-        return self.restrictions.any
+    def denies_anything(self) -> bool:
+        """Whether the PDF denies something (D59); an encrypted PDF that allows everything denies nothing."""
+        return self.access_permissions.denies_anything
 
     @property
     def file_name(self) -> str:
@@ -147,7 +147,7 @@ class OpenDocument:
         document.
 
         Raises:
-            RestrictedPdfError: the PDF is encrypted, and its pages cannot be added (2.7, D59).
+            AssemblyNotAllowedError: the PDF is encrypted, and its pages cannot be added (2.7, D59).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
@@ -167,14 +167,14 @@ class OpenDocument:
         """Copy and open a PDF as a new source, listing its annotations and fields; return its first index and the PDF.
 
         Raises:
-            RestrictedPdfError: the PDF is encrypted (2.7, D59).
+            AssemblyNotAllowedError: the PDF is encrypted (2.7, D59).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
         source = SourceFile(path)
         if source.pdf.is_encrypted:
             source.close()
-            raise RestrictedPdfError(str(path))
+            raise AssemblyNotAllowedError(str(path))
         start = self.sources.add(source).start
         self.annotations = [*self.annotations, *read_annotations(source.pdf, start)]
         self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]
@@ -265,12 +265,12 @@ class OpenDocument:
         With flatten, the form fields become fixed page content (I6): the file is an exported copy, and the document
         keeps its own file and its changes (do not mark it saved).
 
-        A PDF with restrictions is saved too, keeping them (D59): its tools only make the changes it allows.
+        A PDF with permissions is saved too, keeping them (D59): its tools only make the changes it allows.
 
         Raises:
             ValueError: flattening was asked of a PDF that does not allow changing its content (D59).
         """
-        if flatten and not self.restrictions.modify:
+        if flatten and not self.access_permissions.modify:
             message = "this PDF does not allow flattening its form"
             raise ValueError(message)
         plan = SavePlan.take(
@@ -286,7 +286,7 @@ class OpenDocument:
         Raises:
             ValueError: the PDF does not allow printing (D59).
         """
-        if not self.restrictions.print:
+        if not self.access_permissions.print:
             message = "this PDF does not allow printing"
             raise ValueError(message)
         plan = SavePlan.take(self.sources.spans, target, self.pages, [], None)
@@ -300,7 +300,7 @@ class OpenDocument:
         Raises:
             ValueError: the PDF does not allow assembling it, so neither extracting its pages (D59).
         """
-        if not self.restrictions.assemble:
+        if not self.access_permissions.assemble:
             message = "this PDF does not allow extracting its pages"
             raise ValueError(message)
         pages = [self.pages[position] for position in positions]

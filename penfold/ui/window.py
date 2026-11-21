@@ -15,7 +15,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
 from penfold.document.pages import PaperSize
 from penfold.document.saving import SavePlan, save
-from penfold.errors import DocumentOpenError, PenfoldError, RestrictedPdfError, SaveError
+from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PenfoldError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 from penfold.ui.bookmark_editing import BookmarkEditing
@@ -252,7 +252,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         A PDF that does not allow assembling it has all of them off (D59).
         """
         document = self.document
-        assemble = document is not None and document.restrictions.assemble
+        assemble = document is not None and document.access_permissions.assemble
         selected = len(self.pages_view.selected_pages()) if assemble else 0
         page_count = document.page_count if document is not None else 0
         for name, enabled in (
@@ -270,7 +270,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _on_move_requested(self, _view: PagesView, positions: list[int], before: int) -> None:
         """Move dragged thumbnails (E1); dropping them where they already are changes nothing."""
-        if self.document is None or not self.document.restrictions.assemble:
+        if self.document is None or not self.document.access_permissions.assemble:
             return
         command = MovePages(self.document, positions, before)
         if command.moves_anything:
@@ -308,7 +308,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         source = choice.source
         try:
             added = document.add_blank_page(source) if isinstance(source, PaperSize) else document.add_source(source)
-        except RestrictedPdfError:
+        except AssemblyNotAllowedError:
             self._show_message(_("“{name}” has restrictions, so its pages cannot be added").format(name=source.name))
             return
         except DocumentOpenError:
@@ -408,7 +408,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """
         if self.document is None:
             return
-        if then is None and self.document.form_fields and self.document.restrictions.modify:
+        if then is None and self.document.form_fields and self.document.access_permissions.modify:
             dialog = PenfoldSaveAsDialog()
             dialog.connect("continue-requested", lambda _dialog, flatten: self._choose_target(None, flatten=flatten))
             dialog.present(self)
@@ -445,7 +445,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _print_shortcut(self) -> None:
         """Ctrl+P prints; in a PDF that does not allow it, where Print is greyed out, it says so (K3, D59)."""
-        if self.document is not None and not self.document.restrictions.print:
+        if self.document is not None and not self.document.access_permissions.print:
             self.toast_overlay.add_toast(Adw.Toast(title=_("This PDF does not allow printing")))
         else:
             self.activate_action("win.print", None)
@@ -502,11 +502,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
         threading.Thread(target=work, name="penfold-save", daemon=True).start()
 
     def _update_save_actions(self) -> None:
-        """Save while not saving; a PDF with restrictions too, keeping them. Print only if the PDF allows it (D59)."""
+        """Save while not saving; a PDF with permissions too, keeping them. Print only if the PDF allows it (D59)."""
         document = self.document
         enabled = document is not None and not self._saving
         for name in SAVE_ACTIONS:
-            allowed = name != "print" or (document is not None and document.restrictions.print)
+            allowed = name != "print" or (document is not None and document.access_permissions.print)
             self._enable_action(name, enabled and allowed)
 
     def _show_title(self) -> None:

@@ -1,7 +1,7 @@
-"""What a PDF with restrictions allows (D59): the permissions of an encrypted PDF opened without a password.
+"""What a PDF allows (D59, D60): the user access permissions of an encrypted PDF opened without a password.
 
 Each tool of Penfold depends on one permission, and is off without it. Saving keeps the encryption and the
-permissions as they are (saving.py), so Penfold never lifts a restriction.
+permissions as they are (saving.py), so Penfold never lifts a permission.
 """
 
 from dataclasses import dataclass, fields
@@ -10,7 +10,7 @@ import pikepdf
 
 
 @dataclass(frozen=True)
-class Restrictions:
+class AccessPermissions:
     """The permissions of a PDF; a PDF that is not encrypted allows everything."""
 
     print: bool = True
@@ -27,7 +27,7 @@ class Restrictions:
     """Change the rest of the content: flatten the form."""
 
     @classmethod
-    def of(cls, pdf: pikepdf.Pdf) -> "Restrictions":
+    def of(cls, pdf: pikepdf.Pdf) -> "AccessPermissions":
         """Read what a PDF allows."""
         if not pdf.is_encrypted:
             return cls()
@@ -42,7 +42,7 @@ class Restrictions:
         )
 
     @property
-    def any(self) -> bool:
+    def denies_anything(self) -> bool:
         """Whether the PDF denies something."""
         return not all(getattr(self, field.name) for field in fields(self))
 
