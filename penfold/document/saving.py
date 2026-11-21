@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pikepdf
 
+from penfold.document.annotations import PRINT_GROUPS, PrintGroup
 from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
 from penfold.document.form_filling import fill_in, flatten_form
 from penfold.document.forms import FieldValue, FormField
@@ -48,6 +49,7 @@ class SavePlan:
         checkpoint: the last edit included, so the document knows what was saved even if it changes meanwhile.
         form_values: the values filled in that differ from the PDF's, with their fields (I5).
         flatten: draw the form fields as fixed page content and remove the form: an exported copy (I6).
+        left_out: the groups of annotations to leave out, for printing (D57).
     """
 
     sources: Spans
@@ -57,6 +59,7 @@ class SavePlan:
     checkpoint: Command | None
     form_values: tuple[tuple[FormField, FieldValue], ...] = ()
     flatten: bool = False
+    left_out: frozenset[PrintGroup] = frozenset()
 
     @classmethod
     def take(
@@ -93,6 +96,8 @@ def save(plan: SavePlan) -> int:
             _bring_in_forms(pdf, plan.pages, others)
             if plan.flatten:
                 flatten_form(pdf)
+            if plan.left_out:
+                _leave_out_annotations(pdf, plan.left_out)
             _write_outline(pdf, list(plan.bookmarks), placed)
             _write_safely(pdf, plan.target, len(plan.pages))
     except (pikepdf.PdfError, OSError) as error:
@@ -304,6 +309,28 @@ def _fields_without(fields: pikepdf.Array, widgets: set[tuple[int, int]]) -> lis
                 field.Kids = pikepdf.Array(remaining)
         kept.append(field)
     return kept
+
+
+def _leave_out_annotations(pdf: pikepdf.Pdf, groups: frozenset[PrintGroup]) -> None:
+    """Take out of the pages the annotations of these groups, with the pop-up windows of their notes."""
+    for page in pdf.pages:
+        annots = page.obj.get("/Annots")
+        if not isinstance(annots, pikepdf.Array):
+            continue
+        items = list(_items(annots))
+        dropped = {item.objgen for item in items if _print_group(item) in groups}
+        kept = [item for item in items if item.objgen not in dropped and not _popup_of(item, dropped)]
+        page.obj.Annots = pdf.make_indirect(pikepdf.Array(kept))
+
+
+def _print_group(annotation: pikepdf.Object) -> PrintGroup | None:
+    subtype = annotation.get("/Subtype") if isinstance(annotation, pikepdf.Dictionary) else None
+    return PRINT_GROUPS.get(str(subtype)) if isinstance(subtype, pikepdf.Name) else None
+
+
+def _popup_of(annotation: pikepdf.Object, dropped: set[tuple[int, int]]) -> bool:
+    parent = annotation.get("/Parent") if isinstance(annotation, pikepdf.Dictionary) else None
+    return isinstance(parent, pikepdf.Dictionary) and parent.is_indirect and parent.objgen in dropped
 
 
 def _write_outline(pdf: pikepdf.Pdf, bookmarks: list[Bookmark], placed: dict[int, pikepdf.Page]) -> None:

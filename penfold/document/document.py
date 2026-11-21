@@ -8,7 +8,7 @@ from typing import Self
 
 import pikepdf
 
-from penfold.document.annotations import Annotation, read_annotations
+from penfold.document.annotations import Annotation, PrintGroup, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
 from penfold.document.forms import FieldValue, FormField, read_form_fields
 from penfold.document.history import Change, Command, History
@@ -269,6 +269,20 @@ class OpenDocument:
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
         return replace(plan, form_values=self._filled_in(), flatten=flatten)
+
+    def print_plan(self, target: Path, left_out: frozenset[PrintGroup]) -> SavePlan:
+        """Take what writing the PDF to print needs (D57), to write it with saving.save.
+
+        It has every page, with the form values, but no bookmarks and none of the groups of annotations left out.
+
+        Raises:
+            ValueError: the PDF is protected, and Penfold cannot print it (2.7).
+        """
+        if self.is_protected:
+            message = "protected PDFs cannot be printed"
+            raise ValueError(message)
+        plan = SavePlan.take(self.sources.spans, target, self.pages, [], None)
+        return replace(plan, form_values=self._filled_in(), left_out=left_out)
 
     def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
         """Take what writing some pages to another file needs (E8), to write it with saving.save.

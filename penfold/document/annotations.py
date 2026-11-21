@@ -30,6 +30,25 @@ class Kind(enum.Enum):
     OTHER = "Other"
 
 
+class PrintGroup(enum.Enum):
+    """The groups of annotations the reader chooses to print or not (D57)."""
+
+    TEXT_MARKUPS = "text-markups"
+    """Highlights, underlines (also squiggly), strikethroughs."""
+    SHAPES = "shapes"
+    """Rectangles, circles, arrows and lines, polygons, polylines and freehand drawings."""
+    TEXT_ELEMENTS = "text-elements"
+    """Comments, text boxes, stamps and insert-text marks."""
+
+
+# The group of each subtype; the others (form fields, attachments…) are always printed (D57).
+PRINT_GROUPS = {
+    **dict.fromkeys(("/Highlight", "/Underline", "/Squiggly", "/StrikeOut"), PrintGroup.TEXT_MARKUPS),
+    **dict.fromkeys(("/Square", "/Circle", "/Line", "/Polygon", "/PolyLine", "/Ink"), PrintGroup.SHAPES),
+    **dict.fromkeys(("/Text", "/FreeText", "/Stamp", "/Caret"), PrintGroup.TEXT_ELEMENTS),
+}
+
+
 SUBTYPE_KINDS = {f"/{kind.value}": kind for kind in Kind if kind is not Kind.OTHER}
 # Marks on text, whose list row shows the marked text when they have no text of their own.
 TEXT_MARKUPS = frozenset({Kind.HIGHLIGHT, Kind.UNDERLINE, Kind.STRIKE_OUT})

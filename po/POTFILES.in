@@ -4,6 +4,7 @@ data/io.github.ibanurq.Penfold.metainfo.xml.in
 data/ui/dialogs/add_pages_dialog.blp
 data/ui/dialogs/extract_pages_dialog.blp
 data/ui/dialogs/merge_dialog.blp
+data/ui/dialogs/print_dialog.blp
 data/ui/dialogs/save_as_dialog.blp
 data/ui/document_header.blp
 data/ui/main_menu.blp
@@ -22,6 +23,7 @@ penfold/ui/dialogs/text_question.py
 penfold/ui/extraction.py
 penfold/ui/file_dialogs.py
 penfold/ui/page_entry.py
+penfold/ui/printing.py
 penfold/ui/shortcuts_dialog.py
 penfold/ui/sidebar/annotations_view.py
 penfold/ui/sidebar/bookmark_format.py

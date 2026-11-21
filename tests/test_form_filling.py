@@ -7,6 +7,7 @@ import gi
 import pikepdf
 import pytest
 
+from penfold.document.annotations import PrintGroup
 from penfold.document.commands.forms import SetFieldValue
 from penfold.document.commands.pages import AddPages, DeletePages
 from penfold.document.document import OpenDocument
@@ -172,3 +173,25 @@ def test_a_flattened_copy_draws_the_fields_and_drops_the_form(tmp_path: Path) ->
         assert [str(annots[index].Subtype) for index in range(len(annots))] == ["/Square"]
     assert "Eva" in page_text(target)
     assert document.is_modified  # An exported copy: the document is not saved by it.
+
+
+def test_printing_leaves_out_the_groups_not_chosen(tmp_path: Path) -> None:
+    path = build_form(tmp_path / "form.pdf")
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        for subtype in ("/Highlight", "/Ink", "/Text", "/FileAttachment"):
+            mark = pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name(subtype), Rect=[10, 10, 50, 50])
+            pdf.pages[0].Annots.append(pdf.make_indirect(mark))
+        note = pdf.pages[0].Annots[-2]
+        popup = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Popup, Parent=note))
+        pdf.pages[0].Annots.append(popup)
+        pdf.save(path)
+    document = OpenDocument.open(path)
+    fill(document, "name", "Eva")
+    target = tmp_path / "print.pdf"
+    save(document.print_plan(target, frozenset({PrintGroup.SHAPES, PrintGroup.TEXT_ELEMENTS})))
+    with pikepdf.open(target) as pdf:
+        annots = pdf.pages[0].Annots
+        subtypes = [str(annots[index].Subtype) for index in range(len(annots))]
+        assert "/Outlines" not in pdf.Root
+    assert [item for item in subtypes if item != "/Widget"] == ["/Highlight", "/FileAttachment"]
+    assert saved_values(target)["name"] == "Eva"

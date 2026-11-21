@@ -1,0 +1,61 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// "Print" (D57): which groups of annotations are printed, before the system's print dialogue.
+template $PenfoldPrintDialog: Adw.Dialog {
+  title: _("Print");
+  content-width: 440;
+  default-widget: continue_button;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+
+      [start]
+      Button {
+        label: _("_Cancel");
+        use-underline: true;
+        clicked => $_on_cancel_clicked();
+      }
+
+      [end]
+      Button continue_button {
+        label: _("C_ontinue");
+        use-underline: true;
+        clicked => $_on_continue_clicked();
+
+        styles [
+          "suggested-action",
+        ]
+      }
+    }
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup {
+        title: _("Annotations to Print");
+
+        Adw.SwitchRow text_markups_row {
+          title: _("Text Highlights");
+          subtitle: _("Underlines, strikethroughs, highlights, etc.");
+          active: true;
+        }
+
+        Adw.SwitchRow shapes_row {
+          title: _("Shapes");
+          subtitle: _("Circles, rectangles, arrows, etc.");
+          active: true;
+        }
+
+        Adw.SwitchRow text_elements_row {
+          title: _("Text Elements");
+          subtitle: _("Comments, text boxes, stamps, etc.");
+          active: true;
+        }
+      }
+    };
+  };
+}

@@ -37,8 +37,8 @@ BYTES_PER_PIXEL = 4
 SCALE_DECIMALS = 4
 # Poppler draws one page at a time, even with a document per thread: drawing in parallel corrupted its memory now and
 # then ("double free" in page.render with three workers drawing at once). The workers still prepare and hand over the
-# tiles in parallel.
-_POPPLER_DRAWING = threading.Lock()
+# tiles in parallel. Anything else that draws with Poppler (printing) takes this lock too.
+POPPLER_DRAWING = threading.Lock()
 
 
 @dataclass(frozen=True, order=True)
@@ -266,7 +266,7 @@ def draw_tile(page: Poppler.Page, key: TileKey) -> Gdk.Texture:
     context.translate(-x, -y)
     context.scale(key.scale, key.scale)
     _turn(context, source_size, key.rotation)
-    with _POPPLER_DRAWING:
+    with POPPLER_DRAWING:
         page.render_full(context, False, SHOWN_ANNOTATIONS)  # type: ignore[attr-defined]  # False: not printing
     surface.flush()
     return Gdk.MemoryTexture.new(

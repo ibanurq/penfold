@@ -24,12 +24,14 @@ from penfold.ui.bookmark_editing import BookmarkEditing
 from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
 from penfold.ui.dialogs.extract_pages_dialog import PagesToExtract, PenfoldExtractPagesDialog
 from penfold.ui.dialogs.merge_dialog import PdfsToMerge, PenfoldMergeDialog
+from penfold.ui.dialogs.print_dialog import PenfoldPrintDialog
 from penfold.ui.dialogs.save_as_dialog import PenfoldSaveAsDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import main_menu
+from penfold.ui.printing import DocumentPrinting
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
 from penfold.ui.sidebar.bookmarks_view import BookmarksView
@@ -69,10 +71,12 @@ EDIT_ACTIONS = {
     "undo": ["<Control>z"],
     "redo": ["<Shift><Control>z"],
 }
-# Saving (J1): on while the document can be saved, which a protected PDF cannot (2.7), and not while saving.
+# Saving (J1) and printing (D57): on while the document can be saved, which a protected PDF cannot (2.7), and not
+# while saving.
 SAVE_ACTIONS = {
     "save": ["<Control>s"],
     "save-as": ["<Shift><Control>s"],
+    "print": ["<Control>p"],
 }
 # Answers to the question about unsaved changes (J5).
 RESPONSE_CANCEL = "cancel"
@@ -165,6 +169,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "extract-pages": self._open_extract_pages_dialog,
             "save": self.save,
             "save-as": self.save_as,
+            "print": self._open_print_dialog,
         }
         for name, edit in editing.items():
             action = Gio.SimpleAction(name=name, enabled=False)
@@ -435,6 +440,16 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 then(False)
             return
         self._write(self.document.save_plan(Path(path), flatten=flatten), then)
+
+    def _open_print_dialog(self) -> None:
+        """Ask which annotations to print, then print with the system's dialogue (D57)."""
+        document = self.document
+        if document is None:
+            return
+        dialog = PenfoldPrintDialog()
+        printing = DocumentPrinting(self, document, self._show_message)
+        dialog.connect("print-requested", lambda _dialog, left_out: printing.start(left_out))
+        dialog.present(self)
 
     def _write(self, plan: SavePlan, then: Callable[[bool], object] | None) -> None:
         """Write a plan in a worker thread, keeping the window responsive; report how it went in the main thread."""
