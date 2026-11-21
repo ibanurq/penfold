@@ -33,7 +33,7 @@ class KeepColor(enum.Enum):
     KEEP = enum.auto()
 
 
-class _BookmarkEdit:
+class BookmarkEdit:
     """What every bookmark edit shares: the outline before and after, and applying or reverting it."""
 
     changes = Change.BOOKMARKS
@@ -81,7 +81,7 @@ class _BookmarkEdit:
         self._document.bookmarks = self._before
 
 
-class AddBookmark(_BookmarkEdit):
+class AddBookmark(BookmarkEdit):
     """Add a bookmark to the start of a page, placed in page order as 0.6 does (G3)."""
 
     def __init__(self, document: OpenDocument, title: str, position: int) -> None:
@@ -120,7 +120,7 @@ class AddBookmark(_BookmarkEdit):
             level.insert(_index(level, last) + 1, bookmark)
 
 
-class DeleteBookmarks(_BookmarkEdit):
+class DeleteBookmarks(BookmarkEdit):
     """Delete some bookmarks, with the bookmarks under them (G4)."""
 
     def __init__(self, document: OpenDocument, chosen: Iterable[Bookmark]) -> None:
@@ -138,7 +138,7 @@ class DeleteBookmarks(_BookmarkEdit):
         self.bookmarks = []
 
 
-class RenameBookmark(_BookmarkEdit):
+class RenameBookmark(BookmarkEdit):
     """Change the title of a bookmark (G5)."""
 
     def __init__(self, document: OpenDocument, bookmark: Bookmark, title: str) -> None:
@@ -151,7 +151,7 @@ class RenameBookmark(_BookmarkEdit):
         self.bookmarks = [self._replace(self.bookmarks[0], title=_checked_title(title))]
 
 
-class PointBookmark(_BookmarkEdit):
+class PointBookmark(BookmarkEdit):
     """Make a bookmark lead to the start of the page at a position (G5); it loses its original destination (G8)."""
 
     def __init__(self, document: OpenDocument, bookmark: Bookmark, position: int) -> None:
@@ -168,7 +168,7 @@ class PointBookmark(_BookmarkEdit):
         self.bookmarks = [self._replace(self.bookmarks[0], page=page, top=None, origin=None, view=None)]
 
 
-class IndentBookmarks(_BookmarkEdit):
+class IndentBookmarks(BookmarkEdit):
     """Put each bookmark under the one before it, as its last child, as 0.6 does (G5).
 
     Of the bookmarks chosen, those under another chosen one move with it, and those first in their level stay.
@@ -194,7 +194,7 @@ class IndentBookmarks(_BookmarkEdit):
             previous.is_open = True
 
 
-class OutdentBookmarks(_BookmarkEdit):
+class OutdentBookmarks(BookmarkEdit):
     """Put each bookmark just after the one it is under, as 0.6 does (G5).
 
     Of the bookmarks chosen, those under another chosen one move with it, and those at the top level stay.
@@ -220,7 +220,7 @@ class OutdentBookmarks(_BookmarkEdit):
             level.insert(_index(level, parent) + 1, bookmark)
 
 
-class FormatBookmarks(_BookmarkEdit):
+class FormatBookmarks(BookmarkEdit):
     """Make some bookmarks bold or not, italic or not, or of a colour or none (G7)."""
 
     def __init__(
@@ -252,7 +252,7 @@ class FormatBookmarks(_BookmarkEdit):
         ]
 
 
-class MoveBookmarks(_BookmarkEdit):
+class MoveBookmarks(BookmarkEdit):
     """Move some bookmarks, together and in their order, next to another or inside it (dragging them, G6)."""
 
     def __init__(

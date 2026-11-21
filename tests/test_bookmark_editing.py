@@ -198,3 +198,51 @@ def test_a_blank_title_cannot_be_confirmed() -> None:
     dialog.emit("response", RESPONSE_CONFIRM)
     dialog.emit("response", RESPONSE_CONFIRM)
     assert answers == ["Done"]
+
+
+def test_editing_the_text_and_pointing_need_one_bookmark(window: "PenfoldWindow") -> None:
+    select(window, 0)
+    assert enabled(window, "rename-bookmark")
+    assert enabled(window, "point-bookmark")
+    select(window, 0, 3)
+    assert not enabled(window, "rename-bookmark")
+    assert not enabled(window, "point-bookmark")
+
+
+def test_editing_the_text_asks_for_it_starting_with_the_title(window: "PenfoldWindow") -> None:
+    from gi.repository import Adw
+
+    from penfold.ui.dialogs.text_question import RESPONSE_CONFIRM
+
+    document = window.document
+    assert document is not None
+    select(window, 2)
+    window.activate_action("win.rename-bookmark", None)
+    dialog = window.get_visible_dialog()
+    assert isinstance(dialog, Adw.AlertDialog)
+    entry = dialog.get_extra_child()
+    assert isinstance(entry, Gtk.Entry)
+    assert entry.get_text() == "1.1 Scope"
+    entry.set_text("1.1 Purpose")
+    dialog.emit("response", RESPONSE_CONFIRM)
+    dialog.close()
+    assert rows(window) == ["Cover", "1. Intro", "  1.1 Purpose", "Broken", "Action"]
+    assert selected_titles(window) == ["1.1 Purpose"]
+    window.activate_action("win.undo", None)
+    assert rows(window)[2] == "  1.1 Scope"
+    assert not document.is_modified
+
+
+def test_pointing_leads_to_the_start_of_the_current_page(window: "PenfoldWindow") -> None:
+    document = window.document
+    assert document is not None
+    window.document_view.go_to(3)
+    process_pending_events()
+    select(window, 1)
+    window.activate_action("win.point-bookmark", None)
+    [pointed] = window.bookmarks_view.selected_bookmarks()
+    assert (pointed.title, pointed.page, pointed.top, pointed.origin) == ("1. Intro", 3, None, None)
+    assert document.is_modified
+    window.activate_action("win.point-bookmark", None)  # already there: nothing to undo twice
+    window.activate_action("win.undo", None)
+    assert not document.is_modified

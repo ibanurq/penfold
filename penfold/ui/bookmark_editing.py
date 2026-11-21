@@ -13,9 +13,12 @@ from gi.repository import Gio, Gtk
 from penfold.document.bookmarks import title_from_text, topmost
 from penfold.document.commands.bookmarks import (
     AddBookmark,
+    BookmarkEdit,
     DeleteBookmarks,
     IndentBookmarks,
     OutdentBookmarks,
+    PointBookmark,
+    RenameBookmark,
     can_indent,
     can_outdent,
 )
@@ -49,6 +52,8 @@ class BookmarkEditing:
             "delete-bookmarks": self.delete_selected,
             "indent-bookmarks": self._indent_selected,
             "outdent-bookmarks": self._outdent_selected,
+            "rename-bookmark": self._rename_selected,
+            "point-bookmark": self._point_selected,
         }.items():
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", lambda _action, _parameter, handler=handler: handler())
@@ -67,6 +72,8 @@ class BookmarkEditing:
             ("delete-bookmarks", bool(selected)),
             ("indent-bookmarks", can_indent(outline, selected)),
             ("outdent-bookmarks", can_outdent(outline, selected)),
+            ("rename-bookmark", len(selected) == 1),
+            ("point-bookmark", len(selected) == 1),
         ):
             self._actions[name].set_enabled(enabled)
 
@@ -121,7 +128,28 @@ class BookmarkEditing:
         if document is not None:
             self._execute(document, OutdentBookmarks(document, self._view.selected_bookmarks()))
 
-    def _execute(self, document: OpenDocument, command: AddBookmark | IndentBookmarks | OutdentBookmarks) -> None:
-        """Make an edit and select the bookmarks it edited."""
-        document.execute(command)
-        self._view.select(command.bookmarks)
+    def _rename_selected(self) -> None:
+        """Ask for a new title for the bookmark selected (G5)."""
+        document = self._document()
+        if document is None:
+            return
+        [bookmark] = self._view.selected_bookmarks()
+
+        def rename(title: str) -> None:
+            if document is self._document():
+                self._execute(document, RenameBookmark(document, bookmark, title))
+
+        text_question(_("Edit Text"), bookmark.title, _("_Save"), rename).present(self._window)
+
+    def _point_selected(self) -> None:
+        """Make the bookmark selected lead to the start of the current page (G5)."""
+        document = self._document()
+        if document is not None:
+            [bookmark] = self._view.selected_bookmarks()
+            self._execute(document, PointBookmark(document, bookmark, self._document_view.current_page))
+
+    def _execute(self, document: OpenDocument, command: BookmarkEdit) -> None:
+        """Make an edit, unless it changes nothing, and select the bookmarks it edited."""
+        if command.changes_anything:
+            document.execute(command)
+            self._view.select(command.bookmarks)

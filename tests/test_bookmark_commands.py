@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pikepdf
 import pytest
 
 from penfold.document.bookmarks import Bookmark, title_from_text, topmost
@@ -22,7 +23,9 @@ from penfold.document.commands.bookmarks import (
 from penfold.document.commands.pages import MovePages
 from penfold.document.document import OpenDocument
 from penfold.document.history import Change
+from penfold.document.saving import save
 from tests.sample_pdfs import make_pdf
+from tests.test_bookmarks import add_outline
 
 Shape = list[str | tuple[str, "Shape"]]
 
@@ -156,6 +159,22 @@ def test_point_leads_to_the_start_of_the_page_and_forgets_the_original_destinati
     assert (pointed.page, pointed.top, pointed.origin, pointed.view) == (5, None, None, None)
     document.undo()
     assert (document.bookmarks[1].page, document.bookmarks[1].origin) == (4, (10, 0))
+
+
+def test_a_pointed_bookmark_is_saved_with_its_new_destination_only(tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    document = OpenDocument.open(path)
+    action = find(document.bookmarks, "Action")
+    document.execute(PointBookmark(document, action, 1))
+    target = tmp_path / "saved.pdf"
+    save(document.save_plan(target))
+    with pikepdf.open(target) as pdf:
+        item = pdf.Root.Outlines.Last
+        assert str(item.Title) == "Action"
+        assert "/A" not in item
+        assert item.Dest[0].objgen == pdf.pages[1].obj.objgen
+        assert item.Dest[1] == pikepdf.Name.Fit
 
 
 def test_point_needs_a_page(document: OpenDocument) -> None:

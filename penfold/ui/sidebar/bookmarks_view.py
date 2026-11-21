@@ -261,6 +261,11 @@ class BookmarksView(Gtk.Box):
         ):
             indenting.append(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
         bar.set_center_widget(indenting)
+        for icon_name, tooltip, action_name in (
+            ("mark-location-symbolic", _("Point to the Current Page"), "win.point-bookmark"),
+            ("insert-text-symbolic", _("Edit Text"), "win.rename-bookmark"),
+        ):
+            bar.pack_start(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
         return bar
 
     def toggle_all(self) -> None:
