@@ -23,6 +23,7 @@ penfold/ui/file_dialogs.py
 penfold/ui/page_entry.py
 penfold/ui/shortcuts_dialog.py
 penfold/ui/sidebar/annotations_view.py
+penfold/ui/sidebar/bookmark_format.py
 penfold/ui/sidebar/bookmarks_view.py
 penfold/ui/sidebar/pages_view.py
 penfold/ui/sidebar/search_view.py

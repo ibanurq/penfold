@@ -13,6 +13,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from penfold.document.bookmarks import Bookmark, ReadingIndex
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer
+from penfold.ui.sidebar.bookmark_format import color_to_hex, format_button
 from penfold.ui.sidebar.view_header import (
     RecentUse,
     empty_label,
@@ -45,8 +46,7 @@ def title_markup(bookmark: Bookmark) -> str:
     """Return the title with its bold, italic and colour, as Pango markup."""
     text = GLib.markup_escape_text(bookmark.title or _("Untitled"))
     if bookmark.color is not None:
-        red, green, blue = (round(component * 255) for component in bookmark.color)
-        text = f'<span foreground="#{red:02x}{green:02x}{blue:02x}">{text}</span>'
+        text = f'<span foreground="{color_to_hex(bookmark.color)}">{text}</span>'
     if bookmark.italic:
         text = f"<i>{text}</i>"
     if bookmark.bold:
@@ -261,6 +261,7 @@ class BookmarksView(Gtk.Box):
         ):
             indenting.append(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
         bar.set_center_widget(indenting)
+        bar.pack_start(format_button())
         for icon_name, tooltip, action_name in (
             ("mark-location-symbolic", _("Point to the Current Page"), "win.point-bookmark"),
             ("insert-text-symbolic", _("Edit Text"), "win.rename-bookmark"),

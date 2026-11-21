@@ -8,13 +8,14 @@ from collections.abc import Callable
 from gettext import gettext as _
 from gettext import ngettext
 
-from gi.repository import Gio, Gtk
+from gi.repository import Gio, GLib, Gtk
 
-from penfold.document.bookmarks import title_from_text, topmost
+from penfold.document.bookmarks import Bookmark, title_from_text, topmost
 from penfold.document.commands.bookmarks import (
     AddBookmark,
     BookmarkEdit,
     DeleteBookmarks,
+    FormatBookmarks,
     IndentBookmarks,
     OutdentBookmarks,
     PointBookmark,
@@ -26,6 +27,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.history import Command
 from penfold.ui.dialogs.text_question import text_question
 from penfold.ui.document_view import DocumentView
+from penfold.ui.sidebar.bookmark_format import color_to_hex, hex_to_color
 from penfold.ui.sidebar.bookmarks_view import BookmarksView
 
 
@@ -54,6 +56,7 @@ class BookmarkEditing:
             "outdent-bookmarks": self._outdent_selected,
             "rename-bookmark": self._rename_selected,
             "point-bookmark": self._point_selected,
+            "clear-bookmark-format": self._clear_format,
         }.items():
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", lambda _action, _parameter, handler=handler: handler())
@@ -61,6 +64,19 @@ class BookmarkEditing:
             self._actions[name] = action
         for signal in ("selection-changed", "items-changed"):
             view.selection.connect(signal, lambda *_arguments: self.update_actions())
+        # The style the bookmarks selected share, shown by the Format panel (G7).
+        for name, state in (
+            ("bookmark-bold", GLib.Variant.new_boolean(False)),
+            ("bookmark-italic", GLib.Variant.new_boolean(False)),
+        ):
+            action = Gio.SimpleAction.new_stateful(name, None, state)
+            action.connect("activate", lambda _action, _parameter, name=name: self._toggle_style(name))
+            window.add_action(action)
+            self._actions[name] = action
+        color = Gio.SimpleAction.new_stateful("bookmark-color", GLib.VariantType.new("s"), GLib.Variant.new_string(""))
+        color.connect("activate", lambda _action, parameter: self._color(parameter.get_string()))
+        window.add_action(color)
+        self._actions["bookmark-color"] = color
 
     def update_actions(self) -> None:
         """Turn on what can be done with the bookmarks selected, and off the rest (D21)."""
@@ -74,8 +90,16 @@ class BookmarkEditing:
             ("outdent-bookmarks", can_outdent(outline, selected)),
             ("rename-bookmark", len(selected) == 1),
             ("point-bookmark", len(selected) == 1),
+            ("clear-bookmark-format", bool(selected)),
+            ("bookmark-bold", bool(selected)),
+            ("bookmark-italic", bool(selected)),
+            ("bookmark-color", bool(selected)),
         ):
             self._actions[name].set_enabled(enabled)
+        colors = {color_to_hex(bookmark.color) if bookmark.color is not None else "" for bookmark in selected}
+        self._actions["bookmark-bold"].set_state(GLib.Variant.new_boolean(_all_bold(selected)))
+        self._actions["bookmark-italic"].set_state(GLib.Variant.new_boolean(_all_italic(selected)))
+        self._actions["bookmark-color"].set_state(GLib.Variant.new_string(colors.pop() if len(colors) == 1 else ""))
 
     def _add(self) -> None:
         """Add a bookmark titled with the text selected in the document, at its page (G3).
@@ -148,8 +172,44 @@ class BookmarkEditing:
             [bookmark] = self._view.selected_bookmarks()
             self._execute(document, PointBookmark(document, bookmark, self._document_view.current_page))
 
+    def _toggle_style(self, name: str) -> None:
+        """Make the bookmarks selected bold (or italic), or not if they all are, as 0.6 does (G7)."""
+        document = self._document()
+        if document is None:
+            return
+        selected = self._view.selected_bookmarks()
+        if name == "bookmark-bold":
+            command = FormatBookmarks(document, selected, bold=not _all_bold(selected))
+        else:
+            command = FormatBookmarks(document, selected, italic=not _all_italic(selected))
+        self._execute(document, command)
+
+    def _color(self, value: str) -> None:
+        """Give the bookmarks selected a colour of the Format panel (G7)."""
+        document = self._document()
+        if document is not None:
+            selected = self._view.selected_bookmarks()
+            self._execute(document, FormatBookmarks(document, selected, color=hex_to_color(value)))
+
+    def _clear_format(self) -> None:
+        """Take bold, italic and colour away from the bookmarks selected (G7)."""
+        document = self._document()
+        if document is not None:
+            selected = self._view.selected_bookmarks()
+            self._execute(document, FormatBookmarks(document, selected, bold=False, italic=False, color=None))
+
     def _execute(self, document: OpenDocument, command: BookmarkEdit) -> None:
         """Make an edit, unless it changes nothing, and select the bookmarks it edited."""
         if command.changes_anything:
             document.execute(command)
             self._view.select(command.bookmarks)
+
+
+def _all_bold(bookmarks: list[Bookmark]) -> bool:
+    """Whether there are bookmarks and all of them are bold."""
+    return bool(bookmarks) and all(bookmark.bold for bookmark in bookmarks)
+
+
+def _all_italic(bookmarks: list[Bookmark]) -> bool:
+    """Whether there are bookmarks and all of them are italic."""
+    return bool(bookmarks) and all(bookmark.italic for bookmark in bookmarks)

@@ -246,3 +246,62 @@ def test_pointing_leads_to_the_start_of_the_current_page(window: "PenfoldWindow"
     window.activate_action("win.point-bookmark", None)  # already there: nothing to undo twice
     window.activate_action("win.undo", None)
     assert not document.is_modified
+
+
+def state(window: "PenfoldWindow", name: str) -> object:
+    action = window.lookup_action(name)
+    assert action is not None
+    value = action.get_state()
+    assert value is not None
+    return value.unpack()
+
+
+def test_the_format_panel_shows_the_style_the_selection_shares(window: "PenfoldWindow") -> None:
+    select(window, 0)  # Cover: bold and red
+    assert (state(window, "bookmark-bold"), state(window, "bookmark-italic")) == (True, False)
+    assert state(window, "bookmark-color") == "#ff0000"
+    select(window, 0, 1)  # with 1. Intro: italic, no colour
+    assert (state(window, "bookmark-bold"), state(window, "bookmark-italic")) == (False, False)
+    assert state(window, "bookmark-color") == ""
+
+
+def test_bold_and_italic_turn_on_unless_all_have_them(window: "PenfoldWindow") -> None:
+    document = window.document
+    assert document is not None
+    select(window, 0, 1)
+    window.activate_action("win.bookmark-bold", None)
+    assert [bookmark.bold for bookmark in window.bookmarks_view.selected_bookmarks()] == [True, True]
+    assert state(window, "bookmark-bold") is True
+    window.activate_action("win.bookmark-bold", None)
+    assert [bookmark.bold for bookmark in window.bookmarks_view.selected_bookmarks()] == [False, False]
+    window.activate_action("win.bookmark-italic", None)
+    assert [bookmark.italic for bookmark in window.bookmarks_view.selected_bookmarks()] == [True, True]
+    assert selected_titles(window) == ["Cover", "1. Intro"]
+
+
+def test_a_colour_and_clearing_the_format(window: "PenfoldWindow") -> None:
+    from gi.repository import GLib
+
+    document = window.document
+    assert document is not None
+    select(window, 1, 3)
+    window.activate_action("win.bookmark-color", GLib.Variant.new_string("#606971"))
+    assert state(window, "bookmark-color") == "#606971"
+    assert {bookmark.color for bookmark in window.bookmarks_view.selected_bookmarks()} == {
+        (0x60 / 255, 0x69 / 255, 0x71 / 255)
+    }
+    select(window, 0, 1)
+    window.activate_action("win.clear-bookmark-format", None)
+    cleared = window.bookmarks_view.selected_bookmarks()
+    assert [(bookmark.bold, bookmark.italic, bookmark.color) for bookmark in cleared] == [(False, False, None)] * 2
+    window.activate_action("win.undo", None)
+    window.activate_action("win.undo", None)
+    assert not document.is_modified
+
+
+def test_colours_go_to_and_from_hex() -> None:
+    from penfold.ui.sidebar.bookmark_format import BOOKMARK_COLORS, color_to_hex, hex_to_color
+
+    assert [color_to_hex(hex_to_color(value)) for value in BOOKMARK_COLORS] == list(BOOKMARK_COLORS)
+    with pytest.raises(ValueError, match="not a colour"):
+        hex_to_color("red")
