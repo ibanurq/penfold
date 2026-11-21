@@ -253,8 +253,11 @@ class OpenDocument:
         """The values filled in that differ from the PDF's, by field key (I5)."""
         return dict(self._form_values)
 
-    def save_plan(self, target: Path | None = None) -> SavePlan:
+    def save_plan(self, target: Path | None = None, *, flatten: bool = False) -> SavePlan:
         """Take what saving needs, to write it in another thread with saving.save; by default, over the file.
+
+        With flatten, the form fields become fixed page content (I6): the file is an exported copy, and the document
+        keeps its own file and its changes (do not mark it saved).
 
         Raises:
             ValueError: the PDF is protected, and Penfold cannot save it (2.7).
@@ -265,7 +268,7 @@ class OpenDocument:
         plan = SavePlan.take(
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
-        return replace(plan, form_values=self._filled_in())
+        return replace(plan, form_values=self._filled_in(), flatten=flatten)
 
     def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
         """Take what writing some pages to another file needs (E8), to write it with saving.save.

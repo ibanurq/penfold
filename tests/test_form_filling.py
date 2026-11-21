@@ -149,3 +149,26 @@ def test_fields_of_deleted_pages_leave_the_form_with_their_values(document: Open
     target = tmp_path / "filled.pdf"
     save(document.save_plan(target))
     assert set(saved_values(target)) == {"size"}
+
+
+def page_text(path: Path) -> str:
+    poppler = Poppler.Document.new_from_gfile(Gio.File.new_for_path(str(path)), None, None)
+    return poppler.get_page(0).get_text() or ""
+
+
+def test_a_flattened_copy_draws_the_fields_and_drops_the_form(tmp_path: Path) -> None:
+    path = tmp_path / "sample.pdf"
+    with pikepdf.open(FIXTURES / "form.pdf") as pdf:  # A real form, with its fonts.
+        note = pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Square, Rect=[10, 10, 50, 50])
+        pdf.pages[0].Annots.append(pdf.make_indirect(note))
+        pdf.save(path)
+    document = OpenDocument.open(path)
+    fill(document, "name", "Eva")
+    target = tmp_path / "flattened.pdf"
+    assert save(document.save_plan(target, flatten=True)) == 0
+    with pikepdf.open(target) as pdf:
+        assert "/AcroForm" not in pdf.Root
+        annots = pdf.pages[0].Annots
+        assert [str(annots[index].Subtype) for index in range(len(annots))] == ["/Square"]
+    assert "Eva" in page_text(target)
+    assert document.is_modified  # An exported copy: the document is not saved by it.

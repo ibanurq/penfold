@@ -1,9 +1,11 @@
-"""Writing the values filled in into the form of a PDF, so that it stays editable (I5, I7).
+"""Writing the values filled in into the form of a PDF, so that it stays editable (I5, I7), or flattening it (I6).
 
 Only the fields that were changed are written. Each gets its value and, where qpdf can draw it, a new appearance,
 so every viewer shows it; the other fields keep their appearance as it was. Where qpdf cannot draw a value well
 (several lines, lists, letters its fonts lack), the form asks viewers to draw it (/NeedAppearances), as 0.6 did.
 """
+
+from typing import TypeGuard
 
 import pikepdf
 
@@ -140,7 +142,7 @@ def _widgets(pdf: pikepdf.Pdf) -> list[pikepdf.Dictionary]:
             continue
         for index in range(len(annots)):
             annotation = annots[index]
-            if isinstance(annotation, pikepdf.Dictionary) and annotation.get("/Subtype") == pikepdf.Name.Widget:
+            if _is_widget(annotation):
                 widgets.append(annotation)
     return widgets
 
@@ -151,3 +153,32 @@ def _restore(widget: pikepdf.Dictionary, key: str, value: pikepdf.Object | None)
             del widget[key]
     else:
         widget[key] = value
+
+
+def flatten_form(pdf: pikepdf.Pdf) -> None:
+    """Draw every form field as fixed page content and remove the form (I6); the other annotations stay as they are.
+
+    qpdf flattens every annotation with an appearance, so the others are set aside while it works. Hidden fields are
+    dropped, as viewers do not show them.
+    """
+    set_aside = []
+    for page in pdf.pages:
+        annots = page.obj.get("/Annots")
+        if not isinstance(annots, pikepdf.Array):
+            continue
+        items = [annots[index] for index in range(len(annots))]
+        widgets = [item for item in items if _is_widget(item)]
+        set_aside.append((page, [item for item in items if not _is_widget(item)]))
+        page.obj.Annots = pdf.make_indirect(pikepdf.Array(widgets))
+    pdf.flatten_annotations("all")
+    for page, others in set_aside:
+        if others:
+            page.obj.Annots = pdf.make_indirect(pikepdf.Array(others))
+        elif "/Annots" in page.obj:
+            del page.obj.Annots
+    if "/AcroForm" in pdf.Root:
+        del pdf.Root.AcroForm
+
+
+def _is_widget(annotation: object) -> TypeGuard[pikepdf.Dictionary]:
+    return isinstance(annotation, pikepdf.Dictionary) and annotation.get("/Subtype") == pikepdf.Name.Widget

@@ -20,7 +20,7 @@ from pathlib import Path
 import pikepdf
 
 from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
-from penfold.document.form_filling import fill_in
+from penfold.document.form_filling import fill_in, flatten_form
 from penfold.document.forms import FieldValue, FormField
 from penfold.document.history import Command
 from penfold.document.page_labels import PageLabel, write_page_labels
@@ -47,6 +47,7 @@ class SavePlan:
         bookmarks: the outline, copied so that later edits do not reach it.
         checkpoint: the last edit included, so the document knows what was saved even if it changes meanwhile.
         form_values: the values filled in that differ from the PDF's, with their fields (I5).
+        flatten: draw the form fields as fixed page content and remove the form: an exported copy (I6).
     """
 
     sources: Spans
@@ -55,6 +56,7 @@ class SavePlan:
     bookmarks: tuple[Bookmark, ...]
     checkpoint: Command | None
     form_values: tuple[tuple[FormField, FieldValue], ...] = ()
+    flatten: bool = False
 
     @classmethod
     def take(
@@ -89,6 +91,8 @@ def save(plan: SavePlan) -> int:
             _write_labels(pdf, plan.pages)
             _remove_fields_of_pages(pdf, deleted)
             _bring_in_forms(pdf, plan.pages, others)
+            if plan.flatten:
+                flatten_form(pdf)
             _write_outline(pdf, list(plan.bookmarks), placed)
             _write_safely(pdf, plan.target, len(plan.pages))
     except (pikepdf.PdfError, OSError) as error:

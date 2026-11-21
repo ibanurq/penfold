@@ -1,0 +1,46 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// "Save As" for a document with a form (I6): whether to flatten it, before choosing the file.
+template $PenfoldSaveAsDialog: Adw.Dialog {
+  title: _("Save As");
+  content-width: 440;
+  default-widget: continue_button;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-start-title-buttons: false;
+      show-end-title-buttons: false;
+
+      [start]
+      Button {
+        label: _("_Cancel");
+        use-underline: true;
+        clicked => $_on_cancel_clicked();
+      }
+
+      [end]
+      Button continue_button {
+        label: _("C_ontinue");
+        use-underline: true;
+        clicked => $_on_continue_clicked();
+
+        styles [
+          "suggested-action",
+        ]
+      }
+    }
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup {
+        Adw.SwitchRow flatten_row {
+          title: _("Flatten the Form");
+          subtitle: _("The data becomes part of the page and the fields can no longer be edited in the saved file.");
+        }
+      }
+    };
+  };
+}

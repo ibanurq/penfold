@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-21 05:19+0100\n"
+"POT-Creation-Date: 2026-11-21 06:59+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -93,8 +93,9 @@ msgstr "Añadir páginas"
 
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22
-#: data/ui/dialogs/merge_dialog.blp:22 penfold/ui/dialogs/text_question.py:20
-#: penfold/ui/extraction.py:87 penfold/ui/window.py:805
+#: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/save_as_dialog.blp:20
+#: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
+#: penfold/ui/window.py:831
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -217,6 +218,26 @@ msgstr "Crear un marcador para cada archivo"
 msgid "Keep the Files’ Bookmarks"
 msgstr "Conservar los marcadores de los archivos"
 
+#: data/ui/dialogs/save_as_dialog.blp:8 penfold/ui/window.py:418
+msgid "Save As"
+msgstr "Guardar como"
+
+#: data/ui/dialogs/save_as_dialog.blp:27
+msgid "C_ontinue"
+msgstr "C_ontinuar"
+
+#: data/ui/dialogs/save_as_dialog.blp:40
+msgid "Flatten the Form"
+msgstr "Aplanar el formulario"
+
+#: data/ui/dialogs/save_as_dialog.blp:41
+msgid ""
+"The data becomes part of the page and the fields can no longer be edited in "
+"the saved file."
+msgstr ""
+"Los datos pasan a formar parte de la página y los campos ya no se pueden "
+"editar en el archivo guardado."
+
 #: data/ui/document_header.blp:13
 msgid "Side Panel"
 msgstr "Panel lateral"
@@ -247,7 +268,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:69 penfold/ui/bookmark_editing.py:169
-#: penfold/ui/window.py:807
+#: penfold/ui/window.py:833
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -405,14 +426,14 @@ msgstr ""
 msgid "Drag PDFs here or click “Add PDFs…”"
 msgstr "Arrastra aquí los PDF o pulsa «Añadir PDF…»"
 
-#: penfold/ui/dialogs/merge_dialog.py:114 penfold/ui/window.py:308
-#: penfold/ui/window.py:637 penfold/ui/window.py:683
+#: penfold/ui/dialogs/merge_dialog.py:114 penfold/ui/window.py:309
+#: penfold/ui/window.py:663 penfold/ui/window.py:709
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:115 penfold/ui/extraction.py:124
-#: penfold/ui/window.py:772
+#: penfold/ui/window.py:798
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -487,7 +508,7 @@ msgstr "_Renombrar"
 msgid "_Overwrite"
 msgstr "_Sobrescribir"
 
-#: penfold/ui/extraction.py:123 penfold/ui/window.py:446
+#: penfold/ui/extraction.py:123 penfold/ui/window.py:472
 #, python-brace-format
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
@@ -755,90 +776,96 @@ msgid_plural "{count} results"
 msgstr[0] "{count} resultado"
 msgstr[1] "{count} resultados"
 
-#: penfold/ui/window.py:278
+#: penfold/ui/window.py:279
 #, python-brace-format
 msgid "Page deleted"
 msgid_plural "{count} pages deleted"
 msgstr[0] "Página eliminada"
 msgstr[1] "{count} páginas eliminadas"
 
-#: penfold/ui/window.py:304
+#: penfold/ui/window.py:305
 #, python-brace-format
 msgid "“{name}” is protected against changes and cannot be added yet"
 msgstr "«{name}» está protegido contra cambios y todavía no se puede añadir"
 
-#: penfold/ui/window.py:314
+#: penfold/ui/window.py:315
 msgid "Blank page added"
 msgstr "Página en blanco añadida"
 
-#: penfold/ui/window.py:316
+#: penfold/ui/window.py:317
 #, python-brace-format
 msgid "{count} page added"
 msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:349
+#: penfold/ui/window.py:350
 #, python-brace-format
 msgid "{count} page extracted into its own file"
 msgid_plural "{count} pages extracted, one file each"
 msgstr[0] "{count} página extraída en su propio archivo"
 msgstr[1] "{count} páginas extraídas, cada una en su archivo"
 
-#: penfold/ui/window.py:352
+#: penfold/ui/window.py:353
 #, python-brace-format
 msgid "{count} page extracted"
 msgid_plural "{count} pages extracted"
 msgstr[0] "{count} página extraída"
 msgstr[1] "{count} páginas extraídas"
 
-#: penfold/ui/window.py:359
+#: penfold/ui/window.py:360
 #, python-brace-format
 msgid "{count} page extracted and deleted"
 msgid_plural "{count} pages extracted and deleted"
 msgstr[0] "{count} página extraída y eliminada"
 msgstr[1] "{count} páginas extraídas y eliminadas"
 
-#: penfold/ui/window.py:364
+#: penfold/ui/window.py:365
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:400
-msgid "Save As"
-msgstr "Guardar como"
+#: penfold/ui/window.py:417
+msgid "_flattened.pdf"
+msgstr "_aplanado.pdf"
 
-#: penfold/ui/window.py:437
+#: penfold/ui/window.py:459
 #, python-brace-format
 msgid "The value of {count} form field could not be saved"
 msgid_plural "The values of {count} form fields could not be saved"
 msgstr[0] "No se pudo guardar el valor de {count} campo del formulario"
 msgstr[1] "No se pudieron guardar los valores de {count} campos del formulario"
 
-#: penfold/ui/window.py:468
+#. An exported copy: the document keeps its file and its changes (I6).
+#: penfold/ui/window.py:467
+#, python-brace-format
+msgid "Flattened copy saved as “{name}”"
+msgstr "Copia aplanada guardada como «{name}»"
+
+#: penfold/ui/window.py:494
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:656
+#: penfold/ui/window.py:682
 msgid "merged.pdf"
 msgstr "combinado.pdf"
 
-#: penfold/ui/window.py:666
+#: penfold/ui/window.py:692
 msgid "Could not merge the PDFs"
 msgstr "No se pudieron combinar los PDF"
 
-#: penfold/ui/window.py:673
+#: penfold/ui/window.py:699
 #, python-brace-format
 msgid "PDFs merged: {count} page"
 msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:711
+#: penfold/ui/window.py:737
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:713
+#: penfold/ui/window.py:739
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -846,15 +873,15 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:800
+#: penfold/ui/window.py:826
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:801
+#: penfold/ui/window.py:827
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:806
+#: penfold/ui/window.py:832
 msgid "_Discard"
 msgstr "_Descartar"

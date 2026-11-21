@@ -24,6 +24,7 @@ from penfold.ui.bookmark_editing import BookmarkEditing
 from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
 from penfold.ui.dialogs.extract_pages_dialog import PagesToExtract, PenfoldExtractPagesDialog
 from penfold.ui.dialogs.merge_dialog import PdfsToMerge, PenfoldMergeDialog
+from penfold.ui.dialogs.save_as_dialog import PenfoldSaveAsDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
@@ -394,15 +395,36 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._write(self.document.save_plan(), then)
 
     def save_as(self, then: Callable[[bool], object] | None = None) -> None:
-        """Choose a file and save the document there; it becomes the document's file (J1)."""
+        """Choose a file and save the document there; it becomes the document's file (J1).
+
+        Asked by the user (without then) for a document with a form, it first asks whether to flatten it (I6).
+        """
         if self.document is None:
             return
-        dialog = pdf_file_dialog(_("Save As"), Gio.File.new_for_path(str(self.document.path)))
-        dialog.save(self, None, self._on_save_as_chosen, then)
+        if then is None and self.document.form_fields:
+            dialog = PenfoldSaveAsDialog()
+            dialog.connect("continue-requested", lambda _dialog, flatten: self._choose_target(None, flatten=flatten))
+            dialog.present(self)
+        else:
+            self._choose_target(then, flatten=False)
+
+    def _choose_target(self, then: Callable[[bool], object] | None, *, flatten: bool) -> None:
+        """Choose where to save; a flattened copy is proposed as "name_flattened.pdf", as in 0.6."""
+        if self.document is None:
+            return
+        path = self.document.path
+        if flatten:
+            path = path.with_name(path.stem + _("_flattened.pdf"))
+        dialog = pdf_file_dialog(_("Save As"), Gio.File.new_for_path(str(path)))
+        dialog.save(self, None, self._on_save_as_chosen, (then, flatten))
 
     def _on_save_as_chosen(
-        self, dialog: Gtk.FileDialog, result: Gio.AsyncResult, then: Callable[[bool], object] | None
+        self,
+        dialog: Gtk.FileDialog,
+        result: Gio.AsyncResult,
+        request: tuple[Callable[[bool], object] | None, bool],
     ) -> None:
+        then, flatten = request
         try:
             file = dialog.save_finish(result)
         except GLib.Error:
@@ -412,7 +434,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             if then is not None:
                 then(False)
             return
-        self._write(self.document.save_plan(Path(path)), then)
+        self._write(self.document.save_plan(Path(path), flatten=flatten), then)
 
     def _write(self, plan: SavePlan, then: Callable[[bool], object] | None) -> None:
         """Write a plan in a worker thread, keeping the window responsive; report how it went in the main thread."""
@@ -440,7 +462,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 )
                 self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=failed_fields)))
             if document is not None and document is self.document:
-                if saved:
+                if saved and plan.flatten:
+                    # An exported copy: the document keeps its file and its changes (I6).
+                    message = _("Flattened copy saved as “{name}”").format(name=plan.target.name)
+                    self.toast_overlay.add_toast(Adw.Toast(title=message))
+                elif saved:
                     document.mark_saved(plan)
                 else:
                     self._show_message(_("Could not save “{name}”").format(name=plan.target.name))

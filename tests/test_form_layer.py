@@ -1,15 +1,18 @@
 """Filling in text fields on the pages (I1, I2, J2)."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pikepdf
 import pytest
-from gi.repository import Gtk, Pango
+from gi.repository import Gio, Gtk, Pango
 
 from penfold.ui.form_choice import DropdownField, ListField
 from penfold.ui.form_text import FieldEditor, font_size
 from penfold.ui.form_toggle import ToggleField
 from tests.gtk_helpers import process_pending_events, wait_until
+from tests.sample_pdfs import make_pdf
 from tests.test_document_window import open_and_wait, window
 from tests.test_forms import build_form
 
@@ -193,3 +196,58 @@ def test_a_list_chooses_several_options(form_window: "PenfoldWindow") -> None:
     chosen.append(pets.chosen)
     assert chosen == [("Cat", "Dog"), ("Dog",), ("Cat", "Dog")]
     assert document.field_value(pets.field) == ("Cat", "Dog")
+
+
+class ChosenFile:
+    """Stands for the system's file dialog: it "chooses" a file at once, and remembers the name it proposed."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.proposed = ""
+
+    def __call__(self, _title: str, initial_file: Gio.File | None = None) -> "ChosenFile":
+        self.proposed = (initial_file.get_basename() if initial_file is not None else None) or ""
+        return self
+
+    def save(self, _parent: object, _cancellable: object, callback: Callable[..., None], data: object) -> None:
+        callback(self, None, data)
+
+    def save_finish(self, _result: object) -> Gio.File:
+        return Gio.File.new_for_path(str(self.path))
+
+
+def test_save_as_offers_to_flatten_and_makes_an_exported_copy(
+    form_window: "PenfoldWindow", tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Imported here: the dialogue's template needs the interface files the application fixture loads.
+    from penfold.ui.dialogs.save_as_dialog import PenfoldSaveAsDialog
+
+    document = form_window.document
+    assert document is not None
+    type_in(editors(form_window)["notes"], "Hello")
+    chosen = ChosenFile(tmp_path / "copy.pdf")
+    monkeypatch.setattr("penfold.ui.window.pdf_file_dialog", chosen)
+    form_window.activate_action("win.save-as", None)
+    dialog = form_window.get_visible_dialog()
+    assert isinstance(dialog, PenfoldSaveAsDialog)
+    assert not dialog.flatten_row.get_active()
+    dialog.flatten_row.set_active(True)
+    dialog.continue_button.emit("clicked")
+    wait_until(lambda: chosen.path.exists() and not form_window._saving)
+    assert chosen.proposed == "form_flattened.pdf"
+    with pikepdf.open(chosen.path) as pdf:
+        assert "/AcroForm" not in pdf.Root
+    assert (document.path.name, document.is_modified) == ("form.pdf", True)
+
+
+def test_save_as_without_a_form_goes_straight_to_the_file(
+    window: "PenfoldWindow", tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    chosen = ChosenFile(tmp_path / "copy.pdf")
+    monkeypatch.setattr("penfold.ui.window.pdf_file_dialog", chosen)
+    window.activate_action("win.save-as", None)
+    wait_until(lambda: chosen.path.exists() and not window._saving)
+    assert window.get_visible_dialog() is None
+    assert window.document is not None
+    assert window.document.path == chosen.path

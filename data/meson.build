@@ -4,6 +4,7 @@ blueprints = custom_target(
     'ui/dialogs/add_pages_dialog.blp',
     'ui/dialogs/extract_pages_dialog.blp',
     'ui/dialogs/merge_dialog.blp',
+    'ui/dialogs/save_as_dialog.blp',
     'ui/document_header.blp',
     'ui/main_menu.blp',
     'ui/page_entry.blp',

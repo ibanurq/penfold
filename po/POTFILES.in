@@ -4,6 +4,7 @@ data/io.github.ibanurq.Penfold.metainfo.xml.in
 data/ui/dialogs/add_pages_dialog.blp
 data/ui/dialogs/extract_pages_dialog.blp
 data/ui/dialogs/merge_dialog.blp
+data/ui/dialogs/save_as_dialog.blp
 data/ui/document_header.blp
 data/ui/main_menu.blp
 data/ui/page_entry.blp
