@@ -28,6 +28,8 @@ MULTI_SELECT = 1 << 21
 COMB = 1 << 24
 # Annotation flags (/F), table 165.
 HIDDEN = 1 << 1
+# What a field holds: a text, a state name, or the values selected in a list (see FormField).
+FieldValue = str | tuple[str, ...]
 # The state of a checkbox or radio button that is not selected (12.7.4.2.3).
 OFF = "Off"
 # The font size in a default appearance string, as in "/Helv 12 Tf 0 g" (12.7.3.3).
@@ -90,7 +92,7 @@ class FormField:
     name: str
     kind: FieldKind
     widgets: tuple[Widget, ...]
-    value: str | tuple[str, ...] = ""
+    value: FieldValue = ""
     options: tuple[Option, ...] = ()
     read_only: bool = False
     multiline: bool = False
@@ -286,7 +288,7 @@ def _name(value: pikepdf.Name) -> str:
     return value.unparse().decode("ascii")[1:]
 
 
-def _value(kind: FieldKind, value: object) -> str | tuple[str, ...]:
+def _value(kind: FieldKind, value: object) -> FieldValue:
     if kind in {FieldKind.CHECKBOX, FieldKind.RADIO}:
         return _name(value) if isinstance(value, pikepdf.Name) else OFF
     if kind is FieldKind.LIST:

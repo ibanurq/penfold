@@ -182,3 +182,18 @@ def test_the_document_tells_its_listeners_what_changed(tmp_path: Path) -> None:
     document.redo()
     assert heard == [Change.BOOKMARKS] * 3
     assert values == [1]
+
+
+def test_amend_changes_the_last_command_until_it_is_saved() -> None:
+    values: list[int] = []
+    history = History()
+    command = Append(values, 1)
+    history.execute(command)
+    assert history.amend(command, lambda: values.append(2))
+    assert values == [1, 2]
+    history.mark_saved(history.checkpoint())
+    assert not history.amend(command, lambda: values.append(3))
+    other = Append(values, 4)
+    history.execute(other)
+    assert not history.amend(command, lambda: values.append(5))
+    assert values == [1, 2, 4]

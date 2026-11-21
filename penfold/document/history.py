@@ -6,6 +6,7 @@ to that point leaves nothing to save (D16).
 """
 
 import enum
+from collections.abc import Callable
 from typing import Protocol
 
 
@@ -79,6 +80,17 @@ class History:
             self._saved_at = None
         self._applied.append(command)
         self._undone.clear()
+
+    def amend(self, command: Command, change: Callable[[], None]) -> bool:
+        """Change the last command applied in place, if it is this one and the document was not saved after it.
+
+        Typing in a form field changes its value many times: amending keeps all of it as one edit to undo. Returns
+        whether the command was amended; if not, nothing is done, and the change goes in a new command.
+        """
+        if not self._applied or self._applied[-1] is not command or self._saved_at == len(self._applied):
+            return False
+        change()
+        return True
 
     def undo(self) -> Command:
         """Revert the last command applied and return it.

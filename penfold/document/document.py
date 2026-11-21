@@ -10,7 +10,7 @@ import pikepdf
 
 from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
-from penfold.document.forms import FormField, read_form_fields
+from penfold.document.forms import FieldValue, FormField, read_form_fields
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
@@ -49,6 +49,8 @@ class OpenDocument:
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
         self.form_fields: list[FormField] = read_form_fields(pdf)
+        # The values filled in that differ from the PDF's, by field key; a field set back to its value is not here (I5).
+        self._form_values: dict[tuple[int, str], FieldValue] = {}
         self._positions = self._index_positions()
         self._history = History(saved=not is_new)
         self._listeners: list[Callable[[Change], None]] = []
@@ -227,6 +229,29 @@ class OpenDocument:
     def redo(self) -> None:
         """Redo the last undone edit; there must be one (can_redo)."""
         self._notify(self._history.redo().changes)
+
+    def amend(self, command: Command, change: Callable[[], None]) -> bool:
+        """Change the last edit in place instead of making a new one (typing in a field); see History.amend."""
+        if not self._history.amend(command, change):
+            return False
+        self._notify(command.changes)
+        return True
+
+    def field_value(self, field: FormField) -> FieldValue:
+        """The value a field has now: the one filled in, or else the PDF's."""
+        return self._form_values.get(field.key, field.value)
+
+    def set_field_value(self, field: FormField, value: FieldValue) -> None:
+        """Give a field a value; only for commands, which make it an edit that can be undone."""
+        if value == field.value:
+            self._form_values.pop(field.key, None)
+        else:
+            self._form_values[field.key] = value
+
+    @property
+    def filled_fields(self) -> dict[tuple[int, str], FieldValue]:
+        """The values filled in that differ from the PDF's, by field key (I5)."""
+        return dict(self._form_values)
 
     def save_plan(self, target: Path | None = None) -> SavePlan:
         """Take what saving needs, to write it in another thread with saving.save; by default, over the file.
