@@ -91,9 +91,9 @@ def test_extracted_pages_keep_what_they_hold_and_their_bookmarks(tmp_path: Path)
     assert isinstance(document.last_edit, RotatePages)
 
 
-def test_protected_pdfs_cannot_have_pages_extracted(tmp_path: Path) -> None:
+def test_pdfs_that_do_not_allow_assembling_cannot_have_pages_extracted(tmp_path: Path) -> None:
     from tests.sample_pdfs import make_pdf
 
     document = OpenDocument.open(make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
-    with pytest.raises(ValueError, match="protected"):
+    with pytest.raises(ValueError, match="extracting"):
         document.extract_plan([0], tmp_path / "out.pdf")

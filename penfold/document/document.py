@@ -14,6 +14,7 @@ from penfold.document.forms import FieldValue, FormField, read_form_fields
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
+from penfold.document.restrictions import Restrictions
 from penfold.document.saving import SavePlan
 from penfold.document.sources import SourceFile, Sources
 from penfold.errors import PenfoldError, ProtectedPdfError
@@ -45,7 +46,7 @@ class OpenDocument:
         pdf = source.pdf
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
-        self.is_protected = pdf.is_encrypted
+        self.restrictions = Restrictions.of(pdf)
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
         self.form_fields: list[FormField] = read_form_fields(pdf)
@@ -102,6 +103,11 @@ class OpenDocument:
             self.bookmarks.append(file_bookmark)
         else:
             self.bookmarks.extend(own)
+
+    @property
+    def is_restricted(self) -> bool:
+        """Whether the PDF denies something (D59); an encrypted PDF that allows everything has no restrictions."""
+        return self.restrictions.any
 
     @property
     def file_name(self) -> str:
@@ -259,11 +265,13 @@ class OpenDocument:
         With flatten, the form fields become fixed page content (I6): the file is an exported copy, and the document
         keeps its own file and its changes (do not mark it saved).
 
+        A PDF with restrictions is saved too, keeping them (D59): its tools only make the changes it allows.
+
         Raises:
-            ValueError: the PDF is protected, and Penfold cannot save it (2.7).
+            ValueError: flattening was asked of a PDF that does not allow changing its content (D59).
         """
-        if self.is_protected:
-            message = "protected PDFs cannot be saved"
+        if flatten and not self.restrictions.modify:
+            message = "this PDF does not allow flattening its form"
             raise ValueError(message)
         plan = SavePlan.take(
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
@@ -276,10 +284,10 @@ class OpenDocument:
         It has every page, with the form values, but no bookmarks and none of the groups of annotations left out.
 
         Raises:
-            ValueError: the PDF is protected, and Penfold cannot print it (2.7).
+            ValueError: the PDF does not allow printing (D59).
         """
-        if self.is_protected:
-            message = "protected PDFs cannot be printed"
+        if not self.restrictions.print:
+            message = "this PDF does not allow printing"
             raise ValueError(message)
         plan = SavePlan.take(self.sources.spans, target, self.pages, [], None)
         return replace(plan, form_values=self._filled_in(), left_out=left_out)
@@ -290,10 +298,10 @@ class OpenDocument:
         The file gets those pages as they are now, in that order, with the bookmarks that lead to them.
 
         Raises:
-            ValueError: the PDF is protected, and Penfold cannot extract its pages (2.7).
+            ValueError: the PDF does not allow assembling it, so neither extracting its pages (D59).
         """
-        if self.is_protected:
-            message = "pages of protected PDFs cannot be extracted"
+        if not self.restrictions.assemble:
+            message = "this PDF does not allow extracting its pages"
             raise ValueError(message)
         pages = [self.pages[position] for position in positions]
         bookmarks = leading_to(self.bookmarks, {page.source_index for page in pages})

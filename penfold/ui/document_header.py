@@ -34,7 +34,7 @@ class PenfoldDocumentHeader(Adw.Bin):
 
         With unsaved changes, the title starts with "• " (D16); a protected PDF has a red lock in front (D58).
         """
-        self.protected_icon.set_visible(document.is_protected)
+        self.protected_icon.set_visible(document.is_restricted)
         mark = UNSAVED_MARK if document.is_modified else ""
         if document.title:
             self.title_widget.set_title(mark + document.title)

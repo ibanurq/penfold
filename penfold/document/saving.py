@@ -410,7 +410,8 @@ def _write_safely(pdf: pikepdf.Pdf, target: Path, page_count: int) -> None:
     """Write to a new file next to the target, check it, and put it in the target's place."""
     temporary = _new_file_next_to(target)
     try:
-        pdf.save(temporary)
+        # A PDF with restrictions keeps its encryption and its permissions (D59).
+        pdf.save(temporary, encryption=pdf.is_encrypted)
         _check(temporary, page_count)
         if target.exists():
             shutil.copymode(target, temporary)

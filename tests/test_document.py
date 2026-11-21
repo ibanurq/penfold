@@ -6,8 +6,9 @@ import pikepdf
 import pytest
 
 from penfold.document.document import OpenDocument
+from penfold.document.restrictions import Restrictions
 from penfold.errors import DocumentOpenError, PasswordRequiredError
-from tests.sample_pdfs import make_pdf
+from tests.sample_pdfs import PERMISSIONS, make_pdf, make_restricted_pdf
 
 
 @pytest.fixture
@@ -27,7 +28,7 @@ def test_opens_a_pdf_and_reads_what_the_header_shows(labelled_document: OpenDocu
     assert labelled_document.page_count == 5
     assert labelled_document.has_page_labels
     assert [labelled_document.page_label(index) for index in range(5)] == ["i", "ii", "1", "2", "3"]
-    assert not labelled_document.is_protected
+    assert not labelled_document.is_restricted
 
 
 def test_without_title_or_labels(tmp_path: Path) -> None:
@@ -53,10 +54,17 @@ def test_page_box_finds_numbers_without_labels(tmp_path: Path, typed: str, expec
     assert document.find_page(typed) == expected
 
 
-def test_encrypted_pdf_without_open_password_opens_as_protected(tmp_path: Path) -> None:
-    document = OpenDocument.open(make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
-    assert document.is_protected
+def test_encrypted_pdf_without_open_password_opens_with_its_restrictions(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_restricted_pdf(tmp_path / "locked.pdf", "print_lowres", "modify_form"))
+    assert document.is_restricted
+    assert document.restrictions == Restrictions(annotate=False, assemble=False, copy=False, modify=False)
+    assert document.restrictions.denied == ["annotate", "assemble", "copy", "modify"]
     assert document.page_count == 3
+
+
+def test_an_encrypted_pdf_that_allows_everything_has_no_restrictions(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_restricted_pdf(tmp_path / "open.pdf", *PERMISSIONS))
+    assert not document.is_restricted
 
 
 def test_pdf_with_open_password_is_refused(tmp_path: Path) -> None:

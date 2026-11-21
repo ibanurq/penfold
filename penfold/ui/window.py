@@ -259,8 +259,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ("rotate-pages-left", selected > 0),
             ("rotate-pages-right", selected > 0),
             ("delete-pages", 0 < selected < page_count),
-            ("add-pages", self.document is not None and not self.document.is_protected),
-            ("extract-pages", self.document is not None and not self.document.is_protected),
+            ("add-pages", self.document is not None and not self.document.is_restricted),
+            ("extract-pages", self.document is not None and not self.document.is_restricted),
         ):
             self._enable_action(name, enabled)
 
@@ -446,7 +446,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _print_shortcut(self) -> None:
         """Ctrl+P prints; in a protected PDF, where Print is greyed out, it says why, as 0.6 did (K3)."""
-        if self.document is not None and self.document.is_protected:
+        if self.document is not None and self.document.is_restricted:
             message = _(
                 "This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet."
             )
@@ -507,7 +507,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _update_save_actions(self) -> None:
         document = self.document
-        enabled = document is not None and not document.is_protected and not self._saving
+        enabled = document is not None and not document.is_restricted and not self._saving
         for name in SAVE_ACTIONS:
             self._enable_action(name, enabled)
 
@@ -742,7 +742,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         document.add_listener(self._on_document_changed)
         self._grow_for_document()
         self._show_title()
-        self.protected_banner.set_revealed(document.is_protected)
+        self.protected_banner.set_revealed(document.is_restricted)
         self.stack.set_visible_child_name("document")
         # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
         self._show_sidebar_when_it_fits()
@@ -760,7 +760,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
         self.document_view.grab_focus()
-        if document.is_protected:
+        if document.is_restricted:
             self._show_message(
                 _("Protected PDF"),
                 _(
@@ -851,7 +851,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if document is None or not document.is_modified:
             then(True)
             return
-        dialog = _discard_question(document.file_name) if document.is_protected else _save_question(document.file_name)
+        dialog = _discard_question(document.file_name) if document.is_restricted else _save_question(document.file_name)
         dialog.connect("response", self._on_unsaved_response, then)
         self.present()
         dialog.present(self)

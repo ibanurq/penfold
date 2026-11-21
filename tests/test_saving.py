@@ -12,7 +12,7 @@ from penfold.document.pages import Page
 from penfold.document.saving import save
 from penfold.document.sources import SourceFile
 from penfold.errors import SaveError
-from tests.sample_pdfs import make_pdf
+from tests.sample_pdfs import make_pdf, make_restricted_pdf
 
 PAGE_WIDTHS = [100, 101, 102, 103, 104]
 URI = "https://example.org/"
@@ -217,10 +217,17 @@ def test_a_folder_that_cannot_be_written_is_reported(document: OpenDocument, tmp
         save(document.save_plan(tmp_path / "missing" / "copy.pdf"))
 
 
-def test_protected_pdfs_cannot_be_saved(tmp_path: Path) -> None:
-    document = OpenDocument.open(make_pdf(tmp_path / "locked.pdf", passwords=("owner", "")))
-    with pytest.raises(ValueError, match="protected"):
-        document.save_plan()
+def test_pdfs_with_restrictions_are_saved_keeping_them(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_restricted_pdf(tmp_path / "locked.pdf", "modify_form"))
+    target = tmp_path / "saved.pdf"
+    save(document.save_plan(target))
+    with pikepdf.open(target) as pdf:
+        assert pdf.is_encrypted
+        assert (pdf.allow.modify_form, pdf.allow.print_highres, pdf.allow.modify_assembly) == (True, False, False)
+    with pytest.raises(ValueError, match="flatten"):
+        document.save_plan(target, flatten=True)
+    with pytest.raises(ValueError, match="printing"):
+        document.print_plan(target, frozenset())
 
 
 def test_fields_with_kids_lose_only_the_kids_of_deleted_pages(tmp_path: Path) -> None:
