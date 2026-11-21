@@ -195,3 +195,15 @@ def test_printing_leaves_out_the_groups_not_chosen(tmp_path: Path) -> None:
         assert "/Outlines" not in pdf.Root
     assert [item for item in subtypes if item != "/Widget"] == ["/Highlight", "/FileAttachment"]
     assert saved_values(target)["name"] == "Eva"
+
+
+def test_a_form_that_asks_viewers_to_draw_it_is_flattened_with_its_values(tmp_path: Path) -> None:
+    path = tmp_path / "sample.pdf"
+    with pikepdf.open(FIXTURES / "form.pdf") as pdf:
+        pdf.Root.AcroForm.NeedAppearances = True  # As in forms made with OpenOffice.
+        pdf.save(path)
+    document = OpenDocument.open(path)
+    fill(document, "name", "Eva")
+    target = tmp_path / "flattened.pdf"
+    save(document.save_plan(target, flatten=True))
+    assert "Eva" in page_text(target)

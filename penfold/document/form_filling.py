@@ -10,6 +10,7 @@ from typing import TypeGuard
 import pikepdf
 
 from penfold.document.forms import (
+    HIDDEN,
     OFF,
     FieldKind,
     FieldValue,
@@ -18,6 +19,7 @@ from penfold.document.forms import (
     on_state,
     widget_dictionaries,
 )
+from penfold.document.pdf_values import number
 
 # The encoding of the standard fonts qpdf draws text with (WinAnsiEncoding is close to it).
 DRAWN_ENCODING = "cp1252"
@@ -159,18 +161,28 @@ def flatten_form(pdf: pikepdf.Pdf) -> None:
     """Draw every form field as fixed page content and remove the form (I6); the other annotations stay as they are.
 
     qpdf flattens every annotation with an appearance, so the others are set aside while it works. Hidden fields are
-    dropped, as viewers do not show them.
+    dropped, as viewers do not show them, and so are fields with no appearance, as in 0.6. qpdf leaves the fields
+    alone while the form asks viewers to draw them (/NeedAppearances), so their appearances are drawn first.
+
+    Raises:
+        pikepdf.PdfError: a visible field could not be flattened; saving fails rather than lose its value.
     """
+    form = pdf.Root.get("/AcroForm")
+    if isinstance(form, pikepdf.Dictionary) and bool(form.get("/NeedAppearances")):
+        pdf.generate_appearance_streams()
     set_aside = []
     for page in pdf.pages:
-        annots = page.obj.get("/Annots")
-        if not isinstance(annots, pikepdf.Array):
+        items = _items(page.obj.get("/Annots"))
+        if not items:
             continue
-        items = [annots[index] for index in range(len(annots))]
         widgets = [item for item in items if _is_widget(item)]
         set_aside.append((page, [item for item in items if not _is_widget(item)]))
         page.obj.Annots = pdf.make_indirect(pikepdf.Array(widgets))
     pdf.flatten_annotations("all")
+    for page, _others in set_aside:
+        if any(_should_be_drawn(item) for item in _items(page.obj.get("/Annots")) if _is_widget(item)):
+            message = "form fields could not be flattened"
+            raise pikepdf.PdfError(message)
     for page, others in set_aside:
         if others:
             page.obj.Annots = pdf.make_indirect(pikepdf.Array(others))
@@ -178,6 +190,17 @@ def flatten_form(pdf: pikepdf.Pdf) -> None:
             del page.obj.Annots
     if "/AcroForm" in pdf.Root:
         del pdf.Root.AcroForm
+
+
+def _items(annots: object) -> list[pikepdf.Object]:
+    return [annots[index] for index in range(len(annots))] if isinstance(annots, pikepdf.Array) else []
+
+
+def _should_be_drawn(widget: pikepdf.Dictionary) -> bool:
+    """Whether a widget is visible and has an appearance to draw."""
+    appearances = widget.get("/AP")
+    has_appearance = isinstance(appearances, pikepdf.Dictionary) and "/N" in appearances
+    return has_appearance and not int(number(widget.get("/F")) or 0) & HIDDEN
 
 
 def _is_widget(annotation: object) -> TypeGuard[pikepdf.Dictionary]:
