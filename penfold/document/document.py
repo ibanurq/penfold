@@ -10,6 +10,7 @@ import pikepdf
 
 from penfold.document.annotations import Annotation, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
+from penfold.document.forms import FormField, read_form_fields
 from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
@@ -47,6 +48,7 @@ class OpenDocument:
         self.is_protected = pdf.is_encrypted
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
+        self.form_fields: list[FormField] = read_form_fields(pdf)
         self._positions = self._index_positions()
         self._history = History(saved=not is_new)
         self._listeners: list[Callable[[Change], None]] = []
@@ -154,7 +156,7 @@ class OpenDocument:
             return AddedPdf(_pages_of(pdf, start), [])
 
     def _take_source(self, path: Path) -> tuple[int, pikepdf.Pdf]:
-        """Copy and open a PDF as a new source, listing its annotations; return its first source index and the PDF.
+        """Copy and open a PDF as a new source, listing its annotations and fields; return its first index and the PDF.
 
         Raises:
             ProtectedPdfError: the PDF is protected (2.7).
@@ -167,6 +169,7 @@ class OpenDocument:
             raise ProtectedPdfError(str(path))
         start = self.sources.add(source).start
         self.annotations = [*self.annotations, *read_annotations(source.pdf, start)]
+        self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]
         return start, source.pdf
 
     def find_page(self, text: str) -> int | None:

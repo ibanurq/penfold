@@ -14,6 +14,8 @@ from penfold.errors import ProtectedPdfError
 from tests.sample_pdfs import make_pdf
 from tests.test_bookmarks import add_outline
 
+FORM = Path(__file__).parent / "fixtures" / "form.pdf"
+
 
 @pytest.fixture
 def document(tmp_path: Path) -> OpenDocument:
@@ -172,3 +174,9 @@ def test_a_blank_page_of_each_size_is_added_and_saved(
         assert not saved.pages[1].obj.get("/Annots")
     document.undo()
     assert document.page_count == 5
+
+
+def test_the_fields_of_added_pdfs_are_told_apart_by_their_source(document: OpenDocument) -> None:
+    document.add_source(FORM)
+    document.add_source(FORM)
+    assert [field.key for field in document.form_fields if field.name == "name"] == [(5, "name"), (6, "name")]
