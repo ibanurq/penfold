@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-21 06:59+0100\n"
+"POT-Creation-Date: 2026-11-21 07:05+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -93,7 +93,7 @@ msgstr "Añadir páginas"
 
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22
-#: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/save_as_dialog.blp:20
+#: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/save_as_dialog.blp:22
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
 #: penfold/ui/window.py:831
 msgid "_Cancel"
@@ -178,6 +178,7 @@ msgid "The numbers are the position of each page, not its label."
 msgstr "Los números son la posición de cada página, no su etiqueta."
 
 #: data/ui/dialogs/extract_pages_dialog.blp:90
+#: data/ui/dialogs/save_as_dialog.blp:41
 msgid "Options"
 msgstr "Opciones"
 
@@ -222,15 +223,15 @@ msgstr "Conservar los marcadores de los archivos"
 msgid "Save As"
 msgstr "Guardar como"
 
-#: data/ui/dialogs/save_as_dialog.blp:27
+#: data/ui/dialogs/save_as_dialog.blp:29
 msgid "C_ontinue"
 msgstr "C_ontinuar"
 
-#: data/ui/dialogs/save_as_dialog.blp:40
+#: data/ui/dialogs/save_as_dialog.blp:44
 msgid "Flatten the Form"
 msgstr "Aplanar el formulario"
 
-#: data/ui/dialogs/save_as_dialog.blp:41
+#: data/ui/dialogs/save_as_dialog.blp:45
 msgid ""
 "The data becomes part of the page and the fields can no longer be edited in "
 "the saved file."

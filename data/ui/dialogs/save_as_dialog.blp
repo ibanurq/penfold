@@ -7,6 +7,8 @@ translation-domain "penfold";
 template $PenfoldSaveAsDialog: Adw.Dialog {
   title: _("Save As");
   content-width: 440;
+  // A single option: some height, so the dialogue does not look squashed.
+  content-height: 250;
   default-widget: continue_button;
 
   child: Adw.ToolbarView {
@@ -36,6 +38,8 @@ template $PenfoldSaveAsDialog: Adw.Dialog {
 
     content: Adw.PreferencesPage {
       Adw.PreferencesGroup {
+        title: _("Options");
+
         Adw.SwitchRow flatten_row {
           title: _("Flatten the Form");
           subtitle: _("The data becomes part of the page and the fields can no longer be edited in the saved file.");
