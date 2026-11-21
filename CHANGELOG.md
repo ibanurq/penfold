@@ -5,6 +5,30 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.7 — 2026-11-21
+
+Seventh preview of Penfold 1.0: forms are filled in and saved, the document is printed choosing which annotations go
+on paper, and PDFs with restrictions can be used as far as they allow, and saved.
+
+### Added
+- Form fields can be filled in on the pages: text (with the maximum length, password, alignment and font size of the
+  PDF), checkboxes, radio buttons, dropdowns (also those that let you write) and lists of one or several options.
+  Each field shows its value in every place it appears; push buttons and signatures are not filled in. Every change
+  can be undone, and typing in a field is undone at once.
+- Save writes only the fields that changed, and the form stays editable in other viewers; a field that cannot be
+  written does not stop the save and is reported. Extracted pages keep their values.
+- Save As offers to flatten the form of a PDF that has one: the data becomes part of the page in a copy named
+  “…_flattened.pdf”, and the document keeps its own file and changes.
+- Print (Ctrl+P) first asks which annotations go on paper — text highlights, shapes and text elements, all on — and
+  then opens the system’s print dialogue. Form values are always printed.
+- A PDF with restrictions shows a red lock before its title; its tooltip says what the PDF does not allow.
+
+### Changed
+- PDFs with restrictions (encrypted without an open password) are no longer read-only: every tool the PDF allows
+  works, the rest is greyed out, and saving keeps the encryption and the permissions. They open without a notice and
+  without a banner, and their changes are saved like any others. Ctrl+P says when a PDF does not allow printing.
+- Alerts with a single button answer both Enter and Esc.
+
 ## 1.0.0-alpha.6 — 2026-11-21
 
 Sixth preview of Penfold 1.0: bookmarks can be edited, and every change can be undone.
