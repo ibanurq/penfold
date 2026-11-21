@@ -9,6 +9,7 @@ blueprints = custom_target(
     'ui/document_header.blp',
     'ui/main_menu.blp',
     'ui/page_entry.blp',
+    'ui/preferences_dialog.blp',
     'ui/sidebar/sidebar.blp',
     'ui/welcome_page.blp',
     'ui/window.blp',

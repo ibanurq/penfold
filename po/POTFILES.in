@@ -9,6 +9,7 @@ data/ui/dialogs/save_as_dialog.blp
 data/ui/document_header.blp
 data/ui/main_menu.blp
 data/ui/page_entry.blp
+data/ui/preferences_dialog.blp
 data/ui/sidebar/sidebar.blp
 data/ui/welcome_page.blp
 data/ui/window.blp

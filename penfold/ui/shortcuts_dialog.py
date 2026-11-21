@@ -46,6 +46,7 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
                 (_("Print"), "win.print-shortcut"),
                 (_("Undo"), "win.undo"),
                 (_("Redo"), "win.redo"),
+                (_("Open the preferences"), "app.preferences"),
                 (_("Show the keyboard shortcuts"), "app.shortcuts"),
                 (_("Close the window"), "win.close"),
                 (_("Quit"), "app.quit"),

@@ -9,12 +9,14 @@ from gi.repository import Adw, Gio, GLib, Gtk
 from penfold import config
 from penfold.ui.about import present_about_dialog
 from penfold.ui.file_dialogs import pdf_file_dialog
+from penfold.ui.preferences_dialog import PenfoldPreferencesDialog
 from penfold.ui.shortcuts_dialog import present_shortcuts_dialog
 from penfold.ui.window import WINDOW_ACCELERATORS, PenfoldWindow
 
 ACCELERATORS = {
     "app.open": ["<Control>o"],
     "app.quit": ["<Control>q"],
+    "app.preferences": ["<Control>comma"],
     "app.shortcuts": ["<Control>question"],
     **WINDOW_ACCELERATORS,
 }
@@ -31,6 +33,7 @@ class PenfoldApplication(Adw.Application):
         super().__init__(application_id=config.APP_ID, flags=Gio.ApplicationFlags.HANDLES_OPEN)
         self.set_resource_base_path(config.RESOURCE_BASE_PATH)
         self._add_action("about", self._on_about)
+        self._add_action("preferences", self._on_preferences)
         self._add_action("shortcuts", self._on_shortcuts)
         self._add_action("open", self._on_open)
         self._add_action("merge", self._on_merge)
@@ -92,6 +95,9 @@ class PenfoldApplication(Adw.Application):
 
     def _on_about(self) -> None:
         present_about_dialog(self.get_active_window())
+
+    def _on_preferences(self) -> None:
+        PenfoldPreferencesDialog().present(self.get_active_window())
 
     def _on_shortcuts(self) -> None:
         present_shortcuts_dialog(self.get_active_window(), self)

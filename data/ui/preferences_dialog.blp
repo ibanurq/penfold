@@ -1,0 +1,30 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "penfold";
+
+// Preferences (02-interfaz, 3.3; D61): one page, and every change applies and is kept at once.
+template $PenfoldPreferencesDialog: Adw.PreferencesDialog {
+  // Narrower than the default, so that two options do not look wide; the height follows the content.
+  content-width: 460;
+
+  Adw.PreferencesPage {
+    Adw.PreferencesGroup {
+      title: _("Annotations");
+      description: _("If left empty, “Penfold” will be used");
+
+      Adw.EntryRow author_row {
+        title: _("Author Name");
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Documents");
+
+      Adw.SwitchRow permissions_row {
+        title: _("Respect Document Permissions");
+        subtitle: _("The creator of the original document can restrict actions such as copying text, printing, etc. The ISO 32000-1 standard leaves it to each program to respect that intention. If turned off, when merging documents or adding their pages to another, the result will not have those restrictions.");
+      }
+    }
+  }
+}

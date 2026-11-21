@@ -22,5 +22,15 @@
       <default>160</default>
       <summary>Width of the thumbnails in the Pages view, in pixels (D39)</summary>
     </key>
+    <!-- Preferences (D60, D61). -->
+    <key name="author-name" type="s">
+      <default>''</default>
+      <summary>Author of new annotations</summary>
+      <description>Empty uses “Penfold”.</description>
+    </key>
+    <key name="respect-permissions" type="b">
+      <default>true</default>
+      <summary>Whether to respect the user access permissions of a PDF</summary>
+    </key>
   </schema>
 </schemalist>

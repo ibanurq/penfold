@@ -13,6 +13,7 @@ install_data(
   'form_toggle.py',
   'menus.py',
   'page_entry.py',
+  'preferences_dialog.py',
   'printing.py',
   'shortcuts_dialog.py',
   'text_selection.py',
