@@ -134,3 +134,67 @@ def test_the_delete_key_deletes_bookmarks_only_in_their_view(window: "PenfoldWin
     window.sidebar.show_view(sidebar_views.PAGES)
     assert not window._on_delete_key(window, None)
     assert len(rows(window)) == 5
+
+
+def test_add_titles_the_bookmark_with_the_selected_text(
+    window: "PenfoldWindow", monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(window.document_view, "selected_text", lambda: ("Terms\n of  use", 3))
+    window.activate_action("win.add-bookmark", None)
+    assert window.get_visible_dialog() is None
+    assert rows(window) == ["Cover", "1. Intro", "  1.1 Scope", "  Terms of use", "Broken", "Action"]
+    assert selected_titles(window) == ["Terms of use"]
+    [added] = window.bookmarks_view.selected_bookmarks()
+    assert added.page == 3
+
+
+def test_add_asks_for_a_title_proposing_the_current_page(window: "PenfoldWindow") -> None:
+    from gi.repository import Adw
+
+    from penfold.ui.dialogs.text_question import RESPONSE_CONFIRM
+
+    window.document_view.go_to(4)
+    process_pending_events()
+    window.activate_action("win.add-bookmark", None)
+    dialog = window.get_visible_dialog()
+    assert isinstance(dialog, Adw.AlertDialog)
+    entry = dialog.get_extra_child()
+    assert isinstance(entry, Gtk.Entry)
+    assert entry.get_text() == "Page 5"
+    entry.set_text(" Last page ")
+    dialog.emit("response", RESPONSE_CONFIRM)
+    dialog.close()
+    assert rows(window)[-1] == "Last page"
+    assert selected_titles(window) == ["Last page"]
+
+
+def test_cancelling_the_title_adds_nothing(window: "PenfoldWindow") -> None:
+    from gi.repository import Adw
+
+    from penfold.ui.dialogs.text_question import RESPONSE_CANCEL
+
+    document = window.document
+    assert document is not None
+    window.activate_action("win.add-bookmark", None)
+    dialog = window.get_visible_dialog()
+    assert isinstance(dialog, Adw.AlertDialog)
+    dialog.emit("response", RESPONSE_CANCEL)
+    dialog.close()
+    assert len(rows(window)) == 5
+    assert not document.is_modified
+
+
+def test_a_blank_title_cannot_be_confirmed() -> None:
+    from penfold.ui.dialogs.text_question import RESPONSE_CONFIRM, text_question
+
+    answers: list[str] = []
+    dialog = text_question("Title", "Page 1", "_Add", answers.append)
+    entry = dialog.get_extra_child()
+    assert isinstance(entry, Gtk.Entry)
+    entry.set_text("  ")
+    assert not dialog.get_response_enabled(RESPONSE_CONFIRM)
+    entry.set_text("Done")
+    assert dialog.get_response_enabled(RESPONSE_CONFIRM)
+    dialog.emit("response", RESPONSE_CONFIRM)
+    dialog.emit("response", RESPONSE_CONFIRM)
+    assert answers == ["Done"]

@@ -505,7 +505,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.bookmarks_view = BookmarksView()
         self.bookmarks_view.connect("destination-activated", self._on_destination_activated)
         self.sidebar.add_view(sidebar_views.BOOKMARKS, self.bookmarks_view)
-        self.bookmark_editing = BookmarkEditing(self, self.bookmarks_view, lambda: self.document, self._show_undo_toast)
+        self.bookmark_editing = BookmarkEditing(
+            self, self.bookmarks_view, self.document_view, lambda: self.document, self._show_undo_toast
+        )
         self.annotations_view = AnnotationsView()
         self.annotations_view.connect("annotation-activated", self._on_destination_activated)
         self.sidebar.add_view(sidebar_views.ANNOTATIONS, self.annotations_view)

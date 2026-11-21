@@ -792,14 +792,19 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.selection = selection
         self.queue_draw()
 
+    def selected_text(self) -> tuple[str, int] | None:
+        """The text selected and the page where the selection starts; None if no text is selected."""
+        if self.selection is None or self.content is None or self.renderer is None:
+            return None
+        text = self.selection.text(self.content, self.renderer.layout)
+        return (text, min(self.selection.anchor, self.selection.focus).page) if text else None
+
     def copy_selection(self) -> bool:
         """Copy the selected text to the clipboard; return whether there was any."""
-        if self.selection is None or self.content is None or self.renderer is None:
+        selected = self.selected_text()
+        if selected is None:
             return False
-        text = self.selection.text(self.content, self.renderer.layout)
-        if not text:
-            return False
-        self.get_clipboard().set(text)
+        self.get_clipboard().set(selected[0])
         return True
 
     def _on_key_pressed(

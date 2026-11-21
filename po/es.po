@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-21 02:45+0100\n"
+"POT-Creation-Date: 2026-11-21 02:49+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -93,12 +93,12 @@ msgstr "Añadir páginas"
 
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22
-#: data/ui/dialogs/merge_dialog.blp:22 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:790
+#: data/ui/dialogs/merge_dialog.blp:22 penfold/ui/dialogs/text_question.py:20
+#: penfold/ui/extraction.py:87 penfold/ui/window.py:792
 msgid "_Cancel"
 msgstr "_Cancelar"
 
-#: data/ui/dialogs/add_pages_dialog.blp:27
+#: data/ui/dialogs/add_pages_dialog.blp:27 penfold/ui/bookmark_editing.py:88
 #: penfold/ui/sidebar/bookmarks_view.py:95 penfold/ui/sidebar/pages_view.py:240
 msgid "_Add"
 msgstr "_Añadir"
@@ -245,7 +245,7 @@ msgstr "Menú del documento"
 msgid "_Print…"
 msgstr "_Imprimir…"
 
-#: data/ui/document_header.blp:69 penfold/ui/window.py:792
+#: data/ui/document_header.blp:69 penfold/ui/window.py:794
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -338,7 +338,17 @@ msgstr "Abrir una ventana nueva"
 msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
-#: penfold/ui/bookmark_editing.py:77
+#: penfold/ui/bookmark_editing.py:87 penfold/ui/sidebar/annotations_view.py:164
+#: penfold/ui/sidebar/search_view.py:106
+#, python-brace-format
+msgid "Page {label}"
+msgstr "Página {label}"
+
+#: penfold/ui/bookmark_editing.py:88
+msgid "Add Bookmark"
+msgstr "Añadir marcador"
+
+#: penfold/ui/bookmark_editing.py:111
 #, python-brace-format
 msgid "Bookmark deleted"
 msgid_plural "{count} bookmarks deleted"
@@ -389,13 +399,13 @@ msgid "Drag PDFs here or click “Add PDFs…”"
 msgstr "Arrastra aquí los PDF o pulsa «Añadir PDF…»"
 
 #: penfold/ui/dialogs/merge_dialog.py:114 penfold/ui/window.py:305
-#: penfold/ui/window.py:624 penfold/ui/window.py:670
+#: penfold/ui/window.py:626 penfold/ui/window.py:672
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:115 penfold/ui/extraction.py:124
-#: penfold/ui/window.py:757
+#: penfold/ui/window.py:759
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -608,12 +618,6 @@ msgstr "Sin texto"
 msgid "Filter"
 msgstr "Filtro"
 
-#: penfold/ui/sidebar/annotations_view.py:164
-#: penfold/ui/sidebar/search_view.py:106
-#, python-brace-format
-msgid "Page {label}"
-msgstr "Página {label}"
-
 #: penfold/ui/sidebar/annotations_view.py:243
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
@@ -749,26 +753,26 @@ msgstr "Guardar como"
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:643
+#: penfold/ui/window.py:645
 msgid "merged.pdf"
 msgstr "combinado.pdf"
 
-#: penfold/ui/window.py:653
+#: penfold/ui/window.py:655
 msgid "Could not merge the PDFs"
 msgstr "No se pudieron combinar los PDF"
 
-#: penfold/ui/window.py:660
+#: penfold/ui/window.py:662
 #, python-brace-format
 msgid "PDFs merged: {count} page"
 msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:698
+#: penfold/ui/window.py:700
 msgid "Protected PDF"
 msgstr "PDF protegido"
 
-#: penfold/ui/window.py:700
+#: penfold/ui/window.py:702
 msgid ""
 "This PDF is protected. Any changes made to it cannot be saved. It cannot be "
 "printed and pages cannot be extracted either."
@@ -776,15 +780,15 @@ msgstr ""
 "Este PDF está protegido. Cualquier cambio que se haga sobre él no podrá ser "
 "guardado. Tampoco se podrá imprimir ni extraer páginas."
 
-#: penfold/ui/window.py:785
+#: penfold/ui/window.py:787
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:786
+#: penfold/ui/window.py:788
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:791
+#: penfold/ui/window.py:793
 msgid "_Discard"
 msgstr "_Descartar"
