@@ -34,7 +34,23 @@ template $PenfoldDocumentHeader: Adw.Bin {
       tooltip-text: _("Redo");
     }
 
-    title-widget: Adw.WindowTitle title_widget {};
+    // In a protected PDF, a red closed lock in front of the title (D58).
+    title-widget: Box {
+      spacing: 8;
+      halign: center;
+
+      Image protected_icon {
+        icon-name: "changes-prevent-symbolic";
+        tooltip-text: _("Protected PDF");
+        visible: false;
+
+        styles [
+          "error",
+        ]
+      }
+
+      Adw.WindowTitle title_widget {}
+    };
 
     // Packed from the right: the main menu ☰ (while there is no side panel, D36), the document menu ⋮, the page box.
     [end]
@@ -61,6 +77,8 @@ menu document_menu {
     item {
       label: _("_Print…");
       action: "win.print";
+      // The keys belong to win.print-shortcut, which also answers in protected PDFs (K3).
+      accel: "<Control>p";
     }
   }
 

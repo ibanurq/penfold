@@ -20,6 +20,7 @@ class PenfoldDocumentHeader(Adw.Bin):
     __gtype_name__ = "PenfoldDocumentHeader"
 
     title_widget: Adw.WindowTitle = Gtk.Template.Child()
+    protected_icon: Gtk.Image = Gtk.Template.Child()
     page_entry: PenfoldPageEntry = Gtk.Template.Child()
     main_menu_button: Gtk.MenuButton = Gtk.Template.Child()
 
@@ -31,8 +32,9 @@ class PenfoldDocumentHeader(Adw.Bin):
     def show_document(self, document: OpenDocument) -> None:
         """Show the title of the PDF and, under it, the file name; without a title, only the file name.
 
-        With unsaved changes, the title starts with "• " (D16).
+        With unsaved changes, the title starts with "• " (D16); a protected PDF has a red lock in front (D58).
         """
+        self.protected_icon.set_visible(document.is_protected)
         mark = UNSAVED_MARK if document.is_modified else ""
         if document.title:
             self.title_widget.set_title(mark + document.title)

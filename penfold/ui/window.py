@@ -65,6 +65,8 @@ DOCUMENT_ACTIONS = {
     "find": ["<Control>f"],
     "find-next": ["<Control>g"],
     "find-previous": ["<Shift><Control>g"],
+    # Ctrl+P: prints, or in a protected PDF says why it cannot (K3); the menu item is win.print.
+    "print-shortcut": ["<Control>p"],
 }
 # Edits of the document; each is on only while there is something for it to do (D19, D21).
 EDIT_ACTIONS = {
@@ -76,7 +78,7 @@ EDIT_ACTIONS = {
 SAVE_ACTIONS = {
     "save": ["<Control>s"],
     "save-as": ["<Shift><Control>s"],
-    "print": ["<Control>p"],
+    "print": [],
 }
 # Answers to the question about unsaved changes (J5).
 RESPONSE_CANCEL = "cancel"
@@ -154,6 +156,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "find": self.open_find,
             "find-next": lambda: self._find_step(1),
             "find-previous": lambda: self._find_step(-1),
+            "print-shortcut": self._print_shortcut,
         }
         for name, handler in handlers.items():
             action = Gio.SimpleAction(name=name, enabled=False)
@@ -440,6 +443,16 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 then(False)
             return
         self._write(self.document.save_plan(Path(path), flatten=flatten), then)
+
+    def _print_shortcut(self) -> None:
+        """Ctrl+P prints; in a protected PDF, where Print is greyed out, it says why, as 0.6 did (K3)."""
+        if self.document is not None and self.document.is_protected:
+            message = _(
+                "This PDF is protected against changes: Penfold cannot save it, print it or extract pages from it yet."
+            )
+            self.toast_overlay.add_toast(Adw.Toast(title=message))
+        else:
+            self.activate_action("win.print", None)
 
     def _open_print_dialog(self) -> None:
         """Ask which annotations to print, then print with the system's dialogue (D57)."""
@@ -831,28 +844,21 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """Before the document is replaced or closed, ask what to do with unsaved changes; then says whether to go on.
 
         Without unsaved changes nothing is asked. Save saves (asking where if it has to) and goes on only if it was
-        saved; Discard goes on; Cancel, or closing the question, does not (D16, 0.6).
+        saved; Discard goes on; Cancel, or closing the question, does not (D16, 0.6). A protected PDF cannot be saved,
+        so it is only asked whether to discard the changes (J6).
         """
         document = self.document
         if document is None or not document.is_modified:
             then(True)
             return
-        dialog = Adw.AlertDialog(
-            heading=_("Save changes to “{name}”?").format(name=document.file_name),
-            body=_("If you don’t save, your changes will be lost."),
-            close_response=RESPONSE_CANCEL,
-            default_response=RESPONSE_SAVE,
-        )
-        dialog.add_response(RESPONSE_CANCEL, _("_Cancel"))
-        dialog.add_response(RESPONSE_DISCARD, _("_Discard"))
-        dialog.add_response(RESPONSE_SAVE, _("_Save"))
-        dialog.set_response_appearance(RESPONSE_DISCARD, Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.set_response_appearance(RESPONSE_SAVE, Adw.ResponseAppearance.SUGGESTED)
+        dialog = _discard_question(document.file_name) if document.is_protected else _save_question(document.file_name)
         dialog.connect("response", self._on_unsaved_response, then)
         self.present()
         dialog.present(self)
 
-    def _on_unsaved_response(self, _dialog: Adw.AlertDialog, response: str, then: Callable[[bool], object]) -> None:
+    def _on_unsaved_response(self, dialog: Adw.AlertDialog, response: str, then: Callable[[bool], object]) -> None:
+        # Closing the question answers again with the close response: only the first answer counts.
+        dialog.disconnect_by_func(self._on_unsaved_response)
         if response == RESPONSE_SAVE:
             self.save(then)
         else:
@@ -932,3 +938,33 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_page_chosen(self, _entry: Gtk.Widget, page: int) -> None:
         self.document_view.go_to(page)
         self.document_view.grab_focus()
+
+
+def _save_question(name: str) -> Adw.AlertDialog:
+    """Save, discard or keep the unsaved changes of a document (J5)."""
+    dialog = Adw.AlertDialog(
+        heading=_("Save changes to “{name}”?").format(name=name),
+        body=_("If you don’t save, your changes will be lost."),
+        close_response=RESPONSE_CANCEL,
+        default_response=RESPONSE_SAVE,
+    )
+    dialog.add_response(RESPONSE_CANCEL, _("_Cancel"))
+    dialog.add_response(RESPONSE_DISCARD, _("_Discard"))
+    dialog.add_response(RESPONSE_SAVE, _("_Save"))
+    dialog.set_response_appearance(RESPONSE_DISCARD, Adw.ResponseAppearance.DESTRUCTIVE)
+    dialog.set_response_appearance(RESPONSE_SAVE, Adw.ResponseAppearance.SUGGESTED)
+    return dialog
+
+
+def _discard_question(name: str) -> Adw.AlertDialog:
+    """Discard or keep the changes of a protected PDF, which cannot be saved (J6)."""
+    dialog = Adw.AlertDialog(
+        heading=_("Discard the changes to “{name}”?").format(name=name),
+        body=_("This PDF is protected: its changes cannot be saved and will be lost."),
+        close_response=RESPONSE_CANCEL,
+        default_response=RESPONSE_CANCEL,
+    )
+    dialog.add_response(RESPONSE_CANCEL, _("_Cancel"))
+    dialog.add_response(RESPONSE_DISCARD, _("_Discard"))
+    dialog.set_response_appearance(RESPONSE_DISCARD, Adw.ResponseAppearance.DESTRUCTIVE)
+    return dialog
