@@ -7,6 +7,7 @@ install_data(
   'document_view.py',
   'extraction.py',
   'file_dialogs.py',
+  'form_layer.py',
   'menus.py',
   'page_entry.py',
   'shortcuts_dialog.py',

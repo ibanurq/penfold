@@ -57,3 +57,29 @@
   background-color: color-mix(in srgb, var(--accent-bg-color) 25%, transparent);
   border-radius: 6px;
 }
+
+/* Form fields on the pages (I1): a faint blue over the field, as in 0.6; black text, since pages are white. */
+.form-field {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 2px;
+  border-radius: 0;
+  color: black;
+  caret-color: black;
+  background-color: rgb(53 132 228 / 12%);
+}
+
+.form-field:focus-within {
+  background-color: rgb(53 132 228 / 20%);
+  outline: 1px solid var(--accent-bg-color);
+  outline-offset: 0;
+}
+
+textview.form-field > text {
+  background: none;
+  color: black;
+}
+
+.form-field.read-only {
+  background: none;
+}

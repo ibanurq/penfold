@@ -177,3 +177,19 @@ def test_states_that_are_not_utf8_are_kept_as_the_pdf_writes_them(tmp_path: Path
     with pikepdf.open(path) as pdf:
         (field,) = read_form_fields(pdf)
     assert (field.value, field.widgets[0].state) == ("S#ed", "S#ed")
+
+
+def test_widgets_are_placed_on_the_page_as_poppler_shows_it(tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "turned.pdf", page_count=1)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        page = pdf.pages[0]
+        page.CropBox = pikepdf.Array([10, 20, 410, 620])  # 400 x 600
+        pdf.Root.Pages.Rotate = 90  # inherited by the page
+        box = widget(pdf, [110, 500, 210, 520], T=pikepdf.String("box"), FT=pikepdf.Name.Tx)
+        page.Annots = pdf.make_indirect(pikepdf.Array([box]))
+        pdf.Root.AcroForm = pikepdf.Dictionary(Fields=pikepdf.Array([box]))
+        pdf.save(path)
+    with pikepdf.open(path) as pdf:
+        (field,) = read_form_fields(pdf)
+    # Unturned: left 100, top 100, right 200, bottom 120 on a 400 x 600 page; a quarter turn clockwise.
+    assert field.widgets[0].rectangle == (600.0 - 120, 100.0, 600.0 - 100, 200.0)

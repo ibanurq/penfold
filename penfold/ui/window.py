@@ -193,9 +193,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
         action.set_enabled(enabled)
 
     def _undo_or_redo(self, *, redo: bool) -> None:
-        """Undo or redo the last edit of the document; while typing in a field, its own text instead."""
+        """Undo or redo the last edit of the document; while typing in a field, its own text instead.
+
+        Form fields on the pages are part of the document: what is typed in them is undone as an edit (J2).
+        """
         focus = self.get_focus()
-        if isinstance(focus, Gtk.Text):
+        if isinstance(focus, Gtk.Text) and not focus.is_ancestor(self.document_view):
             focus.activate_action("text.redo" if redo else "text.undo", None)
         elif self.document is not None:
             (self.document.redo if redo else self.document.undo)()
@@ -723,6 +726,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if Change.BOOKMARKS in changes:
             self.bookmarks_view.bookmarks_changed()
             self.bookmark_editing.update_actions()
+        if Change.FORM in changes:
+            self.document_view.form_changed()
 
     def _show_sidebar_when_it_fits(self) -> None:
         """Show the panel as soon as the window is wide enough for it and the document (or after half a second).

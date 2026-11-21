@@ -12,7 +12,9 @@ from dataclasses import dataclass
 
 import pikepdf
 
-from penfold.document.pdf_values import number, page_height, rectangle, text
+from penfold.document.geometry import turn_rectangle
+from penfold.document.pages import FULL_TURN, QUARTER_TURN
+from penfold.document.pdf_values import number, numbers, text
 
 # A field tree deeper than this is broken (or circular): the rest of it is ignored.
 MAX_DEPTH = 32
@@ -70,9 +72,9 @@ class Option:
 class Widget:
     """Where a field is drawn: one per place, on one page.
 
-    The page is its source index (sources.py); the rectangle is in PDF points from the top left corner of the page:
-    left, top, right, bottom. The state is the name a checkbox or radio button has when this widget is selected, as
-    the PDF writes it (see _name).
+    The page is its source index (sources.py); the rectangle is in PDF points from the top left corner of the page
+    as Poppler shows it (its crop box, turned by its own /Rotate): left, top, right, bottom. The state is the name a
+    checkbox or radio button has when this widget is selected, as the PDF writes it (see _name).
     """
 
     page: int
@@ -187,26 +189,64 @@ def _is_field(node: object) -> bool:
     return isinstance(node, pikepdf.Dictionary) and "/T" in node
 
 
-def _widget_places(pdf: pikepdf.Pdf, first_page: int) -> dict[tuple[int, int], tuple[int, float]]:
-    """Map each widget on a page (by object number) to the source index and height of its page."""
+@dataclass(frozen=True)
+class _PageFrame:
+    """What places a widget on its page: the page's source index, its crop box and its own turn (/Rotate)."""
+
+    page: int
+    crop_box: tuple[float, float, float, float]  # left, bottom, right, top, in PDF units
+    rotation: int
+
+    def place(self, value: object) -> tuple[float, float, float, float] | None:
+        """Turn a /Rect into left, top, right, bottom from the top left corner of the page as shown."""
+        corners = numbers(value)
+        if corners is None or len(corners) != 4:  # noqa: PLR2004 (two corners)
+            return None
+        crop_left, crop_bottom, crop_right, crop_top = self.crop_box
+        x1, y1, x2, y2 = corners
+        unturned = (min(x1, x2) - crop_left, crop_top - max(y1, y2), max(x1, x2) - crop_left, crop_top - min(y1, y2))
+        return turn_rectangle(unturned, (crop_right - crop_left, crop_top - crop_bottom), self.rotation)
+
+
+def _widget_places(pdf: pikepdf.Pdf, first_page: int) -> dict[tuple[int, int], _PageFrame]:
+    """Map each widget on a page (by object number) to the frame of its page."""
     places = {}
     for index, page in enumerate(pdf.pages, start=first_page):
         annots = page.obj.get("/Annots")
         if not isinstance(annots, pikepdf.Array):
             continue
-        height = page_height(page)
+        frame = _PageFrame(index, _crop_box(page), _rotation(page.obj))
         for position in range(len(annots)):
             annotation = annots[position]
             if isinstance(annotation, pikepdf.Dictionary) and annotation.is_indirect:
-                places[annotation.objgen] = (index, height)
+                places[annotation.objgen] = frame
     return places
+
+
+def _crop_box(page: pikepdf.Page) -> tuple[float, float, float, float]:
+    corners = numbers(page.cropbox) or [0.0, 0.0, 0.0, 0.0]
+    x1, y1, x2, y2 = corners if len(corners) == 4 else (0.0, 0.0, 0.0, 0.0)  # noqa: PLR2004 (two corners)
+    return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+
+
+def _rotation(page: pikepdf.Object) -> int:
+    """Return the page's own turn in degrees (0, 90, 180 or 270), which it may inherit from the page tree (7.7.3.4)."""
+    node: pikepdf.Object | None = page
+    for _ in range(MAX_DEPTH):
+        if not isinstance(node, pikepdf.Dictionary):
+            break
+        if "/Rotate" in node:
+            degrees = _integer(node.get("/Rotate")) or 0
+            return degrees % FULL_TURN if degrees % QUARTER_TURN == 0 else 0
+        node = node.get("/Parent")
+    return 0
 
 
 def _read_field(
     node: pikepdf.Dictionary,
     name: str,
     inherited: _Inherited,
-    places: dict[tuple[int, int], tuple[int, float]],
+    places: dict[tuple[int, int], _PageFrame],
     first_page: int,
 ) -> FormField | None:
     kind = _kind(inherited.field_type, inherited.flags)
@@ -249,20 +289,19 @@ def _kind(field_type: str, flags: int) -> FieldKind | None:
     return None  # Signatures and unknown types.
 
 
-def _widgets(node: pikepdf.Dictionary, places: dict[tuple[int, int], tuple[int, float]]) -> Iterator[Widget]:
+def _widgets(node: pikepdf.Dictionary, places: dict[tuple[int, int], _PageFrame]) -> Iterator[Widget]:
     """Give the visible widgets of a field that are on a page: its kids, or the field itself when it is one."""
     kids = node.get("/Kids")
     candidates = [kids[index] for index in range(len(kids))] if isinstance(kids, pikepdf.Array) else [node]
     for widget in candidates:
         if not isinstance(widget, pikepdf.Dictionary) or not widget.is_indirect:
             continue
-        place = places.get(widget.objgen)
-        if place is None or (_integer(widget.get("/F")) or 0) & HIDDEN:
+        frame = places.get(widget.objgen)
+        if frame is None or (_integer(widget.get("/F")) or 0) & HIDDEN:
             continue
-        page, height = place
-        area = rectangle(widget.get("/Rect"), height)
+        area = frame.place(widget.get("/Rect"))
         if area is not None:
-            yield Widget(page=page, rectangle=area, state=_on_state(widget))
+            yield Widget(page=frame.page, rectangle=area, state=_on_state(widget))
 
 
 def _on_state(widget: pikepdf.Dictionary) -> str:

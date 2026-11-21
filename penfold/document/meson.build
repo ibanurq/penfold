@@ -5,6 +5,7 @@ install_data(
   'document.py',
   'extracting.py',
   'forms.py',
+  'geometry.py',
   'history.py',
   'page_labels.py',
   'pages.py',

@@ -21,11 +21,14 @@ from typing import ClassVar
 import cairo
 from gi.repository import Gdk, GLib, GObject, Poppler
 
+from penfold.document.geometry import Size, turned_size
 from penfold.document.pages import Page
 from penfold.document.sources import Spans
-from penfold.rendering.layout import PageLayout, Size, turned_size
+from penfold.rendering.layout import PageLayout
 from penfold.rendering.poppler_sources import PopplerSources
 
+# Every annotation but form fields, which the view shows as widgets to fill in (I1), as 0.6 did.
+SHOWN_ANNOTATIONS = Poppler.RenderAnnotsFlags.ALL ^ Poppler.RenderAnnotsFlags.WIDGET  # type: ignore[attr-defined]
 # A page larger than this, in pixels, is drawn in tiles.
 MAX_WHOLE_PAGE_PIXELS = 16 * 1024 * 1024
 TILE_SIZE = 1024
@@ -264,7 +267,7 @@ def draw_tile(page: Poppler.Page, key: TileKey) -> Gdk.Texture:
     context.scale(key.scale, key.scale)
     _turn(context, source_size, key.rotation)
     with _POPPLER_DRAWING:
-        page.render(context)
+        page.render_full(context, False, SHOWN_ANNOTATIONS)  # type: ignore[attr-defined]  # False: not printing
     surface.flush()
     return Gdk.MemoryTexture.new(
         width,

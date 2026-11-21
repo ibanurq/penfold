@@ -16,6 +16,7 @@ from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
 from penfold.rendering.text_search import SearchResult
+from penfold.ui.form_layer import FormLayer, ShownBox
 from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
 # Zoom limits and step, as in 0.6: from 30 % to 400 %, 20 points at a time.
@@ -139,6 +140,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._pixel = 1.0
         self._scale = 1.0
         self._pointer: tuple[float, float] | None = None
+        self._form_layer = FormLayer(self)
+        # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
+        # the form fields again (GTK places child widgets only while allocating).
+        self._fields_moved = False
+        self._allocated_height = 0
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
         self._add_controllers()
@@ -183,6 +189,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.renderer = renderer
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
         self.content = PageContent(renderer.poppler)
+        self._form_layer.set_document(document, renderer.layout)
         self.selection = None
         self.current_page = 0
         self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH
@@ -197,6 +204,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         The zoom is fitted again unless it is manual, since the current page may now be turned.
         """
         self.selection = None
+        if self.renderer is not None:
+            self._form_layer.pages_changed(self.renderer.layout)
         self.current_page = min(self.current_page, self.page_count - 1)
         if self.fit is not Fit.MANUAL:
             self.zoom = self._fitting_zoom(self.fit)
@@ -204,6 +213,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._relayout(keep_position=True)
         self._update_current_page()
         self.emit("current-page-changed")
+
+    def form_changed(self) -> None:
+        """Show the values of the form fields after an edit, an undo or a redo."""
+        self._form_layer.form_changed()
 
     @property
     def page_count(self) -> int:
@@ -419,8 +432,14 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             box = self._box(page)
             if box is not None:
                 self._vadjustment.set_value(box.y + fraction * box.height - self.get_height() / 3)
+        self._move_fields()
         self.queue_draw()
         self.emit("viewport-changed")
+
+    def _move_fields(self) -> None:
+        """Have the form fields placed again over the pages, which moved."""
+        self._fields_moved = True
+        self.queue_allocate()
 
     def _anchor(self) -> tuple[int, float] | None:
         """The page on the top third of the viewer and how far down it is (0 at its top, 1 at its bottom)."""
@@ -452,8 +471,13 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._allocated_width = -1
             self.queue_allocate()
 
-    def do_size_allocate(self, width: int, _height: int, _baseline: int) -> None:
-        """Fit the zoom again when the width of the viewer changes (B4), then place the pages."""
+    def do_size_allocate(self, width: int, height: int, _baseline: int) -> None:
+        """Fit the zoom again when the width of the viewer changes (B4), then place the pages and the form fields."""
+        fields_moved, self._fields_moved = self._fields_moved, False
+        if fields_moved and (width, height) == (self._allocated_width, self._allocated_height):
+            self._allocate_fields()
+            return
+        self._allocated_height = height
         width_changed = width != self._allocated_width
         if not self._fit_deferred:
             self._allocated_width = width
@@ -467,6 +491,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._start_pending = False
             if self._vadjustment is not None:
                 self._vadjustment.set_value(0)
+        self._allocate_fields()
+
+    def _allocate_fields(self) -> None:
+        """Place the form fields of the visible pages over them."""
+        if self._hadjustment is None or self._vadjustment is None:
+            return
+        offset_x, offset_y = self._hadjustment.get_value(), self._vadjustment.get_value()
+        boxes = [ShownBox(box.page, box.x - offset_x, box.y - offset_y) for box in self._visible_boxes()]
+        self._form_layer.allocate(boxes, self.zoom)
 
     def do_measure(self, _orientation: object, _for_size: int) -> tuple[int, int, int, int]:
         """The view takes whatever space it is given; scrolling shows the rest."""
@@ -475,6 +508,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     # Current page.
 
     def _on_scrolled(self, _adjustment: Gtk.Adjustment) -> None:
+        self._move_fields()
         self._update_current_page()
         self.queue_draw()
         self.emit("viewport-changed")
@@ -589,6 +623,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             for key in self._all_tiles(page, scale):
                 wanted.setdefault(key, PRELOAD_PAGES + abs(page - self.current_page))
         self.renderer.request(wanted)
+        self._form_layer.snapshot(snapshot)
 
     def _draw_page_frame(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Draw the white page with its edge, before its tiles."""
@@ -811,7 +846,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
         """Ctrl+C copies; the arrows scroll, and in Two pages left and right change pair (B2)."""
-        if self.renderer is None or self._vadjustment is None or self._hadjustment is None:
+        # Keys a form field leaves (the arrows at the ends of its text…) are not for the view.
+        if self.renderer is None or self._vadjustment is None or self._hadjustment is None or self.get_focus_child():
             return False
         control = bool(state & Gdk.ModifierType.CONTROL_MASK)
         if control and keyval in {Gdk.KEY_c, Gdk.KEY_C}:

@@ -2,8 +2,9 @@
 
 import pytest
 
+from penfold.document.geometry import turn_point, turn_rectangle, turned_size, unturn_point
 from penfold.document.pages import Page
-from penfold.rendering.layout import PageLayout, turn_point, turn_rectangle, turned_size, unturn_point
+from penfold.rendering.layout import PageLayout
 
 SIZE = (100.0, 200.0)
 
