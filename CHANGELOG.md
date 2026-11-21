@@ -5,6 +5,30 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.5 — 2026-11-21
+
+Fifth preview of Penfold 1.0: pages from other PDFs. Pages can be added, extracted and merged.
+
+### Added
+- Add, in the Pages view: the pages of another PDF, or a blank page (A4, Letter, A5 or A3), at the start, at the end or
+  after a page. With pages selected it proposes the place after the last of them; in a PDF with page labels it shows
+  the label of the page chosen. The pages keep their labels and annotations, and the PDF's bookmarks come under a new,
+  unfolded bookmark named after the file.
+- Extract, in the Pages view: the pages written as a list such as “1, 5, 10-12, 56-”, starting with the selected ones,
+  into one file or one per page, in a folder chosen. A name already in the folder can be overwritten or the new file
+  renamed. The pages can be deleted afterwards, with Undo. The files keep their pages as they are, with their
+  annotations and the bookmarks that lead to them.
+- Merge PDFs, in the main menu and on the welcome page: a list of files, added with a button or dropped on it,
+  reordered by dragging and removed; protected PDFs are shown in red and left out. It can create a bookmark for each
+  file and keep the files' own bookmarks. The merged document opens unsaved, and Save asks where to save it.
+- Dropping several PDFs on a window, or opening several with Penfold at once, opens Merge PDFs with them.
+- The form fields of added or merged pages join the document's form; a name already used gets a number (“name_2”).
+- A click in an empty part of the Pages or Bookmarks list, or Esc, clears the selection.
+
+### Changed
+- Unlike 0.6, Extract no longer offers to remove bookmarks and annotations from the files: they can be removed from
+  the extracted file afterwards, as wanted.
+
 ## 1.0.0-alpha.4 — 2026-11-20
 
 Fourth preview of Penfold 1.0: the first edits. Pages can be turned, deleted and reordered, every edit can be undone,
