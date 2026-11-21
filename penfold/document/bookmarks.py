@@ -6,7 +6,8 @@ pages are added come with them (E4).
 """
 
 import bisect
-from collections.abc import Callable, Set
+import re
+from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass, field, replace
 
 import pikepdf
@@ -21,6 +22,10 @@ MAX_DEPTH = 64
 MAX_ITEMS = 100_000
 # How a destination shows its page (ISO 32000-1, 12.3.2.2): its type (/XYZ, /FitH…) and its numbers (None for null).
 View = tuple[str, tuple[float | None, ...]]
+# An outline colour: red, green and blue, from 0 to 1.
+Color = tuple[float, float, float]
+# A title taken from text selected in the document is cut at this length, as in 0.6 (G3).
+MAX_TITLE_FROM_TEXT = 150
 
 
 @dataclass
@@ -37,11 +42,36 @@ class Bookmark:
     top: float | None = None
     bold: bool = False
     italic: bool = False
-    color: tuple[float, float, float] | None = None
+    color: Color | None = None
     is_open: bool = False
     children: list["Bookmark"] = field(default_factory=list)
     origin: tuple[int, int] | None = None
     view: View | None = None
+
+
+def title_from_text(text: str) -> str:
+    """Return a bookmark title from text selected in the document: on one line, and cut if it is long (G3)."""
+    title = re.sub(r"\s+", " ", text).strip()
+    return title if len(title) <= MAX_TITLE_FROM_TEXT else title[:MAX_TITLE_FROM_TEXT] + "…"
+
+
+def topmost(bookmarks: list[Bookmark], chosen: Iterable[Bookmark]) -> list[Bookmark]:
+    """Return those of the chosen bookmarks of an outline that are not under another chosen one, in outline order.
+
+    They are the ones to move, since each takes the bookmarks under it along.
+    """
+    wanted = {id(bookmark) for bookmark in chosen}
+    found = []
+
+    def walk(level: list[Bookmark]) -> None:
+        for bookmark in level:
+            if id(bookmark) in wanted:
+                found.append(bookmark)
+            else:
+                walk(bookmark.children)
+
+    walk(bookmarks)
+    return found
 
 
 def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
@@ -226,7 +256,7 @@ def _number(value: object) -> float | None:
         return None
 
 
-def _color(value: object) -> tuple[float, float, float] | None:
+def _color(value: object) -> Color | None:
     """Return an outline colour (/C, three numbers from 0 to 1), or None if it has none or it is black."""
     if not isinstance(value, pikepdf.Array) or len(value) != 3:  # noqa: PLR2004 (red, green, blue)
         return None
