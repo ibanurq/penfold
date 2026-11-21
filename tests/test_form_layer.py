@@ -7,6 +7,7 @@ import pytest
 from gi.repository import Gtk, Pango
 
 from penfold.ui.form_layer import FieldEditor, font_size
+from penfold.ui.form_toggle import ToggleField
 from tests.gtk_helpers import process_pending_events, wait_until
 from tests.test_document_window import open_and_wait, window
 from tests.test_forms import build_form
@@ -24,7 +25,15 @@ def form_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
 
 
 def editors(window: "PenfoldWindow") -> dict[str, FieldEditor]:
-    return {editor.field.name: editor for editor in window.document_view._form_layer._editors.values()}
+    """The text boxes shown, by field name."""
+    shown = window.document_view._form_layer._editors.values()
+    return {editor.field.name: editor for editor in shown if isinstance(editor, FieldEditor)}
+
+
+def toggles(window: "PenfoldWindow") -> dict[str, ToggleField]:
+    """The checkboxes and radio buttons shown, by field name and state."""
+    shown = window.document_view._form_layer._editors.values()
+    return {f"{item.field.name}={item.widget.state}": item for item in shown if isinstance(item, ToggleField)}
 
 
 def size_of(editor: FieldEditor, window: "PenfoldWindow") -> tuple[int, int]:
@@ -84,7 +93,7 @@ def test_leaving_a_field_ends_the_edit(form_window: "PenfoldWindow") -> None:
 
 def test_fields_of_pages_out_of_sight_have_no_widgets(form_window: "PenfoldWindow") -> None:
     view = form_window.document_view
-    assert "size" not in editors(form_window)  # Radio buttons come in a later step; and page 2 is not visible.
+    assert set(toggles(form_window)) == {"agree=Yes", "size=S"}  # The other radio button is on page 2.
     adjustment = view.vadjustment
     assert adjustment is not None
     adjustment.set_value(adjustment.get_upper())
@@ -101,3 +110,32 @@ def test_the_text_follows_the_zoom(form_window: "PenfoldWindow") -> None:
     assert attributes is not None
     expected = round(font_size(name.field, name.widget) * view.zoom * Pango.SCALE)
     assert attributes.to_string().endswith(f"absolute-size {expected}")
+
+
+def test_a_checkbox_is_ticked_and_unticked(form_window: "PenfoldWindow") -> None:
+    document = form_window.document
+    assert document is not None
+    agree = toggles(form_window)["agree=Yes"]
+    assert agree.selected
+    agree.choose()
+    process_pending_events()
+    assert (agree.selected, document.field_value(agree.field), document.is_modified) == (False, "Off", True)
+    form_window.activate_action("win.undo", None)
+    process_pending_events()
+    assert (agree.selected, document.is_modified) == (True, False)
+
+
+def test_a_radio_button_is_chosen_but_not_unchosen(form_window: "PenfoldWindow") -> None:
+    document = form_window.document
+    assert document is not None
+    small = toggles(form_window)["size=S"]
+    assert not small.selected
+    small.choose()
+    process_pending_events()
+    assert (small.selected, document.field_value(small.field)) == (True, "S")
+    small.choose()
+    process_pending_events()
+    assert (small.selected, document.field_value(small.field)) == (True, "S")
+    form_window.activate_action("win.undo", None)
+    process_pending_events()
+    assert (small.selected, document.field_value(small.field), document.can_undo) == (False, "L", False)

@@ -8,6 +8,7 @@ install_data(
   'extraction.py',
   'file_dialogs.py',
   'form_layer.py',
+  'form_toggle.py',
   'menus.py',
   'page_entry.py',
   'shortcuts_dialog.py',
