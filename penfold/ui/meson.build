@@ -2,6 +2,7 @@ install_data(
   '__init__.py',
   'about.py',
   'autoscroll.py',
+  'bookmark_editing.py',
   'document_header.py',
   'document_view.py',
   'extraction.py',

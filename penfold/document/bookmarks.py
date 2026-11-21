@@ -6,6 +6,7 @@ pages are added come with them (E4).
 """
 
 import bisect
+import itertools
 import re
 from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass, field, replace
@@ -24,6 +25,8 @@ MAX_ITEMS = 100_000
 View = tuple[str, tuple[float | None, ...]]
 # An outline colour: red, green and blue, from 0 to 1.
 Color = tuple[float, float, float]
+# Gives each bookmark read or made its key.
+_keys = itertools.count()
 # A title taken from text selected in the document is cut at this length, as in 0.6 (G3).
 MAX_TITLE_FROM_TEXT = 150
 
@@ -35,6 +38,9 @@ class Bookmark:
     Its page is the source index of the page it leads to (sources.py), and its origin the object number of the outline
     item it was read from in the opened PDF, whose destination or action is kept on saving (G8). A bookmark of a PDF
     added has no origin: its view keeps how its destination shows the page, to write it again on saving.
+
+    Its key stays the same in its copies, which edits make (commands/bookmarks.py), so the view can select it again
+    after an edit, an undo or a redo; it is not part of the bookmark, and leaves equality alone.
     """
 
     title: str
@@ -47,6 +53,7 @@ class Bookmark:
     children: list["Bookmark"] = field(default_factory=list)
     origin: tuple[int, int] | None = None
     view: View | None = None
+    key: int = field(default_factory=lambda: next(_keys), compare=False, repr=False)
 
 
 def title_from_text(text: str) -> str:

@@ -18,6 +18,7 @@ from penfold.document.saving import SavePlan, save
 from penfold.errors import DocumentOpenError, PenfoldError, ProtectedPdfError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
+from penfold.ui.bookmark_editing import BookmarkEditing
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
 from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
@@ -224,10 +225,13 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _on_delete_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
         """Delete acts on the view of the panel shown, and never while a dialogue is open."""
-        if self.get_visible_dialog() is not None or self.sidebar.visible_view != sidebar_views.PAGES:
+        if self.get_visible_dialog() is not None:
             return False
+        if self.sidebar.visible_view == sidebar_views.BOOKMARKS and self.bookmark_editing.can_delete():
+            self.bookmark_editing.delete_selected()
+            return True
         action = self.lookup_action("delete-pages")
-        if action is None or not action.get_enabled():
+        if self.sidebar.visible_view != sidebar_views.PAGES or action is None or not action.get_enabled():
             return False
         action.activate(None)
         return True
@@ -462,6 +466,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._update_zoom_actions()
         self._update_edit_actions()
         self._update_page_actions()
+        self.bookmark_editing.update_actions()
         self._update_save_actions()
 
     def _update_zoom_actions(self) -> None:
@@ -500,6 +505,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.bookmarks_view = BookmarksView()
         self.bookmarks_view.connect("destination-activated", self._on_destination_activated)
         self.sidebar.add_view(sidebar_views.BOOKMARKS, self.bookmarks_view)
+        self.bookmark_editing = BookmarkEditing(self, self.bookmarks_view, lambda: self.document, self._show_undo_toast)
         self.annotations_view = AnnotationsView()
         self.annotations_view.connect("annotation-activated", self._on_destination_activated)
         self.sidebar.add_view(sidebar_views.ANNOTATIONS, self.annotations_view)
@@ -714,6 +720,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.bookmarks_view.pages_changed()
         if Change.BOOKMARKS in changes:
             self.bookmarks_view.bookmarks_changed()
+            self.bookmark_editing.update_actions()
 
     def _show_sidebar_when_it_fits(self) -> None:
         """Show the panel as soon as the window is wide enough for it and the document (or after half a second).

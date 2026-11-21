@@ -1,7 +1,8 @@
 """The Bookmarks view of the side panel (02-interfaz, 6.2; D23): the outline as a tree.
 
-Phase 2 shows it, with each bookmark's style and page, lets the user unfold it and go to a bookmark. Adding, editing,
-formatting and moving bookmarks come with phase 5. A click away from the rows, or Esc, clears the selection (D47).
+It shows each bookmark's style and page, lets the user unfold it and go to a bookmark, and follows the reading (D40).
+With bookmarks selected, a bar at the bottom edits them through the window's actions. A click away from the rows, or
+Esc, clears the selection (D47).
 """
 
 from gettext import gettext as _
@@ -105,6 +106,10 @@ class BookmarksView(Gtk.Box):
         factory.connect("unbind", self._on_unbind)
         self.list = Gtk.ListView(model=self.selection, factory=factory)
         self.list.add_css_class("navigation-sidebar")
+        # The bookmarks selected, to select them again when the outline is shown again (after undo, for example).
+        self._selected: list[Bookmark] = []
+        for signal in ("selection-changed", "items-changed"):
+            self.selection.connect(signal, lambda *_arguments: self._remember_selection())
         self._recent_use = RecentUse(self.list)
         # Following the reading (D40): the bookmark of the section read, and the row that shows it (the bookmark
         # itself, or the folded branch that holds it).
@@ -119,6 +124,8 @@ class BookmarksView(Gtk.Box):
         self.stack.add_named(scrolled, "list")
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
+        self.action_bar = self._action_bar()
+        self.append(self.action_bar)
 
     def set_document(self, document: OpenDocument, renderer: Renderer) -> None:
         """Show the bookmarks of a PDF, unfolded as the PDF says; the renderer says where their pages are shown."""
@@ -126,10 +133,11 @@ class BookmarksView(Gtk.Box):
         self.bookmarks_changed()
 
     def bookmarks_changed(self) -> None:
-        """Show the outline again after an edit, unfolded as each bookmark says."""
+        """Show the outline again after an edit, unfolded as each bookmark says, keeping what is still selected."""
         if self.document is None:
             return
         bookmarks = self.document.bookmarks
+        selected = self._selected
         # Forget the old rows first: GTK may bind the new ones as soon as the model changes.
         self._rows.clear()
         self._reading = self._marked = None
@@ -140,6 +148,7 @@ class BookmarksView(Gtk.Box):
         self.tree.connect("items-changed", self._on_tree_changed)
         self.stack.set_visible_child_name("list" if bookmarks else "empty")
         self.expand_button.set_sensitive(any(bookmark.children for bookmark in bookmarks))
+        self.select(selected, scroll=False)
 
     def pages_changed(self) -> None:
         """Show the new page of each bookmark after the pages were moved, turned or deleted."""
@@ -205,6 +214,54 @@ class BookmarksView(Gtk.Box):
     def unselect_all(self) -> bool:
         """Clear the selection (Esc, D47); return whether any bookmark was selected."""
         return unselect_all(self.selection)
+
+    def selected_bookmarks(self) -> list[Bookmark]:
+        """The bookmarks selected, in the order of the outline."""
+        bitset = self.selection.get_selection()
+        selected = []
+        for nth in range(bitset.get_size()):
+            row = self.tree.get_row(bitset.get_nth(nth))
+            item = row.get_item() if row is not None else None
+            if isinstance(item, BookmarkItem):
+                selected.append(item.bookmark)
+        return selected
+
+    def select(self, bookmarks: list[Bookmark], *, scroll: bool = True) -> None:
+        """Select these bookmarks, or their copies (by key), and bring the first into sight unless told not to.
+
+        Only bookmarks whose rows are shown can be selected.
+        """
+        wanted = {bookmark.key for bookmark in bookmarks}
+        selected = Gtk.Bitset.new_empty()
+        for index in range(self.tree.get_n_items()):
+            row = self.tree.get_row(index)
+            item = row.get_item() if row is not None else None
+            if isinstance(item, BookmarkItem) and item.bookmark.key in wanted:
+                selected.add(index)
+        self.selection.set_selection(selected, Gtk.Bitset.new_range(0, self.tree.get_n_items()))
+        if scroll and not selected.is_empty():
+            self.list.scroll_to(selected.get_minimum(), Gtk.ListScrollFlags.NONE, None)
+
+    def _remember_selection(self) -> None:
+        self._selected = self.selected_bookmarks()
+        self.action_bar.set_revealed(bool(self._selected))
+
+    def _action_bar(self) -> Gtk.ActionBar:
+        """The bar shown with bookmarks selected (02-interfaz, 6.2; D23)."""
+        bar = Gtk.ActionBar(revealed=False)
+        delete = Gtk.Button(
+            icon_name="edit-delete-symbolic", tooltip_text=_("Delete"), action_name="win.delete-bookmarks"
+        )
+        delete.add_css_class("destructive-action")
+        bar.pack_end(delete)
+        indenting = Gtk.Box(spacing=6)
+        for icon_name, tooltip, action_name in (
+            ("format-indent-less-symbolic", _("Decrease Indent"), "win.outdent-bookmarks"),
+            ("format-indent-more-symbolic", _("Increase Indent"), "win.indent-bookmarks"),
+        ):
+            indenting.append(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
+        bar.set_center_widget(indenting)
+        return bar
 
     def toggle_all(self) -> None:
         """Unfold every branch, or fold them all if they are all unfolded."""
