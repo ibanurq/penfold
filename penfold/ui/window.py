@@ -857,6 +857,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.annotations_view.pages_changed()
             self.bookmarks_view.pages_changed()
         if Change.ANNOTATIONS in changes:
+            self.renderer.hide_annotations(self.document.replaced_annotations)
             self.annotations_view.annotations_changed()
             self.document_view.annotations_changed()
         if Change.BOOKMARKS in changes:

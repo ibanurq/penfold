@@ -61,7 +61,7 @@ class OpenDocument:
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
         # The annotations of the source PDFs as they were read, by page and origin, to know which were removed.
-        self._read_annotations = _origins(self.annotations)
+        self._read_annotations = _by_origin(self.annotations)
         self.form_fields: list[FormField] = read_form_fields(pdf)
         # The values filled in that differ from the PDF's, by field key; a field set back to its value is not here (I5).
         self._form_values: dict[tuple[int, str], FieldValue] = {}
@@ -221,7 +221,7 @@ class OpenDocument:
         start = self.sources.add(source).start
         read = read_annotations(source.pdf, start)
         self.annotations = [*self.annotations, *read]
-        self._read_annotations |= _origins(read)
+        self._read_annotations |= _by_origin(read)
         self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]
         return start, source.pdf
 
@@ -360,8 +360,17 @@ class OpenDocument:
         PDFs that were deleted or changed; the rest are in their pages already.
         """
         managed = tuple(annotation for annotation in self.annotations if annotation.managed)
-        unchanged = _origins(annotation for annotation in self.annotations if not annotation.managed)
-        return replace(plan, annotations=managed, removed=frozenset(self._read_annotations - unchanged))
+        removed = frozenset((annotation.page, annotation.origin or 0) for annotation in self.replaced_annotations)
+        return replace(plan, annotations=managed, removed=removed)
+
+    @property
+    def replaced_annotations(self) -> list[Annotation]:
+        """The annotations of the source PDFs, as they were read, that were deleted or changed since.
+
+        Saving takes them out of their pages, and Poppler leaves them out when it draws the pages (03-arquitectura 4.1).
+        """
+        unchanged = _by_origin(annotation for annotation in self.annotations if not annotation.managed)
+        return [annotation for key, annotation in self._read_annotations.items() if key not in unchanged]
 
     def _filled_in(self) -> tuple[tuple[FormField, FieldValue], ...]:
         """The fields whose values differ from the PDF's, with those values, to write them (I5, I7)."""
@@ -387,9 +396,11 @@ class OpenDocument:
         self.sources.close()
 
 
-def _origins(annotations: Iterable[Annotation]) -> set[tuple[int, int]]:
-    """The page and origin of each annotation read from a PDF (annotations.py)."""
-    return {(annotation.page, annotation.origin) for annotation in annotations if annotation.origin is not None}
+def _by_origin(annotations: Iterable[Annotation]) -> dict[tuple[int, int], Annotation]:
+    """The annotations read from a PDF, by their page and origin (annotations.py)."""
+    return {
+        (annotation.page, annotation.origin): annotation for annotation in annotations if annotation.origin is not None
+    }
 
 
 def _pages_of(pdf: pikepdf.Pdf, start: int) -> list[Page]:

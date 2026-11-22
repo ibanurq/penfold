@@ -4,9 +4,13 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import cairo
+import pikepdf
 import pytest
 from gi.repository import Gdk
 
+from penfold.document.annotations import Kind
+from penfold.document.commands.annotations import DeleteAnnotations
+from penfold.document.document import OpenDocument
 from penfold.document.pages import Page
 from penfold.rendering import renderer as renderer_module
 from penfold.rendering.renderer import MAX_WHOLE_PAGE_PIXELS, TILE_SIZE, Renderer, TileGrid, TileKey, grid, round_scale
@@ -167,3 +171,60 @@ def test_draws_a_merged_document(tmp_path: Path) -> None:
     finally:
         page_renderer.close()
         document.close()
+
+
+def make_annotated_pdf(path: Path) -> Path:
+    """The black square page, with a link, a note's pop-up window and a black square annotation at the bottom right."""
+    make_black_square_pdf(path)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        note = pdf.make_indirect(
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Text, Rect=[0, 0, 1, 1])
+        )
+        popup = pdf.make_indirect(
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Popup, Rect=[0, 0, 1, 1], Parent=note)
+        )
+        square = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name.Annot,
+                Subtype=pikepdf.Name.Square,
+                Rect=[400, 50, 580, 250],
+                C=pikepdf.Array([0, 0, 0]),
+                IC=pikepdf.Array([0, 0, 0]),
+                BS=pikepdf.Dictionary(W=1),
+            )
+        )
+        pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([popup, note, square]))
+        pdf.save(path)
+    return path
+
+
+def dark_at(renderer: Renderer, key: TileKey, point: tuple[int, int]) -> bool:
+    texture = renderer.texture(key)
+    assert texture is not None
+    pixels, stride = Gdk.TextureDownloader.new(texture).download_bytes()
+    data = pixels.get_data()
+    assert data is not None
+    return data[point[1] * stride + point[0] * 4] < 20
+
+
+def test_annotations_penfold_draws_instead_are_left_out(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_annotated_pdf(tmp_path / "annotated.pdf"))
+    square = next(annotation for annotation in document.annotations if annotation.kind is Kind.RECTANGLE)
+    assert square.drawn_place == 1  # The pop-up window does not count.
+    page_renderer = Renderer(document.sources.spans, worker_count=2)
+    key, bottom_right = TileKey(0, 0, 0.5), (245, 340)
+    try:
+        draw(page_renderer, key)
+        assert dark_at(page_renderer, key, bottom_right)
+        document.execute(DeleteAnnotations(document, [square]))
+        page_renderer.hide_annotations(document.replaced_annotations)
+        assert page_renderer.texture(key) is None
+        assert page_renderer.closest_textures(0, 0.5)  # The old drawing stands in meanwhile.
+        draw(page_renderer, key)
+        assert not dark_at(page_renderer, key, bottom_right)
+        document.undo()
+        page_renderer.hide_annotations(document.replaced_annotations)
+        draw(page_renderer, key)
+        assert dark_at(page_renderer, key, bottom_right)
+    finally:
+        page_renderer.close()

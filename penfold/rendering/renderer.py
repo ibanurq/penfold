@@ -9,18 +9,22 @@ without using too much memory (B10).
 
 The interface asks for pages by their position in the document; the layout says which source page that is (its
 source index) and its turn. Drawn tiles are kept by source index and turn, so moving pages does not draw them again.
+
+Poppler leaves out the annotations of the PDFs that Penfold draws instead (changed) or that were deleted
+(03-arquitectura 4.1); when they change, the pages they are on are drawn again.
 """
 
 import math
 import threading
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import ClassVar
 
 import cairo
 from gi.repository import Gdk, GLib, GObject, Poppler
 
+from penfold.document.annotations import Annotation
 from penfold.document.geometry import Size, turned_size
 from penfold.document.pages import Page
 from penfold.document.sources import Spans
@@ -107,9 +111,15 @@ class Renderer(GObject.Object):
         self.layout = PageLayout(self._source_sizes)
         self._cache: OrderedDict[TileKey, Gdk.Texture] = OrderedDict()
         self._cache_bytes = 0
+        # Tiles of pages whose hidden annotations changed, shown until they are drawn again.
+        self._stale: dict[TileKey, Gdk.Texture] = {}
         # What each part of the interface wants (the document, the thumbnails…), so they do not replace each other.
         self._wanted: dict[str, dict[TileKey, int]] = {}
         self._in_progress: set[TileKey] = set()
+        # The annotations Poppler leaves out, by source index: their drawn place and subtype; and how many times
+        # those of each page changed, so that a tile drawn before a change is not kept.
+        self._hidden: dict[int, Mapping[int, str]] = {}
+        self._hidden_changes: dict[int, int] = {}
         self._condition = threading.Condition()
         self._closed = False
         self._threads = [
@@ -177,13 +187,34 @@ class Renderer(GObject.Object):
         page = self.layout[position]
         tiles = [
             (key, texture)
-            for key, texture in self._cache.items()
+            for key, texture in {**self._stale, **self._cache}.items()
             if key.source == page.source and key.rotation == page.rotation
         ]
         if not tiles:
             return []
         nearest = min({key.scale for key, _texture in tiles}, key=lambda cached: abs(math.log(cached / scale)))
         return [(key, texture) for key, texture in tiles if key.scale == nearest]
+
+    def hide_annotations(self, annotations: Iterable[Annotation]) -> None:
+        """Have Poppler leave out these annotations of the PDFs, and draw again the pages whose hidden ones changed.
+
+        Until the new tiles are drawn, the old ones are still shown (closest_textures).
+        """
+        hidden: dict[int, dict[int, str]] = {}
+        for annotation in annotations:
+            if annotation.drawn_place is not None:
+                hidden.setdefault(annotation.page, {})[annotation.drawn_place] = annotation.subtype
+        changed = {source for source in {*hidden, *self._hidden} if hidden.get(source) != self._hidden.get(source)}
+        if not changed:
+            return
+        with self._condition:
+            self._hidden = dict(hidden)
+            for source in changed:
+                self._hidden_changes[source] = self._hidden_changes.get(source, 0) + 1
+        for key in [key for key in self._cache if key.source in changed]:
+            self._stale[key] = self._cache.pop(key)
+        for source in changed:
+            self.emit("tile-rendered", source)
 
     def request(self, wanted: dict[TileKey, int], channel: str = "view") -> None:
         """Ask for these tiles, with their priority (lower first), for one part of the interface.
@@ -202,10 +233,14 @@ class Renderer(GObject.Object):
             self._wanted.clear()
             self._condition.notify_all()
         self._cache.clear()
+        self._stale.clear()
         self._cache_bytes = 0
 
-    def _next_request(self) -> TileKey | None:
-        """Wait for a tile to draw and take it; None when the renderer is closed."""
+    def _next_request(self) -> tuple[TileKey, Mapping[int, str], int] | None:
+        """Wait for a tile to draw and take it; None when the renderer is closed.
+
+        It comes with the annotations to hide on its page, and how many times those changed.
+        """
         with self._condition:
             while not self._closed:
                 for channel in sorted(self._wanted, key=lambda name: (name != "view", name)):
@@ -214,26 +249,38 @@ class Renderer(GObject.Object):
                     if pending:
                         key = min(pending, key=lambda candidate: (wanted[candidate], candidate))
                         self._in_progress.add(key)
-                        return key
+                        return key, self._hidden.get(key.source, {}), self._hidden_changes.get(key.source, 0)
                 self._condition.wait()
             return None
 
     def _work(self) -> None:
         """Body of a worker thread: draw the requested tiles one after another."""
         sources = PopplerSources(lambda: self._spans)
-        while (key := self._next_request()) is not None:
+        while (request := self._next_request()) is not None:
+            key, hidden, changes = request
+            with POPPLER_DRAWING:
+                sources.hide_annotations(key.source, hidden)
             texture = draw_tile(sources.page(key.source), key)
-            GLib.idle_add(self._deliver, key, texture)
+            GLib.idle_add(self._deliver, key, texture, changes)
 
-    def _deliver(self, key: TileKey, texture: Gdk.Texture) -> bool:
-        """Store a drawn tile and announce it, in the main thread."""
+    def _deliver(self, key: TileKey, texture: Gdk.Texture, changes: int) -> bool:
+        """Store a drawn tile and announce it, in the main thread.
+
+        One drawn before the hidden annotations of its page changed is dropped, and drawn again when it is asked for.
+        """
         with self._condition:
             self._in_progress.discard(key)
-            for wanted in self._wanted.values():
-                wanted.pop(key, None)
             if self._closed:
                 return GLib.SOURCE_REMOVE
+            outdated = changes != self._hidden_changes.get(key.source, 0)
+            if not outdated:
+                for wanted in self._wanted.values():
+                    wanted.pop(key, None)
+        if outdated:
+            self.emit("tile-rendered", key.source)
+            return GLib.SOURCE_REMOVE
         self._cache[key] = texture
+        self._stale.pop(key, None)
         self._cache_bytes += texture.get_width() * texture.get_height() * BYTES_PER_PIXEL
         self._trim_cache()
         self.emit("tile-rendered", key.source)
