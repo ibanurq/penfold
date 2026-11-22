@@ -37,6 +37,15 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
 
     # The groups and texts of 0.6 (L2). A row appears once its action has keys, so later phases only add the keys.
     groups = (
+        # Keys of the window itself, without an action: they mark text or go back to Select Text (H7, H8).
+        ShortcutGroup(
+            _("Annotations"),
+            (
+                Shortcut(_("Highlight"), "h"),
+                Shortcut(_("Underline"), "u"),
+                Shortcut(_("Back to the text selection tool"), "Escape"),
+            ),
+        ),
         ShortcutGroup(
             _("General"),
             shortcuts(

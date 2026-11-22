@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-22 10:50+0100\n"
+"POT-Creation-Date: 2026-11-22 11:41+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -221,7 +221,7 @@ msgstr "Crear un marcador para cada archivo"
 msgid "Keep the Files’ Bookmarks"
 msgstr "Conservar los marcadores de los archivos"
 
-#: data/ui/dialogs/print_dialog.blp:8 penfold/ui/shortcuts_dialog.py:46
+#: data/ui/dialogs/print_dialog.blp:8 penfold/ui/shortcuts_dialog.py:55
 msgid "Print"
 msgstr "Imprimir"
 
@@ -293,11 +293,11 @@ msgstr "Panel lateral"
 msgid "Annotate"
 msgstr "Anotar"
 
-#: data/ui/document_header.blp:27 penfold/ui/shortcuts_dialog.py:47
+#: data/ui/document_header.blp:27 penfold/ui/shortcuts_dialog.py:56
 msgid "Undo"
 msgstr "Deshacer"
 
-#: data/ui/document_header.blp:34 penfold/ui/shortcuts_dialog.py:48
+#: data/ui/document_header.blp:34 penfold/ui/shortcuts_dialog.py:57
 msgid "Redo"
 msgstr "Rehacer"
 
@@ -360,7 +360,7 @@ msgid "Go to Page"
 msgstr "Ir a la página"
 
 #: data/ui/preferences_dialog.blp:13 data/ui/sidebar/sidebar.blp:69
-#: penfold/ui/sidebar/annotations_view.py:164
+#: penfold/ui/shortcuts_dialog.py:42 penfold/ui/sidebar/annotations_view.py:164
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -397,7 +397,7 @@ msgid "Find"
 msgstr "Buscar"
 
 #: data/ui/welcome_page.blp:9 penfold/application.py:120
-#: penfold/ui/shortcuts_dialog.py:43
+#: penfold/ui/shortcuts_dialog.py:52
 msgid "Open a PDF"
 msgstr "Abrir un PDF"
 
@@ -437,11 +437,11 @@ msgstr "ibanurq, con ayuda de IA"
 msgid "Select Text"
 msgstr "Seleccionar texto"
 
-#: penfold/ui/annotation_toolbar.py:76
+#: penfold/ui/annotation_toolbar.py:76 penfold/ui/shortcuts_dialog.py:44
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: penfold/ui/annotation_toolbar.py:77
+#: penfold/ui/annotation_toolbar.py:77 penfold/ui/shortcuts_dialog.py:45
 msgid "Underline"
 msgstr "Subrayar"
 
@@ -736,80 +736,84 @@ msgstr "Granate"
 msgid "Could not print “{name}”"
 msgstr "No se pudo imprimir «{name}»"
 
-#: penfold/ui/shortcuts_dialog.py:41
+#: penfold/ui/shortcuts_dialog.py:46
+msgid "Back to the text selection tool"
+msgstr "Volver a la herramienta de seleccionar texto"
+
+#: penfold/ui/shortcuts_dialog.py:50
 msgid "General"
 msgstr "General"
 
-#: penfold/ui/shortcuts_dialog.py:44
+#: penfold/ui/shortcuts_dialog.py:53
 msgid "Save"
 msgstr "Guardar"
 
-#: penfold/ui/shortcuts_dialog.py:45
+#: penfold/ui/shortcuts_dialog.py:54
 msgid "Save as"
 msgstr "Guardar como"
 
-#: penfold/ui/shortcuts_dialog.py:49
+#: penfold/ui/shortcuts_dialog.py:58
 msgid "Open the preferences"
 msgstr "Abrir las preferencias"
 
-#: penfold/ui/shortcuts_dialog.py:50
+#: penfold/ui/shortcuts_dialog.py:59
 msgid "Show the keyboard shortcuts"
 msgstr "Mostrar los atajos de teclado"
 
-#: penfold/ui/shortcuts_dialog.py:51
+#: penfold/ui/shortcuts_dialog.py:60
 msgid "Close the window"
 msgstr "Cerrar la ventana"
 
-#: penfold/ui/shortcuts_dialog.py:52
+#: penfold/ui/shortcuts_dialog.py:61
 msgid "Quit"
 msgstr "Salir"
 
-#: penfold/ui/shortcuts_dialog.py:56
+#: penfold/ui/shortcuts_dialog.py:65
 msgid "View"
 msgstr "Ver"
 
-#: penfold/ui/shortcuts_dialog.py:58
+#: penfold/ui/shortcuts_dialog.py:67
 msgid "Zoom in"
 msgstr "Acercar"
 
-#: penfold/ui/shortcuts_dialog.py:59
+#: penfold/ui/shortcuts_dialog.py:68
 msgid "Zoom out"
 msgstr "Alejar"
 
-#: penfold/ui/shortcuts_dialog.py:60
+#: penfold/ui/shortcuts_dialog.py:69
 msgid "Fit to page width"
 msgstr "Ajustar al ancho de página"
 
 #. The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel (D39).
-#: penfold/ui/shortcuts_dialog.py:62
+#: penfold/ui/shortcuts_dialog.py:71
 msgid "Larger thumbnails (with the focus on them)"
 msgstr "Miniaturas más grandes (con el foco en ellas)"
 
-#: penfold/ui/shortcuts_dialog.py:63
+#: penfold/ui/shortcuts_dialog.py:72
 msgid "Smaller thumbnails (with the focus on them)"
 msgstr "Miniaturas más pequeñas (con el foco en ellas)"
 
-#: penfold/ui/shortcuts_dialog.py:67
+#: penfold/ui/shortcuts_dialog.py:76
 msgid "Moving around"
 msgstr "Desplazarse"
 
-#: penfold/ui/shortcuts_dialog.py:69
+#: penfold/ui/shortcuts_dialog.py:78
 msgid "Next page"
 msgstr "Página siguiente"
 
-#: penfold/ui/shortcuts_dialog.py:70
+#: penfold/ui/shortcuts_dialog.py:79
 msgid "Previous page"
 msgstr "Página anterior"
 
-#: penfold/ui/shortcuts_dialog.py:71
+#: penfold/ui/shortcuts_dialog.py:80
 msgid "First page"
 msgstr "Primera página"
 
-#: penfold/ui/shortcuts_dialog.py:72
+#: penfold/ui/shortcuts_dialog.py:81
 msgid "Last page"
 msgstr "Última página"
 
-#: penfold/ui/shortcuts_dialog.py:73
+#: penfold/ui/shortcuts_dialog.py:82
 msgid "Go to page"
 msgstr "Ir a la página"
 

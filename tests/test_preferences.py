@@ -61,7 +61,9 @@ def test_preferences_come_before_the_keyboard_shortcuts_in_the_main_menu() -> No
 def test_the_keyboard_shortcuts_list_preferences(application: "PenfoldApplication") -> None:
     from penfold.ui.shortcuts_dialog import shortcut_groups
 
-    general = shortcut_groups(application)[0]
+    annotations, general = shortcut_groups(application)[:2]
+    # Annotations first, as in 0.6 (L2): H, U and Esc.
+    assert [shortcut.accelerator for shortcut in annotations.shortcuts] == ["h", "u", "Escape"]
     assert ("Open the preferences", "<Control>comma") in [
         (shortcut.description, shortcut.accelerator) for shortcut in general.shortcuts
     ]
