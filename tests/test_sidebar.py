@@ -171,6 +171,22 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     assert window.document_view.current_page == 1
 
 
+def test_a_new_annotation_is_listed_at_once_and_undo_takes_it_away(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.document.annotations import Kind, new_annotation
+    from penfold.document.commands.annotations import AddAnnotation
+
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=2))
+    document = window.document
+    assert document is not None
+    view = window.annotations_view
+    assert view.shown_annotations() == []
+    comment = new_annotation(Kind.COMMENT, 1, (100, 100, 120, 120), (1.0, 0.9, 0.3), "Iban", text="Check")
+    document.execute(AddAnnotation(document, comment))
+    assert view.shown_annotations() == [comment]
+    document.undo()
+    assert view.shown_annotations() == []
+
+
 def test_find_lists_matches_and_goes_to_them(window: "PenfoldWindow", tmp_path: Path) -> None:
     open_and_wait(window, make_text_pdf(tmp_path / "text.pdf"))
     window.activate_action("win.find", None)

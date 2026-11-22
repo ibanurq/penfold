@@ -5,7 +5,14 @@ from pathlib import Path
 import pikepdf
 import pytest
 
-from penfold.document.annotations import Annotation, AnnotationGroup, Kind, group_of, read_annotations
+from penfold.document.annotations import (
+    Annotation,
+    AnnotationGroup,
+    Kind,
+    group_of,
+    new_annotation,
+    read_annotations,
+)
 from tests.sample_pdfs import make_pdf
 
 
@@ -62,17 +69,31 @@ def test_positions_are_from_the_top_left_corner(annotations: list[Annotation]) -
     assert highlight.quads == ((72.0, 842.0 - 810, 300.0, 842.0 - 790),)
 
 
-def test_text_author_colour_and_ownership(annotations: list[Annotation]) -> None:
+def test_text_author_and_colour(annotations: list[Annotation]) -> None:
     highlight, comment, rectangle, ink = annotations
-    assert (comment.text, comment.author, comment.color, comment.is_own) == (
-        "Check this",
-        "Penfold",
-        (1.0, 1.0, 0.0),
-        True,
-    )
-    assert (highlight.author, highlight.is_own) == ("Ana", False)
+    assert (comment.text, comment.author, comment.color) == ("Check this", "Penfold", (1.0, 1.0, 0.0))
+    assert highlight.author == "Ana"
     assert rectangle.color == (0.5, 0.5, 0.5)
     assert (ink.text, ink.subtype, ink.author) == ("Scribble", "Ink", "")
+    # Read from the PDF, they are drawn by Poppler, even those Penfold wrote (D66).
+    assert not any(item.managed for item in annotations)
+
+
+def test_a_new_annotation_is_managed_and_named() -> None:
+    first = new_annotation(Kind.RECTANGLE, 3, (10, 20, 110, 70), (1.0, 0.0, 0.0), "  Iban ")
+    second = new_annotation(Kind.ARROW, 3, (10, 20, 110, 70), (1.0, 0.0, 0.0), "", line=(10, 70, 110, 20))
+    assert (first.subtype, first.page, first.author, first.managed) == ("Square", 3, "Iban", True)
+    assert first.group is AnnotationGroup.SHAPES
+    assert (second.author, second.line) == ("Penfold", (10, 70, 110, 20))  # no author in the preferences (D60)
+    assert first.name.startswith("penfold-")
+    assert first.name != second.name
+    assert first.created is not None
+    assert first.created.tzinfo is not None
+
+
+def test_penfold_makes_no_annotations_of_other_types() -> None:
+    with pytest.raises(ValueError, match="other types"):
+        new_annotation(Kind.OTHER, 0, (0, 0, 10, 10), (0.0, 0.0, 0.0), "")
 
 
 def test_every_listed_type_has_a_group(annotations: list[Annotation]) -> None:

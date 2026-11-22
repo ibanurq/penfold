@@ -1,17 +1,22 @@
 """Annotations: the notes, marks and shapes of the pages (ISO 32000-1, 12.5), as the side panel lists them.
 
-Phase 2 only reads them. Penfold's own annotations are the ones whose author (/T) is "Penfold", as in 0.6; the
-others are shown but not edited (D24). Links, form fields and pop-up windows are not annotations to list.
+The annotations of the PDF are read and shown as they are; Poppler draws them. The ones made in Penfold are managed:
+Penfold draws them and writes them into the PDF when it is saved (03-arquitectura, 4.1). From phase 9, the
+annotations of the types Penfold makes will be managed too (D60). Links, form fields and pop-up windows are not
+annotations to list.
 """
 
 import enum
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pikepdf
 
 from penfold.document.pdf_values import numbers, page_height, rectangle, text
 
-OWN_AUTHOR = "Penfold"
+# The author of new annotations when none is set in the preferences (D60).
+DEFAULT_AUTHOR = "Penfold"
 # Never listed: they are not notes (links, form fields, pop-up windows of notes…).
 NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
 
@@ -67,7 +72,10 @@ class Annotation:
     """One annotation of a page.
 
     The rectangle is in PDF points from the top left corner of the page: left, top, right, bottom. The quads are the
-    areas of the text it marks, in the same units, for highlights, underlines and strikethroughs.
+    areas of the text it marks, in the same units, for highlights, underlines and strikethroughs; the line goes from
+    its start to its end (x, y, x, y) for arrows.
+
+    A managed annotation is drawn and written by Penfold, with a unique name (/NM) and its creation date.
     """
 
     page: int
@@ -78,16 +86,50 @@ class Annotation:
     author: str = ""
     color: tuple[float, float, float] | None = None
     quads: tuple[tuple[float, float, float, float], ...] = ()
+    line: tuple[float, float, float, float] | None = None
+    name: str = ""
+    created: datetime | None = None
+    managed: bool = False
 
     @property
     def group(self) -> AnnotationGroup:
         """The group it is listed and printed in."""
         return SUBTYPE_GROUPS.get(f"/{self.subtype}", AnnotationGroup.OTHERS)
 
-    @property
-    def is_own(self) -> bool:
-        """Whether Penfold made it (and can edit it)."""
-        return self.author == OWN_AUTHOR
+
+def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
+    kind: Kind,
+    page: int,
+    rectangle: tuple[float, float, float, float],
+    color: tuple[float, float, float],
+    author: str,
+    *,
+    text: str = "",
+    quads: tuple[tuple[float, float, float, float], ...] = (),
+    line: tuple[float, float, float, float] | None = None,
+) -> Annotation:
+    """Make an annotation in Penfold, now, by an author ("Penfold" if none is set), with a unique name.
+
+    Raises:
+        ValueError: the kind is not one Penfold makes.
+    """
+    if kind is Kind.OTHER:
+        message = "Penfold does not make annotations of other types"
+        raise ValueError(message)
+    return Annotation(
+        page=page,
+        kind=kind,
+        subtype=kind.value,
+        rectangle=rectangle,
+        text=text,
+        author=author.strip() or DEFAULT_AUTHOR,
+        color=color,
+        quads=quads,
+        line=line,
+        name=f"penfold-{uuid.uuid4()}",
+        created=datetime.now(UTC),
+        managed=True,
+    )
 
 
 def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:

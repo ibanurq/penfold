@@ -52,7 +52,7 @@ def group_names() -> dict[AnnotationGroup, str]:
 def display_color(annotation: Annotation) -> tuple[float, float, float]:
     """The colour of the line next to the row: the annotation's, or orange if it has none or is white."""
     color = annotation.color
-    if color is None or (not annotation.is_own and min(color) > 0.95):  # noqa: PLR2004 (white)
+    if color is None or (not annotation.managed and min(color) > 0.95):  # noqa: PLR2004 (white)
         return FALLBACK_COLOR
     return color
 
@@ -230,6 +230,10 @@ class AnnotationsView(Gtk.Box):
         )
         self.store.splice(0, self.store.get_n_items(), [AnnotationItem(annotation) for annotation in self._present])
         self.refresh()
+
+    def annotations_changed(self) -> None:
+        """List the annotations again after one was added (or the addition undone)."""
+        self.pages_changed()
 
     def position(self, annotation: Annotation) -> int:
         """Where the page of a listed annotation is now."""

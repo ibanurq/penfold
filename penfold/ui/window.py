@@ -810,6 +810,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.search_view.pages_changed()
             self.annotations_view.pages_changed()
             self.bookmarks_view.pages_changed()
+        elif Change.ANNOTATIONS in changes:
+            self.annotations_view.annotations_changed()
         if Change.BOOKMARKS in changes:
             self.bookmarks_view.bookmarks_changed()
             self.bookmark_editing.update_actions()
