@@ -927,6 +927,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         page = self.renderer.layout[point.page]
         return self.content.link_at(page.source, *page.to_source(point.x, point.y))
 
+    def set_fields_active(self, active: bool) -> None:
+        """Let the form fields answer the mouse (Select Text), or annotate over them (the other tools, I4)."""
+        self._form_layer.set_active(active)
+
     def set_shape_maker(self, maker: "ShapeMaker | None") -> None:
         """Draw shapes with drags, made by maker from the page and the two ends; None to select text again."""
         self._shape_maker = maker

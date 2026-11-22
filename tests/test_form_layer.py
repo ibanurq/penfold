@@ -251,3 +251,17 @@ def test_save_as_without_a_form_goes_straight_to_the_file(
     assert window.get_visible_dialog() is None
     assert window.document is not None
     assert window.document.path == chosen.path
+
+
+def test_fields_only_answer_the_mouse_with_select_text(form_window: "PenfoldWindow") -> None:
+    from gi.repository import GLib
+
+    def targets() -> set[bool]:
+        return {editor.view.get_can_target() for editor in form_window.document_view._form_layer._editors.values()}
+
+    wait_until(lambda: bool(targets()))
+    assert targets() == {True}
+    form_window.activate_action("win.annotation-tool", GLib.Variant.new_string("rectangle"))
+    assert targets() == {False}  # The page is annotated over them (I4).
+    form_window.activate_action("win.annotation-tool", GLib.Variant.new_string("select"))
+    assert targets() == {True}

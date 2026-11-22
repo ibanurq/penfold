@@ -151,6 +151,7 @@ class Annotating:
         makers = {**dict.fromkeys(SHAPE_TOOLS, self._make_shape), Tool.TEXT_BOX: self._frame_text_box}
         self._document_view.set_shape_maker(makers.get(self.tool))
         self._document_view.placing = self.tool is Tool.COMMENT
+        self._document_view.set_fields_active(self.tool is Tool.SELECT)
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
 
     def _make_shape(self, page: ShownPage, shown_start: Point, shown_end: Point) -> Annotation | None:

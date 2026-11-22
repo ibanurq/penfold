@@ -59,6 +59,8 @@ class FormLayer:
         self._places: dict[int, list[tuple[FormField, Widget]]] = {}
         self._editors: dict[tuple[tuple[int, str], int], FieldWidget] = {}
         self._typing: SetFieldValue | None = None
+        # The fields only answer the mouse with the tool Select Text (I4): with the others, the page is annotated.
+        self._active = True
 
     def set_document(self, document: OpenDocument, layout: PageLayout) -> None:
         """Show the fields of another document."""
@@ -92,6 +94,12 @@ class FormLayer:
             editor.show_value(self._document.field_value(editor.field))
         if self._typing is not None and self._document.last_edit is not self._typing:
             self._typing = None
+
+    def set_active(self, active: bool) -> None:
+        """Let the fields answer the mouse, or let it through to the page (to annotate over them)."""
+        self._active = active
+        for editor in self._editors.values():
+            editor.view.set_can_target(active)
 
     def clear(self) -> None:
         """Take all the field widgets away."""
@@ -137,6 +145,7 @@ class FormLayer:
             assert self._document is not None
             editor = self._make_editor(field, widget)
             editor.show_value(self._document.field_value(field))
+            editor.view.set_can_target(self._active)
             editor.view.set_parent(self._view)
             self._editors[key] = editor
         return editor
