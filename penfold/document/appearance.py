@@ -27,8 +27,9 @@ ARROWHEAD_LENGTH = 10.0
 ARROWHEAD_ANGLE = math.pi / 6
 # A comment is a square of this side, in points.
 COMMENT_SIZE = 20.0
-# Annotation flag (/F) "Print": it is printed (12.5.3).
+# Annotation flags (/F, 12.5.3): "Print", it is printed; "NoRotate", it stays upright when the page is turned.
 PRINT_FLAG = 4
+NO_ROTATE_FLAG = 16
 # A circle drawn with four Bézier curves: how far the control points are from the ends.
 KAPPA = 0.5522848
 DECIMALS = 3
@@ -79,10 +80,8 @@ def write_annotation(pdf: pikepdf.Pdf, annotation: Annotation, page: pikepdf.Pag
     stream = pikepdf.Stream(pdf, "\n".join(written.drawing).encode())
     stream.Type = pikepdf.Name.XObject
     stream.Subtype = pikepdf.Name.Form
-    stream.BBox = written.box or written.entries["/Rect"]
+    stream.BBox = written.entries["/Rect"]
     stream.Resources = written.resources
-    if written.matrix is not None:
-        stream.Matrix = written.matrix
     dictionary = pikepdf.Dictionary(_common_entries(annotation, page))
     for key, value in written.entries.items():
         dictionary[key] = value
@@ -95,13 +94,11 @@ def write_annotation(pdf: pikepdf.Pdf, annotation: Annotation, page: pikepdf.Pag
 
 @dataclass
 class _Written:
-    """The entries of one type of annotation, and its drawing: by default, in the page's units inside its /Rect."""
+    """The entries of one type of annotation, and its drawing, in the page's units inside its /Rect."""
 
     entries: dict[str, object]
     drawing: list[str]
     resources: pikepdf.Dictionary = field(default_factory=pikepdf.Dictionary)
-    box: pikepdf.Array | None = None
-    matrix: pikepdf.Array | None = None
 
 
 def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, object]:
@@ -200,26 +197,29 @@ def _arrow(annotation: Annotation, frame: PageFrame) -> _Written:
 
 
 def _comment(annotation: Annotation, frame: PageFrame) -> _Written:
-    """The speech bubble filled with the colour and outlined in black, upright on the page as shown."""
+    """The speech bubble filled with the colour and outlined in black, upright however the page is turned.
+
+    Viewers keep comments upright (NoRotate): Poppler and Acrobat do even without the flag, which is set anyway.
+    """
+    left, top, right, bottom = annotation.rectangle
+    centre_x, centre_y = frame.pdf_point((left + right) / 2, (top + bottom) / 2)
     scale = COMMENT_SIZE / BUBBLE_GRID
     operations = []
     for operator, coordinates in BUBBLE:
-        # From the grid (from the top) to the square of the drawing (from the bottom).
+        # From the grid (from its top left corner) to the page (from the bottom), around the comment's centre.
         points = [
-            (x * scale, COMMENT_SIZE - y * scale) for x, y in zip(coordinates[::2], coordinates[1::2], strict=True)
+            (centre_x + (x - BUBBLE_GRID / 2) * scale, centre_y + (BUBBLE_GRID / 2 - y) * scale)
+            for x, y in zip(coordinates[::2], coordinates[1::2], strict=True)
         ]
         operations.append(f"{_numbers(coordinate for point in points for coordinate in point)} {operator}")
-    drawing = [f"{_color(annotation)} rg 0 G {COMMENT_LINE_WIDTH:g} w 1 J 1 j", *operations, "h B"]
+    half = COMMENT_SIZE / 2
     entries: dict[str, object] = {
-        "/Rect": _bounds(_rectangle_points(annotation.rectangle, frame)),
+        "/Rect": pikepdf.Array(_rounded((centre_x - half, centre_y - half, centre_x + half, centre_y + half))),
+        "/F": PRINT_FLAG | NO_ROTATE_FLAG,
         "/Name": pikepdf.Name.Comment,
         "/Open": False,
     }
-    # Drawn upright: turned back as much as the page is turned (12.5.5, the appearance's matrix).
-    angle = math.radians(frame.rotation)
-    cos, sin = round(math.cos(angle)), round(math.sin(angle))
-    box = pikepdf.Array([0, 0, COMMENT_SIZE, COMMENT_SIZE])
-    return _Written(entries, drawing, box=box, matrix=pikepdf.Array([cos, sin, -sin, cos, 0, 0]))
+    return _Written(entries, [f"{_color(annotation)} rg 0 G {COMMENT_LINE_WIDTH:g} w 1 J 1 j", *operations, "h B"])
 
 
 def utf16(text: str) -> pikepdf.String:

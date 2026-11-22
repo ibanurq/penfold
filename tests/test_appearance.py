@@ -76,7 +76,8 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
             entry = written[index]
             assert str(entry.Subtype) == f"/{annotation.subtype}"
             assert bytes(entry.T).startswith(b"\xfe\xff")  # UTF-16, whatever the text
-            assert (str(entry.T), str(entry.NM), int(entry.F)) == ("Iban", annotation.name, 4)
+            assert (str(entry.T), str(entry.NM)) == ("Iban", annotation.name)
+            assert int(entry.F) == (20 if annotation.kind is Kind.COMMENT else 4)  # printed; comments upright
             assert str(entry.M) == str(entry.CreationDate)
             assert str(entry.M).startswith("D:")
             assert str(entry.M).endswith("Z")

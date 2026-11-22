@@ -6,13 +6,17 @@ seen, with the tiles the renderer has ready (03-arquitectura, 4.2). Measures are
 """
 
 import enum
+import functools
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ClassVar
 
 from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 
+from penfold.document.annotations import Annotation, Kind
 from penfold.document.document import OpenDocument
+from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
 from penfold.rendering.text_search import SearchResult
@@ -119,6 +123,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._vadjustment: Gtk.Adjustment | None = None
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
+        # The annotations Penfold manages and paints, by the source index of their page.
+        self._managed: dict[int, list[Annotation]] = {}
         self._rendered_handler = 0
         self.zoom = 1.0
         self.fit = Fit.WIDTH
@@ -190,6 +196,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
         self.content = PageContent(renderer.poppler)
         self._form_layer.set_document(document, renderer.layout)
+        self.annotations_changed()
         self.selection = None
         self.current_page = 0
         self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH
@@ -213,6 +220,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._relayout(keep_position=True)
         self._update_current_page()
         self.emit("current-page-changed")
+
+    def annotations_changed(self) -> None:
+        """Paint the annotations Penfold manages again, after one was made or the change undone."""
+        self._managed = {}
+        if self.document is not None:
+            for annotation in self.document.annotations:
+                if annotation.managed:
+                    self._managed.setdefault(annotation.page, []).append(annotation)
+        self.queue_draw()
 
     def form_changed(self) -> None:
         """Show the values of the form fields after an edit, an undo or a redo."""
@@ -622,10 +638,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                     missing = True
                 else:
                     ready.append((key, texture))
-            if missing:
-                self._draw_placeholder(snapshot, x, y, box, scale)
-            for key, texture in ready:
-                self._append_tile(snapshot, x, y, key, texture)
+            draw_tiles = functools.partial(self._draw_tiles, origin=(x, y), box=box, ready=ready, missing=missing)
+            draw_tiles(snapshot)
+            self._draw_annotations(snapshot, x, y, box, draw_tiles)
             self._draw_matches(snapshot, x, y, box)
             self._draw_selection(snapshot, x, y, box)
         for page in self._nearby_pages(visible):
@@ -709,6 +724,53 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def has_matches(self) -> bool:
         """Whether matches of Find are highlighted."""
         return bool(self._matches)
+
+    def _draw_tiles(
+        self,
+        snapshot: Gtk.Snapshot,
+        *,
+        origin: tuple[float, float],
+        box: PageBox,
+        ready: list[tuple[TileKey, Gdk.Texture]],
+        missing: bool,
+    ) -> None:
+        """Draw the tiles of a page at the current zoom, over the page at another zoom if some are missing."""
+        x, y = origin
+        if missing:
+            self._draw_placeholder(snapshot, x, y, box, self._scale)
+        for key, texture in ready:
+            self._append_tile(snapshot, x, y, key, texture)
+
+    def _draw_annotations(
+        self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox, draw_tiles: Callable[[Gtk.Snapshot], None]
+    ) -> None:
+        """Paint the annotations Penfold manages of a page over it, as they will be saved.
+
+        A highlight multiplies the page under it by its colour: GTK paints a node apart from what is under it, so the
+        page is drawn again in each area, tinted.
+        """
+        assert self.renderer is not None
+        page = self.renderer.layout[box.page]
+        annotations = self._managed.get(page.source, [])
+        no_offset = Graphene.Vec4().init(0, 0, 0, 0)
+        for annotation in annotations:
+            if annotation.kind is not Kind.HIGHLIGHT:
+                continue
+            tint = Graphene.Matrix().init_scale(*highlight_tint(annotation))
+            for left, top, right, bottom in highlight_areas(page, annotation):
+                zoom = self.zoom
+                snapshot.push_clip(
+                    Graphene.Rect().init(x + left * zoom, y + top * zoom, (right - left) * zoom, (bottom - top) * zoom)
+                )
+                snapshot.push_color_matrix(tint, no_offset)
+                draw_tiles(snapshot)
+                snapshot.pop()
+                snapshot.pop()
+        if any(annotation.kind is not Kind.HIGHLIGHT for annotation in annotations):
+            context = snapshot.append_cairo(Graphene.Rect().init(x, y, box.width, box.height))
+            context.translate(x, y)
+            context.scale(self.zoom, self.zoom)
+            paint_annotations(context, page, annotations, highlights=False)
 
     def _draw_matches(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         for result in self._matches.get(box.page, []):

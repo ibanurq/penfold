@@ -348,3 +348,49 @@ def test_undo_while_typing_undoes_the_text(window: "PenfoldWindow", book: Path) 
     process_pending_events()
     window.activate_action("win.undo", None)
     assert document.pages[0].rotation == 90
+
+
+def test_an_annotation_made_is_painted_on_its_page_and_undo_takes_it_away(window: "PenfoldWindow", book: Path) -> None:
+    from gi.repository import Gdk, Gsk, Gtk
+
+    from penfold.document.annotations import Kind, new_annotation
+    from penfold.document.commands.annotations import AddAnnotation
+
+    open_and_wait(window, book)
+    view = window.document_view
+    document = window.document
+    assert document is not None
+    assert view.hadjustment is not None
+    assert view.vadjustment is not None
+
+    def draw_view() -> "Gsk.RenderNode | None":
+        snapshot = Gtk.Snapshot()
+        Gtk.WidgetPaintable.new(view).snapshot(snapshot, view.get_width(), view.get_height())
+        return snapshot.to_node()
+
+    def pixel_at(x_points: float, y_points: float) -> bytes:
+        """The colour on the screen at a point of the first page."""
+        wait_until(lambda: draw_view() is not None)
+        node = draw_view()
+        gsk_renderer = window.get_renderer()
+        assert node is not None
+        assert gsk_renderer is not None
+        downloader = Gdk.TextureDownloader.new(gsk_renderer.render_texture(node, None))
+        downloader.set_format(Gdk.MemoryFormat.R8G8B8)
+        data, stride = downloader.download_bytes()
+        pixels = data.get_data()
+        assert pixels is not None
+        box = view._boxes[0]
+        x = round(box.x - view.hadjustment.get_value() + x_points * view.zoom)
+        y = round(box.y - view.vadjustment.get_value() + y_points * view.zoom)
+        return bytes(pixels[y * stride + x * 3 : y * stride + x * 3 + 3])
+
+    blue = (0.6, 0.757, 0.945)
+    highlight = new_annotation(Kind.HIGHLIGHT, 0, (40, 40, 200, 80), blue, "Iban", quads=((40, 40, 200, 80),))
+    before = pixel_at(120, 60)
+    document.execute(AddAnnotation(document, highlight))
+    painted = pixel_at(120, 60)
+    assert painted != before
+    assert tuple(painted) == pytest.approx((178, 209, 245), abs=2)  # Blue, multiplied over the white page at 75 %.
+    document.undo()
+    assert pixel_at(120, 60) == before

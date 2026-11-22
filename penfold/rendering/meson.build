@@ -1,5 +1,6 @@
 install_data(
   '__init__.py',
+  'annotation_painter.py',
   'layout.py',
   'page_content.py',
   'poppler_sources.py',
