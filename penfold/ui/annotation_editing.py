@@ -84,6 +84,7 @@ class AnnotationEditing:
         menu = Gtk.PopoverMenu.new_from_model(_menu_model(colored=colored, with_text=annotation.kind in WITH_TEXT))
         if colored:
             menu.add_child(_color_row(), "colors")
+        menu.add_child(_separator(), "separator")
         menu.set_parent(self._document_view)
         # As context menus open: without an arrow, from the pointer to its right, covering less of the annotation.
         menu.set_has_arrow(False)
@@ -243,23 +244,31 @@ class AnnotationEditing:
 def _menu_model(*, colored: bool, with_text: bool) -> Gio.Menu:
     """The menu of an annotation: the colours (if it has them), Edit Text… (if it has text), and Delete apart.
 
-    The colours go in the same section as the first items, with their own separator below: GTK measures a section
-    with only a custom item too short, and the menu then scrolls.
+    It is one section, with separators of its own between the groups: GTK measures a menu with a custom item and
+    several sections too short, and the menu then scrolls.
     """
-    menu = Gio.Menu()
-    changes = Gio.Menu()
+    items = Gio.Menu()
     if colored:
-        item = Gio.MenuItem()
-        item.set_attribute_value("custom", GLib.Variant.new_string("colors"))
-        changes.append_item(item)
+        items.append_item(_custom_item("colors"))
     if with_text:
-        changes.append(_("_Edit Text…"), "win.edit-annotation-text")
-    if with_text:
-        menu.append_section(None, changes)
-        changes = Gio.Menu()
-    changes.append(_("_Delete"), "win.delete-annotation")
-    menu.append_section(None, changes)
+        items.append(_("_Edit Text…"), "win.edit-annotation-text")
+        items.append_item(_custom_item("separator"))
+    items.append(_("_Delete"), "win.delete-annotation")
+    menu = Gio.Menu()
+    menu.append_section(None, items)
     return menu
+
+
+def _custom_item(name: str) -> Gio.MenuItem:
+    """A place in the menu for a widget of the popover's own (add_child with this name)."""
+    item = Gio.MenuItem()
+    item.set_attribute_value("custom", GLib.Variant.new_string(name))
+    return item
+
+
+def _separator() -> Gtk.Widget:
+    """A separator between groups of items, as those between sections."""
+    return Gtk.Separator(css_classes=["annotation-menu-separator"])
 
 
 def _color_row() -> Gtk.Widget:
@@ -270,5 +279,5 @@ def _color_row() -> Gtk.Widget:
         row.append(color_circle(value, "win.annotation-menu-color"))
     colors = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     colors.append(row)
-    colors.append(Gtk.Separator(css_classes=["annotation-menu-separator"]))
+    colors.append(_separator())
     return colors
