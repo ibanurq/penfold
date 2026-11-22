@@ -102,6 +102,15 @@ def append_page_frame(snapshot: Gtk.Snapshot, x: float, y: float, width: float, 
     snapshot.append_color(rgba(WHITE), Graphene.Rect().init(x, y, width, height))
 
 
+@dataclass(frozen=True)
+class PageClick:
+    """A click on a page: the source index of the page, the point on the unturned page and the point in the view."""
+
+    page: int
+    point: tuple[float, float]
+    view_point: tuple[float, float]
+
+
 def clamp_zoom(zoom: float) -> float:
     """Keep a zoom between the limits."""
     return min(MAX_ZOOM, max(MIN_ZOOM, zoom))
@@ -119,6 +128,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         "text-selected": (GObject.SignalFlags.RUN_FIRST, None, ()),
         # A drag with a tool that draws shapes has just drawn one: the annotation made.
         "shape-drawn": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
+        # A click on a page with a tool that places things (comments): a PageClick.
+        "page-clicked": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
     }
 
     hscroll_policy = GObject.Property(type=Gtk.ScrollablePolicy, default=Gtk.ScrollablePolicy.MINIMUM)
@@ -161,7 +172,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         # While a tool draws shapes, a drag draws one instead of selecting text (H4).
         self._shape_maker: ShapeMaker | None = None
         self._shape_start: PagePoint | None = None
-        self._shape: Annotation | None = None
+        # While a tool places things, a click on a page is told (page-clicked) instead of selecting text.
+        self.placing = False
+        self._click: PagePoint | None = None
+        # An annotation being made (a shape being dragged, a comment being written), shown over its page.
+        self._preview: Annotation | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -169,6 +184,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._allocated_height = 0
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
+        # The text of a comment, when the pointer is over it (H2).
+        self.set_has_tooltip(True)
+        self.connect("query-tooltip", self._on_query_tooltip)
         self._add_controllers()
 
     # Scrollable interface: the scrolled window gives the view its adjustments.
@@ -768,8 +786,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         assert self.renderer is not None
         page = self.renderer.layout[box.page]
         annotations = self._managed.get(page.source, [])
-        if self._shape is not None and self._shape.page == page.source:
-            annotations = [*annotations, self._shape]
+        if self._preview is not None and self._preview.page == page.source:
+            annotations = [*annotations, self._preview]
         no_offset = Graphene.Vec4().init(0, 0, 0, 0)
         for annotation in annotations:
             if annotation.kind is not Kind.HIGHLIGHT:
@@ -853,6 +871,43 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         page_y = min(max(content_y, box.y), box.bottom)
         return PagePoint(box.page, (page_y - box.y) / self.zoom, (page_x - box.x) / self.zoom)
 
+    def comment_at(self, x: float, y: float) -> Annotation | None:
+        """Return the comment with text under a point of the widget, if any.
+
+        A comment stays upright on a turned page, keeping the corner that is its top left unturned (NoRotate).
+        """
+        point = self.page_point(x, y)
+        if point is None or self.document is None or self.renderer is None:
+            return None
+        page = self.renderer.layout[point.page]
+        for annotation in reversed(self.document.annotations):  # The last made is on top.
+            if annotation.kind is not Kind.COMMENT or not annotation.text or annotation.page != page.source:
+                continue
+            left, top, right, bottom = annotation.rectangle
+            corner_x, corner_y, _x, _y = page.from_source((left, top, left, top))
+            if corner_x <= point.x <= corner_x + right - left and corner_y <= point.y <= corner_y + bottom - top:
+                return annotation
+        return None
+
+    def upright_square(self, source: int, x: float, y: float, side: float) -> Rectangle | None:
+        """The square, on the unturned page, of an upright mark (a comment) shown centred on a point of it."""
+        if self.renderer is None:
+            return None
+        position = self.renderer.layout.position(source)
+        if position is None:
+            return None
+        page = self.renderer.layout[position]
+        shown_x, shown_y, _x, _y = page.from_source((x, y, x, y))
+        left, top = page.to_source(shown_x - side / 2, shown_y - side / 2)
+        return left, top, left + side, top + side
+
+    def _on_query_tooltip(self, _view: Gtk.Widget, x: int, y: int, _keyboard: bool, tooltip: Gtk.Tooltip) -> bool:
+        comment = self.comment_at(x, y)
+        if comment is None:
+            return False
+        tooltip.set_text(comment.text)
+        return True
+
     def link_at(self, x: float, y: float) -> Link | None:
         """Return the link under a point of the widget, if any."""
         point = self.page_point(x, y)
@@ -864,7 +919,13 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def set_shape_maker(self, maker: "ShapeMaker | None") -> None:
         """Draw shapes with drags, made by maker from the page and the two ends; None to select text again."""
         self._shape_maker = maker
-        self._shape_start = self._shape = None
+        self._shape_start = None
+        self.set_preview(None)
+        self.queue_draw()
+
+    def set_preview(self, annotation: Annotation | None) -> None:
+        """Show an annotation being made over its page (None: none)."""
+        self._preview = annotation
         self.queue_draw()
 
     def _on_pressed(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
@@ -873,6 +934,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if self._shape_maker is not None:
             self._set_selection(None)
             self._shape_start = self.page_point(x, y)
+            return
+        if self.placing:
+            self._set_selection(None)
+            self._click = self.page_point(x, y)
             return
         self._press = self.page_point(x, y)
         self._press_style = SELECTION_STYLES.get(min(n_press, 3), Poppler.SelectionStyle.GLYPH)
@@ -909,17 +974,24 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         end_x = (start_x + offset_x + self._hadjustment.get_value() - box.x) / self.zoom
         end_y = (start_y + offset_y + self._vadjustment.get_value() - box.y) / self.zoom
         end = page.to_source(min(max(end_x, 0.0), width), min(max(end_y, 0.0), height))
-        self._shape = self._shape_maker(page.source, page.to_source(start.x, start.y), end)
-        self.queue_draw()
+        self.set_preview(self._shape_maker(page.source, page.to_source(start.x, start.y), end))
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
         """The end of a selection or a shape; a click without moving follows a link, or clears the selection."""
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
-            shape, self._shape_start, self._shape = self._shape, None, None
-            self.queue_draw()
+            shape, self._shape_start = self._preview, None
+            self.set_preview(None)
             if shape is not None:
                 self.emit("shape-drawn", shape)
+            return
+        if self._click is not None:
+            click, self._click = self._click, None
+            _found, x, y = gesture.get_start_point()
+            if self.renderer is not None and math.hypot(offset_x, offset_y) < DRAG_THRESHOLD:
+                page = self.renderer.layout[click.page]
+                source_x, source_y = page.to_source(click.x, click.y)
+                self.emit("page-clicked", PageClick(page.source, (source_x, source_y), (x, y)))
             return
         if self._dragging or self._press_style is not Poppler.SelectionStyle.GLYPH:
             if self.selection is not None:

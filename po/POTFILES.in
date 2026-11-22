@@ -18,6 +18,7 @@ penfold/application.py
 penfold/ui/about.py
 penfold/ui/annotation_toolbar.py
 penfold/ui/bookmark_editing.py
+penfold/ui/comment_popover.py
 penfold/ui/dialogs/add_pages_dialog.py
 penfold/ui/dialogs/extract_pages_dialog.py
 penfold/ui/dialogs/merge_dialog.py

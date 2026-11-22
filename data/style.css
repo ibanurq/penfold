@@ -166,3 +166,9 @@ textview.form-field > text {
 .annotation-bar-shown > toast {
   margin-bottom: 78px;
 }
+
+/* The box where the text of a comment is written (H5). */
+.comment-text {
+  padding: 8px;
+  background: none;
+}

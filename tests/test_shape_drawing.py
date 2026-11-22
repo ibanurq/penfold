@@ -115,8 +115,8 @@ def test_the_shape_is_shown_while_dragging(shape_window: "PenfoldWindow") -> Non
     start_x, start_y = widget_point(window, 0, 100, 100)
     view._on_pressed(None, 1, start_x, start_y)  # type: ignore[arg-type]
     view._on_drag_update(FakeDrag(start_x, start_y), 80, 60)  # type: ignore[arg-type]
-    assert view._shape is not None
-    assert (view._shape.kind, made(window)) == (Kind.CIRCLE, [])  # Not made until the mouse is released.
+    assert view._preview is not None
+    assert (view._preview.kind, made(window)) == (Kind.CIRCLE, [])  # Not made until the mouse is released.
 
 
 def test_with_select_text_a_drag_selects_text(shape_window: "PenfoldWindow") -> None:

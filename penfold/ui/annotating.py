@@ -6,19 +6,22 @@ greyed out.
 
 The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released
 (H1). H and U mark the text selected without changing the tool, or else choose their tool (H7). Rectangles, circles
-and arrows are drawn by dragging, from where the drag starts to where it ends (H4).
+and arrows are drawn by dragging, from where the drag starts to where it ends (H4). A click places a comment, whose
+text is written in a popover (H2, H5, D68).
 """
 
 from collections.abc import Callable
 
-from gi.repository import Gio, GLib, Gtk
+from gi.repository import Gdk, Gio, GLib, Gtk
 
 from penfold.document.annotations import Annotation, Kind, new_annotation
+from penfold.document.appearance import COMMENT_SIZE
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
-from penfold.ui.document_view import DocumentView
+from penfold.ui.comment_popover import CommentPopover
+from penfold.ui.document_view import DocumentView, PageClick
 from penfold.ui.palette import ANNOTATION_COLORS, Color, hex_to_color
 
 Point = tuple[float, float]
@@ -50,6 +53,7 @@ class Annotating:
         self._chosen_tool = Tool.SELECT
         self._chosen_color = ANNOTATION_COLORS[0]
         self._bar_shown = False
+        self.comment_popover: CommentPopover | None = None
         self._annotate = Gio.SimpleAction.new_stateful("annotate", None, GLib.Variant.new_boolean(False))
         self._annotate.set_enabled(False)
         self._annotate.connect("change-state", self._on_annotate)
@@ -65,6 +69,7 @@ class Annotating:
             window.add_action(action)
         document_view.connect("text-selected", self._on_text_selected)
         document_view.connect("shape-drawn", self._on_shape_drawn)
+        document_view.connect("page-clicked", self._on_page_clicked)
 
     @property
     def tool(self) -> Tool:
@@ -139,6 +144,7 @@ class Annotating:
         self._chosen_tool = Tool(value.get_string())
         self._document_view.marking = self.tool in MARKING_TOOLS
         self._document_view.set_shape_maker(self._make_shape if self.tool in SHAPE_TOOLS else None)
+        self._document_view.placing = self.tool is Tool.COMMENT
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
 
     def _make_shape(self, page: int, start: Point, end: Point) -> Annotation | None:
@@ -154,6 +160,40 @@ class Annotating:
         document = self._document()
         if document is not None and self.allowed:
             document.execute(AddAnnotations(document, [shape]))
+
+    def _on_page_clicked(self, view: DocumentView, click: PageClick) -> None:
+        """With the comment tool, a click shows where the comment goes and asks for its text."""
+        page = click.page
+        square = view.upright_square(page, *click.point, COMMENT_SIZE)
+        if self.tool is not Tool.COMMENT or square is None or not self.allowed:
+            return
+        color, author = self.color, self._author()
+        view.set_preview(new_annotation(Kind.COMMENT, page, square, color, author))
+
+        def make(text: str) -> None:
+            document = self._document()
+            if document is not None and self.allowed:
+                comment = new_annotation(Kind.COMMENT, page, square, color, author, text=text)
+                document.execute(AddAnnotations(document, [comment]))
+
+        popover = CommentPopover(make)
+        popover.set_parent(view)
+        # Pointing at the whole bubble, so that the popover opens below it without covering it.
+        side = COMMENT_SIZE * view.zoom
+        place = Gdk.Rectangle()
+        place.x, place.y = (int(value - side / 2) for value in click.view_point)
+        place.width = place.height = int(side)
+        popover.set_pointing_to(place)
+        popover.connect("closed", self._on_comment_closed)
+        self.comment_popover = popover
+        popover.popup()
+
+    def _on_comment_closed(self, popover: Gtk.Popover) -> None:
+        """Whether the comment was made or cancelled, it is no longer being made."""
+        self._document_view.set_preview(None)
+        self.comment_popover = None
+        # Taken from the view once closed, after the popover has finished closing.
+        GLib.idle_add(popover.unparent)
 
     def _on_text_selected(self, _view: DocumentView) -> None:
         """With a tool that marks text, the text just selected is marked (H1)."""
