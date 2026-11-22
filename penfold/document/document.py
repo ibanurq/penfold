@@ -58,14 +58,14 @@ class OpenDocument:
         self._listeners: list[Callable[[Change], None]] = []
 
     @classmethod
-    def open(cls, path: Path) -> Self:
-        """Open a PDF file.
+    def open(cls, path: Path, password: str = "") -> Self:
+        """Open a PDF file, with its password if it needs one (D61).
 
         Raises:
-            PasswordRequiredError: the PDF needs a password to be opened.
+            PasswordRequiredError: the PDF needs a password to be opened, and this one is missing or wrong.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
-        return cls(path, SourceFile(path))
+        return cls(path, SourceFile(path, password))
 
     @classmethod
     def merge(

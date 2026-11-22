@@ -86,7 +86,8 @@ def save(plan: SavePlan) -> int:
         SaveError: the PDF could not be written or the result is not valid; the target is left as it was.
     """
     try:
-        with pikepdf.open(plan.sources[0].path) as pdf, _OtherSources(plan.sources) as others:
+        opened = plan.sources[0]
+        with pikepdf.open(opened.path, password=opened.password) as pdf, _OtherSources(plan.sources) as others:
             failed = _fill_in_forms(pdf, others, plan.form_values)
             originals = list(pdf.pages)
             placed = _arrange_pages(pdf, originals, plan.pages, others)
@@ -99,7 +100,7 @@ def save(plan: SavePlan) -> int:
             if plan.left_out:
                 _leave_out_annotations(pdf, plan.left_out)
             _write_outline(pdf, list(plan.bookmarks), placed)
-            _write_safely(pdf, plan.target, len(plan.pages))
+            _write_safely(pdf, plan.target, len(plan.pages), opened.password)
     except (pikepdf.PdfError, OSError) as error:
         raise SaveError(str(plan.target)) from error
     return failed
@@ -121,7 +122,8 @@ class _OtherSources(contextlib.ExitStack):
     def pdf(self, source: int) -> pikepdf.Pdf:
         """An added PDF, by its position among the sources."""
         if source not in self._opened:
-            self._opened[source] = self.enter_context(pikepdf.open(self.spans[source].path))
+            span = self.spans[source]
+            self._opened[source] = self.enter_context(pikepdf.open(span.path, password=span.password))
         return self._opened[source]
 
     def pages_by_source(self, pages: tuple[Page, ...]) -> dict[int, set[int]]:
@@ -406,13 +408,16 @@ def _visible_count(bookmarks: list[Bookmark]) -> int:
     return sum(1 + (_visible_count(bookmark.children) if bookmark.is_open else 0) for bookmark in bookmarks)
 
 
-def _write_safely(pdf: pikepdf.Pdf, target: Path, page_count: int) -> None:
-    """Write to a new file next to the target, check it, and put it in the target's place."""
+def _write_safely(pdf: pikepdf.Pdf, target: Path, page_count: int, password: str) -> None:
+    """Write to a new file next to the target, check it, and put it in the target's place.
+
+    The password opens the written file, which keeps the passwords of the opened PDF (D61).
+    """
     temporary = _new_file_next_to(target)
     try:
-        # A PDF with user access permissions keeps its encryption and its permissions (D59).
+        # A PDF with permissions or passwords keeps its encryption, its passwords and its permissions (D59, D61).
         pdf.save(temporary, encryption=pdf.is_encrypted)
-        _check(temporary, page_count)
+        _check(temporary, page_count, password)
         if target.exists():
             shutil.copymode(target, temporary)
         temporary.replace(target)
@@ -433,13 +438,13 @@ def _new_file_next_to(target: Path) -> Path:
         return candidate
 
 
-def _check(path: Path, page_count: int) -> None:
+def _check(path: Path, page_count: int, password: str) -> None:
     """Open the written PDF again and read every page, so a broken result is never put in place.
 
     Raises:
         SaveError: the PDF does not have the pages it should.
     """
-    with pikepdf.open(path) as written:
+    with pikepdf.open(path, password=password) as written:
         if len(written.pages) != page_count:
             message = f"{path} has {len(written.pages)} pages instead of {page_count}"
             raise SaveError(message)

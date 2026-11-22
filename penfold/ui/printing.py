@@ -65,7 +65,9 @@ class DocumentPrinting:
     def make_operation(self, path: Path) -> Gtk.PrintOperation | None:
         """Prepare the printing of the PDF written to path; None if it cannot be read."""
         try:
-            self._poppler = Poppler.Document.new_from_gfile(Gio.File.new_for_path(str(path)), None, None)
+            # The PDF to print keeps the passwords of the opened one (D61).
+            password = self._document.sources.spans[0].password or None
+            self._poppler = Poppler.Document.new_from_gfile(Gio.File.new_for_path(str(path)), password, None)
         except GLib.Error:
             logger.exception("Could not read %s for printing", path)
             return None

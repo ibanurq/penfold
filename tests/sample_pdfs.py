@@ -71,3 +71,16 @@ def make_pdf_with_permissions(path: Path, *permissions: str) -> Path:
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:
         pdf.save(path, encryption=pikepdf.Encryption(owner="owner", user="", allow=allowing(*permissions)))
     return path
+
+
+USER_PASSWORD = "secret"
+OWNER_PASSWORD = "owner"
+
+
+def make_pdf_with_password(path: Path, *permissions: str, page_count: int = 3) -> Path:
+    """Write a PDF that opens with USER_PASSWORD or OWNER_PASSWORD and allows only these; return its path (D61)."""
+    make_pdf(path, page_count=page_count)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        encryption = pikepdf.Encryption(owner=OWNER_PASSWORD, user=USER_PASSWORD, allow=allowing(*permissions))
+        pdf.save(path, encryption=encryption)
+    return path

@@ -15,7 +15,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
 from penfold.document.pages import PaperSize
 from penfold.document.saving import SavePlan, save
-from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PenfoldError, SaveError
+from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordRequiredError, PenfoldError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 from penfold.ui.bookmark_editing import BookmarkEditing
@@ -24,6 +24,7 @@ from penfold.ui.bookmark_editing import BookmarkEditing
 from penfold.ui.dialogs.add_pages_dialog import PagesToAdd, PenfoldAddPagesDialog
 from penfold.ui.dialogs.extract_pages_dialog import PagesToExtract, PenfoldExtractPagesDialog
 from penfold.ui.dialogs.merge_dialog import PdfsToMerge, PenfoldMergeDialog
+from penfold.ui.dialogs.password_question import password_question
 from penfold.ui.dialogs.print_dialog import PenfoldPrintDialog
 from penfold.ui.dialogs.save_as_dialog import PenfoldSaveAsDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
@@ -685,14 +686,39 @@ class PenfoldWindow(Adw.ApplicationWindow):
     # Opening.
 
     def open_file(self, path: Path) -> bool:
-        """Show a PDF in this window and return True; if it cannot be opened, say so and keep what was shown."""
+        """Show a PDF in this window and return True; if it cannot be opened, say so and keep what was shown.
+
+        A PDF that needs a password is shown once it is typed (D61): False until then.
+        """
         try:
             document = OpenDocument.open(path)
+        except PasswordRequiredError:
+            self._ask_password(path)
+            return False
         except DocumentOpenError as error:
-            logger.warning("Could not open %s (%s)", path, type(error).__name__)
-            self._show_message(_("Could not open “{name}”").format(name=path.name))
+            self._cannot_open(path, error)
             return False
         return self._show_document(document)
+
+    def _ask_password(self, path: Path) -> None:
+        """Ask for the password of a PDF until it opens it, or until Cancel (D61, 4)."""
+
+        def try_password(password: str) -> bool:
+            try:
+                document = OpenDocument.open(path, password)
+            except PasswordRequiredError:
+                return False
+            except DocumentOpenError as error:
+                self._cannot_open(path, error)
+                return True
+            self._show_document(document)
+            return True
+
+        password_question(path.name, try_password).present(self)
+
+    def _cannot_open(self, path: Path, error: DocumentOpenError) -> None:
+        logger.warning("Could not open %s (%s)", path, type(error).__name__)
+        self._show_message(_("Could not open “{name}”").format(name=path.name))
 
     def merge_files(self, paths: list[Path]) -> None:
         """Open Merge PDFs, with these files in the list, asking first about unsaved changes (F5, J4, D17)."""

@@ -14,7 +14,7 @@ import shutil
 import tempfile
 import weakref
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pikepdf
@@ -29,22 +29,24 @@ class SourceFile:
     """A private copy of a PDF as it was opened, and the PDF read from it with pikepdf.
 
     The copy lives in a temporary folder that only the user can read, removed when the source is closed (or, if
-    Penfold stops before, when Python exits).
+    Penfold stops before, when Python exits). The copy is as encrypted as the file; the password that opens it is kept
+    only in memory, never written anywhere (D61).
     """
 
-    def __init__(self, path: Path) -> None:
-        """Copy a PDF and open the copy.
+    def __init__(self, path: Path, password: str = "") -> None:
+        """Copy a PDF and open the copy, with its password if it needs one.
 
         Raises:
-            PasswordRequiredError: the PDF needs a password to be opened.
+            PasswordRequiredError: the PDF needs a password to be opened, and this one is missing or wrong.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
         folder = Path(tempfile.mkdtemp(prefix="penfold-"))
         self._remove_folder = weakref.finalize(self, shutil.rmtree, folder, ignore_errors=True)
         self.path = folder / COPY_NAME
+        self.password = password
         try:
             shutil.copyfile(path, self.path)
-            self.pdf = open_source(self.path)
+            self.pdf = open_source(self.path, password)
         except DocumentOpenError:
             self._remove_folder()
             raise
@@ -58,15 +60,15 @@ class SourceFile:
         self._remove_folder()
 
 
-def open_source(path: Path) -> pikepdf.Pdf:
-    """Open a PDF for reading; the file itself is never changed here.
+def open_source(path: Path, password: str = "") -> pikepdf.Pdf:
+    """Open a PDF for reading, with its password if it needs one; the file itself is never changed here.
 
     Raises:
-        PasswordRequiredError: the PDF needs a password to be opened.
+        PasswordRequiredError: the PDF needs a password to be opened, and this one is missing or wrong.
         DocumentOpenError: the file is missing, unreadable or not a PDF.
     """
     try:
-        return pikepdf.open(path)
+        return pikepdf.open(path, password=password)
     except pikepdf.PasswordError as error:
         raise PasswordRequiredError(str(path)) from error
     except (pikepdf.PdfError, OSError, ValueError) as error:
@@ -75,11 +77,15 @@ def open_source(path: Path) -> pikepdf.Pdf:
 
 @dataclass(frozen=True)
 class SourceSpan:
-    """Where the pages of one source are numbered: its file, the source index of its first page and how many."""
+    """Where the pages of one source are numbered: its file, the source index of its first page and how many.
+
+    A PDF with an open password carries it, to be read again by Poppler, saving and printing (D61).
+    """
 
     path: Path
     start: int
     page_count: int
+    password: str = field(default="", repr=False)
 
 
 # The sources of a document, the opened PDF first.
@@ -108,12 +114,12 @@ class Sources:
     def __init__(self, opened: SourceFile) -> None:
         """Start with the PDF that was opened."""
         self._files = [opened]
-        self.spans: Spans = (SourceSpan(opened.path, 0, len(opened.pdf.pages)),)
+        self.spans: Spans = (SourceSpan(opened.path, 0, len(opened.pdf.pages), opened.password),)
 
     def add(self, added: SourceFile) -> SourceSpan:
         """Take another PDF, already copied and opened, numbering its pages after those of the last source."""
         last = self.spans[-1]
-        span = SourceSpan(added.path, last.start + last.page_count, len(added.pdf.pages))
+        span = SourceSpan(added.path, last.start + last.page_count, len(added.pdf.pages), added.password)
         self._files.append(added)
         self.spans = (*self.spans, span)
         return span

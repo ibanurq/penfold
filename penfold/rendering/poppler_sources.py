@@ -37,5 +37,5 @@ class PopplerSources:
         span = spans[locate(spans, source_index)[0]]
         uri = GLib.filename_to_uri(str(span.path.resolve()), None)
         if uri not in self._documents:
-            self._documents[uri] = Poppler.Document.new_from_file(uri, None)
+            self._documents[uri] = Poppler.Document.new_from_file(uri, span.password or None)
         return self._documents[uri], span.start

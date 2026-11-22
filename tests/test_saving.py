@@ -201,7 +201,7 @@ def test_a_failed_save_leaves_the_file_as_it_was(document: OpenDocument, monkeyp
     before = document.path.read_bytes()
     document.execute(DeletePages(document, [0]))
 
-    def broken_check(path: Path, page_count: int) -> None:
+    def broken_check(path: Path, page_count: int, _password: str) -> None:
         raise SaveError(f"{path} has no {page_count} pages")
 
     monkeypatch.setattr("penfold.document.saving._check", broken_check)

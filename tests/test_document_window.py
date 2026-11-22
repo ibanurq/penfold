@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pikepdf
 import pytest
-from gi.repository import Adw, GLib
+from gi.repository import GLib
 
 from tests.gtk_helpers import process_pending_events, wait_until, wait_until_stable
 from tests.sample_pdfs import make_pdf
@@ -160,15 +160,6 @@ def test_a_pdf_that_denies_something_opens_without_a_notice(window: "PenfoldWind
     path = make_pdf(tmp_path / "locked.pdf", passwords=("owner", ""))
     assert open_and_wait(window, path)
     assert window.get_visible_dialog() is None  # The red lock says it (D59).
-
-
-def test_pdf_with_a_password_is_not_opened(window: "PenfoldWindow", tmp_path: Path) -> None:
-    path = make_pdf(tmp_path / "secret.pdf", passwords=("owner", "user"))
-    assert not window.open_file(path)
-    assert window.is_empty
-    dialog = window.get_visible_dialog()
-    assert isinstance(dialog, Adw.AlertDialog)
-    assert dialog.get_heading() == "Could not open “secret.pdf”"
 
 
 def test_a_failed_open_keeps_the_document_shown(window: "PenfoldWindow", book: Path, tmp_path: Path) -> None:
