@@ -76,7 +76,9 @@ class AnnotationEditing:
         if colored:
             menu.add_child(_color_row(), "colors")
         menu.set_parent(self._document_view)
+        # As context menus open: without an arrow, from the pointer to its right, covering less of the annotation.
         menu.set_has_arrow(False)
+        menu.set_halign(Gtk.Align.START)
         place = Gdk.Rectangle()
         place.x, place.y, place.width, place.height = round(x), round(y), 1, 1
         menu.set_pointing_to(place)
@@ -165,24 +167,29 @@ class AnnotationEditing:
 
 
 def _menu_model(*, colored: bool) -> Gio.Menu:
-    """The menu of an annotation: the colours (if it has them) and Delete."""
+    """The menu of an annotation: the colours (if it has them) and Delete.
+
+    The colours go in the same section as the first items, with their own separator below: GTK measures a section
+    with only a custom item too short, and the menu then scrolls.
+    """
     menu = Gio.Menu()
+    actions = Gio.Menu()
     if colored:
-        colors = Gio.Menu()
         item = Gio.MenuItem()
         item.set_attribute_value("custom", GLib.Variant.new_string("colors"))
-        colors.append_item(item)
-        menu.append_section(None, colors)
-    actions = Gio.Menu()
+        actions.append_item(item)
     actions.append(_("_Delete"), "win.delete-annotation")
     menu.append_section(None, actions)
     return menu
 
 
 def _color_row() -> Gtk.Widget:
-    """The six colour circles, bound to the action of the menu's colour."""
+    """The six colour circles, bound to the action of the menu's colour, and a separator below, as a section's."""
     row = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, homogeneous=True)
     row.add_css_class("annotation-menu-colors")
     for value in ANNOTATION_COLORS:
         row.append(color_circle(value, "win.annotation-menu-color"))
-    return row
+    colors = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    colors.append(row)
+    colors.append(Gtk.Separator(css_classes=["annotation-menu-separator"]))
+    return colors
