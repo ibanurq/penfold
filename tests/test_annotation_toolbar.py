@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from gi.repository import GLib
+from gi.repository import GLib, Gtk
 
 from penfold.ui.annotation_toolbar import ZOOM_BUTTONS_ROOM, Tool, bar_position
 from penfold.ui.palette import ANNOTATION_COLORS
@@ -59,6 +59,25 @@ def test_the_colour_starts_yellow_and_shows_on_its_button(window: "PenfoldWindow
     assert (swatch.has_css_class("palette-color-2"), swatch.has_css_class("palette-color-0")) == (True, False)
     window.activate_action("win.annotation-color", GLib.Variant.new_string("#000000"))  # Not one of the six.
     assert swatch.has_css_class("palette-color-2")
+
+
+def test_choosing_a_colour_closes_the_palette(window: "PenfoldWindow", tmp_path: Path) -> None:
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    window.activate_action("win.annotate", None)
+    bar = window.annotation_toolbar
+    assert bar.has_css_class("osd")  # The zoom buttons' look, to stand out on a white page (D71).
+    bar.color_button.popup()
+    process_pending_events()
+    popover = bar.color_button.get_popover()
+    assert popover is not None
+    circles = popover.get_child()
+    assert circles is not None
+    assert popover.get_visible()
+    red = next(circle for circle in circles if circle.has_css_class("palette-color-4"))
+    assert isinstance(red, Gtk.ToggleButton)
+    red.emit("clicked")
+    process_pending_events()
+    assert (window.annotating.color, popover.get_visible()) == ((0xF6 / 255, 0x61 / 255, 0x51 / 255), False)
 
 
 def test_a_pdf_that_does_not_allow_annotating_greys_out_the_pencil(window: "PenfoldWindow", tmp_path: Path) -> None:

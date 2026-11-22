@@ -144,13 +144,10 @@ textview.form-field > text {
   background: none;
 }
 
-/* The floating annotation bar (02-interfaz, 5; D32): a light card with a shadow, like a popover. */
+/* The floating annotation bar (02-interfaz, 5; D32, D71): the look of the zoom buttons (osd), rounded. */
 .annotation-bar {
   padding: 6px;
   border-radius: 14px;
-  background-color: var(--popover-bg-color);
-  color: var(--popover-fg-color);
-  box-shadow: 0 1px 5px 1px rgb(0 0 0 / 9%), 0 2px 14px 3px rgb(0 0 0 / 5%), 0 0 0 1px rgb(0 0 0 / 5%);
 }
 
 .annotation-bar separator {

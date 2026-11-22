@@ -85,7 +85,10 @@ def tool_names() -> dict[Tool, str]:
 
 
 class AnnotationToolbar(Gtk.Box):
-    """A light card with the tool buttons, separated by group, and the colour button that opens the palette above."""
+    """A card with the tool buttons, separated by group, and the colour button that opens the palette above.
+
+    It has the zoom buttons' look (osd), so that it stands out on a white page (D71).
+    """
 
     __gtype_name__ = "PenfoldAnnotationToolbar"
 
@@ -93,6 +96,7 @@ class AnnotationToolbar(Gtk.Box):
         """Create the bar, hidden until the pencil shows it."""
         super().__init__(spacing=4, halign=Gtk.Align.START, valign=Gtk.Align.END, visible=False)
         self.set_margin_bottom(BAR_MARGIN)
+        self.add_css_class("osd")
         self.add_css_class("annotation-bar")
         names = tool_names()
         self.tool_buttons: dict[Tool, Gtk.ToggleButton] = {}
@@ -111,7 +115,10 @@ class AnnotationToolbar(Gtk.Box):
         self.swatch = color_swatch(ANNOTATION_COLORS[0])
         circles = Gtk.Box(spacing=9, margin_top=6, margin_bottom=6, margin_start=3, margin_end=3)
         for value in ANNOTATION_COLORS:
-            circles.append(color_circle(value, COLOR_ACTION))
+            circle = color_circle(value, COLOR_ACTION)
+            # Choosing a colour closes the palette, so the page can be annotated at once (D71).
+            circle.connect("clicked", lambda _circle: self.color_button.popdown())
+            circles.append(circle)
         self.color_button = Gtk.MenuButton(
             child=self.swatch,
             tooltip_text=_("Color"),
