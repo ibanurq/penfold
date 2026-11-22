@@ -10,6 +10,7 @@ install_data(
   'document_header.py',
   'document_view.py',
   'extraction.py',
+  'format_popover.py',
   'file_dialogs.py',
   'form_choice.py',
   'form_layer.py',

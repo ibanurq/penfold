@@ -2,7 +2,8 @@
 
 The menu has the six colours at the top (the annotation's own with a ring) and, below, what can be done with that
 type of annotation. A click on a colour changes it and closes the menu; Edit Text… edits the text of a comment in
-its popover and that of a text box on the page; Delete deletes it without asking, with a toast to undo it. While
+its popover and that of a text box on the page; Format… opens its Format panel beside it, whose changes show at once
+and are undone as one edit; Delete deletes it without asking, with a toast to undo it. While
 the menu is open, the annotation is outlined. Annotations of types Penfold does not make only have Delete. A PDF that
 does not allow annotating shows the menu with everything greyed out.
 
@@ -23,6 +24,7 @@ from penfold.document.history import Command
 from penfold.rendering.text_box import redrawn, with_text, written_frame
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.document_view import AnnotationClick, DocumentView
+from penfold.ui.format_popover import FormatPopover, has_format
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_to_hex, hex_to_color
 
 # No colour circle is ringed for a colour that is not one of the palette's.
@@ -40,7 +42,7 @@ class AnnotationEditing:
         document: Callable[[], OpenDocument | None],
         show_undo_toast: Callable[[str, Command], None],
     ) -> None:
-        """Add the actions "annotation-menu-color", "edit-annotation-text" and "delete-annotation" to the window."""
+        """Add the menu's actions to the window: its colour, Edit Text…, Format… and Delete."""
         self._window = window
         self._document_view = document_view
         self._document = document
@@ -49,6 +51,9 @@ class AnnotationEditing:
         self.annotation: Annotation | None = None
         self.menu: Gtk.PopoverMenu | None = None
         self.comment_popover: CommentPopover | None = None
+        self.format_popover: FormatPopover | None = None
+        # The change the Format panel open has made, retouched by each later change of the panel (one edit).
+        self._format_change: ChangeAnnotation | None = None
         # What to do once the menu has closed and given the focus back (editing a text, which takes the focus).
         self._after_menu: Callable[[], None] | None = None
         self._color = Gio.SimpleAction.new_stateful(
@@ -57,9 +62,11 @@ class AnnotationEditing:
         self._color.connect("activate", self._on_color_chosen)
         self._edit_text = Gio.SimpleAction.new("edit-annotation-text", None)
         self._edit_text.connect("activate", lambda _action, _parameter: self.edit_text())
+        self._format = Gio.SimpleAction.new("format-annotation", None)
+        self._format.connect("activate", lambda _action, _parameter: self.format())
         self._delete = Gio.SimpleAction.new("delete-annotation", None)
         self._delete.connect("activate", lambda _action, _parameter: self.delete())
-        for action in (self._color, self._edit_text, self._delete):
+        for action in (self._color, self._edit_text, self._format, self._delete):
             window.add_action(action)
         document_view.connect("annotation-menu-requested", self._on_menu_requested)
 
@@ -80,8 +87,12 @@ class AnnotationEditing:
         self._color.set_state(GLib.Variant.new_string(color if color in ANNOTATION_COLORS else NO_COLOR))
         self._color.set_enabled(allowed and colored)
         self._edit_text.set_enabled(allowed)
+        self._format.set_enabled(allowed)
         self._delete.set_enabled(allowed)
-        menu = Gtk.PopoverMenu.new_from_model(_menu_model(colored=colored, with_text=annotation.kind in WITH_TEXT))
+        model = _menu_model(
+            colored=colored, with_text=annotation.kind in WITH_TEXT, with_format=has_format(annotation.kind)
+        )
+        menu = Gtk.PopoverMenu.new_from_model(model)
         if colored:
             menu.add_child(_color_row(), "colors")
         menu.add_child(_separator(), "separator")
@@ -130,12 +141,78 @@ class AnnotationEditing:
         if annotation is None or annotation.kind not in WITH_TEXT:
             return
         edit = self._edit_comment if annotation.kind is Kind.COMMENT else self._edit_text_box
+        self._when_menu_closed(lambda: edit(annotation))
+
+    def _when_menu_closed(self, then: Callable[[], None]) -> None:
+        """Do something once the menu has closed.
+
+        Closing it gives the focus back to the page, which would end an editing begun before.
+        """
         if self.menu is None:
-            edit(annotation)
+            then()
             return
-        # After the menu has closed: closing gives the focus back to the page, which would end the editing at once.
-        self._after_menu = lambda: edit(annotation)
+        self._after_menu = then
         self.menu.popdown()
+
+    def format(self) -> None:
+        """Open the Format panel of the annotation of the menu beside it (D72).
+
+        One Penfold cannot draw again as it is is warned of first.
+        """
+        annotation = self.annotation
+        if annotation is None or not has_format(annotation.kind):
+            return
+
+        def open_panel() -> None:
+            if annotation.managed or not annotation.foreign_look:
+                self._open_format(annotation)
+            else:
+                self._warn_of_foreign_look(lambda: self._open_format(annotation))
+
+        self._when_menu_closed(open_panel)
+
+    def _open_format(self, annotation: Annotation) -> None:
+        document, place = self._document(), self._document_view.view_rectangle(annotation)
+        if document is None or place is None or not any(item is annotation for item in document.annotations):
+            return
+        self._format_change = None
+        popover = FormatPopover(managed_copy(annotation), lambda changed: self._retouch(annotation, changed))
+        popover.set_parent(self._document_view)
+        popover.set_pointing_to(place)
+        popover.connect("closed", self._on_format_closed)
+        self.format_popover = popover
+        popover.popup()
+
+    def _retouch(self, annotation: Annotation, changed: Annotation) -> None:
+        """Show a change of the Format panel: the first makes an edit, the next ones change it (one edit to undo)."""
+        document = self._document()
+        if document is None or not document.permissions.annotate:
+            return
+        if changed.kind is Kind.TEXT_BOX:
+            changed = self._text_box_as_formatted(changed)
+        change = self._format_change
+        if change is not None and document.amend(change, lambda: change.retouch(changed)):
+            return
+        # The first change; or the last edit is another one (saved meanwhile): a new edit from the panel's last.
+        current = annotation if change is None else change.changed
+        if any(item is current for item in document.annotations):
+            self._format_change = ChangeAnnotation(document, current, changed)
+            document.execute(self._format_change)
+
+    def _text_box_as_formatted(self, box: Annotation) -> Annotation:
+        """A text box with its new format drawn again, as tall as its text needs with its letter size."""
+        renderer = self._document_view.renderer
+        document = self._document()
+        position = None if renderer is None or document is None else document.page_position(box.page)
+        if renderer is None or position is None:
+            return redrawn(box)
+        return redrawn(with_text(box, box.text, renderer.layout[position].source_size))
+
+    def _on_format_closed(self, popover: Gtk.Popover) -> None:
+        if self.format_popover is popover:
+            self.format_popover = None
+            self._format_change = None
+        GLib.idle_add(popover.unparent)  # Once it has finished closing.
 
     def _edit_comment(self, annotation: Annotation) -> None:
         """The comment's popover, with its text, pointing at its bubble; Apply changes the text."""
@@ -241,8 +318,8 @@ class AnnotationEditing:
         dialog.present(self._window)
 
 
-def _menu_model(*, colored: bool, with_text: bool) -> Gio.Menu:
-    """The menu of an annotation: the colours (if it has them), Edit Text… (if it has text), and Delete apart.
+def _menu_model(*, colored: bool, with_text: bool, with_format: bool) -> Gio.Menu:
+    """The menu of an annotation: the colours (if it has them), Edit Text… and Format… (if it has them), and Delete.
 
     It is one section, with separators of its own between the groups: GTK measures a menu with a custom item and
     several sections too short, and the menu then scrolls.
@@ -252,6 +329,9 @@ def _menu_model(*, colored: bool, with_text: bool) -> Gio.Menu:
         items.append_item(_custom_item("colors"))
     if with_text:
         items.append(_("_Edit Text…"), "win.edit-annotation-text")
+    if with_format:
+        items.append(_("_Format…"), "win.format-annotation")
+    if with_text or with_format:
         items.append_item(_custom_item("separator"))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()

@@ -7,14 +7,16 @@ import pikepdf
 import pytest
 from gi.repository import Adw, GLib, Gtk
 
-from penfold.document.annotations import Annotation, Kind
+from penfold.document.annotations import Annotation, Kind, LineEnds
 from penfold.rendering.text_box import text_height
+from penfold.ui.palette import color_to_hex
 from tests.gtk_helpers import process_pending_events
 from tests.sample_pdfs import allowing, make_pdf
 from tests.test_document_window import open_and_wait, window
 from tests.test_shape_drawing import widget_point
 
 if TYPE_CHECKING:
+    from penfold.ui.format_popover import FormatPopover
     from penfold.ui.window import PenfoldWindow
 
 __all__ = ["window"]
@@ -54,6 +56,14 @@ def make_annotated_pdf(path: Path, *, permissions: tuple[str, ...] | None = None
                 DA=pikepdf.String("0 g /Helv 11 Tf"),
                 C=pikepdf.Array([0.6, 0.757, 0.945]),
                 IC=pikepdf.Array([0.944, 0.966, 0.992]),  # Penfold's soft background
+            ),
+            entry(
+                "/Line",
+                [300, 740, 420, 790],
+                L=pikepdf.Array([310, 750, 410, 780]),
+                LE=pikepdf.Array([pikepdf.Name("/None"), pikepdf.Name.OpenArrow]),
+                BS=pikepdf.Dictionary(W=3),
+                C=pikepdf.Array([1, 0, 0]),
             ),
         ]
         pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(item) for item in annotations]))
@@ -198,9 +208,7 @@ def test_edit_text_writes_a_text_box_on_the_page(annotated_window: "PenfoldWindo
     editor.text_view.get_buffer().set_text("Two lines\nof text")
     process_pending_events()
     zoom = window.document_view.zoom
-    # Measured with its own letters, once GTK has given it its look (and then placed again, text_box_editor.py).
-    measured = editor.text_view.measure(Gtk.Orientation.VERTICAL, round(200 * zoom))[1]
-    assert measured == pytest.approx(text_height("Two lines\nof text", 200) * zoom, abs=3)
+    assert editor.height(zoom) == pytest.approx(text_height("Two lines\nof text", 200) * zoom, abs=1)
     editor.text_view.get_buffer().set_text("A new text, long enough to need a few more lines in this box. " * 3)
     editor.finish(apply=True)
     process_pending_events()
@@ -211,12 +219,12 @@ def test_edit_text_writes_a_text_box_on_the_page(annotated_window: "PenfoldWindo
     assert box.rectangle[3] > old.rectangle[3]
 
 
-def test_only_comments_and_text_boxes_have_edit_text() -> None:
+def test_the_menu_has_the_items_of_the_type() -> None:
     from penfold.ui.annotation_editing import _menu_model
 
     texts = []
-    for with_text in (False, True):
-        model = _menu_model(colored=True, with_text=with_text)
+    for with_text, with_format in ((False, False), (True, False), (False, True), (True, True)):
+        model = _menu_model(colored=True, with_text=with_text, with_format=with_format)
         found = []
         for index in range(model.get_n_items()):
             section = model.get_item_link(index, "section")
@@ -226,4 +234,102 @@ def test_only_comments_and_text_boxes_have_edit_text() -> None:
                 if label is not None:
                     found.append(label.get_string())
         texts.append(found)
-    assert texts == [["_Delete"], ["_Edit Text…", "_Delete"]]
+    assert texts == [
+        ["_Delete"],
+        ["_Edit Text…", "_Delete"],
+        ["_Format…", "_Delete"],
+        ["_Edit Text…", "_Format…", "_Delete"],
+    ]
+
+
+def open_format(window: "PenfoldWindow", x: float, y: float) -> "FormatPopover":
+    right_click(window, x, y)
+    window.activate_action("win.format-annotation")
+    process_pending_events()
+    popover = window.annotation_editing.format_popover
+    assert popover is not None
+    return popover
+
+
+def rows_of(popover: "FormatPopover") -> dict[str, Gtk.Widget]:
+    """The rows of the panel, by their title."""
+    rows: dict[str, Gtk.Widget] = {}
+    child = popover.get_child()
+    assert child is not None
+    list_box = child.get_last_child()
+    assert isinstance(list_box, Gtk.ListBox)
+    index = 0
+    while (row := list_box.get_row_at_index(index)) is not None:
+        assert isinstance(row, Adw.PreferencesRow)
+        rows[row.get_title()] = row
+        index += 1
+    return rows
+
+
+def test_format_changes_show_at_once_and_are_undone_as_one(annotated_window: "PenfoldWindow") -> None:
+    window = annotated_window
+    assert window.document is not None
+    popover = open_format(window, 200, 710)  # The highlight.
+    assert list(rows_of(popover)) == ["Opacity"]
+    opacity = rows_of(popover)["Opacity"]
+    assert isinstance(opacity, Adw.ActionRow)
+    scale = next(widget for widget in _descendants(opacity) if isinstance(widget, Gtk.Scale))
+    scale.set_value(50)
+    scale.set_value(30)
+    popover.activate_action("format.color", GLib.Variant.new_string(GREEN))
+    highlight = annotation(window, Kind.HIGHLIGHT)
+    assert (highlight.managed, highlight.style.opacity, color_to_hex(highlight.color or (0, 0, 0))) == (
+        True,
+        0.3,
+        GREEN,
+    )
+    popover.popdown()
+    process_pending_events()
+    window.activate_action("win.undo")  # All of it, at once.
+    original = annotation(window, Kind.HIGHLIGHT)
+    assert (original.managed, original.style.opacity) == (False, 1.0)
+
+
+def test_shapes_rows_and_a_value_of_another_program(annotated_window: "PenfoldWindow") -> None:
+    window = annotated_window
+    popover = open_format(window, 360, 765)  # The arrow, 3 points wide.
+    rows = rows_of(popover)
+    assert list(rows) == ["Line Width", "Line", "Arrowheads", "Opacity"]
+    width = rows["Line Width"]
+    assert isinstance(width, Adw.ComboRow)
+    labels = width.get_model()
+    assert isinstance(labels, Gtk.StringList)
+    assert [labels.get_string(index) for index in range(labels.get_n_items())] == ["Thin", "Medium", "3 pt", "Thick"]
+    assert width.get_selected() == 2  # Its own width, kept until another is chosen.
+    width.set_selected(3)
+    heads = rows["Arrowheads"]
+    assert isinstance(heads, Adw.ComboRow)
+    heads.set_selected(1)
+    arrow = annotation(window, Kind.ARROW)
+    assert (arrow.style.line_width, arrow.style.line_ends) == (4.0, LineEnds.BOTH)
+
+
+def test_a_text_box_grows_with_its_letters(annotated_window: "PenfoldWindow") -> None:
+    window = annotated_window
+    old = annotation(window, Kind.TEXT_BOX)
+    popover = open_format(window, 420, 640)
+    rows = rows_of(popover)
+    assert list(rows) == ["Letter Size", "Background", "Border"]
+    size, background = rows["Letter Size"], rows["Background"]
+    assert isinstance(size, Adw.ComboRow)
+    assert isinstance(background, Adw.SwitchRow)
+    size.set_selected(3)  # Very large.
+    background.set_active(False)
+    box = annotation(window, Kind.TEXT_BOX)
+    assert (box.style.font_size, box.style.background, bool(box.drawing)) == (18.0, False, True)
+    assert box.rectangle[3] - box.rectangle[1] == pytest.approx(text_height("Old box", 200, 18))  # As its text needs.
+    assert box.rectangle[:3] == pytest.approx(old.rectangle[:3])
+
+
+def _descendants(widget: Gtk.Widget) -> list[Gtk.Widget]:
+    found = []
+    child = widget.get_first_child()
+    while child is not None:
+        found += [child, *_descendants(child)]
+        child = child.get_next_sibling()
+    return found

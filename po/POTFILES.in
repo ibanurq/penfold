@@ -28,6 +28,7 @@ penfold/ui/dialogs/text_question.py
 penfold/ui/document_header.py
 penfold/ui/extraction.py
 penfold/ui/file_dialogs.py
+penfold/ui/format_popover.py
 penfold/ui/page_entry.py
 penfold/ui/palette.py
 penfold/ui/printing.py

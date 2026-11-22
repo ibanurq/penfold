@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-22 16:27+0100\n"
+"POT-Creation-Date: 2026-11-22 17:13+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -94,7 +94,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:228
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:306
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
 #: penfold/ui/window.py:1038
@@ -141,7 +141,7 @@ msgstr "Dónde"
 msgid "At the Start"
 msgstr "Al principio"
 
-#: data/ui/dialogs/add_pages_dialog.blp:95
+#: data/ui/dialogs/add_pages_dialog.blp:95 penfold/ui/format_popover.py:124
 msgid "At the End"
 msgstr "Al final"
 
@@ -433,15 +433,15 @@ msgstr "Abrir una ventana nueva"
 msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
-#: penfold/ui/annotation_editing.py:197
+#: penfold/ui/annotation_editing.py:275
 msgid "Annotation deleted"
 msgstr "Anotación eliminada"
 
-#: penfold/ui/annotation_editing.py:222
+#: penfold/ui/annotation_editing.py:300
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:224
+#: penfold/ui/annotation_editing.py:302
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -449,15 +449,19 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:229
+#: penfold/ui/annotation_editing.py:307
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:256
+#: penfold/ui/annotation_editing.py:331
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:260
+#: penfold/ui/annotation_editing.py:333
+msgid "_Format…"
+msgstr "_Formato…"
+
+#: penfold/ui/annotation_editing.py:336
 msgid "_Delete"
 msgstr "_Eliminar"
 
@@ -714,6 +718,92 @@ msgstr "No se pudo guardar «{name}»"
 #: penfold/ui/file_dialogs.py:12
 msgid "PDF Documents"
 msgstr "Documentos PDF"
+
+#: penfold/ui/format_popover.py:94
+msgid "Background"
+msgstr "Fondo"
+
+#: penfold/ui/format_popover.py:95
+msgid "Border"
+msgstr "Borde"
+
+#: penfold/ui/format_popover.py:101
+msgid "Fill"
+msgstr "Relleno"
+
+#: penfold/ui/format_popover.py:108
+msgid "Thin"
+msgstr "Fino"
+
+#: penfold/ui/format_popover.py:108
+msgid "Medium"
+msgstr "Medio"
+
+#: penfold/ui/format_popover.py:108
+msgid "Thick"
+msgstr "Grueso"
+
+#: penfold/ui/format_popover.py:110
+msgid "Line Width"
+msgstr "Grosor"
+
+#: penfold/ui/format_popover.py:114
+msgid "Small"
+msgstr "Pequeña"
+
+#: penfold/ui/format_popover.py:114
+msgid "Normal"
+msgstr "Normal"
+
+#: penfold/ui/format_popover.py:114
+msgid "Large"
+msgstr "Grande"
+
+#: penfold/ui/format_popover.py:114
+msgid "Very Large"
+msgstr "Muy grande"
+
+#: penfold/ui/format_popover.py:116
+msgid "Letter Size"
+msgstr "Tamaño de letra"
+
+#: penfold/ui/format_popover.py:120
+msgid "Solid"
+msgstr "Continua"
+
+#: penfold/ui/format_popover.py:120
+msgid "Dashed"
+msgstr "Discontinua"
+
+#: penfold/ui/format_popover.py:121
+msgid "Line"
+msgstr "Línea"
+
+#: penfold/ui/format_popover.py:124
+msgid "At Both Ends"
+msgstr "En los dos extremos"
+
+#: penfold/ui/format_popover.py:124
+msgid "None"
+msgstr "Ninguna"
+
+#: penfold/ui/format_popover.py:125
+msgid "Arrowheads"
+msgstr "Puntas"
+
+#: penfold/ui/format_popover.py:131
+#, python-brace-format
+msgid "{size:g} pt"
+msgstr "{size:g} pt"
+
+#: penfold/ui/format_popover.py:148
+#, python-brace-format
+msgid "{percent} %"
+msgstr "{percent} %"
+
+#: penfold/ui/format_popover.py:150 penfold/ui/format_popover.py:152
+msgid "Opacity"
+msgstr "Opacidad"
 
 #. Translators: position of the current page when the PDF names its pages, as in "ix (11 of 800)".
 #: penfold/ui/page_entry.py:68
