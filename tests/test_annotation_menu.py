@@ -5,9 +5,10 @@ from typing import TYPE_CHECKING
 
 import pikepdf
 import pytest
-from gi.repository import Adw, GLib
+from gi.repository import Adw, GLib, Gtk
 
 from penfold.document.annotations import Annotation, Kind
+from penfold.rendering.text_box import text_height
 from tests.gtk_helpers import process_pending_events
 from tests.sample_pdfs import allowing, make_pdf
 from tests.test_document_window import open_and_wait, window
@@ -52,6 +53,7 @@ def make_annotated_pdf(path: Path, *, permissions: tuple[str, ...] | None = None
                 Contents=pikepdf.String("Old box"),
                 DA=pikepdf.String("0 g /Helv 11 Tf"),
                 C=pikepdf.Array([0.6, 0.757, 0.945]),
+                IC=pikepdf.Array([0.944, 0.966, 0.992]),  # Penfold's soft background
             ),
         ]
         pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(item) for item in annotations]))
@@ -193,6 +195,12 @@ def test_edit_text_writes_a_text_box_on_the_page(annotated_window: "PenfoldWindo
     assert editor is not None
     assert editor.text == "Old box"
     assert window.document_view._hidden is old  # Not painted under the editor.
+    editor.text_view.get_buffer().set_text("Two lines\nof text")
+    process_pending_events()
+    zoom = window.document_view.zoom
+    # Measured with its own letters, once GTK has given it its look (and then placed again, text_box_editor.py).
+    measured = editor.text_view.measure(Gtk.Orientation.VERTICAL, round(200 * zoom))[1]
+    assert measured == pytest.approx(text_height("Two lines\nof text", 200) * zoom, abs=3)
     editor.text_view.get_buffer().set_text("A new text, long enough to need a few more lines in this box. " * 3)
     editor.finish(apply=True)
     process_pending_events()

@@ -5,12 +5,13 @@ as the text grows. Ctrl+Enter, or a click outside it, applies; Esc cancels; Ente
 is made. Editing the text of a text box (D72), it starts with that text and has its format.
 """
 
+import math
 from collections.abc import Callable
 
 from gi.repository import Gdk, GLib, Graphene, Gsk, Gtk
 
 from penfold.document.annotations import Style
-from penfold.rendering.text_box import BORDER, FONT_FAMILY, PADDING, Color, background
+from penfold.rendering.text_box import BORDER, FONT_FAMILY, PADDING, Color, background, text_height
 from penfold.ui.palette import color_to_hex
 
 
@@ -77,6 +78,10 @@ class TextBoxEditor:
         _minimum, natural, _baseline_minimum, _baseline_natural = self.text_view.measure(
             Gtk.Orientation.VERTICAL, width
         )
+        # The box keeps at least the height of its text as it will be saved: a text view lays out a long text it was
+        # given later, line by line, and measures it short meanwhile.
+        text = self.text_view.get_buffer().props.text
+        natural = max(natural, math.ceil(text_height(text, self.width, self._style_of_box.font_size) * zoom))
         self.text_view.measure(Gtk.Orientation.HORIZONTAL, -1)
         point = Graphene.Point().init(
             round(page_origin[0] + self.corner[0] * zoom), round(page_origin[1] + self.corner[1] * zoom)
@@ -120,6 +125,14 @@ class TextBoxEditor:
             f" border: {BORDER * zoom:.3f}px solid {border}; background: {fill}; }}"
             f" .{self._class} text {{ background: {fill}; color: black; }}"
         )
+        # GTK applies the new look later: measured now, the box would keep the height of the old one (with a text
+        # already written, nothing else asks for it to be measured again).
+        GLib.idle_add(self._measure_again)
+
+    def _measure_again(self) -> bool:
+        if not self._finished:
+            self._view.queue_allocate()
+        return GLib.SOURCE_REMOVE
 
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType

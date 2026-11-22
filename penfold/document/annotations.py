@@ -375,7 +375,7 @@ class _Look:
             filled=filled,
             line_ends=line_ends,
             font_size=font_size,
-            background=kind is not Kind.TEXT_BOX or "/IC" in annotation,
+            background=kind is not Kind.TEXT_BOX or self._text_box_background(color),
             border=kind is not Kind.TEXT_BOX or width > 0,
         )
 
@@ -414,6 +414,18 @@ class _Look:
         soft = [1 - FILL_STRENGTH + FILL_STRENGTH * component for component in color or (0.0, 0.0, 0.0)]
         if any(abs(a - b) > COLOR_TOLERANCE for a, b in zip(inside, soft, strict=True)):
             self.foreign.append("fill colour")
+        return True
+
+    def _text_box_background(self, color: tuple[float, float, float] | None) -> bool:
+        """Whether a text box has a background: its /IC, or else its colour (/C), which viewers paint as one.
+
+        Penfold paints a soft tint of the colour: a background of the colour itself has a foreign look.
+        """
+        if "/IC" in self._annotation:
+            return True
+        if color is None:
+            return False
+        self.foreign.append("fill colour")
         return True
 
     def _line_ends(self) -> LineEnds:

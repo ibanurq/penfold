@@ -183,6 +183,8 @@ def test_what_penfold_cannot_draw_again_is_noted(tmp_path: Path) -> None:
     assert (text_box.style.font_size, text_box.style.background, text_box.foreign_look) == (9, False, ("font",))
     helvetica = read_one(tmp_path, "/FreeText", DA=pikepdf.String("0 g /Helv 14 Tf"), IC=pikepdf.Array([1, 1, 0.9]))
     assert (helvetica.style.font_size, helvetica.style.background, helvetica.foreign_look) == (14, True, ())
+    filled = read_one(tmp_path, "/FreeText", C=pikepdf.Array([0.5, 0.7, 1]))  # The colour, painted as background.
+    assert (filled.style.background, filled.foreign_look) == (True, ("fill colour",))
     bubble = read_one(tmp_path, "/Text", Name=pikepdf.Name.Help)
     assert bubble.foreign_look == ("icon",)
 
