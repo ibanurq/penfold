@@ -355,6 +355,7 @@ def test_an_annotation_made_is_painted_on_its_page_and_undo_takes_it_away(window
 
     from penfold.document.annotations import Kind, new_annotation
     from penfold.document.commands.annotations import AddAnnotations
+    from penfold.rendering.renderer import round_scale
 
     open_and_wait(window, book)
     view = window.document_view
@@ -385,6 +386,12 @@ def test_an_annotation_made_is_painted_on_its_page_and_undo_takes_it_away(window
         y = round(box.y - view.vadjustment.get_value() + y_points * view.zoom)
         return bytes(pixels[y * stride + x * 3 : y * stride + x * 3 + 3])
 
+    # A highlight tints the page drawn under it: wait until the page is drawn at this zoom.
+    renderer = view.renderer
+    assert renderer is not None
+    scale = round_scale(view.zoom * view._device_scale())
+    view.queue_draw()
+    wait_until(lambda: any(key.source == 0 and key.scale == scale for key in renderer._cache))
     blue = (0.6, 0.757, 0.945)
     highlight = new_annotation(Kind.HIGHLIGHT, 0, (40, 40, 200, 80), blue, "Iban", quads=((40, 40, 200, 80),))
     before = pixel_at(120, 60)
