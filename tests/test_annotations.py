@@ -79,6 +79,12 @@ def test_text_author_and_colour(annotations: list[Annotation]) -> None:
     assert not any(item.managed for item in annotations)
 
 
+def test_each_knows_its_place_in_its_page(annotations: list[Annotation]) -> None:
+    highlight, comment, rectangle, ink = annotations
+    # The link is not listed, but it has its place among the page's annotations.
+    assert [item.origin for item in (comment, highlight, rectangle, ink)] == [0, 1, 3, 0]
+
+
 def test_a_new_annotation_is_managed_and_named() -> None:
     first = new_annotation(Kind.RECTANGLE, 3, (10, 20, 110, 70), (1.0, 0.0, 0.0), "  Iban ")
     second = new_annotation(Kind.ARROW, 3, (10, 20, 110, 70), (1.0, 0.0, 0.0), "", line=(10, 70, 110, 20))
@@ -87,6 +93,7 @@ def test_a_new_annotation_is_managed_and_named() -> None:
     assert (second.author, second.line) == ("Penfold", (10, 70, 110, 20))  # no author in the preferences (D60)
     assert first.name.startswith("penfold-")
     assert first.name != second.name
+    assert first.origin is None  # in no PDF yet
     assert first.created is not None
     assert first.created.tzinfo is not None
 

@@ -1,9 +1,9 @@
 """Annotations: the notes, marks and shapes of the pages (ISO 32000-1, 12.5), as the side panel lists them.
 
 The annotations of the PDF are read and shown as they are; Poppler draws them. The ones made in Penfold are managed:
-Penfold draws them and writes them into the PDF when it is saved (03-arquitectura, 4.1). From phase 9, the
-annotations of the types Penfold makes will be managed too (D60). Links, form fields and pop-up windows are not
-annotations to list.
+Penfold draws them and writes them into the PDF when it is saved (03-arquitectura, 4.1). An annotation of the PDF of a
+type Penfold makes becomes managed when it is changed (D60, D72); one deleted or changed is taken out of its page when
+the PDF is saved. Links, form fields and pop-up windows are not annotations to list.
 """
 
 import enum
@@ -77,7 +77,9 @@ class Annotation:
     areas of the text it marks, in the same units, for highlights, underlines and strikethroughs; the line goes from
     its start to its end (x, y, x, y) for arrows.
 
-    A managed annotation is drawn and written by Penfold, with a unique name (/NM) and its creation date. A text box
+    A managed annotation is drawn and written by Penfold, with a unique name (/NM) and its creation date. One read
+    from a PDF knows its origin, its place in the /Annots of its page there, so that saving can take it out of the
+    page when it is deleted or changed (written again); those made in Penfold have none. A text box
     reads turned clockwise by text_turn degrees from the page as shown (the turn Penfold gave the page when it was
     written, so that it was upright), and keeps its saved drawing: a one-page PDF with the fonts it uses inside.
     """
@@ -94,6 +96,7 @@ class Annotation:
     name: str = ""
     created: datetime | None = None
     managed: bool = False
+    origin: int | None = None
     text_turn: int = 0
     drawing: bytes = field(default=b"", repr=False)
 
@@ -156,13 +159,13 @@ def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:
         for position in range(len(annots)):
             annotation = annots[position]
             if isinstance(annotation, pikepdf.Dictionary):
-                read = _read_annotation(annotation, index, frame)
+                read = _read_annotation(annotation, index, position, frame)
                 if read is not None:
                     annotations.append(read)
     return sorted(annotations, key=lambda item: (item.page, item.rectangle[1], item.rectangle[0]))
 
 
-def _read_annotation(annotation: pikepdf.Dictionary, page: int, frame: PageFrame) -> Annotation | None:
+def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, frame: PageFrame) -> Annotation | None:
     subtype = annotation.get("/Subtype")
     if not isinstance(subtype, pikepdf.Name) or str(subtype) in NOT_LISTED:
         return None
@@ -178,6 +181,7 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, frame: PageFrame
         author=text(annotation.get("/T")),
         color=_color(annotation.get("/C")),
         quads=_quads(annotation.get("/QuadPoints"), frame),
+        origin=origin,
     )
 
 

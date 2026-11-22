@@ -53,6 +53,8 @@ class SavePlan:
         flatten: draw the form fields as fixed page content and remove the form: an exported copy (I6).
         left_out: the groups of annotations to leave out, for printing (D57).
         annotations: the annotations made in Penfold, written on their pages if the pages are saved.
+        removed: the annotations of the source PDFs taken out of their pages, deleted or changed (then written again
+            with the others): the source index of their page and their origin (annotations.py).
     """
 
     sources: Spans
@@ -64,6 +66,7 @@ class SavePlan:
     flatten: bool = False
     left_out: frozenset[AnnotationGroup] = frozenset()
     annotations: tuple[Annotation, ...] = ()
+    removed: frozenset[tuple[int, int]] = frozenset()
 
     @classmethod
     def take(
@@ -96,6 +99,7 @@ def save(plan: SavePlan) -> int:
             originals = list(pdf.pages)
             placed = _arrange_pages(pdf, originals, plan.pages, others)
             deleted = [original for index, original in enumerate(originals) if index not in placed]
+            _remove_annotations(pdf, plan.removed, placed)
             _write_annotations(pdf, plan.annotations, plan.pages, placed)
             _write_labels(pdf, plan.pages)
             _remove_fields_of_pages(pdf, deleted)
@@ -165,6 +169,24 @@ def _arrange_pages(
         if page.rotation:
             placed[page.source_index].rotate(page.rotation, relative=True)
     return placed
+
+
+def _remove_annotations(pdf: pikepdf.Pdf, removed: frozenset[tuple[int, int]], placed: dict[int, pikepdf.Page]) -> None:
+    """Take the removed annotations out of their pages, with the pop-up windows of their notes.
+
+    It runs right after the pages are placed, while their /Annots are still in the order they were read in.
+    """
+    origins: dict[int, set[int]] = {}
+    for source_index, origin in removed:
+        origins.setdefault(source_index, set()).add(origin)
+    for source_index, taken in origins.items():
+        page = placed.get(source_index)
+        if page is None:
+            continue
+        items = list(_items(page.obj.get("/Annots")))
+        dropped = {item.objgen for position, item in enumerate(items) if position in taken and item.is_indirect}
+        kept = [item for position, item in enumerate(items) if position not in taken and not _popup_of(item, dropped)]
+        page.obj.Annots = pdf.make_indirect(pikepdf.Array(kept))
 
 
 def _write_annotations(

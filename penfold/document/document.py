@@ -1,7 +1,7 @@
 """The open document: one PDF and what Penfold knows about it."""
 
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Self
@@ -60,6 +60,8 @@ class OpenDocument:
         self._respects_permissions = True
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
+        # The annotations of the source PDFs as they were read, by page and origin, to know which were removed.
+        self._read_annotations = _origins(self.annotations)
         self.form_fields: list[FormField] = read_form_fields(pdf)
         # The values filled in that differ from the PDF's, by field key; a field set back to its value is not here (I5).
         self._form_values: dict[tuple[int, str], FieldValue] = {}
@@ -217,7 +219,9 @@ class OpenDocument:
             source.close()
             raise
         start = self.sources.add(source).start
-        self.annotations = [*self.annotations, *read_annotations(source.pdf, start)]
+        read = read_annotations(source.pdf, start)
+        self.annotations = [*self.annotations, *read]
+        self._read_annotations |= _origins(read)
         self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]
         return start, source.pdf
 
@@ -317,7 +321,7 @@ class OpenDocument:
         plan = SavePlan.take(
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
-        return replace(plan, form_values=self._filled_in(), flatten=flatten, annotations=self._made_here())
+        return replace(self._with_annotation_edits(plan), form_values=self._filled_in(), flatten=flatten)
 
     def print_plan(self, target: Path, left_out: frozenset[AnnotationGroup]) -> SavePlan:
         """Take what writing the PDF to print needs (D57), to write it with saving.save.
@@ -331,7 +335,7 @@ class OpenDocument:
             message = "this PDF does not allow printing"
             raise ValueError(message)
         plan = SavePlan.take(self.sources.spans, target, self.pages, [], None)
-        return replace(plan, form_values=self._filled_in(), left_out=left_out, annotations=self._made_here())
+        return replace(self._with_annotation_edits(plan), form_values=self._filled_in(), left_out=left_out)
 
     def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
         """Take what writing some pages to another file needs (E8), to write it with saving.save.
@@ -347,11 +351,17 @@ class OpenDocument:
         pages = [self.pages[position] for position in positions]
         bookmarks = leading_to(self.bookmarks, {page.source_index for page in pages})
         plan = SavePlan.take(self.sources.spans, target, pages, bookmarks, None)
-        return replace(plan, form_values=self._filled_in(), annotations=self._made_here())
+        return replace(self._with_annotation_edits(plan), form_values=self._filled_in())
 
-    def _made_here(self) -> tuple[Annotation, ...]:
-        """The annotations made in Penfold, which saving writes (the PDF's own are in its pages already)."""
-        return tuple(annotation for annotation in self.annotations if annotation.managed)
+    def _with_annotation_edits(self, plan: SavePlan) -> SavePlan:
+        """Add to a plan what saving changes in the annotations of the pages.
+
+        Saving writes the managed annotations (made or changed in Penfold) and takes out of their pages those of the
+        PDFs that were deleted or changed; the rest are in their pages already.
+        """
+        managed = tuple(annotation for annotation in self.annotations if annotation.managed)
+        unchanged = _origins(annotation for annotation in self.annotations if not annotation.managed)
+        return replace(plan, annotations=managed, removed=frozenset(self._read_annotations - unchanged))
 
     def _filled_in(self) -> tuple[tuple[FormField, FieldValue], ...]:
         """The fields whose values differ from the PDF's, with those values, to write them (I5, I7)."""
@@ -375,6 +385,11 @@ class OpenDocument:
     def close(self) -> None:
         """Release the source PDFs and their private copies."""
         self.sources.close()
+
+
+def _origins(annotations: Iterable[Annotation]) -> set[tuple[int, int]]:
+    """The page and origin of each annotation read from a PDF (annotations.py)."""
+    return {(annotation.page, annotation.origin) for annotation in annotations if annotation.origin is not None}
 
 
 def _pages_of(pdf: pikepdf.Pdf, start: int) -> list[Page]:

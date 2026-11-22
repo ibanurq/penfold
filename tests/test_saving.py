@@ -6,6 +6,8 @@ from pathlib import Path
 import pikepdf
 import pytest
 
+from penfold.document.annotations import Kind, new_annotation
+from penfold.document.commands.annotations import AddAnnotations, DeleteAnnotations
 from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.pages import Page
@@ -151,6 +153,63 @@ def test_notes_of_other_programs_are_kept_as_they_were(document: OpenDocument) -
     with save_over(document) as pdf:
         note = pdf.pages[0].obj.Annots[0]
         assert (note.Subtype, str(note.Contents), str(note.T)) == (pikepdf.Name.Text, "Hello", "Someone")
+
+
+def add_popup(path: Path) -> None:
+    """Give the note of the rich PDF a pop-up window, after a link, as other programs do."""
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        page = pdf.pages[4].obj
+        note = page.Annots[0]
+        popup = pdf.make_indirect(
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Popup, Rect=[30, 30, 90, 60], Parent=note)
+        )
+        note.Popup = popup
+        link = pdf.make_indirect(
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Link, Rect=[0, 0, 5, 5])
+        )
+        page.Annots = pdf.make_indirect(pikepdf.Array([link, note, popup]))
+        pdf.save(path)
+
+
+def test_a_deleted_note_of_another_program_is_taken_out_with_its_popup(tmp_path: Path) -> None:
+    path = make_rich_pdf(tmp_path / "rich.pdf")
+    add_popup(path)
+    document = OpenDocument.open(path)
+    note = document.annotations[0]
+    assert (note.text, note.origin) == ("Hello", 1)
+    document.execute(MovePages(document, [4], 0))
+    document.execute(DeleteAnnotations(document, [note]))
+    with save_over(document) as pdf:
+        annots = pdf.pages[0].obj.Annots
+        assert [annots[index].Subtype for index in range(len(annots))] == [pikepdf.Name.Link]
+    assert OpenDocument.open(path).annotations == []
+
+
+def test_undoing_a_deletion_keeps_the_note_in_the_pdf(document: OpenDocument) -> None:
+    document.execute(DeleteAnnotations(document, document.annotations))
+    document.undo()
+    with save_over(document) as pdf:
+        assert str(pdf.pages[4].obj.Annots[0].Contents) == "Hello"
+
+
+def test_annotations_made_and_deleted_are_not_written(document: OpenDocument) -> None:
+    made = new_annotation(Kind.RECTANGLE, 0, (10, 10, 50, 50), (1.0, 0.0, 0.0), "Iban")
+    document.execute(AddAnnotations(document, [made]))
+    document.execute(DeleteAnnotations(document, [made]))
+    with save_over(document) as pdf:
+        assert [str(page.obj.Annots[0].Subtype) for page in pdf.pages if "/Annots" in page.obj] == [
+            "/Widget",
+            "/Widget",
+            "/Text",
+        ]
+
+
+def test_printing_leaves_out_deleted_annotations(document: OpenDocument, tmp_path: Path) -> None:
+    document.execute(DeleteAnnotations(document, document.annotations))
+    plan = document.print_plan(tmp_path / "print.pdf", frozenset())
+    save(plan)
+    with pikepdf.open(plan.target) as pdf:
+        assert len(pdf.pages[4].obj.Annots) == 0
 
 
 def test_form_fields_of_deleted_pages_are_removed(document: OpenDocument) -> None:
