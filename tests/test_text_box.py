@@ -13,10 +13,11 @@ from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
 from penfold.document.saving import save  # noqa: E402
-from penfold.rendering.text_box import BORDER, PADDING, text_box_pdf, text_height  # noqa: E402
+from penfold.rendering.text_box import BORDER, PADDING, text_box_pdf, text_height, with_text, written_frame  # noqa: E402
 from tests.sample_pdfs import make_pdf  # noqa: E402
 
 BLUE = (0.6, 0.757, 0.945)
+A4_SIZE = (595.0, 842.0)
 TEXT = "Ñandú → ✓ Ωμέγα Привет, a text long enough to need a few lines in a narrow box"
 
 
@@ -117,3 +118,16 @@ def test_the_screen_shows_what_is_saved(
     different, total = differing_pixels(painted, saved)
     assert total > 5_000  # Something is painted (less without a background).
     assert different / total < 0.03
+
+
+@pytest.mark.parametrize("text_turn", [0, 90, 180, 270])
+def test_another_text_keeps_where_it_starts_and_its_width(text_turn: int) -> None:
+    box = text_box(0, (100, 150), 160, text_turn=text_turn)
+    longer = with_text(box, TEXT + " " + TEXT, A4_SIZE)
+    (corner, width), (new_corner, new_width) = written_frame(box, A4_SIZE), written_frame(longer, A4_SIZE)
+    assert new_corner == pytest.approx(corner)
+    assert new_width == pytest.approx(width)
+    area = (box.rectangle[2] - box.rectangle[0]) * (box.rectangle[3] - box.rectangle[1])
+    new_area = (longer.rectangle[2] - longer.rectangle[0]) * (longer.rectangle[3] - longer.rectangle[1])
+    assert new_area > area  # Taller as it reads, for the longer text.
+    assert longer.text == TEXT + " " + TEXT

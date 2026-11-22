@@ -1,7 +1,7 @@
 """Writing the text of a comment (02-interfaz, 5; H5, D68): a popover pointing at its place on the page.
 
 Enter starts a new line, Ctrl+Enter applies, Esc (or a click outside) cancels. Apply is greyed out while the text is
-blank: an empty comment is not made.
+blank: an empty comment is not made. Editing the text of a comment (D72), it starts with that text.
 """
 
 from collections.abc import Callable
@@ -18,8 +18,8 @@ class CommentPopover(Gtk.Popover):
 
     __gtype_name__ = "PenfoldCommentPopover"
 
-    def __init__(self, on_apply: Callable[[str], object]) -> None:
-        """Create the popover, empty; set its parent and the point it points at, then popup."""
+    def __init__(self, on_apply: Callable[[str], object], text: str = "") -> None:
+        """Create the popover, with a text or empty; set its parent and the point it points at, then popup."""
         super().__init__(position=Gtk.PositionType.BOTTOM)
         self._on_apply = on_apply
         self.text_view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, accepts_tab=False)
@@ -47,6 +47,7 @@ class CommentPopover(Gtk.Popover):
         content.append(buttons)
         self.set_child(content)
         self.text_view.get_buffer().connect("changed", self._on_changed)
+        self.text_view.get_buffer().set_text(text)
         self.connect("map", lambda _popover: self.text_view.grab_focus())
 
     @property

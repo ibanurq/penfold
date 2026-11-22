@@ -45,6 +45,14 @@ def make_annotated_pdf(path: Path, *, permissions: tuple[str, ...] | None = None
             ),
             entry("/Square", [100, 400, 300, 600], C=pikepdf.Array([1, 0, 0]), BE=pikepdf.Dictionary(S=pikepdf.Name.C)),
             entry("/Ink", [400, 700, 500, 800], InkList=pikepdf.Array([pikepdf.Array([400, 700, 500, 800])])),
+            entry("/Text", [520, 780, 540, 800], Contents=pikepdf.String("Old note"), C=pikepdf.Array([1, 1, 0])),
+            entry(
+                "/FreeText",
+                [320, 620, 520, 660],
+                Contents=pikepdf.String("Old box"),
+                DA=pikepdf.String("0 g /Helv 11 Tf"),
+                C=pikepdf.Array([0.6, 0.757, 0.945]),
+            ),
         ]
         pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(item) for item in annotations]))
         if permissions is None:
@@ -157,3 +165,57 @@ def test_without_permission_to_annotate_everything_is_greyed_out(window: "Penfol
         action = window.lookup_action(name)
         assert action is not None
         assert not action.get_enabled()
+
+
+def test_edit_text_changes_a_comment_in_its_popover(annotated_window: "PenfoldWindow") -> None:
+    window = annotated_window
+    right_click(window, 530, 790)
+    assert window.annotation_editing.annotation == annotation(window, Kind.COMMENT)
+    window.activate_action("win.edit-annotation-text")
+    process_pending_events()
+    popover = window.annotation_editing.comment_popover
+    assert popover is not None
+    assert popover.text == "Old note"
+    popover.text_view.get_buffer().set_text("New note")
+    popover.apply_button.emit("clicked")
+    process_pending_events()
+    comment = annotation(window, Kind.COMMENT)
+    assert (comment.text, comment.managed) == ("New note", True)
+
+
+def test_edit_text_writes_a_text_box_on_the_page(annotated_window: "PenfoldWindow") -> None:
+    window = annotated_window
+    old = annotation(window, Kind.TEXT_BOX)
+    right_click(window, 420, 640)
+    window.activate_action("win.edit-annotation-text")
+    process_pending_events()
+    editor = window.document_view.text_editor
+    assert editor is not None
+    assert editor.text == "Old box"
+    assert window.document_view._hidden is old  # Not painted under the editor.
+    editor.text_view.get_buffer().set_text("A new text, long enough to need a few more lines in this box. " * 3)
+    editor.finish(apply=True)
+    process_pending_events()
+    box = annotation(window, Kind.TEXT_BOX)
+    assert box.text.startswith("A new text")
+    assert (box.managed, bool(box.drawing), window.document_view._hidden is None) == (True, True, True)
+    assert box.rectangle[:3] == pytest.approx(old.rectangle[:3])  # Same corner and width, taller.
+    assert box.rectangle[3] > old.rectangle[3]
+
+
+def test_only_comments_and_text_boxes_have_edit_text() -> None:
+    from penfold.ui.annotation_editing import _menu_model
+
+    texts = []
+    for with_text in (False, True):
+        model = _menu_model(colored=True, with_text=with_text)
+        found = []
+        for index in range(model.get_n_items()):
+            section = model.get_item_link(index, "section")
+            assert section is not None
+            for item in range(section.get_n_items()):
+                label = section.get_item_attribute_value(item, "label", None)
+                if label is not None:
+                    found.append(label.get_string())
+        texts.append(found)
+    assert texts == [["_Delete"], ["_Edit Text…", "_Delete"]]

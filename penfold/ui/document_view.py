@@ -14,7 +14,7 @@ from typing import ClassVar
 
 from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 
-from penfold.document.annotations import Annotation, Hit, Kind, hit, topmost
+from penfold.document.annotations import Annotation, Hit, Kind, Style, hit, topmost
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle, merge_lines
 from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
@@ -199,6 +199,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._preview: Annotation | None = None
         # The annotation whose menu is open, outlined so that it is clear which one it is (D72).
         self._marked: Annotation | None = None
+        # The annotation whose text is being edited on the page, not painted under its editor.
+        self._hidden: Annotation | None = None
         # A text box being written on a page (H3).
         self.text_editor: TextBoxEditor | None = None
         self._form_layer = FormLayer(self)
@@ -284,7 +286,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._managed = {}
         if self.document is not None:
             for annotation in self.document.annotations:
-                if annotation.managed:
+                if annotation.managed and annotation is not self._hidden:
                     self._managed.setdefault(annotation.page, []).append(annotation)
         self.queue_draw()
 
@@ -870,6 +872,27 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             return self._upright_rectangle(page, annotation)
         return page.from_source(annotation.rectangle)
 
+    def view_rectangle(self, annotation: Annotation) -> Gdk.Rectangle | None:
+        """Where an annotation is in the view, in pixels (None if its page is not laid out)."""
+        if self.renderer is None or self._hadjustment is None or self._vadjustment is None:
+            return None
+        position = self.renderer.layout.position(annotation.page)
+        box = None if position is None else self._box(position)
+        bounds = None if box is None else self.annotation_bounds(self.renderer.layout[box.page], annotation)
+        if box is None or bounds is None:
+            return None
+        left, top, right, bottom = bounds
+        place = Gdk.Rectangle()
+        place.x = round(box.x - self._hadjustment.get_value() + left * self.zoom)
+        place.y = round(box.y - self._vadjustment.get_value() + top * self.zoom)
+        place.width, place.height = max(1, round((right - left) * self.zoom)), max(1, round((bottom - top) * self.zoom))
+        return place
+
+    def set_hidden(self, annotation: Annotation | None) -> None:
+        """Leave out of the painting an annotation being edited on the page (None: none), under its editor."""
+        self._hidden = annotation
+        self.annotations_changed()
+
     def set_marked(self, annotation: Annotation | None) -> None:
         """Outline an annotation (None: none), while its menu is open."""
         self._marked = annotation
@@ -1029,11 +1052,23 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.set_preview(None)
         self.queue_draw()
 
-    def write_text_box(self, page: int, corner: tuple[float, float], width: float, color: Color) -> TextBoxEditor:
-        """Start writing a text box on a page (by position), from a corner (points as shown); set its on_done."""
+    def write_text_box(  # noqa: PLR0913 (where, how wide, how it looks and what it says)
+        self,
+        page: int,
+        corner: tuple[float, float],
+        width: float,
+        color: Color,
+        *,
+        style: Style | None = None,
+        text: str = "",
+    ) -> TextBoxEditor:
+        """Start writing a text box on a page (by position), from a corner (points as shown); set its on_done.
+
+        To edit one (D72), it has its format and starts with its text.
+        """
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
-        editor = TextBoxEditor(self, page, corner, width, color)
+        editor = TextBoxEditor(self, page, corner, width, color, style=style, text=text)
         self.text_editor = editor
 
         def done(_text: str | None) -> None:

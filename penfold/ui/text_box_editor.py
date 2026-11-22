@@ -2,14 +2,15 @@
 
 It has the font, the size, the background and the border of the text box, at the zoom of the view, and grows down
 as the text grows. Ctrl+Enter, or a click outside it, applies; Esc cancels; Enter starts a new line. Blank, nothing
-is made.
+is made. Editing the text of a text box (D72), it starts with that text and has its format.
 """
 
 from collections.abc import Callable
 
 from gi.repository import Gdk, GLib, Graphene, Gsk, Gtk
 
-from penfold.rendering.text_box import BORDER, FONT_FAMILY, FONT_SIZE, PADDING, Color, background
+from penfold.document.annotations import Style
+from penfold.rendering.text_box import BORDER, FONT_FAMILY, PADDING, Color, background
 from penfold.ui.palette import color_to_hex
 
 
@@ -19,12 +20,23 @@ class TextBoxEditor:
     on_done gets the text (stripped) when it is applied, or None when it is cancelled or left blank.
     """
 
-    def __init__(self, view: Gtk.Widget, page: int, corner: tuple[float, float], width: float, color: Color) -> None:
+    def __init__(  # noqa: PLR0913 (where, how wide, how it looks and what it says)
+        self,
+        view: Gtk.Widget,
+        page: int,
+        corner: tuple[float, float],
+        width: float,
+        color: Color,
+        *,
+        style: Style | None = None,
+        text: str = "",
+    ) -> None:
         """Start writing over the page at this position, from this corner (points of the page as shown)."""
         self.page = page
         self.corner = corner
         self.width = width
         self._color = color
+        self._style_of_box = style or Style()
         self._view = view
         self._zoom = 0.0
         self.on_done: Callable[[str | None], object] = lambda _text: None
@@ -43,6 +55,7 @@ class TextBoxEditor:
         # Not at once: GTK is still moving the focus away from the box, which must not be taken away meanwhile.
         focus.connect("leave", lambda _controller: GLib.idle_add(self._finish_after_leaving))
         self.text_view.add_controller(focus)
+        self.text_view.get_buffer().set_text(text)
         self.text_view.get_buffer().connect("changed", lambda _buffer: view.queue_allocate())
         self.text_view.set_parent(view)
         self._finished = False
@@ -97,11 +110,14 @@ class TextBoxEditor:
         The lines must break where they will in the drawing saved, which has the same measures in points.
         """
         self._zoom = zoom
-        fill = color_to_hex(background(self._color))
+        style = self._style_of_box
+        fill = color_to_hex(background(self._color)) if style.background else "white"
+        # Without a border, the space stays, transparent, so that the text does not move (rendering/text_box.py).
+        border = color_to_hex(self._color) if style.border else "transparent"
         self._style.load_from_string(
-            f".{self._class} {{ font-family: '{FONT_FAMILY}'; font-size: {FONT_SIZE * zoom:.3f}px;"
+            f".{self._class} {{ font-family: '{FONT_FAMILY}'; font-size: {style.font_size * zoom:.3f}px;"
             f" padding: {PADDING * zoom:.3f}px; caret-color: black;"
-            f" border: {BORDER * zoom:.3f}px solid {color_to_hex(self._color)}; background: {fill}; }}"
+            f" border: {BORDER * zoom:.3f}px solid {border}; background: {fill}; }}"
             f" .{self._class} text {{ background: {fill}; color: black; }}"
         )
 

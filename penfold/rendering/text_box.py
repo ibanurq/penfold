@@ -16,6 +16,8 @@ from gi.repository import Pango, PangoCairo
 
 from penfold.document.annotations import TEXT_BOX_FONT_SIZE, Annotation, Style
 from penfold.document.appearance import TEXT_BOX_BACKGROUND, tint
+from penfold.document.geometry import Size
+from penfold.rendering.layout import ShownPage
 
 FONT_FAMILY = "Liberation Sans"
 FONT_SIZE = TEXT_BOX_FONT_SIZE
@@ -86,6 +88,35 @@ def redrawn(annotation: Annotation) -> Annotation:
     width, height = right - left, bottom - top
     size = (height, width) if annotation.text_turn % 180 else (width, height)
     return replace(annotation, drawing=text_box_pdf(annotation.text, size, annotation.color or BLACK, annotation.style))
+
+
+def written_frame(annotation: Annotation, source_size: Size) -> tuple[tuple[float, float], float]:
+    """Where a text box's text starts and how wide it is, on its page turned as when it was written (text_turn).
+
+    On that page the box is upright: its top left corner, in points, and its width.
+    """
+    left, top, right, _bottom = ShownPage(annotation.page, source_size, annotation.text_turn).from_source(
+        annotation.rectangle
+    )
+    return (left, top), right - left
+
+
+def with_text(annotation: Annotation, text: str, source_size: Size) -> Annotation:
+    """A text box with another text: as wide, from the same corner, as tall as the text needs (draw it with redrawn).
+
+    It grows or shrinks downwards as its text reads, whatever the turn of the page now.
+    """
+    (left, top), width = written_frame(annotation, source_size)
+    height = text_height(text, width, annotation.style.font_size)
+    written = ShownPage(annotation.page, source_size, annotation.text_turn)
+    corners = [written.to_source(left, top), written.to_source(left + width, top + height)]
+    rectangle = (
+        min(x for x, _y in corners),
+        min(y for _x, y in corners),
+        max(x for x, _y in corners),
+        max(y for _x, y in corners),
+    )
+    return replace(annotation, text=text, rectangle=rectangle)
 
 
 def _layout(context: cairo.Context, text: str, width: float, font_size: float) -> Pango.Layout:
