@@ -317,7 +317,7 @@ class OpenDocument:
         plan = SavePlan.take(
             self.sources.spans, target or self.path, self.pages, self.bookmarks, self._history.checkpoint()
         )
-        return replace(plan, form_values=self._filled_in(), flatten=flatten)
+        return replace(plan, form_values=self._filled_in(), flatten=flatten, annotations=self._made_here())
 
     def print_plan(self, target: Path, left_out: frozenset[AnnotationGroup]) -> SavePlan:
         """Take what writing the PDF to print needs (D57), to write it with saving.save.
@@ -331,7 +331,7 @@ class OpenDocument:
             message = "this PDF does not allow printing"
             raise ValueError(message)
         plan = SavePlan.take(self.sources.spans, target, self.pages, [], None)
-        return replace(plan, form_values=self._filled_in(), left_out=left_out)
+        return replace(plan, form_values=self._filled_in(), left_out=left_out, annotations=self._made_here())
 
     def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
         """Take what writing some pages to another file needs (E8), to write it with saving.save.
@@ -347,7 +347,11 @@ class OpenDocument:
         pages = [self.pages[position] for position in positions]
         bookmarks = leading_to(self.bookmarks, {page.source_index for page in pages})
         plan = SavePlan.take(self.sources.spans, target, pages, bookmarks, None)
-        return replace(plan, form_values=self._filled_in())
+        return replace(plan, form_values=self._filled_in(), annotations=self._made_here())
+
+    def _made_here(self) -> tuple[Annotation, ...]:
+        """The annotations made in Penfold, which saving writes (the PDF's own are in its pages already)."""
+        return tuple(annotation for annotation in self.annotations if annotation.managed)
 
     def _filled_in(self) -> tuple[tuple[FormField, FieldValue], ...]:
         """The fields whose values differ from the PDF's, with those values, to write them (I5, I7)."""

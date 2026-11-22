@@ -2,6 +2,7 @@ install_data(
   '__init__.py',
   'access_permissions.py',
   'annotations.py',
+  'appearance.py',
   'bookmarks.py',
   'document.py',
   'extracting.py',

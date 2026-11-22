@@ -85,5 +85,7 @@ into `node_modules/`, which is not part of the repository.
     `data/icons/scalable/actions/penfold-expand-all-symbolic.svg`;
   - for the Filter button of the Annotations view, `filter`, unchanged, in
     `data/icons/scalable/actions/penfold-filter-symbolic.svg`;
-  - for the annotation types in the Annotations filter, unchanged: `draw` (highlights), `comment` (comments), `text-t` (text boxes), `draw-rectangle` (rectangles), `draw-circle` (circles), `draw-line` (arrows), `drawing` (other types),
+  - for the annotation types in the Annotations view, unchanged: `draw` (highlights), `comment` (comments), `text-t` (text boxes), `draw-rectangle` (rectangles), `draw-circle` (circles), `draw-line` (arrows), `drawing` (other types),
     in `data/icons/scalable/actions/penfold-type-*-symbolic.svg`.
+- Used for good (D68): the outline of `comment`, by Jakub Steiner, is the speech bubble drawn on the page for a comment
+  annotation, and written into the PDFs saved, in `penfold/document/appearance.py` (`BUBBLE`).

@@ -14,18 +14,20 @@ import os
 import secrets
 import shutil
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pikepdf
 
-from penfold.document.annotations import AnnotationGroup, group_of
+from penfold.document.annotations import Annotation, AnnotationGroup, group_of
+from penfold.document.appearance import write_annotation
 from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
 from penfold.document.form_filling import fill_in, flatten_form
 from penfold.document.forms import FieldValue, FormField
 from penfold.document.history import Command
+from penfold.document.page_frame import PageFrame
 from penfold.document.page_labels import PageLabel, write_page_labels
-from penfold.document.pages import Page
+from penfold.document.pages import FULL_TURN, Page
 from penfold.document.sources import Spans, locate
 from penfold.errors import SaveError
 
@@ -50,6 +52,7 @@ class SavePlan:
         form_values: the values filled in that differ from the PDF's, with their fields (I5).
         flatten: draw the form fields as fixed page content and remove the form: an exported copy (I6).
         left_out: the groups of annotations to leave out, for printing (D57).
+        annotations: the annotations made in Penfold, written on their pages if the pages are saved.
     """
 
     sources: Spans
@@ -60,6 +63,7 @@ class SavePlan:
     form_values: tuple[tuple[FormField, FieldValue], ...] = ()
     flatten: bool = False
     left_out: frozenset[AnnotationGroup] = frozenset()
+    annotations: tuple[Annotation, ...] = ()
 
     @classmethod
     def take(
@@ -92,6 +96,7 @@ def save(plan: SavePlan) -> int:
             originals = list(pdf.pages)
             placed = _arrange_pages(pdf, originals, plan.pages, others)
             deleted = [original for index, original in enumerate(originals) if index not in placed]
+            _write_annotations(pdf, plan.annotations, plan.pages, placed)
             _write_labels(pdf, plan.pages)
             _remove_fields_of_pages(pdf, deleted)
             _bring_in_forms(pdf, plan.pages, others)
@@ -160,6 +165,19 @@ def _arrange_pages(
         if page.rotation:
             placed[page.source_index].rotate(page.rotation, relative=True)
     return placed
+
+
+def _write_annotations(
+    pdf: pikepdf.Pdf, annotations: tuple[Annotation, ...], pages: tuple[Page, ...], placed: dict[int, pikepdf.Page]
+) -> None:
+    """Write the annotations made in Penfold on their pages, in the frame of each page before Penfold turned it."""
+    turns = {page.source_index: page.rotation for page in pages}
+    for annotation in annotations:
+        page = placed.get(annotation.page)
+        if page is not None:
+            frame = PageFrame.of(page)
+            frame = replace(frame, rotation=(frame.rotation - turns[annotation.page]) % FULL_TURN)
+            write_annotation(pdf, annotation, page, frame)
 
 
 def _write_labels(pdf: pikepdf.Pdf, pages: tuple[Page, ...]) -> None:
