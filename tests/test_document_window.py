@@ -354,7 +354,7 @@ def test_an_annotation_made_is_painted_on_its_page_and_undo_takes_it_away(window
     from gi.repository import Gdk, Gsk, Gtk
 
     from penfold.document.annotations import Kind, new_annotation
-    from penfold.document.commands.annotations import AddAnnotation
+    from penfold.document.commands.annotations import AddAnnotations
 
     open_and_wait(window, book)
     view = window.document_view
@@ -388,7 +388,7 @@ def test_an_annotation_made_is_painted_on_its_page_and_undo_takes_it_away(window
     blue = (0.6, 0.757, 0.945)
     highlight = new_annotation(Kind.HIGHLIGHT, 0, (40, 40, 200, 80), blue, "Iban", quads=((40, 40, 200, 80),))
     before = pixel_at(120, 60)
-    document.execute(AddAnnotation(document, highlight))
+    document.execute(AddAnnotations(document, [highlight]))
     painted = pixel_at(120, 60)
     assert painted != before
     assert tuple(painted) == pytest.approx((178, 209, 245), abs=2)  # Blue, multiplied over the white page at 75 %.

@@ -19,7 +19,7 @@ from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordR
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 from penfold.ui.annotating import Annotating
-from penfold.ui.annotation_toolbar import AnnotationToolbar, bar_position
+from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool, bar_position
 from penfold.ui.bookmark_editing import BookmarkEditing
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
@@ -34,7 +34,7 @@ from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import attach_main_menu
-from penfold.ui.preferences_dialog import RESPECT_PERMISSIONS_KEY
+from penfold.ui.preferences_dialog import AUTHOR_NAME_KEY, RESPECT_PERMISSIONS_KEY
 from penfold.ui.printing import DocumentPrinting
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
@@ -227,18 +227,26 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._enable_action(name, enabled)
 
     def _add_delete_key(self) -> None:
-        """Let the Delete key delete what is selected in the panel (E3).
+        """Let the Delete key delete what is selected in the panel (E3), and H and U highlight or underline (H7).
 
-        It is handled after the focused widget, so that it still deletes text while typing in a field (L4).
+        They are handled after the focused widget, so that they still delete or type while typing in a field (L4).
         """
         controller = Gtk.ShortcutController(propagation_phase=Gtk.PropagationPhase.BUBBLE)
-        controller.add_shortcut(
-            Gtk.Shortcut(
-                trigger=Gtk.ShortcutTrigger.parse_string("Delete"),
-                action=Gtk.CallbackAction.new(self._on_delete_key),
+        for trigger, callback in (
+            ("Delete", self._on_delete_key),
+            ("h", lambda _widget, _arguments: self._on_marking_key(Tool.HIGHLIGHT)),
+            ("u", lambda _widget, _arguments: self._on_marking_key(Tool.UNDERLINE)),
+        ):
+            controller.add_shortcut(
+                Gtk.Shortcut(trigger=Gtk.ShortcutTrigger.parse_string(trigger), action=Gtk.CallbackAction.new(callback))
             )
-        )
         self.add_controller(controller)
+
+    def _on_marking_key(self, tool: Tool) -> bool:
+        """H or U: mark the text selected, or choose the tool; never while a dialogue is open."""
+        if self.get_visible_dialog() is not None or self.document is None:
+            return False
+        return self.annotating.mark_or_choose(tool)
 
     def _on_delete_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
         """Delete acts on the view of the panel shown, and never while a dialogue is open."""
@@ -545,6 +553,13 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.annotating.update_actions()
         self._update_save_actions()
 
+    def _on_annotation_toolbar_shown(self, toolbar: AnnotationToolbar, _property: GObject.ParamSpec) -> None:
+        """While the annotation bar is shown, the toasts rise above it (D32)."""
+        if toolbar.get_visible():
+            self.toast_overlay.add_css_class("annotation-bar-shown")
+        else:
+            self.toast_overlay.remove_css_class("annotation-bar-shown")
+
     def _place_annotation_toolbar(self, overlay: Gtk.Overlay, child: Gtk.Widget, area: Gdk.Rectangle) -> bool:
         """Put the annotation bar at the bottom of the document, centred, left of the zoom buttons (D32)."""
         if child is not self.annotation_toolbar:
@@ -597,8 +612,13 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.annotation_toolbar = AnnotationToolbar()
         self.document_overlay.add_overlay(self.annotation_toolbar)
         self.document_overlay.connect("get-child-position", self._place_annotation_toolbar)
+        self.annotation_toolbar.connect("notify::visible", self._on_annotation_toolbar_shown)
         self.annotating = Annotating(
-            self, self.annotation_toolbar, self.document_view, self.toast_overlay, lambda: self.document
+            self,
+            self.annotation_toolbar,
+            self.document_view,
+            lambda: self.document,
+            lambda: self._settings.get_string(AUTHOR_NAME_KEY),
         )
         self.annotations_view = AnnotationsView()
         self.annotations_view.connect("annotation-activated", self._on_destination_activated)
@@ -682,14 +702,20 @@ class PenfoldWindow(Adw.ApplicationWindow):
     ) -> bool:
         """Esc, when nothing in the window used the key before (a menu, a dialogue…), does the first that applies.
 
-        It closes Find, or else clears the selection of the panel view shown (02-interfaz, 5; D47).
+        It closes Find, or else clears the selection of the panel view shown (D47), or else goes back to the tool
+        Select Text (02-interfaz, 5; H8).
         """
         if keyval != Gdk.KEY_Escape:
             return False
         if self.sidebar.visible_view == sidebar_views.SEARCH:
             self.close_find()
             return True
-        return self._unselect_panel_view()
+        if self._unselect_panel_view():
+            return True
+        if self.annotating.tool is not Tool.SELECT:
+            self.annotating.choose(Tool.SELECT)
+            return True
+        return False
 
     def _unselect_panel_view(self) -> bool:
         """Clear the selection of Pages or Bookmarks, if shown; return whether anything was selected."""

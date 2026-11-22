@@ -15,6 +15,8 @@ from penfold.rendering.poppler_sources import PopplerSources
 Rectangle = tuple[float, float, float, float]  # left, top, right, bottom
 # Pages whose text, with the position of each character, is kept.
 CACHED_PAGES = 8
+# The selected area is measured to 1/8 of a point to tell which characters it covers.
+CHARACTER_PRECISION = 8.0
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,24 @@ class PageContent:
             area: cairo.RectangleInt = region.get_rectangle(index)
             rectangles.append((area.x, area.y, area.x + area.width, area.y + area.height))
         return rectangles
+
+    def selected_characters(self, page: int, selection: Rectangle, style: Poppler.SelectionStyle) -> list[Rectangle]:
+        """Return the boxes of the characters a selection covers on a page, in points: what a mark covers (H1).
+
+        The selected area Poppler gives runs over the spaces between lines; the characters' own boxes fit the text.
+        """
+        poppler_page = self._sources.page(page)
+        region = poppler_page.get_selected_region(CHARACTER_PRECISION, style, _poppler_rectangle(selection))
+        _found, boxes = poppler_page.get_text_layout()
+        return [
+            (box.x1, box.y1, box.x2, box.y2)
+            for box in boxes
+            if box.x2 > box.x1
+            and box.y2 > box.y1
+            and region.contains_point(
+                int((box.x1 + box.x2) / 2 * CHARACTER_PRECISION), int((box.y1 + box.y2) / 2 * CHARACTER_PRECISION)
+            )
+        ]
 
     def _read_links(self, page: int) -> list[Link]:
         poppler_page = self._sources.page(page)

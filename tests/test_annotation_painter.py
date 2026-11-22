@@ -10,7 +10,7 @@ gi.require_version("Poppler", "0.18")
 gi.require_foreign("cairo")
 from gi.repository import Poppler  # noqa: E402
 
-from penfold.document.commands.annotations import AddAnnotation  # noqa: E402
+from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
 from penfold.document.saving import save  # noqa: E402
@@ -50,7 +50,7 @@ def test_the_screen_shows_what_is_saved(tmp_path: Path, rotation: int) -> None:
     document = OpenDocument.open(make_pdf(tmp_path / "one.pdf", page_count=1))
     annotations = every_kind(0)
     for annotation in annotations:
-        document.execute(AddAnnotation(document, annotation))
+        document.execute(AddAnnotations(document, [annotation]))
     if rotation:
         document.execute(RotatePages(document, [0], rotation))
     target = tmp_path / "saved.pdf"

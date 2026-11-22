@@ -16,6 +16,7 @@ from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 
 from penfold.document.annotations import Annotation, Kind
 from penfold.document.document import OpenDocument
+from penfold.document.geometry import Rectangle, merge_lines
 from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
@@ -111,6 +112,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         "current-page-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "zoom-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "viewport-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        # A drag, or a double or triple click, has just selected text.
+        "text-selected": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     hscroll_policy = GObject.Property(type=Gtk.ScrollablePolicy, default=Gtk.ScrollablePolicy.MINIMUM)
@@ -148,6 +151,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._pointer: tuple[float, float] | None = None
         # The cursor over the pages while a tool that draws is chosen (02-interfaz, 5).
         self._drawing_cursor: str | None = None
+        # While a tool marks text (highlight…), text is selected even if the PDF does not let it be copied.
+        self.marking = False
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -866,8 +871,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._set_selection(TextSelection(self._press, focus, self._press_style))
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float) -> None:
-        """A click without moving follows the link under it, or clears the selection."""
+        """The end of a selection; a click without moving follows the link under it, or clears the selection."""
         if self._dragging or self._press_style is not Poppler.SelectionStyle.GLYPH:
+            if self.selection is not None:
+                self.emit("text-selected")
             return
         _found, x, y = gesture.get_start_point()
         link = self.link_at(x, y)
@@ -906,7 +913,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.set_cursor_from_name(self._drawing_cursor if on_page else None)
         elif self.link_at(x, y) is not None:
             self.set_cursor_from_name("pointer")
-        elif self._can_copy and on_page:
+        elif (self._can_copy or self.marking) and on_page:
             self.set_cursor_from_name("text")
         else:
             self.set_cursor_from_name(None)
@@ -915,9 +922,28 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _can_copy(self) -> bool:
         return self.document is None or self.document.permissions.copy
 
+    def clear_selection(self) -> None:
+        """Select no text."""
+        self._set_selection(None)
+
+    def selected_areas(self) -> dict[int, list[Rectangle]]:
+        """The lines of text selected, by the source index of their pages, on the pages unturned (to mark them)."""
+        if self.selection is None or self.content is None or self.renderer is None:
+            return {}
+        layout = self.renderer.layout
+        areas = {}
+        for position, selection in self.selection.page_selections(layout.sizes).items():
+            page = layout[position]
+            characters = self.content.selected_characters(
+                page.source, source_selection(page, selection), self.selection.style
+            )
+            if characters:
+                areas[page.source] = merge_lines(characters)
+        return areas
+
     def _set_selection(self, selection: TextSelection | None) -> None:
-        """Select text; a PDF that does not let its text be copied has none selected (D59)."""
-        if selection is not None and not self._can_copy:
+        """Select text; a PDF that does not let its text be copied has none selected (D59), unless to mark it."""
+        if selection is not None and not (self._can_copy or self.marking):
             return
         self.selection = selection
         self.queue_draw()
@@ -930,8 +956,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return (text, min(self.selection.anchor, self.selection.focus).page) if text else None
 
     def copy_selection(self) -> bool:
-        """Copy the selected text to the clipboard; return whether there was any."""
-        selected = self.selected_text()
+        """Copy the selected text to the clipboard, if the PDF allows it (D59); return whether there was any."""
+        selected = self.selected_text() if self._can_copy else None
         if selected is None:
             return False
         self.get_clipboard().set(selected[0])

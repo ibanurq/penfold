@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from penfold.document.annotations import Annotation, Kind, new_annotation
-from penfold.document.commands.annotations import AddAnnotation
+from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.commands.pages import DeletePages
 from penfold.document.document import OpenDocument
 from penfold.document.history import Change
@@ -27,7 +27,7 @@ def test_an_added_annotation_can_be_undone_and_redone(document: OpenDocument) ->
     changes: list[Change] = []
     document.add_listener(changes.append)
     annotation = rectangle_on(1)
-    document.execute(AddAnnotation(document, annotation))
+    document.execute(AddAnnotations(document, [annotation]))
     assert (document.annotations, document.is_modified) == ([annotation], True)
     document.undo()
     assert (document.annotations, document.is_modified) == ([], False)
@@ -38,8 +38,8 @@ def test_an_added_annotation_can_be_undone_and_redone(document: OpenDocument) ->
 
 def test_undo_takes_away_only_its_own_annotation(document: OpenDocument) -> None:
     first, second = rectangle_on(0), rectangle_on(0)  # equal but for their names
-    document.execute(AddAnnotation(document, first))
-    document.execute(AddAnnotation(document, second))
+    document.execute(AddAnnotations(document, [first]))
+    document.execute(AddAnnotations(document, [second]))
     document.undo()
     assert document.annotations == [first]
 
@@ -47,7 +47,7 @@ def test_undo_takes_away_only_its_own_annotation(document: OpenDocument) -> None
 def test_only_new_annotations_on_pages_of_the_document_are_added(document: OpenDocument) -> None:
     document.execute(DeletePages(document, [2]))
     with pytest.raises(ValueError, match="not in the document"):
-        AddAnnotation(document, rectangle_on(2))
+        AddAnnotations(document, [rectangle_on(2)])
     read = Annotation(page=0, kind=Kind.RECTANGLE, subtype="Square", rectangle=(0, 0, 10, 10))
     with pytest.raises(ValueError, match="made in Penfold"):
-        AddAnnotation(document, read)
+        AddAnnotations(document, [read])

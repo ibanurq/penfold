@@ -10,7 +10,7 @@ gi.require_version("Poppler", "0.18")
 from gi.repository import Poppler  # noqa: E402
 
 from penfold.document.annotations import Annotation, AnnotationGroup, Kind, new_annotation, read_annotations  # noqa: E402
-from penfold.document.commands.annotations import AddAnnotation  # noqa: E402
+from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import DeletePages, RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
 from penfold.document.geometry import turn_rectangle  # noqa: E402
@@ -41,7 +41,7 @@ def document(tmp_path: Path) -> OpenDocument:
 
 def add(document: OpenDocument, annotations: list[Annotation]) -> None:
     for annotation in annotations:
-        document.execute(AddAnnotation(document, annotation))
+        document.execute(AddAnnotations(document, [annotation]))
 
 
 def floats(array: pikepdf.Object) -> list[float]:

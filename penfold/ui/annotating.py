@@ -3,13 +3,19 @@
 The pencil shows and hides the bar; hiding it goes back to Select Text. A tool stays chosen after an annotation is
 made, until another is chosen (D65). A PDF is only annotated if it allows it (D59, D61): otherwise the pencil is
 greyed out.
+
+The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released
+(H1). H and U mark the text selected without changing the tool, or else choose their tool (H7).
 """
 
 from collections.abc import Callable
 
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Gio, GLib, Gtk
 
+from penfold.document.annotations import new_annotation
+from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
+from penfold.document.geometry import Rectangle
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
 from penfold.ui.document_view import DocumentView
 from penfold.ui.palette import ANNOTATION_COLORS, Color, hex_to_color
@@ -17,8 +23,7 @@ from penfold.ui.palette import ANNOTATION_COLORS, Color, hex_to_color
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
 DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.COMMENT, Tool.TEXT_BOX})
-# On the toast overlay while the bar is shown: the toasts rise above the bar (D32).
-BAR_SHOWN_CLASS = "annotation-bar-shown"
+MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT})
 
 
 class Annotating:
@@ -29,13 +34,13 @@ class Annotating:
         window: Gtk.ApplicationWindow,
         toolbar: AnnotationToolbar,
         document_view: DocumentView,
-        toast_overlay: Adw.ToastOverlay,
         document: Callable[[], OpenDocument | None],
+        author: Callable[[], str],
     ) -> None:
-        """Add the actions to the window; document gives the document shown, if any."""
+        """Add the actions to the window; document gives the document shown, if any, and author the preference."""
         self._toolbar = toolbar
+        self._author = author
         self._document_view = document_view
-        self._toast_overlay = toast_overlay
         self._document = document
         self._chosen_tool = Tool.SELECT
         self._chosen_color = ANNOTATION_COLORS[0]
@@ -53,6 +58,7 @@ class Annotating:
         self._color.connect("change-state", self._on_color_chosen)
         for action in (self._annotate, self._tool, self._color):
             window.add_action(action)
+        document_view.connect("text-selected", self._on_text_selected)
 
     @property
     def tool(self) -> Tool:
@@ -77,18 +83,47 @@ class Annotating:
         if not allowed and self.bar_shown:
             self._annotate.change_state(GLib.Variant.new_boolean(False))
 
+    @property
+    def allowed(self) -> bool:
+        """Whether the document shown may be annotated."""
+        document = self._document()
+        return document is not None and document.permissions.annotate
+
     def choose(self, tool: Tool) -> None:
-        """Choose a tool, as its button of the bar does."""
+        """Choose a tool, as its button of the bar does, showing the bar."""
+        if tool is not Tool.SELECT and not self.bar_shown:
+            self._annotate.change_state(GLib.Variant.new_boolean(True))
         self._tool.change_state(GLib.Variant.new_string(tool.value))
+
+    def mark_or_choose(self, tool: Tool) -> bool:
+        """H and U (H7): mark the text selected with this tool's mark, or else choose it; return whether done."""
+        if not self.allowed or tool not in MARKING_TOOLS:
+            return False
+        if not self.mark_selection(tool):
+            self.choose(tool)
+        return True
+
+    def mark_selection(self, tool: Tool) -> bool:
+        """Mark the text selected (one annotation on each page), as one edit; return whether any was selected."""
+        document = self._document()
+        kind = tool.kind
+        areas = self._document_view.selected_areas()
+        if document is None or kind is None or not areas or not self.allowed:
+            return False
+        author = self._author()
+        annotations = [
+            new_annotation(kind, page, _bounds(lines), self.color, author, quads=tuple(lines))
+            for page, lines in areas.items()
+        ]
+        self._document_view.clear_selection()
+        document.execute(AddAnnotations(document, annotations))
+        return True
 
     def _on_annotate(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         action.set_state(value)
         self._bar_shown = value.get_boolean()
         self._toolbar.set_visible(self._bar_shown)
-        if self._bar_shown:
-            self._toast_overlay.add_css_class(BAR_SHOWN_CLASS)
-        else:
-            self._toast_overlay.remove_css_class(BAR_SHOWN_CLASS)
+        if not self._bar_shown:
             self.choose(Tool.SELECT)
 
     def _on_tool_chosen(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
@@ -96,10 +131,26 @@ class Annotating:
             return
         action.set_state(value)
         self._chosen_tool = Tool(value.get_string())
+        self._document_view.marking = self.tool in MARKING_TOOLS
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
+
+    def _on_text_selected(self, _view: DocumentView) -> None:
+        """With a tool that marks text, the text just selected is marked (H1)."""
+        if self.tool in MARKING_TOOLS:
+            self.mark_selection(self.tool)
 
     def _on_color_chosen(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         if value.get_string() in ANNOTATION_COLORS:
             action.set_state(value)
             self._chosen_color = value.get_string()
             self._toolbar.show_color(self._chosen_color)
+
+
+def _bounds(lines: list[Rectangle]) -> Rectangle:
+    """The rectangle around the lines a mark covers."""
+    return (
+        min(line[0] for line in lines),
+        min(line[1] for line in lines),
+        max(line[2] for line in lines),
+        max(line[3] for line in lines),
+    )

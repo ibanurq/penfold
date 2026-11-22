@@ -3,6 +3,8 @@
 Positions are in points from the top left corner of the page; rectangles are left, top, right, bottom.
 """
 
+from collections.abc import Iterable
+
 from penfold.document.pages import FULL_TURN
 
 Size = tuple[float, float]
@@ -41,3 +43,20 @@ def turn_rectangle(rectangle: Rectangle, size: Size, rotation: int) -> Rectangle
     x1, y1 = turn_point(left, top, size, rotation)
     x2, y2 = turn_point(right, bottom, size, rotation)
     return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+
+
+def merge_lines(rectangles: Iterable[Rectangle]) -> list[Rectangle]:
+    """Join the areas of selected text that are on the same line into one rectangle per line (H1).
+
+    Two areas are on one line when they overlap by at least half the height of the lower one. Lines go from the top.
+    """
+    lines: list[Rectangle] = []
+    for left, top, right, bottom in sorted(rectangles, key=lambda area: (area[1], area[0])):
+        if lines:
+            line_left, line_top, line_right, line_bottom = lines[-1]
+            overlap = min(bottom, line_bottom) - max(top, line_top)
+            if overlap >= min(bottom - top, line_bottom - line_top) / 2:
+                lines[-1] = (min(left, line_left), min(top, line_top), max(right, line_right), max(bottom, line_bottom))
+                continue
+        lines.append((left, top, right, bottom))
+    return lines

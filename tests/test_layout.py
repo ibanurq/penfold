@@ -50,3 +50,11 @@ def test_destinations_are_placed_on_the_shown_page(rotation: int, expected: tupl
 
 def test_destinations_on_deleted_pages_have_no_place() -> None:
     assert PageLayout([SIZE, SIZE], [Page(1)]).place(0, 10) is None
+
+
+def test_selected_areas_are_joined_into_one_rectangle_per_line() -> None:
+    from penfold.document.geometry import merge_lines
+
+    words_of_two_lines = [(72, 90, 100, 102), (104, 91, 150, 102.5), (72, 110, 90, 122), (95, 110.4, 130, 122)]
+    assert merge_lines(words_of_two_lines) == [(72, 90, 150, 102.5), (72, 110, 130, 122)]
+    assert merge_lines([]) == []
