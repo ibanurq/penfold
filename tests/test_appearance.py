@@ -1,5 +1,6 @@
 """Writing the annotations made in Penfold into the PDF, with their drawing and the standard's entries (H14, D67)."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import gi
@@ -9,7 +10,15 @@ import pytest
 gi.require_version("Poppler", "0.18")
 from gi.repository import Poppler  # noqa: E402
 
-from penfold.document.annotations import Annotation, AnnotationGroup, Kind, new_annotation, read_annotations  # noqa: E402
+from penfold.document.annotations import (  # noqa: E402
+    Annotation,
+    AnnotationGroup,
+    Kind,
+    LineEnds,
+    Style,
+    new_annotation,
+    read_annotations,
+)
 from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import DeletePages, RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
@@ -31,6 +40,15 @@ def every_kind(page: int) -> list[Annotation]:
         new_annotation(Kind.CIRCLE, page, (250, 200, 400, 280), RED, "Iban"),
         new_annotation(Kind.ARROW, page, (72, 320, 300, 400), RED, "Iban", line=(72, 400, 300, 320)),
         new_annotation(Kind.COMMENT, page, (400, 72, 420, 92), YELLOW, "Iban", text="Ñandú → ✓ (a) \\ 😀"),
+    ]
+
+
+def restyled(annotations: list[Annotation]) -> list[Annotation]:
+    """The same annotations as their Format panel can leave them (D72): thick, dashed, filled, see-through."""
+    style = Style(opacity=0.5, line_width=4.0, dashed=True, filled=True, line_ends=LineEnds.BOTH)
+    return [
+        annotation if annotation.kind is Kind.COMMENT else replace(annotation, style=style)
+        for annotation in annotations
     ]
 
 
@@ -156,3 +174,26 @@ def test_extracting_and_printing_write_them_too(document: OpenDocument, tmp_path
     assert subtypes(tmp_path / "extracted.pdf") == ["/Circle"]
     save(document.print_plan(tmp_path / "print.pdf", frozenset({AnnotationGroup.TEXT_MARKUPS})))
     assert subtypes(tmp_path / "print.pdf") == ["/Square", "/Circle"]
+
+
+def test_their_format_is_written_as_the_standard_keeps_it(document: OpenDocument, tmp_path: Path) -> None:
+    annotations = restyled(every_kind(0))
+    straight = replace(annotations[5], style=Style(line_ends=LineEnds.NONE))
+    add(document, [*annotations, straight])
+    target = tmp_path / "saved.pdf"
+    save(document.save_plan(target))
+    with pikepdf.open(target) as pdf:
+        written = pdf.pages[0].Annots
+        highlight, _underline, _strike, rectangle, circle, arrow, comment, line = (written[index] for index in range(8))
+        assert float(highlight.CA) == 0.5
+        assert str(highlight.AP.N.Resources.ExtGState.Look.BM) == "/Multiply"
+        for shape in (rectangle, circle, arrow):
+            assert (float(shape.BS.W), str(shape.BS.S), floats(shape.BS.D)) == (4.0, "/D", [16.0, 12.0])
+            assert float(shape.CA) == 0.5
+            assert float(shape.AP.N.Resources.ExtGState.Look.ca) == 0.5
+        assert floats(rectangle.IC) == [0.991, 0.845, 0.83]  # a soft red inside
+        assert [str(arrow.LE[index]) for index in range(2)] == ["/OpenArrow", "/OpenArrow"]
+        assert [str(line.LE[index]) for index in range(2)] == ["/None", "/None"]
+        assert "/CA" not in line  # opaque
+        assert "/CA" not in comment
+    assert pikepdf.open(target).check() == []

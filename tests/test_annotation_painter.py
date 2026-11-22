@@ -17,7 +17,7 @@ from penfold.document.saving import save  # noqa: E402
 from penfold.rendering.annotation_painter import paint_annotations  # noqa: E402
 from penfold.rendering.layout import ShownPage  # noqa: E402
 from tests.sample_pdfs import make_pdf  # noqa: E402
-from tests.test_appearance import A4, every_kind  # noqa: E402
+from tests.test_appearance import A4, every_kind, restyled  # noqa: E402
 
 SCALE = 2
 # Pixels that differ more than this in a colour channel are counted as different (edges are smoothed differently).
@@ -45,10 +45,10 @@ def differing_pixels(first: cairo.ImageSurface, second: cairo.ImageSurface) -> t
     return different, painted
 
 
-@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
-def test_the_screen_shows_what_is_saved(tmp_path: Path, rotation: int) -> None:
+@pytest.mark.parametrize(("rotation", "formatted"), [(0, False), (90, False), (180, False), (270, False), (90, True)])
+def test_the_screen_shows_what_is_saved(tmp_path: Path, rotation: int, *, formatted: bool) -> None:
     document = OpenDocument.open(make_pdf(tmp_path / "one.pdf", page_count=1))
-    annotations = every_kind(0)
+    annotations = restyled(every_kind(0)) if formatted else every_kind(0)
     for annotation in annotations:
         document.execute(AddAnnotations(document, [annotation]))
     if rotation:

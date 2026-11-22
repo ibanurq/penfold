@@ -9,6 +9,8 @@ from penfold.document.annotations import (
     Annotation,
     AnnotationGroup,
     Kind,
+    Style,
+    default_style,
     group_of,
     new_annotation,
     read_annotations,
@@ -96,6 +98,14 @@ def test_a_new_annotation_is_managed_and_named() -> None:
     assert first.origin is None  # in no PDF yet
     assert first.created is not None
     assert first.created.tzinfo is not None
+
+
+def test_new_annotations_look_as_in_0_6() -> None:
+    assert default_style(Kind.HIGHLIGHT) == Style(opacity=0.75)
+    assert default_style(Kind.RECTANGLE) == Style(opacity=1.0, line_width=1.0, filled=False, dashed=False)
+    assert new_annotation(Kind.HIGHLIGHT, 0, (0, 0, 9, 9), (1.0, 1.0, 0.0), "").style.opacity == 0.75
+    bold = Style(line_width=4.0)
+    assert new_annotation(Kind.CIRCLE, 0, (0, 0, 9, 9), (1.0, 1.0, 0.0), "", style=bold).style is bold
 
 
 def test_penfold_makes_no_annotations_of_other_types() -> None:

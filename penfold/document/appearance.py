@@ -3,8 +3,10 @@
 Every entry ISO 32000-1 (12.5) asks for is written (D67), so that any viewer shows them as Penfold does and any
 editor can change them.
 
-They look as in 0.6 (docs/specification.md, "Saving annotations with their own appearance"); the comment is the
-speech bubble of GNOME's icon collection (D68). Texts are written in UTF-16, so that no character can break the file.
+New ones look as in 0.6 (docs/specification.md, "Saving annotations with their own appearance"); the comment is the
+speech bubble of GNOME's icon collection (D68). Their style changes the opacity, the lines, the fill, the arrowheads
+and the text box's letters, background and border (D72). Texts are written in UTF-16, so that no character can
+break the file.
 """
 
 import io
@@ -15,19 +17,23 @@ from datetime import UTC, datetime
 
 import pikepdf
 
-from penfold.document.annotations import Annotation, Kind
+from penfold.document.annotations import Annotation, Kind, LineEnds, Style
 from penfold.document.geometry import HALF_TURN, Rectangle
 from penfold.document.page_frame import PageFrame
 
-# Line width of underlines, strikethroughs, rectangles, circles and arrows, and of the comment's outline, in points.
-LINE_WIDTH = 1.0
+# The line width of the comment's outline, in points (the others are in each annotation's style).
 COMMENT_LINE_WIDTH = 1.5
-HIGHLIGHT_OPACITY = 0.75
-# The arrowhead: the length of its two strokes, in points, and their angle with the line.
+# The arrowhead: the length of its two strokes with a line of 1 point, how much more for each point wider, and their
+# angle with the line.
 ARROWHEAD_LENGTH = 10.0
+ARROWHEAD_GROWTH = 2.5
 ARROWHEAD_ANGLE = math.pi / 6
-# The text box (its drawing is made with Pango, in the rendering layer): font size and background strength (H3).
-TEXT_BOX_FONT_SIZE = 11.0
+# Dashed lines (D72): the length of each dash and of each gap, for each point of width.
+DASH = 4.0
+GAP = 3.0
+# How much of the colour the soft fill of rectangles and circles has, over white (D72).
+FILL_STRENGTH = 0.25
+# The text box's background strength (H3; its drawing is made with Pango, in the rendering layer).
 TEXT_BOX_BACKGROUND = 0.14
 # A comment is a square of this side, in points.
 COMMENT_SIZE = 20.0
@@ -97,6 +103,16 @@ def _drawn(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[
         message = f"annotations of type {annotation.subtype} are not written yet"
         raise ValueError(message)
     written = writer(annotation, frame)
+    opacity = annotation.style.opacity
+    if annotation.kind is not Kind.COMMENT and (opacity < 1 or annotation.kind is Kind.HIGHLIGHT):
+        written.entries["/CA"] = opacity
+        # The opacity goes in the drawing too: Poppler and Ghostscript only paint the drawing's (as Poppler writes).
+        state = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState, CA=opacity)
+        state.ca = opacity
+        if annotation.kind is Kind.HIGHLIGHT:
+            state.BM = pikepdf.Name.Multiply
+        written.resources = pikepdf.Dictionary(ExtGState=pikepdf.Dictionary(Look=state))
+        written.drawing.insert(0, "/Look gs")
     stream = pikepdf.Stream(pdf, "\n".join(written.drawing).encode())
     stream.Type = pikepdf.Name.XObject
     stream.Subtype = pikepdf.Name.Form
@@ -123,15 +139,16 @@ def _text_box(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tup
     angle = math.radians(annotation.text_turn + frame.rotation)
     cos, sin = round(math.cos(angle)), round(math.sin(angle))
     appearance.Matrix = pikepdf.Array([cos, sin, -sin, cos, 0, 0])
-    color = annotation.color or (0.0, 0.0, 0.0)
+    style = annotation.style
     entries: dict[str, object] = {
         "/Rect": bounds,
-        "/BS": _border(),
-        "/IC": pikepdf.Array(_rounded(1 - TEXT_BOX_BACKGROUND + TEXT_BOX_BACKGROUND * value for value in color)),
-        "/DA": pikepdf.String(f"0 g /Helv {TEXT_BOX_FONT_SIZE:g} Tf"),
-        "/DS": pikepdf.String(f"font: {TEXT_BOX_FONT_SIZE:g}pt 'Liberation Sans'; color: #000000"),
+        "/BS": _border(style.line_width if style.border else 0),
+        "/DA": pikepdf.String(f"0 g /Helv {style.font_size:g} Tf"),
+        "/DS": pikepdf.String(f"font: {style.font_size:g}pt 'Liberation Sans'; color: #000000"),
         "/Q": 0,
     }
+    if style.background:
+        entries["/IC"] = pikepdf.Array(_rounded(tint(annotation.color or (0.0, 0.0, 0.0), TEXT_BOX_BACKGROUND)))
     return entries, appearance
 
 
@@ -167,15 +184,16 @@ def _text_markup(annotation: Annotation, frame: PageFrame) -> _Written:
     """Highlight: the marked areas filled, multiplied over the text. Underline and strikethrough: a line on each."""
     quads = [_corners(quad, frame) for quad in annotation.quads]
     color = _color(annotation)
+    width = annotation.style.line_width
     if annotation.kind is Kind.HIGHLIGHT:
-        drawing = ["/Highlight gs", f"{color} rg"]
+        drawing = [f"{color} rg"]
         drawing += [f"{_path([corners[0], corners[1], corners[3], corners[2]])} h f" for corners in quads]
     else:
-        drawing = [f"{color} RG {LINE_WIDTH:g} w"]
+        drawing = [f"{color} RG {width:g} w"]
         for upper_left, upper_right, lower_left, lower_right in quads:
             if annotation.kind is Kind.UNDERLINE:
                 # On the bottom edge, lifted by half the line, so that it is all inside the area.
-                lift = _towards(lower_left, upper_left, LINE_WIDTH / 2)
+                lift = _towards(lower_left, upper_left, width / 2)
                 start, end = _moved(lower_left, lift), _moved(lower_right, lift)
             else:
                 start, end = _middle(upper_left, lower_left), _middle(upper_right, lower_right)
@@ -185,58 +203,87 @@ def _text_markup(annotation: Annotation, frame: PageFrame) -> _Written:
         "/Rect": _bounds(points),
         "/QuadPoints": pikepdf.Array([coordinate for point in points for coordinate in _rounded(point)]),
     }
-    written = _Written(entries, drawing)
-    if annotation.kind is Kind.HIGHLIGHT:
-        entries["/CA"] = HIGHLIGHT_OPACITY
-        state = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState, BM=pikepdf.Name.Multiply)
-        # The opacity goes in the drawing too: Poppler and Ghostscript only paint the drawing's (as Poppler writes).
-        state.ca = state.CA = HIGHLIGHT_OPACITY
-        written.resources = pikepdf.Dictionary(ExtGState=pikepdf.Dictionary(Highlight=state))
-    return written
+    return _Written(entries, drawing)
 
 
 def _rectangle_or_circle(annotation: Annotation, frame: PageFrame) -> _Written:
-    """A line inside the rectangle, or the ellipse it holds; nothing inside (no /IC)."""
+    """A line inside the rectangle, or the ellipse it holds; inside, a soft tint of the colour (/IC) or nothing."""
     bounds = _bounds(_rectangle_points(annotation.rectangle, frame))
     left, bottom, right, top = (float(bounds[index]) for index in range(4))
-    inset = LINE_WIDTH / 2
+    style = annotation.style
+    inset = style.line_width / 2
     left, bottom, right, top = left + inset, bottom + inset, right - inset, top - inset
-    drawing = [f"{_color(annotation)} RG {LINE_WIDTH:g} w"]
+    entries: dict[str, object] = {"/Rect": bounds, "/BS": _border(style.line_width, dashed=style.dashed)}
+    drawing = [_line_style(annotation)]
     if annotation.kind is Kind.RECTANGLE:
-        drawing.append(f"{_numbers([left, bottom, right - left, top - bottom])} re S")
+        drawing.append(f"{_numbers([left, bottom, right - left, top - bottom])} re")
     else:
-        drawing.append(_ellipse(left, bottom, right, top) + " S")
-    return _Written({"/Rect": bounds, "/BS": _border()}, drawing)
+        drawing.append(_ellipse(left, bottom, right, top))
+    if style.filled:
+        fill = tint(annotation.color or (0.0, 0.0, 0.0), FILL_STRENGTH)
+        entries["/IC"] = pikepdf.Array(_rounded(fill))
+        drawing.insert(0, f"{_numbers(fill)} rg")
+    drawing.append("B" if style.filled else "S")
+    return _Written(entries, drawing)
 
 
 def _arrow(annotation: Annotation, frame: PageFrame) -> _Written:
-    """A line from its start to its end, with an open arrowhead at the end (/LE [/None /OpenArrow])."""
+    """A line from its start to its end, with open arrowheads at its end, at both ends or none (/LE)."""
     if annotation.line is None:
         message = "an arrow needs its line"
         raise ValueError(message)
     start = frame.pdf_point(*annotation.line[:2])
     end = frame.pdf_point(*annotation.line[2:])
-    angle = math.atan2(end[1] - start[1], end[0] - start[0])
-    wings = [
-        (end[0] - ARROWHEAD_LENGTH * math.cos(angle + turn), end[1] - ARROWHEAD_LENGTH * math.sin(angle + turn))
-        for turn in (-ARROWHEAD_ANGLE, ARROWHEAD_ANGLE)
-    ]
-    drawing = [
-        f"{_color(annotation)} RG {LINE_WIDTH:g} w",
-        f"{_path([start, end])} S",
-        "1 J 1 j",  # Round ends and corner for the arrowhead.
-        f"{_path([wings[0], end, wings[1]])} S",
-    ]
-    margin = LINE_WIDTH
-    points = [start, end, *wings]
+    style = annotation.style
+    drawing = [_line_style(annotation), f"{_path([start, end])} S", "[] 0 d 1 J 1 j"]  # Solid, round arrowheads.
+    points = [start, end]
+    for tip, tail in arrowheads(start, end, style.line_ends):
+        wings = arrowhead_wings(tip, tail, style.line_width)
+        drawing.append(f"{_path([wings[0], tip, wings[1]])} S")
+        points += wings
+    margin = style.line_width
     xs, ys = [x for x, _y in points], [y for _x, y in points]
+    ends = {LineEnds.END: ("/None", "/OpenArrow"), LineEnds.BOTH: ("/OpenArrow",) * 2, LineEnds.NONE: ("/None",) * 2}
     entries: dict[str, object] = {
         "/Rect": pikepdf.Array(_rounded((min(xs) - margin, min(ys) - margin, max(xs) + margin, max(ys) + margin))),
         "/L": pikepdf.Array(_rounded((*start, *end))),
-        "/LE": pikepdf.Array([pikepdf.Name("/None"), pikepdf.Name.OpenArrow]),
-        "/BS": _border(),
+        "/LE": pikepdf.Array([pikepdf.Name(name) for name in ends[style.line_ends]]),
+        "/BS": _border(style.line_width, dashed=style.dashed),
     }
     return _Written(entries, drawing)
+
+
+def arrowheads(start: Point, end: Point, line_ends: LineEnds) -> list[tuple[Point, Point]]:
+    """The arrowheads of an arrow: the point of each, and the other end of the line, which it points away from."""
+    return {LineEnds.END: [(end, start)], LineEnds.BOTH: [(end, start), (start, end)], LineEnds.NONE: []}[line_ends]
+
+
+def arrowhead_wings(tip: Point, tail: Point, line_width: float) -> tuple[Point, Point]:
+    """The ends of the two strokes of an open arrowhead, longer for wider lines."""
+    length = ARROWHEAD_LENGTH + ARROWHEAD_GROWTH * (line_width - 1)
+    angle = math.atan2(tip[1] - tail[1], tip[0] - tail[0])
+    first, second = (
+        (tip[0] - length * math.cos(angle + turn), tip[1] - length * math.sin(angle + turn))
+        for turn in (-ARROWHEAD_ANGLE, ARROWHEAD_ANGLE)
+    )
+    return first, second
+
+
+def dashes(style: Style) -> list[float]:
+    """The dash pattern of a line: a dash and a gap, as long as the line is wide; none for a solid line."""
+    return [DASH * style.line_width, GAP * style.line_width] if style.dashed else []
+
+
+def tint(color: tuple[float, float, float], strength: float) -> tuple[float, float, float]:
+    """A colour at some strength over white: the soft fill of shapes and the background of text boxes."""
+    red, green, blue = (1 - strength + strength * component for component in color)
+    return red, green, blue
+
+
+def _line_style(annotation: Annotation) -> str:
+    """The colour, width and dashes of an annotation's line."""
+    style = annotation.style
+    return f"{_color(annotation)} RG {style.line_width:g} w [{_numbers(dashes(style))}] 0 d"
 
 
 def _comment(annotation: Annotation, frame: PageFrame) -> _Written:
@@ -275,9 +322,12 @@ def _date(moment: datetime | None) -> pikepdf.String:
     return pikepdf.String(f"D:{(moment or datetime.now(UTC)).astimezone(UTC):%Y%m%d%H%M%S}Z")
 
 
-def _border() -> pikepdf.Dictionary:
-    """A solid border of the line width (12.5.4)."""
-    return pikepdf.Dictionary(Type=pikepdf.Name.Border, W=LINE_WIDTH, S=pikepdf.Name.S)
+def _border(width: float, *, dashed: bool = False) -> pikepdf.Dictionary:
+    """A border of some width, solid or dashed (12.5.4)."""
+    border = pikepdf.Dictionary(Type=pikepdf.Name.Border, W=width, S=pikepdf.Name.D if dashed else pikepdf.Name.S)
+    if dashed:
+        border.D = pikepdf.Array([DASH * width, GAP * width])
+    return border
 
 
 def _corners(quad: Rectangle, frame: PageFrame) -> tuple[Point, Point, Point, Point]:

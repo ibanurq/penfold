@@ -13,14 +13,15 @@ import cairo
 
 from penfold.document.annotations import Annotation, Kind
 from penfold.document.appearance import (
-    ARROWHEAD_ANGLE,
-    ARROWHEAD_LENGTH,
     BUBBLE,
     BUBBLE_GRID,
     COMMENT_LINE_WIDTH,
     COMMENT_SIZE,
-    HIGHLIGHT_OPACITY,
-    LINE_WIDTH,
+    FILL_STRENGTH,
+    arrowhead_wings,
+    arrowheads,
+    dashes,
+    tint,
 )
 from penfold.document.geometry import Rectangle
 from penfold.rendering.layout import ShownPage
@@ -53,7 +54,7 @@ def paint_annotations(
 
 def highlight_tint(annotation: Annotation) -> tuple[float, float, float]:
     """What a highlight multiplies each colour of the page by: its colour, at its opacity."""
-    red, green, blue = (1 - HIGHLIGHT_OPACITY * (1 - component) for component in annotation.color or BLACK)
+    red, green, blue = tint(annotation.color or BLACK, annotation.style.opacity)
     return red, green, blue
 
 
@@ -77,8 +78,9 @@ def _turn(page: ShownPage) -> cairo.Matrix:
 
 
 def _paint_on_unturned_page(context: cairo.Context, annotation: Annotation) -> None:
-    context.set_source_rgb(*(annotation.color or BLACK))
-    context.set_line_width(LINE_WIDTH)
+    """Paint an annotation drawn with lines or areas, at its opacity, as each part is painted in the PDF."""
+    context.set_source_rgba(*(annotation.color or BLACK), annotation.style.opacity)
+    context.set_line_width(annotation.style.line_width)
     match annotation.kind:
         case Kind.HIGHLIGHT:
             _paint_highlight(context, annotation)
@@ -93,7 +95,6 @@ def _paint_on_unturned_page(context: cairo.Context, annotation: Annotation) -> N
 def _paint_highlight(context: cairo.Context, annotation: Annotation) -> None:
     """The marked areas, multiplied over the text, so that it stays as dark as it was."""
     context.set_operator(cairo.OPERATOR_MULTIPLY)
-    context.set_source_rgba(*(annotation.color or BLACK), HIGHLIGHT_OPACITY)
     for left, top, right, bottom in annotation.quads:
         context.rectangle(left, top, right - left, bottom - top)
     context.fill()
@@ -102,47 +103,59 @@ def _paint_highlight(context: cairo.Context, annotation: Annotation) -> None:
 def _paint_text_lines(context: cairo.Context, annotation: Annotation) -> None:
     """A line under each marked area (lifted by half the line, inside it), or across its middle."""
     for left, top, right, bottom in annotation.quads:
-        y = bottom - LINE_WIDTH / 2 if annotation.kind is Kind.UNDERLINE else (top + bottom) / 2
+        y = bottom - annotation.style.line_width / 2 if annotation.kind is Kind.UNDERLINE else (top + bottom) / 2
         context.move_to(left, y)
         context.line_to(right, y)
     context.stroke()
 
 
 def _paint_shape(context: cairo.Context, annotation: Annotation) -> None:
-    """A line just inside the rectangle, or the ellipse it holds."""
-    inset = LINE_WIDTH / 2
+    """A line just inside the rectangle, or the ellipse it holds, with a soft fill inside if it has one.
+
+    The paths start where the PDF's do, so that the dashes fall in the same places: the rectangle at its bottom left
+    corner, going right; the ellipse at its top, clockwise.
+    """
+    context.set_dash(dashes(annotation.style))
+    inset = annotation.style.line_width / 2
     left, top, right, bottom = annotation.rectangle
     left, top, right, bottom = left + inset, top + inset, right - inset, bottom - inset
     if annotation.kind is Kind.RECTANGLE:
-        context.rectangle(left, top, right - left, bottom - top)
+        context.move_to(left, bottom)
+        for corner in ((right, bottom), (right, top), (left, top)):
+            context.line_to(*corner)
+        context.close_path()
     elif right > left and bottom > top:
         context.save()
         context.translate((left + right) / 2, (top + bottom) / 2)
         context.scale((right - left) / 2, (bottom - top) / 2)
-        context.arc(0, 0, 1, 0, 2 * math.pi)
+        context.arc(0, 0, 1, -math.pi / 2, 3 * math.pi / 2)
         context.restore()  # Before stroking, so that the line keeps its width all round.
+    if annotation.style.filled:
+        line = context.get_source()
+        context.set_source_rgba(*tint(annotation.color or BLACK, FILL_STRENGTH), annotation.style.opacity)
+        context.fill_preserve()
+        context.set_source(line)
     context.stroke()
 
 
 def _paint_arrow(context: cairo.Context, annotation: Annotation) -> None:
-    """The line, then an open arrowhead with round ends at its end."""
+    """The line, then its open arrowheads, solid and with round ends."""
     if annotation.line is None:
         return
-    start_x, start_y, end_x, end_y = annotation.line
-    context.move_to(start_x, start_y)
-    context.line_to(end_x, end_y)
+    start, end = annotation.line[:2], annotation.line[2:]
+    context.set_dash(dashes(annotation.style))
+    context.move_to(*start)
+    context.line_to(*end)
     context.stroke()
-    angle = math.atan2(end_y - start_y, end_x - start_x)
+    context.set_dash([])
     context.set_line_cap(cairo.LINE_CAP_ROUND)
     context.set_line_join(cairo.LINE_JOIN_ROUND)
-    for index, turn in enumerate((-ARROWHEAD_ANGLE, ARROWHEAD_ANGLE)):
-        wing = end_x - ARROWHEAD_LENGTH * math.cos(angle + turn), end_y - ARROWHEAD_LENGTH * math.sin(angle + turn)
-        if index:
-            context.line_to(*wing)
-        else:
-            context.move_to(*wing)
-            context.line_to(end_x, end_y)
-    context.stroke()
+    for tip, tail in arrowheads(start, end, annotation.style.line_ends):
+        first, second = arrowhead_wings(tip, tail, annotation.style.line_width)
+        context.move_to(*first)
+        context.line_to(*tip)
+        context.line_to(*second)
+        context.stroke()
 
 
 def _paint_text_box(context: cairo.Context, page: ShownPage, annotation: Annotation) -> None:
@@ -154,7 +167,7 @@ def _paint_text_box(context: cairo.Context, page: ShownPage, annotation: Annotat
     context.translate((left + right) / 2, (top + bottom) / 2)
     context.rotate(math.radians(turn))
     context.translate(-size[0] / 2, -size[1] / 2)
-    paint_text_box(context, annotation.text, size, annotation.color or BLACK)
+    paint_text_box(context, annotation.text, size, annotation.color or BLACK, annotation.style)
 
 
 def _paint_comment(context: cairo.Context, page: ShownPage, annotation: Annotation) -> None:

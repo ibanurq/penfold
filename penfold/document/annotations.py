@@ -18,6 +18,10 @@ from penfold.document.pdf_values import numbers, text
 
 # The author of new annotations when none is set in the preferences (D60).
 DEFAULT_AUTHOR = "Penfold"
+# How a new annotation looks (H3, H4, D67): lines of 1 point, highlights at 75 %, text boxes in 11 points.
+LINE_WIDTH = 1.0
+HIGHLIGHT_OPACITY = 0.75
+TEXT_BOX_FONT_SIZE = 11.0
 # Never listed: they are not notes (links, form fields, pop-up windows of notes…).
 NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
 
@@ -63,6 +67,38 @@ def group_of(subtype: str) -> AnnotationGroup | None:
     return SUBTYPE_GROUPS.get(subtype, AnnotationGroup.OTHERS)
 
 
+class LineEnds(enum.Enum):
+    """Where an arrow has arrowheads (D72): at its end, at both ends, or none (a straight line)."""
+
+    END = "end"
+    BOTH = "both"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class Style:
+    """How an annotation looks, as its Format panel changes it (D72), and as the standard keeps it (D67).
+
+    Each type uses only some of it: the opacity (/CA) all but comments; the line width, the dashes (/BS) and the fill
+    (/IC, a soft tint of the colour) rectangles, circles and arrows, which also have their arrowheads (/LE); the font
+    size (/DA), the background and the border text boxes.
+    """
+
+    opacity: float = 1.0
+    line_width: float = LINE_WIDTH
+    dashed: bool = False
+    filled: bool = False
+    line_ends: LineEnds = LineEnds.END
+    font_size: float = TEXT_BOX_FONT_SIZE
+    background: bool = True
+    border: bool = True
+
+
+def default_style(kind: Kind) -> Style:
+    """How a new annotation of a type looks (as in 0.6, D67)."""
+    return Style(opacity=HIGHLIGHT_OPACITY) if kind is Kind.HIGHLIGHT else Style()
+
+
 SUBTYPE_KINDS = {f"/{kind.value}": kind for kind in Kind if kind is not Kind.OTHER}
 # Marks on text, whose list row shows the marked text when they have no text of their own.
 TEXT_MARKUPS = frozenset({Kind.HIGHLIGHT, Kind.UNDERLINE, Kind.STRIKE_OUT})
@@ -97,6 +133,7 @@ class Annotation:
     created: datetime | None = None
     managed: bool = False
     origin: int | None = None
+    style: Style = field(default_factory=Style)
     text_turn: int = 0
     drawing: bytes = field(default=b"", repr=False)
 
@@ -118,8 +155,11 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     line: tuple[float, float, float, float] | None = None,
     text_turn: int = 0,
     drawing: bytes = b"",
+    style: Style | None = None,
 ) -> Annotation:
     """Make an annotation in Penfold, now, by an author ("Penfold" if none is set), with a unique name.
+
+    It looks as new annotations of its type do, unless a style is given.
 
     Raises:
         ValueError: the kind is not one Penfold makes.
@@ -139,6 +179,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         line=line,
         text_turn=text_turn,
         drawing=drawing,
+        style=style or default_style(kind),
         name=f"penfold-{uuid.uuid4()}",
         created=datetime.now(UTC),
         managed=True,
