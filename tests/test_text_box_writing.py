@@ -96,3 +96,23 @@ def test_on_a_turned_page_it_is_written_upright(box_window: "PenfoldWindow") -> 
     left, top, right, bottom = box.rectangle
     assert box.text_turn == 90
     assert (bottom - top, right - left) == pytest.approx((200, text_height("Turned", 200)), abs=0.5)
+
+
+def test_a_click_outside_applies_the_box_and_starts_no_other(box_window: "PenfoldWindow") -> None:
+    window = box_window
+    editor = editor_after(window, (100, 100), (300, 100))
+    editor.text_view.get_buffer().set_text("Applied")
+    drag(window, 0, (400, 500), (400, 500))  # A click elsewhere on the page.
+    process_pending_events()
+    assert [box.text for box in made(window)] == ["Applied"]
+    assert window.document_view.text_editor is None
+
+
+def test_moving_the_focus_away_applies_the_box(box_window: "PenfoldWindow") -> None:
+    window = box_window
+    editor = editor_after(window, (100, 100), (300, 100))
+    process_pending_events()
+    editor.text_view.get_buffer().set_text("Focus left")
+    window.annotation_toolbar.color_button.grab_focus()  # As a click on the bar does.
+    wait_until(lambda: window.document_view.text_editor is None)
+    assert [box.text for box in made(window)] == ["Focus left"]

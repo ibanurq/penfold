@@ -957,7 +957,13 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.queue_draw()
 
     def _on_pressed(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
-        """A press starts a selection (or a shape); a double click selects a word and a triple click a line."""
+        """A press starts a selection (or a shape); a double click selects a word and a triple click a line.
+
+        While a text box is being written, a press outside it only applies it (H3).
+        """
+        if self.text_editor is not None:
+            self.text_editor.finish(apply=True)
+            return
         self.grab_focus()
         if self._shape_maker is not None:
             self._set_selection(None)

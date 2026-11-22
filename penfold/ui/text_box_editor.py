@@ -7,7 +7,7 @@ is made.
 
 from collections.abc import Callable
 
-from gi.repository import Gdk, Graphene, Gsk, Gtk
+from gi.repository import Gdk, GLib, Graphene, Gsk, Gtk
 
 from penfold.rendering.text_box import BORDER, FONT_FAMILY, FONT_SIZE, PADDING, Color, background
 from penfold.ui.palette import color_to_hex
@@ -40,7 +40,8 @@ class TextBoxEditor:
         keys.connect("key-pressed", self._on_key_pressed)
         self.text_view.add_controller(keys)
         focus = Gtk.EventControllerFocus()
-        focus.connect("leave", lambda _controller: self.finish(apply=True))
+        # Not at once: GTK is still moving the focus away from the box, which must not be taken away meanwhile.
+        focus.connect("leave", lambda _controller: GLib.idle_add(self._finish_after_leaving))
         self.text_view.add_controller(focus)
         self.text_view.get_buffer().connect("changed", lambda _buffer: view.queue_allocate())
         self.text_view.set_parent(view)
@@ -79,9 +80,16 @@ class TextBoxEditor:
             return
         self._finished = True
         text = self.text if apply else ""
+        if self.text_view.has_focus():
+            self._view.grab_focus()  # Before the box goes, so that the focus never stays on a widget taken away.
         self.text_view.unparent()
         Gtk.StyleContext.remove_provider_for_display(self._view.get_display(), self._style)
         self.on_done(text or None)
+
+    def _finish_after_leaving(self) -> bool:
+        """A click outside the box applies it (H3), once GTK has moved the focus elsewhere."""
+        self.finish(apply=True)
+        return GLib.SOURCE_REMOVE
 
     def _show_zoom(self, zoom: float) -> None:
         """The font, the inner space and the border at the zoom of the view, to the fraction of a pixel.
