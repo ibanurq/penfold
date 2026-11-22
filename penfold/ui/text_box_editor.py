@@ -75,18 +75,20 @@ class TextBoxEditor:
         if zoom != self._zoom:
             self._show_zoom(zoom)
         width = max(1, round(self.width * zoom))
-        _minimum, natural, _baseline_minimum, _baseline_natural = self.text_view.measure(
-            Gtk.Orientation.VERTICAL, width
-        )
-        # The box keeps at least the height of its text as it will be saved: a text view lays out a long text it was
-        # given later, line by line, and measures it short meanwhile.
-        text = self.text_view.get_buffer().props.text
-        natural = max(natural, math.ceil(text_height(text, self.width, self._style_of_box.font_size) * zoom))
+        self.text_view.measure(Gtk.Orientation.VERTICAL, width)
         self.text_view.measure(Gtk.Orientation.HORIZONTAL, -1)
         point = Graphene.Point().init(
             round(page_origin[0] + self.corner[0] * zoom), round(page_origin[1] + self.corner[1] * zoom)
         )
-        self.text_view.allocate(width, natural, -1, Gsk.Transform().translate(point))
+        self.text_view.allocate(width, self.height(zoom), -1, Gsk.Transform().translate(point))
+
+    def height(self, zoom: float) -> int:
+        """The height of the box at a zoom, in pixels: that of its text as it will be saved.
+
+        A text view lays out a text given at once line by line, and meanwhile measures it too short or too tall.
+        """
+        text = self.text_view.get_buffer().props.text
+        return math.ceil(text_height(text, self.width, self._style_of_box.font_size) * zoom)
 
     def snapshot(self, snapshot: Gtk.Snapshot) -> None:
         """Draw the box over the page."""
