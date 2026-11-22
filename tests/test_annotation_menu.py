@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 
 import pikepdf
 import pytest
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gdk, GLib, Gtk
 
 from penfold.document.annotations import Annotation, Kind, LineEnds
 from penfold.rendering.text_box import text_height
 from penfold.ui.palette import color_to_hex
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until
 from tests.sample_pdfs import allowing, make_pdf
 from tests.test_document_window import open_and_wait, window
 from tests.test_shape_drawing import widget_point
@@ -333,3 +333,77 @@ def _descendants(widget: Gtk.Widget) -> list[Gtk.Widget]:
         found += [child, *_descendants(child)]
         child = child.get_next_sibling()
     return found
+
+
+@pytest.fixture
+def panel_window(annotated_window: "PenfoldWindow") -> "PenfoldWindow":
+    """The annotated window with the Annotations view of the panel shown (comments and text boxes listed)."""
+    from penfold.ui.sidebar import sidebar as sidebar_views
+
+    annotated_window.split_view.set_show_sidebar(True)
+    annotated_window.sidebar.show_view(sidebar_views.ANNOTATIONS)
+    process_pending_events()
+    return annotated_window
+
+
+def select_all_listed(window: "PenfoldWindow") -> list[Annotation]:
+    view = window.annotations_view
+    view.selection.select_all()
+    return view.selected_annotations()
+
+
+def test_delete_deletes_the_annotations_selected_in_the_panel(panel_window: "PenfoldWindow") -> None:
+    window = panel_window
+    assert window.document is not None
+    selected = select_all_listed(window)
+    assert [item.kind for item in selected] == [Kind.COMMENT, Kind.TEXT_BOX]
+    assert window._on_delete_key(window, None)
+    assert [item.kind for item in window.document.annotations if item.kind in {Kind.COMMENT, Kind.TEXT_BOX}] == []
+    assert window._undo_toast is not None
+    toast, _command = window._undo_toast
+    assert toast.get_title() == "2 annotations deleted"
+    window.activate_action("win.undo")
+    assert len(window.annotations_view.shown_annotations()) == 2
+
+
+def test_esc_clears_the_selection_of_the_panel(panel_window: "PenfoldWindow") -> None:
+    window = panel_window
+    select_all_listed(window)
+    assert window._unselect_panel_view()
+    assert window.annotations_view.selected_annotations() == []
+    assert not window._on_delete_key(window, None)  # Nothing selected: Delete does nothing here.
+
+
+def test_a_right_click_on_a_row_opens_the_menu_of_its_annotation(panel_window: "PenfoldWindow") -> None:
+    window = panel_window
+    view = window.annotations_view
+    wait_until(lambda: len(view.bound_rows()) == 2)
+    row = next(row for row in view.bound_rows() if row.annotation is not None and row.annotation.kind is Kind.TEXT_BOX)
+    view._ask_for_menu(row, 10, 10)
+    process_pending_events()
+    editing = window.annotation_editing
+    assert editing.annotation is row.annotation
+    assert editing.menu is not None
+    assert editing.menu.get_parent() is view
+    assert view.selected_annotations() == [row.annotation]  # Selected alone.
+    editing.menu.popdown()
+    process_pending_events()
+    view.selection.unselect_all()
+    assert not view._on_key_pressed(None, Gdk.KEY_Menu, 0, Gdk.ModifierType(0))  # type: ignore[arg-type]
+    view.selection.select_item(0, True)
+    assert view._on_key_pressed(None, Gdk.KEY_F10, 0, Gdk.ModifierType.SHIFT_MASK)  # type: ignore[arg-type]
+    process_pending_events()
+    assert editing.annotation is view.selected_annotations()[0]
+
+
+def test_the_headings_count_what_is_left(panel_window: "PenfoldWindow") -> None:
+    window = panel_window
+    view = window.annotations_view
+    window.annotation_editing.delete([annotation(window, Kind.COMMENT)])
+    process_pending_events()
+    headings = [
+        widget.get_label()
+        for widget in _descendants(view.list)
+        if isinstance(widget, Gtk.Label) and widget.has_css_class("caption-heading")
+    ]
+    assert headings == ["Text Elements (1)"]

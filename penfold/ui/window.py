@@ -10,6 +10,7 @@ from pathlib import Path
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
+from penfold.document.annotations import Annotation
 from penfold.document.commands.pages import AddPages, DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.history import Change, Command
@@ -255,6 +256,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return False
         if self.sidebar.visible_view == sidebar_views.BOOKMARKS and self.bookmark_editing.can_delete():
             self.bookmark_editing.delete_selected()
+            return True
+        if self.sidebar.visible_view == sidebar_views.ANNOTATIONS:
+            selected = self.annotations_view.selected_annotations()
+            if not selected or self.document is None or not self.document.permissions.annotate:
+                return False
+            self.annotation_editing.delete(selected)
             return True
         action = self.lookup_action("delete-pages")
         if self.sidebar.visible_view != sidebar_views.PAGES or action is None or not action.get_enabled():
@@ -626,6 +633,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         )
         self.annotations_view = AnnotationsView()
         self.annotations_view.connect("annotation-activated", self._on_destination_activated)
+        self.annotations_view.connect("menu-requested", self._on_annotation_menu_requested)
         self.sidebar.add_view(sidebar_views.ANNOTATIONS, self.annotations_view)
         self.search_view = SearchView()
         self.search_view.connect("result-chosen", self._on_result_chosen)
@@ -721,13 +729,23 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return True
         return False
 
+    def _on_annotation_menu_requested(self, view: AnnotationsView, annotation: Annotation, x: float, y: float) -> None:
+        """The menu of an annotation of the panel, at its row; the document goes to it first, as a click does."""
+        if self.renderer is not None:
+            place = self.renderer.layout.place(annotation.page, annotation.rectangle[1])
+            if place is not None:
+                page, top = place
+                self._on_destination_activated(view, page, -1.0 if top is None else top)
+        self.annotation_editing.open_menu(annotation, x, y, view)
+
     def _unselect_panel_view(self) -> bool:
-        """Clear the selection of Pages or Bookmarks, if shown; return whether anything was selected."""
+        """Clear the selection of Pages, Bookmarks or Annotations, if shown; return whether anything was selected."""
         if not self.split_view.get_show_sidebar():
             return False
-        views: dict[str, PagesView | BookmarksView] = {
+        views: dict[str, PagesView | BookmarksView | AnnotationsView] = {
             sidebar_views.PAGES: self.pages_view,
             sidebar_views.BOOKMARKS: self.bookmarks_view,
+            sidebar_views.ANNOTATIONS: self.annotations_view,
         }
         view = views.get(self.sidebar.visible_view)
         return view is not None and view.unselect_all()

@@ -1,6 +1,8 @@
 """The Annotations view of the side panel (02-interfaz, 6.3; D24, D25, D64): annotations in four groups.
 
-It lists them, filters them by group and goes to one on a click. Editing them comes with phase 9 (D66).
+It lists them, filters them by group and goes to one on a click. Rows are selected as in Pages and Bookmarks, and
+the selection is cleared the same way (D47). A right click on a row, a long press, or the Menu key (or Shift+F10)
+asks for the menu of its annotation, the same as on the page (D72).
 """
 
 import time
@@ -13,7 +15,7 @@ from penfold.document.annotations import TEXT_MARKUPS, Annotation, AnnotationGro
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
 from penfold.rendering.renderer import Renderer
-from penfold.ui.sidebar.view_header import RecentUse, empty_label, view_header
+from penfold.ui.sidebar.view_header import RecentUse, empty_label, unselect_all, unselect_on_empty_click, view_header
 
 # Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
 FALLBACK_COLOR = (0xC6 / 255, 0x46 / 255, 0)
@@ -149,6 +151,8 @@ class AnnotationsView(Gtk.Box):
     __gtype_name__ = "PenfoldAnnotationsView"
     __gsignals__: ClassVar = {
         "annotation-activated": (GObject.SignalFlags.RUN_FIRST, None, (int, float)),
+        # The menu of an annotation is wanted at a point of the view: the annotation, x and y.
+        "menu-requested": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT, float, float)),
     }
 
     def __init__(self) -> None:
@@ -196,6 +200,10 @@ class AnnotationsView(Gtk.Box):
         self.empty = empty_label("")
         self.stack = Gtk.Stack(vexpand=True)
         self.scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        unselect_on_empty_click(self.scrolled, self.selection)
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", self._on_key_pressed)
+        self.list.add_controller(keys)
         self.stack.add_named(self.scrolled, "list")
         self.stack.add_named(self.empty, "empty")
         self.append(self.stack)
@@ -228,6 +236,7 @@ class AnnotationsView(Gtk.Box):
                 item.rectangle[0],
             ),
         )
+        self._count()  # Before the rows, so that their headings show the new counts.
         self.store.splice(0, self.store.get_n_items(), [AnnotationItem(annotation) for annotation in self._present])
         self.refresh()
 
@@ -244,10 +253,7 @@ class AnnotationsView(Gtk.Box):
         document = self.document
         if document is None:
             return
-        self._counts = {}
-        for annotation in self._present:
-            if annotation.group in self.shown_groups:
-                self._counts[annotation.group] = self._counts.get(annotation.group, 0) + 1
+        self._count()
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
         if self._counts:
             self.stack.set_visible_child_name("list")
@@ -260,10 +266,27 @@ class AnnotationsView(Gtk.Box):
             )
             self.stack.set_visible_child_name("empty")
 
+    def _count(self) -> None:
+        """Count the annotations of each group shown, for the headings."""
+        self._counts = {}
+        for annotation in self._present:
+            if annotation.group in self.shown_groups:
+                self._counts[annotation.group] = self._counts.get(annotation.group, 0) + 1
+
     def shown_annotations(self) -> list[Annotation]:
         """The annotations in the list, in their order."""
         items = [self.model.get_item(index) for index in range(self.model.get_n_items())]
         return [item.annotation for item in items if isinstance(item, AnnotationItem)]
+
+    def selected_annotations(self) -> list[Annotation]:
+        """The annotations selected, in the order of the list."""
+        selected = self.selection.get_selection()
+        items = [self.model.get_item(selected.get_nth(index)) for index in range(selected.get_size())]
+        return [item.annotation for item in items if isinstance(item, AnnotationItem)]
+
+    def unselect_all(self) -> bool:
+        """Clear the selection (Esc, D47); return whether anything was selected."""
+        return unselect_all(self.selection)
 
     def bound_rows(self) -> list[AnnotationRow]:
         """The rows the list has made for the annotations in sight."""
@@ -298,6 +321,12 @@ class AnnotationsView(Gtk.Box):
         click = Gtk.GestureClick()
         click.connect("released", self._on_row_clicked, row)
         row.add_controller(click)
+        right_click = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+        right_click.connect("pressed", lambda _gesture, _presses, x, y: self._ask_for_menu(row, x, y))
+        row.add_controller(right_click)
+        long_press = Gtk.GestureLongPress(touch_only=True)
+        long_press.connect("pressed", lambda _gesture, x, y: self._ask_for_menu(row, x, y))
+        row.add_controller(long_press)
         item.set_child(row)
 
     def _on_bind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
@@ -351,6 +380,33 @@ class AnnotationsView(Gtk.Box):
             return GLib.SOURCE_CONTINUE
         self._filling = False
         return GLib.SOURCE_REMOVE
+
+    def _ask_for_menu(self, row: AnnotationRow, x: float, y: float) -> None:
+        """Ask for the menu of a row's annotation at a point of the row; a row not selected is selected alone."""
+        annotation = row.annotation
+        if annotation is None:
+            return
+        if not any(item is annotation for item in self.selected_annotations()):
+            index = next((i for i, item in enumerate(self.shown_annotations()) if item is annotation), None)
+            if index is not None:
+                self.selection.select_item(index, True)
+        found, point = row.compute_point(self, Graphene.Point().init(x, y))
+        if found:
+            self.emit("menu-requested", annotation, point.x, point.y)
+
+    def _on_key_pressed(
+        self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
+    ) -> bool:
+        """The Menu key, or Shift+F10, asks for the menu of the first annotation selected, at its row."""
+        menu_key = keyval == Gdk.KEY_Menu or (keyval == Gdk.KEY_F10 and state & Gdk.ModifierType.SHIFT_MASK)
+        selected = self.selected_annotations()
+        if not menu_key or not selected:
+            return False
+        row = self._rows.get(id(selected[0]))
+        if row is None:
+            return False
+        self._ask_for_menu(row, row.get_width() / 2, row.get_height() / 2)
+        return True
 
     def _on_row_clicked(
         self, gesture: Gtk.GestureClick, _presses: int, _x: float, _y: float, row: AnnotationRow

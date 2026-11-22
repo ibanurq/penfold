@@ -14,6 +14,7 @@ changing it would lose that look.
 from collections.abc import Callable
 from dataclasses import replace
 from gettext import gettext as _
+from gettext import ngettext
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
@@ -73,8 +74,8 @@ class AnnotationEditing:
     def _on_menu_requested(self, _view: DocumentView, click: AnnotationClick) -> None:
         self.open_menu(click.annotation, click.x, click.y)
 
-    def open_menu(self, annotation: Annotation, x: float, y: float) -> None:
-        """Show the menu of an annotation at a point of the document view, outlining the annotation."""
+    def open_menu(self, annotation: Annotation, x: float, y: float, parent: Gtk.Widget | None = None) -> None:
+        """Show the menu of an annotation at a point of a widget (the document view), outlining the annotation."""
         document = self._document()
         if document is None:
             return
@@ -96,7 +97,7 @@ class AnnotationEditing:
         if colored:
             menu.add_child(_color_row(), "colors")
         menu.add_child(_separator(), "separator")
-        menu.set_parent(self._document_view)
+        menu.set_parent(parent or self._document_view)
         # As context menus open: without an arrow, from the pointer to its right, covering less of the annotation.
         menu.set_has_arrow(False)
         menu.set_halign(Gtk.Align.START)
@@ -263,16 +264,20 @@ class AnnotationEditing:
 
         editor.on_done = write
 
-    def delete(self) -> None:
-        """Delete the annotation of the menu, with a toast to undo it (D72)."""
-        document, annotation = self._document(), self.annotation
+    def delete(self, annotations: list[Annotation] | None = None) -> None:
+        """Delete some annotations (by default, that of the menu), with a toast to undo it (D72)."""
+        document = self._document()
+        chosen = annotations if annotations is not None else [self.annotation] if self.annotation else []
         if self.menu is not None:
             self.menu.popdown()
-        if document is None or annotation is None or not document.permissions.annotate:
+        if document is None or not chosen or not document.permissions.annotate:
             return
-        command = DeleteAnnotations(document, [annotation])
+        command = DeleteAnnotations(document, chosen)
         document.execute(command)
-        self._show_undo_toast(_("Annotation deleted"), command)
+        count = len(chosen)
+        self._show_undo_toast(
+            ngettext("Annotation deleted", "{count} annotations deleted", count).format(count=count), command
+        )
 
     def _change(self, annotation: Annotation, change: Callable[[Annotation], Annotation]) -> None:
         """Change an annotation as a managed copy (D60), after a warning if Penfold cannot draw all its look."""
