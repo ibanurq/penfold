@@ -10,7 +10,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.saving import save
 from penfold.errors import PasswordRequiredError
 from penfold.rendering.poppler_sources import PopplerSources
-from tests.sample_pdfs import OWNER_PASSWORD, USER_PASSWORD, make_pdf_with_password
+from tests.sample_pdfs import OWNER_PASSWORD, USER_PASSWORD, make_pdf_with_password, make_pdf_with_permissions
 
 
 @pytest.fixture
@@ -69,3 +69,25 @@ def test_the_pdf_to_print_keeps_its_password(secret: Path, tmp_path: Path) -> No
     with pikepdf.open(tmp_path / "print.pdf", password=USER_PASSWORD) as pdf:
         assert len(pdf.pages) == 4
     document.close()
+
+
+def test_the_owner_password_allows_everything_and_saving_keeps_both_passwords(secret: Path) -> None:
+    document = OpenDocument.open(secret, OWNER_PASSWORD)
+    assert document.opened_by_owner
+    assert not document.denies_anything
+    assert document.access_permissions.denied == ["annotate", "assemble", "copy", "modify"]  # what others get
+    document.execute(RotatePages(document, [0], 90))
+    plan = document.save_plan()
+    save(plan)
+    document.mark_saved(plan)
+    assert_keeps_passwords_and_permissions(secret, 4)
+    document.close()
+
+
+def test_the_open_password_is_not_the_owners(secret: Path, tmp_path: Path) -> None:
+    document = OpenDocument.open(secret, USER_PASSWORD)
+    assert (document.opened_by_owner, document.denies_anything) == (False, True)
+    document.close()
+    locked = OpenDocument.open(make_pdf_with_permissions(tmp_path / "locked.pdf"))
+    assert (locked.opened_by_owner, locked.denies_anything) == (False, True)
+    locked.close()

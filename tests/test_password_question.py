@@ -8,7 +8,7 @@ from gi.repository import Adw, Gtk
 
 from tests.gtk_helpers import process_pending_events, wait_until
 from tests.sample_pdfs import OWNER_PASSWORD, USER_PASSWORD, make_pdf, make_pdf_with_password
-from tests.test_document_window import open_and_wait, window
+from tests.test_document_window import action_enabled, open_and_wait, window
 
 if TYPE_CHECKING:
     from penfold.ui.window import PenfoldWindow
@@ -18,7 +18,7 @@ __all__ = ["window"]
 
 @pytest.fixture
 def secret(tmp_path: Path) -> Path:
-    return make_pdf_with_password(tmp_path / "secret.pdf", "print_lowres", "modify_assembly")
+    return make_pdf_with_password(tmp_path / "secret.pdf", "print_lowres")
 
 
 def asked(window: "PenfoldWindow", path: Path) -> Adw.AlertDialog:
@@ -72,9 +72,17 @@ def test_a_wrong_password_keeps_asking_and_the_right_one_opens_it(window: "Penfo
     assert window.document.file_name == "secret.pdf"
 
 
-def test_the_owner_password_opens_it_too(window: "PenfoldWindow", secret: Path) -> None:
+def test_the_open_password_shows_the_lock(window: "PenfoldWindow", secret: Path) -> None:
+    answer(asked(window, secret), USER_PASSWORD)
+    assert window.document_header.protected_icon.get_visible()
+    assert not action_enabled(window, "add-bookmark")  # the PDF does not allow editing its bookmarks
+
+
+def test_the_owner_password_opens_it_with_every_tool_and_no_lock(window: "PenfoldWindow", secret: Path) -> None:
     answer(asked(window, secret), OWNER_PASSWORD)
     assert window.document is not None
+    assert not window.document_header.protected_icon.get_visible()
+    assert action_enabled(window, "add-bookmark")
 
 
 @pytest.mark.parametrize("how", ["cancel", "escape"])

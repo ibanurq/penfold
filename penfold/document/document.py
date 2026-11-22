@@ -47,6 +47,8 @@ class OpenDocument:
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
         self.access_permissions = AccessPermissions.of(pdf)
+        # Opened with the owner password: the PDF's permissions do not bind its owner (D61, 7).
+        self.opened_by_owner = pdf.is_encrypted and pdf.owner_password_matched
         self._respects_permissions = True
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
@@ -119,9 +121,12 @@ class OpenDocument:
     def permissions(self) -> AccessPermissions:
         """What Penfold lets the user do with the document: every tool asks this (D59, D60).
 
-        The PDF's user access permissions while they are respected; everything once they are not.
+        The PDF's user access permissions while they are respected; everything once they are not, or if the PDF was
+        opened with its owner password (D61).
         """
-        return self.access_permissions if self._respects_permissions else AccessPermissions()
+        if self.opened_by_owner or not self._respects_permissions:
+            return AccessPermissions()
+        return self.access_permissions
 
     def respect_permissions(self, respect: bool) -> None:
         """Follow the PDF's user access permissions, or ignore them ("Respect Document Permissions", D60)."""
