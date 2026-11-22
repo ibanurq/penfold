@@ -5,14 +5,15 @@ made, until another is chosen (D65). A PDF is only annotated if it allows it (D5
 greyed out.
 
 The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released
-(H1). H and U mark the text selected without changing the tool, or else choose their tool (H7).
+(H1). H and U mark the text selected without changing the tool, or else choose their tool (H7). Rectangles, circles
+and arrows are drawn by dragging, from where the drag starts to where it ends (H4).
 """
 
 from collections.abc import Callable
 
 from gi.repository import Gio, GLib, Gtk
 
-from penfold.document.annotations import new_annotation
+from penfold.document.annotations import Annotation, Kind, new_annotation
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle
@@ -20,10 +21,14 @@ from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
 from penfold.ui.document_view import DocumentView
 from penfold.ui.palette import ANNOTATION_COLORS, Color, hex_to_color
 
+Point = tuple[float, float]
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
 DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.COMMENT, Tool.TEXT_BOX})
 MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT})
+SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
+# A drag shorter than this, in points, is a click: it draws nothing.
+SMALLEST_SHAPE = 3.0
 
 
 class Annotating:
@@ -59,6 +64,7 @@ class Annotating:
         for action in (self._annotate, self._tool, self._color):
             window.add_action(action)
         document_view.connect("text-selected", self._on_text_selected)
+        document_view.connect("shape-drawn", self._on_shape_drawn)
 
     @property
     def tool(self) -> Tool:
@@ -132,7 +138,22 @@ class Annotating:
         action.set_state(value)
         self._chosen_tool = Tool(value.get_string())
         self._document_view.marking = self.tool in MARKING_TOOLS
+        self._document_view.set_shape_maker(self._make_shape if self.tool in SHAPE_TOOLS else None)
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
+
+    def _make_shape(self, page: int, start: Point, end: Point) -> Annotation | None:
+        """The shape of the tool chosen from one end of a drag to the other; None for a click."""
+        kind = self.tool.kind
+        if kind is None or max(abs(end[0] - start[0]), abs(end[1] - start[1])) < SMALLEST_SHAPE:
+            return None
+        rectangle = (min(start[0], end[0]), min(start[1], end[1]), max(start[0], end[0]), max(start[1], end[1]))
+        line = (*start, *end) if kind is Kind.ARROW else None
+        return new_annotation(kind, page, rectangle, self.color, self._author(), line=line)
+
+    def _on_shape_drawn(self, _view: DocumentView, shape: Annotation) -> None:
+        document = self._document()
+        if document is not None and self.allowed:
+            document.execute(AddAnnotations(document, [shape]))
 
     def _on_text_selected(self, _view: DocumentView) -> None:
         """With a tool that marks text, the text just selected is marked (H1)."""

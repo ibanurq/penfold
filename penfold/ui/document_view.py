@@ -49,6 +49,9 @@ MATCH_COLOR = (0.97, 0.89, 0.36, 0.45)
 CURRENT_MATCH_COLOR = (1.0, 0.47, 0.0, 0.5)
 # A press that moves less than this, in pixels, is a click (it follows links), not a drag.
 DRAG_THRESHOLD = 3
+# Makes the annotation of a shape from the source index of its page and its two ends on the unturned page; None for
+# one too small to keep (a click).
+ShapeMaker = Callable[[int, tuple[float, float], tuple[float, float]], Annotation | None]
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
 
@@ -114,6 +117,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         "viewport-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         # A drag, or a double or triple click, has just selected text.
         "text-selected": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        # A drag with a tool that draws shapes has just drawn one: the annotation made.
+        "shape-drawn": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
     }
 
     hscroll_policy = GObject.Property(type=Gtk.ScrollablePolicy, default=Gtk.ScrollablePolicy.MINIMUM)
@@ -153,6 +158,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._drawing_cursor: str | None = None
         # While a tool marks text (highlight…), text is selected even if the PDF does not let it be copied.
         self.marking = False
+        # While a tool draws shapes, a drag draws one instead of selecting text (H4).
+        self._shape_maker: ShapeMaker | None = None
+        self._shape_start: PagePoint | None = None
+        self._shape: Annotation | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -759,6 +768,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         assert self.renderer is not None
         page = self.renderer.layout[box.page]
         annotations = self._managed.get(page.source, [])
+        if self._shape is not None and self._shape.page == page.source:
+            annotations = [*annotations, self._shape]
         no_offset = Graphene.Vec4().init(0, 0, 0, 0)
         for annotation in annotations:
             if annotation.kind is not Kind.HIGHLIGHT:
@@ -850,9 +861,19 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         page = self.renderer.layout[point.page]
         return self.content.link_at(page.source, *page.to_source(point.x, point.y))
 
+    def set_shape_maker(self, maker: "ShapeMaker | None") -> None:
+        """Draw shapes with drags, made by maker from the page and the two ends; None to select text again."""
+        self._shape_maker = maker
+        self._shape_start = self._shape = None
+        self.queue_draw()
+
     def _on_pressed(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
-        """A press starts a selection; a double click selects a word and a triple click a line."""
+        """A press starts a selection (or a shape); a double click selects a word and a triple click a line."""
         self.grab_focus()
+        if self._shape_maker is not None:
+            self._set_selection(None)
+            self._shape_start = self.page_point(x, y)
+            return
         self._press = self.page_point(x, y)
         self._press_style = SELECTION_STYLES.get(min(n_press, 3), Poppler.SelectionStyle.GLYPH)
         self._dragging = False
@@ -860,6 +881,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._set_selection(TextSelection(self._press, self._press, self._press_style))
 
     def _on_drag_update(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
+        if self._shape_start is not None:
+            self._draw_shape(gesture, offset_x, offset_y)
+            return
         if self._press is None:
             return
         if not self._dragging and math.hypot(offset_x, offset_y) < DRAG_THRESHOLD:
@@ -870,8 +894,33 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if focus is not None:
             self._set_selection(TextSelection(self._press, focus, self._press_style))
 
-    def _on_drag_end(self, gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float) -> None:
-        """The end of a selection; a click without moving follows the link under it, or clears the selection."""
+    def _draw_shape(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
+        """Show the shape from where the drag started to where it is now, kept inside the page it started on."""
+        start = self._shape_start
+        if start is None or self._shape_maker is None or self.renderer is None or self._hadjustment is None:
+            return
+        assert self._vadjustment is not None
+        box = self._box(start.page)
+        if box is None:
+            return
+        _found, start_x, start_y = gesture.get_start_point()
+        page = self.renderer.layout[start.page]
+        width, height = page.size
+        end_x = (start_x + offset_x + self._hadjustment.get_value() - box.x) / self.zoom
+        end_y = (start_y + offset_y + self._vadjustment.get_value() - box.y) / self.zoom
+        end = page.to_source(min(max(end_x, 0.0), width), min(max(end_y, 0.0), height))
+        self._shape = self._shape_maker(page.source, page.to_source(start.x, start.y), end)
+        self.queue_draw()
+
+    def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
+        """The end of a selection or a shape; a click without moving follows a link, or clears the selection."""
+        if self._shape_start is not None:
+            self._draw_shape(gesture, offset_x, offset_y)
+            shape, self._shape_start, self._shape = self._shape, None, None
+            self.queue_draw()
+            if shape is not None:
+                self.emit("shape-drawn", shape)
+            return
         if self._dragging or self._press_style is not Poppler.SelectionStyle.GLYPH:
             if self.selection is not None:
                 self.emit("text-selected")
