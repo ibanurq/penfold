@@ -126,7 +126,7 @@ def test_bookmarks_show_the_tree_and_go_to_their_destination(window: "PenfoldWin
 
 
 def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path: Path) -> None:
-    from penfold.document.annotations import Kind
+    from penfold.document.annotations import AnnotationGroup, Kind
 
     path = make_pdf(tmp_path / "notes.pdf", page_count=2)
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:
@@ -138,6 +138,8 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
                 Contents=pikepdf.String("A note"),
             ),
             pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Square, Rect=[50, 50, 90, 90]),
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Ink, Rect=[50, 150, 90, 190]),
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.FileAttachment, Rect=[50, 250, 60, 260]),
         ]
         pdf.pages[1].Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(note) for note in notes]))
         pdf.save(path)
@@ -146,10 +148,16 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
 
     assert [annotation.kind for annotation in view.shown_annotations()] == [
         Kind.COMMENT
-    ]  # rectangles are hidden by default, as in 0.6
-    view.shown_kinds.add(Kind.RECTANGLE)
+    ]  # shapes and other types are hidden by default
+    view.shown_groups.update({AnnotationGroup.SHAPES, AnnotationGroup.OTHERS})
     view.refresh()
-    assert [annotation.kind for annotation in view.shown_annotations()] == [Kind.COMMENT, Kind.RECTANGLE]
+    # Shapes come first, from the top of the page down; a freehand drawing is a shape too (D64).
+    assert [annotation.subtype for annotation in view.shown_annotations()] == [
+        "Ink",
+        "Square",
+        "Text",
+        "FileAttachment",
+    ]
     view.emit("annotation-activated", 1, 700.0)
     assert window.document_view.current_page == 1
 

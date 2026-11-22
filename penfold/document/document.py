@@ -9,7 +9,7 @@ from typing import Self
 import pikepdf
 
 from penfold.document.access_permissions import AccessPermissions
-from penfold.document.annotations import Annotation, PrintGroup, read_annotations
+from penfold.document.annotations import Annotation, AnnotationGroup, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
 from penfold.document.forms import FieldValue, FormField, read_form_fields
 from penfold.document.history import Change, Command, History
@@ -319,7 +319,7 @@ class OpenDocument:
         )
         return replace(plan, form_values=self._filled_in(), flatten=flatten)
 
-    def print_plan(self, target: Path, left_out: frozenset[PrintGroup]) -> SavePlan:
+    def print_plan(self, target: Path, left_out: frozenset[AnnotationGroup]) -> SavePlan:
         """Take what writing the PDF to print needs (D57), to write it with saving.save.
 
         It has every page, with the form values, but no bookmarks and none of the groups of annotations left out.

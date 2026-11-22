@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pikepdf
 
-from penfold.document.annotations import PRINT_GROUPS, PrintGroup
+from penfold.document.annotations import AnnotationGroup, group_of
 from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
 from penfold.document.form_filling import fill_in, flatten_form
 from penfold.document.forms import FieldValue, FormField
@@ -59,7 +59,7 @@ class SavePlan:
     checkpoint: Command | None
     form_values: tuple[tuple[FormField, FieldValue], ...] = ()
     flatten: bool = False
-    left_out: frozenset[PrintGroup] = frozenset()
+    left_out: frozenset[AnnotationGroup] = frozenset()
 
     @classmethod
     def take(
@@ -313,7 +313,7 @@ def _fields_without(fields: pikepdf.Array, widgets: set[tuple[int, int]]) -> lis
     return kept
 
 
-def _leave_out_annotations(pdf: pikepdf.Pdf, groups: frozenset[PrintGroup]) -> None:
+def _leave_out_annotations(pdf: pikepdf.Pdf, groups: frozenset[AnnotationGroup]) -> None:
     """Take out of the pages the annotations of these groups, with the pop-up windows of their notes."""
     for page in pdf.pages:
         annots = page.obj.get("/Annots")
@@ -325,9 +325,9 @@ def _leave_out_annotations(pdf: pikepdf.Pdf, groups: frozenset[PrintGroup]) -> N
         page.obj.Annots = pdf.make_indirect(pikepdf.Array(kept))
 
 
-def _print_group(annotation: pikepdf.Object) -> PrintGroup | None:
+def _print_group(annotation: pikepdf.Object) -> AnnotationGroup | None:
     subtype = annotation.get("/Subtype") if isinstance(annotation, pikepdf.Dictionary) else None
-    return PRINT_GROUPS.get(str(subtype)) if isinstance(subtype, pikepdf.Name) else None
+    return group_of(str(subtype)) if isinstance(subtype, pikepdf.Name) else None
 
 
 def _popup_of(annotation: pikepdf.Object, dropped: set[tuple[int, int]]) -> bool:

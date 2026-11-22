@@ -14,7 +14,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib, Gtk, Poppler
 
-from penfold.document.annotations import PrintGroup
+from penfold.document.annotations import AnnotationGroup
 from penfold.document.document import OpenDocument
 from penfold.document.saving import save
 from penfold.errors import SaveError
@@ -34,7 +34,7 @@ class DocumentPrinting:
         self._folder: Path | None = None
         self._poppler: Poppler.Document | None = None
 
-    def start(self, left_out: frozenset[PrintGroup]) -> None:
+    def start(self, left_out: frozenset[AnnotationGroup]) -> None:
         """Write the PDF to print in a worker thread; the print dialogue opens when it is ready."""
         self._folder = Path(tempfile.mkdtemp(prefix="penfold-print-"))
         plan = self._document.print_plan(self._folder / self._document.file_name, left_out)

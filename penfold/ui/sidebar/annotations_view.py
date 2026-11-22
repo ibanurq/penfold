@@ -1,7 +1,6 @@
-"""The Annotations view of the side panel (02-interfaz, 6.3; D24, D25): annotations grouped by type.
+"""The Annotations view of the side panel (02-interfaz, 6.3; D24, D25, D64): annotations in four groups.
 
-Phase 2 lists them, filters them by type and goes to one on a click. Selecting them to edit their colour or text, and
-deleting them, come with phase 6.
+It lists them, filters them by group and goes to one on a click. Editing them comes with phase 9 (D66).
 """
 
 import time
@@ -10,7 +9,7 @@ from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
 
-from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
+from penfold.document.annotations import TEXT_MARKUPS, Annotation, AnnotationGroup, Kind
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
 from penfold.rendering.renderer import Renderer
@@ -22,8 +21,8 @@ COLOR_BAR_WIDTH = 3
 ROW_TEXT_LINES = 4
 # Marked texts are read a few at a time, for at most this long (seconds) each time, so the window never waits.
 TEXT_TIME_SLICE = 0.008
-# Shown by default, as in 0.6: the types with text of their own.
-DEFAULT_KINDS = frozenset({Kind.COMMENT, Kind.TEXT_BOX})
+# Shown by default, as in 0.6: the group of comments and text boxes.
+DEFAULT_GROUPS = frozenset({AnnotationGroup.TEXT_ELEMENTS})
 # Icon of each type: Adwaita's when it has one, otherwise a provisional one (D37).
 KIND_ICONS = {
     Kind.HIGHLIGHT: ("penfold-type-highlight-symbolic", True),
@@ -38,19 +37,33 @@ KIND_ICONS = {
 }
 
 
-def kind_names() -> dict[Kind, str]:
-    """Plural name of each type, as in the filter (translated when called)."""
+# The icon of each group in the filter: the one of its best-known type.
+GROUP_KINDS = {
+    AnnotationGroup.TEXT_MARKUPS: Kind.HIGHLIGHT,
+    AnnotationGroup.SHAPES: Kind.RECTANGLE,
+    AnnotationGroup.TEXT_ELEMENTS: Kind.COMMENT,
+    AnnotationGroup.OTHERS: Kind.OTHER,
+}
+
+
+def group_names() -> dict[AnnotationGroup, str]:
+    """Name of each group, as in the print dialogue (translated when called)."""
     return {
-        Kind.HIGHLIGHT: _("Highlights"),
-        Kind.UNDERLINE: _("Underlines"),
-        Kind.STRIKE_OUT: _("Strikethroughs"),
-        Kind.COMMENT: _("Comments"),
-        Kind.TEXT_BOX: _("Text Boxes"),
-        Kind.RECTANGLE: _("Rectangles"),
-        Kind.CIRCLE: _("Circles"),
-        Kind.ARROW: _("Arrows"),
-        Kind.OTHER: _("Other Types"),
+        AnnotationGroup.TEXT_MARKUPS: _("Text Highlights"),
+        AnnotationGroup.SHAPES: _("Shapes"),
+        AnnotationGroup.TEXT_ELEMENTS: _("Text Elements"),
+        AnnotationGroup.OTHERS: _("Other Types"),
     }
+
+
+def show_kind_icon(image: Gtk.Image, kind: Kind) -> None:
+    """Show the icon of a type, in violet when it is provisional (D37, D70)."""
+    icon_name, provisional = KIND_ICONS[kind]
+    image.set_from_icon_name(icon_name)
+    if provisional:
+        image.add_css_class("provisional-icon")
+    else:
+        image.remove_css_class("provisional-icon")
 
 
 def display_color(annotation: Annotation) -> tuple[float, float, float]:
@@ -95,7 +108,7 @@ class AnnotationItem(GObject.Object):
 
 
 class AnnotationRow(Gtk.Box):
-    """Like Papers: "Page N" in bold and the author on the right; under them, the text next to a colour line."""
+    """Like Papers, with the type's icon before "Page N"; the author on the right; under them, the coloured text."""
 
     __gtype_name__ = "PenfoldAnnotationRow"
 
@@ -104,10 +117,12 @@ class AnnotationRow(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=6, margin_bottom=6)
         self.annotation: Annotation | None = None
         top = Gtk.Box(spacing=6)
+        self.icon = Gtk.Image()
         self.page = Gtk.Label(xalign=0, hexpand=True)
         self.page.add_css_class("heading")
         self.author = Gtk.Label(xalign=1, ellipsize=Pango.EllipsizeMode.END)
         self.author.add_css_class("dim-label")
+        top.append(self.icon)
         top.append(self.page)
         top.append(self.author)
         bottom = Gtk.Box(spacing=8)
@@ -133,7 +148,7 @@ class AnnotationRow(Gtk.Box):
 
 
 class AnnotationsView(Gtk.Box):
-    """Annotations grouped by type, with a filter; "annotation-activated" gives a page and a height on a click.
+    """Annotations in four groups, with a filter; "annotation-activated" gives a page and a height on a click.
 
     The list only makes rows for the annotations in sight, so a PDF with thousands of them costs no more than one
     with a few; the text a highlight marks is read for the rows shown, a few at a time.
@@ -147,7 +162,7 @@ class AnnotationsView(Gtk.Box):
     def __init__(self) -> None:
         """Create the view, empty until set_document."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        self.shown_kinds: set[Kind] = set(DEFAULT_KINDS)
+        self.shown_groups: set[AnnotationGroup] = set(DEFAULT_GROUPS)
         self.filter_button = Gtk.MenuButton(
             icon_name="penfold-filter-symbolic", tooltip_text=_("Filter"), valign=Gtk.Align.CENTER
         )
@@ -160,15 +175,14 @@ class AnnotationsView(Gtk.Box):
         # The annotations of the pages the document still has, and where each page is now.
         self._present: list[Annotation] = []
         self._positions: dict[int, int] = {}
-        self._kind_names = kind_names()
+        self._group_names = group_names()
         self._page_format = _("Page {label}")
-        self._counts: dict[Kind, int] = {}
-        # Every annotation, in the order of the groups; a filter keeps the types shown and a sorter makes the groups.
+        self._counts: dict[AnnotationGroup, int] = {}
+        # Every annotation, in the order of the groups; a filter keeps the groups shown and a sorter makes the sections.
         self.store = Gio.ListStore.new(AnnotationItem)
         self.filter = Gtk.CustomFilter.new(self._is_shown)
         filtered = Gtk.FilterListModel(model=self.store, filter=self.filter)
-        order = list(Kind)
-        groups = Gtk.CustomSorter.new(_compare, order)
+        groups = Gtk.CustomSorter.new(_compare, list(AnnotationGroup))
         self.model = Gtk.SortListModel(model=filtered, section_sorter=groups)
         self.selection = Gtk.MultiSelection(model=self.model)
         factory = Gtk.SignalListItemFactory()
@@ -211,10 +225,15 @@ class AnnotationsView(Gtk.Box):
             position = document.page_position(annotation.page)
             if position is not None:
                 self._positions[annotation.page] = position
-        order = list(Kind)
+        order = list(AnnotationGroup)
         self._present = sorted(
             (annotation for annotation in document.annotations if annotation.page in self._positions),
-            key=lambda item: (order.index(item.kind), self._positions[item.page], item.rectangle[1], item.rectangle[0]),
+            key=lambda item: (
+                order.index(item.group),
+                self._positions[item.page],
+                item.rectangle[1],
+                item.rectangle[0],
+            ),
         )
         self.store.splice(0, self.store.get_n_items(), [AnnotationItem(annotation) for annotation in self._present])
         self.refresh()
@@ -224,14 +243,14 @@ class AnnotationsView(Gtk.Box):
         return self._positions[annotation.page]
 
     def refresh(self) -> None:
-        """Show the annotations of the types chosen in the filter, without building the list again."""
+        """Show the annotations of the groups chosen in the filter, without building the list again."""
         document = self.document
         if document is None:
             return
         self._counts = {}
         for annotation in self._present:
-            if annotation.kind in self.shown_kinds:
-                self._counts[annotation.kind] = self._counts.get(annotation.kind, 0) + 1
+            if annotation.group in self.shown_groups:
+                self._counts[annotation.group] = self._counts.get(annotation.group, 0) + 1
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
         if self._counts:
             self.stack.set_visible_child_name("list")
@@ -273,7 +292,7 @@ class AnnotationsView(Gtk.Box):
             row.remove_css_class("reading-position")
 
     def _is_shown(self, item: GObject.Object) -> bool:
-        return isinstance(item, AnnotationItem) and item.annotation.kind in self.shown_kinds
+        return isinstance(item, AnnotationItem) and item.annotation.group in self.shown_groups
 
     # Rows.
 
@@ -294,6 +313,7 @@ class AnnotationsView(Gtk.Box):
         position = self.position(annotation)
         label = self.document.page_label(position) if self.document is not None else str(position + 1)
         row.page.set_label(self._page_format.format(label=label))
+        show_kind_icon(row.icon, annotation.kind)
         row.author.set_label(annotation.author or _("(External)"))
         row.color_bar.set_color(display_color(annotation))
         self._rows[id(annotation)] = row
@@ -358,46 +378,45 @@ class AnnotationsView(Gtk.Box):
         header.set_child(label)
 
     def _on_header_bind(self, _factory: Gtk.SignalListItemFactory, header: Gtk.ListHeader) -> None:
-        """A heading with the type and its count above each group: "Comments (2)"."""
+        """A heading with the group and its count above each section: "Text Elements (2)"."""
         item = header.get_item()
         label = header.get_child()
         if isinstance(item, AnnotationItem) and isinstance(label, Gtk.Label):
-            kind = item.annotation.kind
-            # Translators: heading of a group of annotations, as in "Comments (2)".
-            label.set_label(_("{kind} ({count})").format(kind=self._kind_names[kind], count=self._counts.get(kind, 0)))
+            group = item.annotation.group
+            # Translators: heading of a group of annotations, as in "Text Elements (2)".
+            label.set_label(
+                _("{group} ({count})").format(group=self._group_names[group], count=self._counts.get(group, 0))
+            )
 
     def _filter_popover(self) -> Gtk.Popover:
-        """The list "Show" with a box and an icon for each type (D24)."""
+        """The list "Show" with a box and an icon for each group (D64)."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=6, margin_bottom=6)
         title = Gtk.Label(label=_("Show"), xalign=0, margin_start=6, margin_bottom=4)
         title.add_css_class("dim-label")
         box.append(title)
-        names = kind_names()
-        for kind in Kind:
+        for group, name in group_names().items():
             row = Gtk.Box(spacing=8)
-            check = Gtk.CheckButton(active=kind in self.shown_kinds)
-            check.connect("toggled", self._on_kind_toggled, kind)
-            icon_name, provisional = KIND_ICONS[kind]
-            icon = Gtk.Image(icon_name=icon_name)
-            if provisional:
-                icon.add_css_class("provisional-icon")
+            check = Gtk.CheckButton(active=group in self.shown_groups)
+            check.connect("toggled", self._on_group_toggled, group)
+            icon = Gtk.Image()
+            show_kind_icon(icon, GROUP_KINDS[group])
             row.append(icon)
-            row.append(Gtk.Label(label=names[kind], xalign=0))
+            row.append(Gtk.Label(label=name, xalign=0))
             check.set_child(row)
             box.append(check)
         return Gtk.Popover(child=box)
 
-    def _on_kind_toggled(self, check: Gtk.CheckButton, kind: Kind) -> None:
+    def _on_group_toggled(self, check: Gtk.CheckButton, group: AnnotationGroup) -> None:
         if check.get_active():
-            self.shown_kinds.add(kind)
+            self.shown_groups.add(group)
         else:
-            self.shown_kinds.discard(kind)
+            self.shown_groups.discard(group)
         self.refresh()
 
 
-def _compare(first: object, second: object, order: list[Kind]) -> int:
-    """Order two annotations by the group of their type (the order of the filter)."""
+def _compare(first: object, second: object, order: list[AnnotationGroup]) -> int:
+    """Order two annotations by their group (the order of the filter)."""
     assert isinstance(first, AnnotationItem)
     assert isinstance(second, AnnotationItem)
-    difference = order.index(first.annotation.kind) - order.index(second.annotation.kind)
+    difference = order.index(first.annotation.group) - order.index(second.annotation.group)
     return (difference > 0) - (difference < 0)

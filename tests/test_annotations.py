@@ -5,7 +5,7 @@ from pathlib import Path
 import pikepdf
 import pytest
 
-from penfold.document.annotations import Annotation, Kind, read_annotations
+from penfold.document.annotations import Annotation, AnnotationGroup, Kind, group_of, read_annotations
 from tests.sample_pdfs import make_pdf
 
 
@@ -73,6 +73,20 @@ def test_text_author_colour_and_ownership(annotations: list[Annotation]) -> None
     assert (highlight.author, highlight.is_own) == ("Ana", False)
     assert rectangle.color == (0.5, 0.5, 0.5)
     assert (ink.text, ink.subtype, ink.author) == ("Scribble", "Ink", "")
+
+
+def test_every_listed_type_has_a_group(annotations: list[Annotation]) -> None:
+    assert [item.group for item in annotations] == [
+        AnnotationGroup.TEXT_MARKUPS,
+        AnnotationGroup.TEXT_ELEMENTS,
+        AnnotationGroup.SHAPES,
+        AnnotationGroup.SHAPES,  # a freehand drawing is a shape, though Penfold does not make them
+    ]
+    assert group_of("/Squiggly") is AnnotationGroup.TEXT_MARKUPS
+    assert group_of("/Stamp") is AnnotationGroup.TEXT_ELEMENTS
+    assert group_of("/FileAttachment") is AnnotationGroup.OTHERS
+    assert group_of("/Link") is None
+    assert group_of("/Widget") is None
 
 
 def test_pdf_without_annotations(tmp_path: Path) -> None:

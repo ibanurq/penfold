@@ -1,7 +1,7 @@
-"""The "Print" dialogue (D57): which groups of annotations are printed, before the system's print dialogue.
+"""The "Print" dialogue (D57, D64): which groups of annotations are printed, before the system's print dialogue.
 
-The three groups are on by default. Continue closes it and emits "print-requested" with the groups left out; Cancel
-or Esc print nothing. Form values and annotations of no group are always printed.
+The four groups are on by default. Continue closes it and emits "print-requested" with the groups left out; Cancel
+or Esc print nothing. Form values are always printed.
 """
 
 from typing import ClassVar
@@ -9,12 +9,12 @@ from typing import ClassVar
 from gi.repository import Adw, GObject, Gtk
 
 from penfold import config
-from penfold.document.annotations import PrintGroup
+from penfold.document.annotations import AnnotationGroup
 
 
 @Gtk.Template(resource_path=f"{config.RESOURCE_BASE_PATH}/ui/dialogs/print_dialog.ui")
 class PenfoldPrintDialog(Adw.Dialog):
-    """Asks which annotations to print; "print-requested" is emitted with a frozenset of the PrintGroup left out."""
+    """Asks which annotations to print; "print-requested" is emitted with a frozenset of the groups left out."""
 
     __gtype_name__ = "PenfoldPrintDialog"
     __gsignals__: ClassVar = {
@@ -25,13 +25,15 @@ class PenfoldPrintDialog(Adw.Dialog):
     text_markups_row: Adw.SwitchRow = Gtk.Template.Child()
     shapes_row: Adw.SwitchRow = Gtk.Template.Child()
     text_elements_row: Adw.SwitchRow = Gtk.Template.Child()
+    others_row: Adw.SwitchRow = Gtk.Template.Child()
 
-    def left_out(self) -> frozenset[PrintGroup]:
+    def left_out(self) -> frozenset[AnnotationGroup]:
         """The groups whose switch is off."""
         rows = {
-            PrintGroup.TEXT_MARKUPS: self.text_markups_row,
-            PrintGroup.SHAPES: self.shapes_row,
-            PrintGroup.TEXT_ELEMENTS: self.text_elements_row,
+            AnnotationGroup.TEXT_MARKUPS: self.text_markups_row,
+            AnnotationGroup.SHAPES: self.shapes_row,
+            AnnotationGroup.TEXT_ELEMENTS: self.text_elements_row,
+            AnnotationGroup.OTHERS: self.others_row,
         }
         return frozenset(group for group, row in rows.items() if not row.get_active())
 

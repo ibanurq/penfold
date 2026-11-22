@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-22 05:58+0100\n"
+"POT-Creation-Date: 2026-11-22 06:50+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -234,6 +234,7 @@ msgid "Annotations to Print"
 msgstr "Anotaciones que se imprimen"
 
 #: data/ui/dialogs/print_dialog.blp:42
+#: penfold/ui/sidebar/annotations_view.py:52
 msgid "Text Highlights"
 msgstr "Resaltados de texto"
 
@@ -242,6 +243,7 @@ msgid "Underlines, strikethroughs, highlights, etc."
 msgstr "Subrayados, tachados, resaltados, etc."
 
 #: data/ui/dialogs/print_dialog.blp:48
+#: penfold/ui/sidebar/annotations_view.py:53
 msgid "Shapes"
 msgstr "Formas geométricas"
 
@@ -250,12 +252,22 @@ msgid "Circles, rectangles, arrows, etc."
 msgstr "Círculos, rectángulos, flechas, etc."
 
 #: data/ui/dialogs/print_dialog.blp:54
+#: penfold/ui/sidebar/annotations_view.py:54
 msgid "Text Elements"
 msgstr "Elementos con texto"
 
 #: data/ui/dialogs/print_dialog.blp:55
 msgid "Comments, text boxes, stamps, etc."
 msgstr "Comentarios, cuadros de texto, sellos, etc."
+
+#: data/ui/dialogs/print_dialog.blp:60
+#: penfold/ui/sidebar/annotations_view.py:55
+msgid "Other Types"
+msgstr "Otros tipos"
+
+#: data/ui/dialogs/print_dialog.blp:61
+msgid "Attachments, sounds, etc."
+msgstr "Archivos adjuntos, sonidos, etc."
 
 #: data/ui/dialogs/save_as_dialog.blp:8 penfold/ui/window.py:434
 msgid "Save As"
@@ -348,7 +360,7 @@ msgid "Go to Page"
 msgstr "Ir a la página"
 
 #: data/ui/preferences_dialog.blp:13 data/ui/sidebar/sidebar.blp:69
-#: penfold/ui/sidebar/annotations_view.py:156
+#: penfold/ui/sidebar/annotations_view.py:171
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -422,7 +434,7 @@ msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
 #: penfold/ui/bookmark_editing.py:125
-#: penfold/ui/sidebar/annotations_view.py:164
+#: penfold/ui/sidebar/annotations_view.py:179
 #: penfold/ui/sidebar/search_view.py:106
 #, python-brace-format
 msgid "Page {label}"
@@ -737,69 +749,32 @@ msgstr "Estilo claro"
 msgid "Dark Style"
 msgstr "Estilo oscuro"
 
-#: penfold/ui/sidebar/annotations_view.py:44
-msgid "Highlights"
-msgstr "Resaltados"
-
-#: penfold/ui/sidebar/annotations_view.py:45
-msgid "Underlines"
-msgstr "Subrayados"
-
-#: penfold/ui/sidebar/annotations_view.py:46
-msgid "Strikethroughs"
-msgstr "Tachados"
-
-#: penfold/ui/sidebar/annotations_view.py:47
-msgid "Comments"
-msgstr "Comentarios"
-
-#: penfold/ui/sidebar/annotations_view.py:48
-msgid "Text Boxes"
-msgstr "Cuadros de texto"
-
-#: penfold/ui/sidebar/annotations_view.py:49
-msgid "Rectangles"
-msgstr "Rectángulos"
-
-#: penfold/ui/sidebar/annotations_view.py:50
-msgid "Circles"
-msgstr "Círculos"
-
-#: penfold/ui/sidebar/annotations_view.py:51
-msgid "Arrows"
-msgstr "Flechas"
-
-#: penfold/ui/sidebar/annotations_view.py:52
-msgid "Other Types"
-msgstr "Otros tipos"
-
-#: penfold/ui/sidebar/annotations_view.py:131
+#: penfold/ui/sidebar/annotations_view.py:146
 msgid "No text"
 msgstr "Sin texto"
 
-#: penfold/ui/sidebar/annotations_view.py:152
+#: penfold/ui/sidebar/annotations_view.py:167
 msgid "Filter"
 msgstr "Filtro"
 
-#: penfold/ui/sidebar/annotations_view.py:243
+#: penfold/ui/sidebar/annotations_view.py:262
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
 
-#: penfold/ui/sidebar/annotations_view.py:243
+#: penfold/ui/sidebar/annotations_view.py:262
 msgid "This PDF has no annotations"
 msgstr "Este PDF no tiene anotaciones"
 
-#: penfold/ui/sidebar/annotations_view.py:297
+#: penfold/ui/sidebar/annotations_view.py:317
 msgid "(External)"
 msgstr "(Externa)"
 
-#. Translators: heading of a group of annotations, as in "Comments (2)".
-#: penfold/ui/sidebar/annotations_view.py:367
+#: penfold/ui/sidebar/annotations_view.py:388
 #, python-brace-format
-msgid "{kind} ({count})"
-msgstr "{kind} ({count})"
+msgid "{group} ({count})"
+msgstr "{group} ({count})"
 
-#: penfold/ui/sidebar/annotations_view.py:372
+#: penfold/ui/sidebar/annotations_view.py:394
 msgid "Show"
 msgstr "Mostrar"
 

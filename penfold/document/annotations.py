@@ -30,8 +30,8 @@ class Kind(enum.Enum):
     OTHER = "Other"
 
 
-class PrintGroup(enum.Enum):
-    """The groups of annotations the reader chooses to print or not (D57)."""
+class AnnotationGroup(enum.Enum):
+    """The four groups of annotations, the same in the panel's filter and lists and when printing (D57, D64)."""
 
     TEXT_MARKUPS = "text-markups"
     """Highlights, underlines (also squiggly), strikethroughs."""
@@ -39,14 +39,22 @@ class PrintGroup(enum.Enum):
     """Rectangles, circles, arrows and lines, polygons, polylines and freehand drawings."""
     TEXT_ELEMENTS = "text-elements"
     """Comments, text boxes, stamps and insert-text marks."""
+    OTHERS = "others"
+    """Every other type that is listed: attachments, sounds, redactions, watermarks…"""
 
 
-# The group of each subtype; the others (form fields, attachments…) are always printed (D57).
-PRINT_GROUPS = {
-    **dict.fromkeys(("/Highlight", "/Underline", "/Squiggly", "/StrikeOut"), PrintGroup.TEXT_MARKUPS),
-    **dict.fromkeys(("/Square", "/Circle", "/Line", "/Polygon", "/PolyLine", "/Ink"), PrintGroup.SHAPES),
-    **dict.fromkeys(("/Text", "/FreeText", "/Stamp", "/Caret"), PrintGroup.TEXT_ELEMENTS),
+SUBTYPE_GROUPS = {
+    **dict.fromkeys(("/Highlight", "/Underline", "/Squiggly", "/StrikeOut"), AnnotationGroup.TEXT_MARKUPS),
+    **dict.fromkeys(("/Square", "/Circle", "/Line", "/Polygon", "/PolyLine", "/Ink"), AnnotationGroup.SHAPES),
+    **dict.fromkeys(("/Text", "/FreeText", "/Stamp", "/Caret"), AnnotationGroup.TEXT_ELEMENTS),
 }
+
+
+def group_of(subtype: str) -> AnnotationGroup | None:
+    """The group of an annotation subtype ("/Ink"), or None for those that are not listed (links, form fields…)."""
+    if subtype in NOT_LISTED:
+        return None
+    return SUBTYPE_GROUPS.get(subtype, AnnotationGroup.OTHERS)
 
 
 SUBTYPE_KINDS = {f"/{kind.value}": kind for kind in Kind if kind is not Kind.OTHER}
@@ -70,6 +78,11 @@ class Annotation:
     author: str = ""
     color: tuple[float, float, float] | None = None
     quads: tuple[tuple[float, float, float, float], ...] = ()
+
+    @property
+    def group(self) -> AnnotationGroup:
+        """The group it is listed and printed in."""
+        return SUBTYPE_GROUPS.get(f"/{self.subtype}", AnnotationGroup.OTHERS)
 
     @property
     def is_own(self) -> bool:

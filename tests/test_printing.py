@@ -7,7 +7,7 @@ import pikepdf
 import pytest
 from gi.repository import Gtk
 
-from penfold.document.annotations import PrintGroup
+from penfold.document.annotations import AnnotationGroup
 from tests.gtk_helpers import process_pending_events, wait_until
 from tests.test_document_window import action_enabled, open_and_wait, window
 from tests.test_forms import build_form
@@ -39,7 +39,8 @@ def test_ctrl_p_asks_which_annotations_to_print(form_window: "PenfoldWindow") ->
     assert isinstance(dialog, PenfoldPrintDialog)
     assert dialog.left_out() == frozenset()
     dialog.shapes_row.set_active(False)
-    assert dialog.left_out() == frozenset({PrintGroup.SHAPES})
+    dialog.others_row.set_active(False)
+    assert dialog.left_out() == frozenset({AnnotationGroup.SHAPES, AnnotationGroup.OTHERS})
     dialog.close()
 
 
@@ -53,7 +54,7 @@ def test_the_pdf_printed_leaves_out_the_groups_and_has_every_page(
     prepared: list[Path] = []
     monkeypatch.setattr(DocumentPrinting, "_show_print_dialog", lambda _self, path: prepared.append(path))
     printing = DocumentPrinting(form_window, document, pytest.fail)
-    printing.start(frozenset({PrintGroup.SHAPES}))
+    printing.start(frozenset({AnnotationGroup.SHAPES}))
     wait_until(lambda: bool(prepared))
     with pikepdf.open(prepared[0]) as pdf:
         annots = pdf.pages[0].Annots

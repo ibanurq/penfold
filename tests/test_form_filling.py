@@ -7,7 +7,7 @@ import gi
 import pikepdf
 import pytest
 
-from penfold.document.annotations import PrintGroup
+from penfold.document.annotations import AnnotationGroup
 from penfold.document.commands.forms import SetFieldValue
 from penfold.document.commands.pages import AddPages, DeletePages
 from penfold.document.document import OpenDocument
@@ -188,13 +188,30 @@ def test_printing_leaves_out_the_groups_not_chosen(tmp_path: Path) -> None:
     document = OpenDocument.open(path)
     fill(document, "name", "Eva")
     target = tmp_path / "print.pdf"
-    save(document.print_plan(target, frozenset({PrintGroup.SHAPES, PrintGroup.TEXT_ELEMENTS})))
+    save(document.print_plan(target, frozenset({AnnotationGroup.SHAPES, AnnotationGroup.TEXT_ELEMENTS})))
     with pikepdf.open(target) as pdf:
         annots = pdf.pages[0].Annots
         subtypes = [str(annots[index].Subtype) for index in range(len(annots))]
         assert "/Outlines" not in pdf.Root
     assert [item for item in subtypes if item != "/Widget"] == ["/Highlight", "/FileAttachment"]
     assert saved_values(target)["name"] == "Eva"
+
+
+def test_printing_can_leave_out_the_other_types_but_keeps_the_fields(tmp_path: Path) -> None:
+    path = build_form(tmp_path / "form.pdf")
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        for subtype in ("/Highlight", "/FileAttachment", "/Link"):
+            mark = pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name(subtype), Rect=[10, 10, 50, 50])
+            pdf.pages[0].Annots.append(pdf.make_indirect(mark))
+        pdf.save(path)
+    target = tmp_path / "print.pdf"
+    document = OpenDocument.open(path)  # Kept: closing it removes the private copy that is printed.
+    save(document.print_plan(target, frozenset({AnnotationGroup.OTHERS})))
+    with pikepdf.open(target) as pdf:
+        annots = pdf.pages[0].Annots
+        subtypes = [str(annots[index].Subtype) for index in range(len(annots))]
+    assert "/Widget" in subtypes
+    assert [item for item in subtypes if item != "/Widget"] == ["/Highlight", "/Link"]
 
 
 def test_a_form_that_asks_viewers_to_draw_it_is_flattened_with_its_values(tmp_path: Path) -> None:
