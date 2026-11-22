@@ -11,13 +11,12 @@ from collections.abc import Iterable
 
 import cairo
 
-from penfold.document.annotations import Annotation, Kind
+from penfold.document.annotations import FILL_STRENGTH, Annotation, Kind
 from penfold.document.appearance import (
     BUBBLE,
     BUBBLE_GRID,
     COMMENT_LINE_WIDTH,
     COMMENT_SIZE,
-    FILL_STRENGTH,
     arrowhead_wings,
     arrowheads,
     dashes,

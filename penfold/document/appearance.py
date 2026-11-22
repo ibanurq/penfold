@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 
 import pikepdf
 
-from penfold.document.annotations import Annotation, Kind, LineEnds, Style
+from penfold.document.annotations import FILL_STRENGTH, Annotation, Kind, LineEnds, Style
 from penfold.document.geometry import HALF_TURN, Rectangle
 from penfold.document.page_frame import PageFrame
 
@@ -31,8 +31,6 @@ ARROWHEAD_ANGLE = math.pi / 6
 # Dashed lines (D72): the length of each dash and of each gap, for each point of width.
 DASH = 4.0
 GAP = 3.0
-# How much of the colour the soft fill of rectangles and circles has, over white (D72).
-FILL_STRENGTH = 0.25
 # The text box's background strength (H3; its drawing is made with Pango, in the rendering layer).
 TEXT_BOX_BACKGROUND = 0.14
 # A comment is a square of this side, in points.
@@ -171,7 +169,7 @@ def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, obj
         "/NM": pikepdf.String(annotation.name),
         "/T": utf16(annotation.author),
         "/CreationDate": created,
-        "/M": created,
+        "/M": _date(annotation.modified) if annotation.modified else created,
         "/F": PRINT_FLAG,
         "/C": pikepdf.Array(_rounded(annotation.color or (0.0, 0.0, 0.0))),
     }

@@ -44,12 +44,15 @@ def every_kind(page: int) -> list[Annotation]:
 
 
 def restyled(annotations: list[Annotation]) -> list[Annotation]:
-    """The same annotations as their Format panel can leave them (D72): thick, dashed, filled, see-through."""
-    style = Style(opacity=0.5, line_width=4.0, dashed=True, filled=True, line_ends=LineEnds.BOTH)
-    return [
-        annotation if annotation.kind is Kind.COMMENT else replace(annotation, style=style)
-        for annotation in annotations
-    ]
+    """The same annotations as their Format panel can leave them (D72): see-through; thick, dashed, filled shapes."""
+    shape = Style(opacity=0.5, line_width=4.0, dashed=True, filled=True)
+    styles = {
+        Kind.RECTANGLE: shape,
+        Kind.CIRCLE: shape,
+        Kind.ARROW: replace(shape, filled=False, line_ends=LineEnds.BOTH),
+        Kind.COMMENT: Style(),
+    }
+    return [replace(annotation, style=styles.get(annotation.kind, Style(opacity=0.5))) for annotation in annotations]
 
 
 @pytest.fixture
@@ -197,3 +200,24 @@ def test_their_format_is_written_as_the_standard_keeps_it(document: OpenDocument
         assert "/CA" not in line  # opaque
         assert "/CA" not in comment
     assert pikepdf.open(target).check() == []
+
+
+@pytest.mark.parametrize("formatted", [False, True])
+def test_their_format_name_and_dates_are_read_back(document: OpenDocument, tmp_path: Path, *, formatted: bool) -> None:
+    annotations = restyled(every_kind(0)) if formatted else every_kind(0)
+    add(document, annotations)
+    target = tmp_path / "saved.pdf"
+    save(document.save_plan(target))
+    with pikepdf.open(target) as pdf:
+        read = sorted(read_annotations(pdf), key=lambda item: item.origin or 0)
+    for written, again in zip(annotations, read, strict=True):
+        assert (again.kind, again.name, again.style, again.foreign_look) == (
+            written.kind,
+            written.name,
+            written.style,
+            (),
+        )
+        assert written.created is not None
+        assert again.created == written.created.replace(microsecond=0)
+        assert again.modified == again.created
+    assert read[5].line == pytest.approx(annotations[5].line)

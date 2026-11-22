@@ -1,5 +1,6 @@
 """Reading the annotations of a PDF for the side panel (ISO 32000-1, 12.5)."""
 
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pikepdf
@@ -9,12 +10,15 @@ from penfold.document.annotations import (
     Annotation,
     AnnotationGroup,
     Kind,
+    LineEnds,
     Style,
     default_style,
     group_of,
+    managed_copy,
     new_annotation,
     read_annotations,
 )
+from penfold.document.pdf_values import date
 from tests.sample_pdfs import make_pdf
 
 
@@ -130,3 +134,90 @@ def test_every_listed_type_has_a_group(annotations: list[Annotation]) -> None:
 def test_pdf_without_annotations(tmp_path: Path) -> None:
     with pikepdf.open(make_pdf(tmp_path / "plain.pdf")) as pdf:
         assert read_annotations(pdf) == []
+
+
+def read_one(tmp_path: Path, subtype: str, **entries: object) -> Annotation:
+    """Read an annotation of another program, made with these entries, on an A4 page."""
+    path = make_pdf(tmp_path / "other.pdf", page_count=1)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        pdf.pages[0].Annots = pdf.make_indirect(
+            pikepdf.Array([pdf.make_indirect(annotation(subtype, [100, 100, 200, 200], **entries))])
+        )
+        pdf.save(path)
+    with pikepdf.open(path) as pdf:
+        (read,) = read_annotations(pdf)
+    return read
+
+
+def test_the_look_of_other_programs_is_read(tmp_path: Path) -> None:
+    square = read_one(
+        tmp_path,
+        "/Square",
+        C=pikepdf.Array([1, 0, 0]),
+        CA=0.4,
+        BS=pikepdf.Dictionary(W=3, S=pikepdf.Name.D),
+        IC=pikepdf.Array([1, 0.75, 0.75]),  # Penfold's soft red
+        NM=pikepdf.String("abc"),
+        CreationDate=pikepdf.String("D:20250102030405+01'00'"),
+    )
+    assert square.style == Style(opacity=0.4, line_width=3, dashed=True, filled=True)
+    assert (square.name, square.foreign_look) == ("abc", ())
+    assert square.created == datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone(timedelta(hours=1)))
+    old = read_one(tmp_path, "/Circle", Border=pikepdf.Array([0, 0, 2]))
+    assert (old.style.line_width, old.style.dashed, old.style.filled) == (2, False, False)
+
+
+def test_what_penfold_cannot_draw_again_is_noted(tmp_path: Path) -> None:
+    cloudy = read_one(
+        tmp_path,
+        "/Square",
+        C=pikepdf.Array([1, 0, 0]),
+        BE=pikepdf.Dictionary(S=pikepdf.Name.C, I=1),
+        IC=pikepdf.Array([0, 0, 1]),
+    )
+    assert cloudy.foreign_look == ("cloudy border", "fill colour")
+    text_box = read_one(tmp_path, "/FreeText", DA=pikepdf.String("/Cour 9 Tf 1 0 0 rg"))
+    assert (text_box.style.font_size, text_box.style.background, text_box.foreign_look) == (9, False, ("font",))
+    helvetica = read_one(tmp_path, "/FreeText", DA=pikepdf.String("0 g /Helv 14 Tf"), IC=pikepdf.Array([1, 1, 0.9]))
+    assert (helvetica.style.font_size, helvetica.style.background, helvetica.foreign_look) == (14, True, ())
+    bubble = read_one(tmp_path, "/Text", Name=pikepdf.Name.Help)
+    assert bubble.foreign_look == ("icon",)
+
+
+def test_arrowheads_are_read_and_a_head_at_the_start_turns_the_line_round(tmp_path: Path) -> None:
+    line = pikepdf.Array([110, 110, 190, 190])
+    heads = {
+        ("/None", "/OpenArrow"): (LineEnds.END, (110, 732, 190, 652), ()),
+        ("/OpenArrow", "/None"): (LineEnds.END, (190, 652, 110, 732), ()),
+        ("/OpenArrow", "/OpenArrow"): (LineEnds.BOTH, (110, 732, 190, 652), ()),
+        ("/None", "/None"): (LineEnds.NONE, (110, 732, 190, 652), ()),
+        ("/None", "/ClosedArrow"): (LineEnds.END, (110, 732, 190, 652), ("arrowheads",)),
+    }
+    for (start, end), (ends, shown, foreign) in heads.items():
+        arrow = read_one(tmp_path, "/Line", L=line, LE=pikepdf.Array([pikepdf.Name(start), pikepdf.Name(end)]))
+        assert (arrow.style.line_ends, arrow.line, arrow.foreign_look) == (ends, shown, foreign)
+
+
+def test_a_managed_copy_keeps_its_name_and_creation(tmp_path: Path) -> None:
+    read = read_one(tmp_path, "/Square", NM=pikepdf.String("abc"), CreationDate=pikepdf.String("D:2025"))
+    copy = managed_copy(read)
+    assert (copy.managed, copy.name, copy.created, copy.origin) == (True, "abc", read.created, read.origin)
+    assert copy.modified is not None
+    assert copy.modified.year >= 2026
+    nameless = managed_copy(read_one(tmp_path, "/Circle"))
+    assert nameless.name.startswith("penfold-")
+    assert nameless.created == nameless.modified
+    assert managed_copy(copy) is copy
+    with pytest.raises(ValueError, match="does not draw"):
+        managed_copy(read_one(tmp_path, "/Ink"))
+
+
+def test_pdf_dates() -> None:
+    assert date(pikepdf.String("D:20261122103015Z")) == datetime(2026, 11, 22, 10, 30, 15, tzinfo=UTC)
+    assert date(pikepdf.String("D:19990101120000-05'30'")) == datetime(
+        1999, 1, 1, 12, tzinfo=timezone(-timedelta(hours=5, minutes=30))
+    )
+    assert date(pikepdf.String("D:2026")) == datetime(2026, 1, 1, tzinfo=UTC)
+    assert date(pikepdf.String("D:20261399")) is None
+    assert date(pikepdf.String("nonsense")) is None
+    assert date(None) is None

@@ -7,14 +7,15 @@ the PDF is saved. Links, form fields and pop-up windows are not annotations to l
 """
 
 import enum
+import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
 import pikepdf
 
 from penfold.document.page_frame import PageFrame
-from penfold.document.pdf_values import numbers, text
+from penfold.document.pdf_values import date, name, number, numbers, text
 
 # The author of new annotations when none is set in the preferences (D60).
 DEFAULT_AUTHOR = "Penfold"
@@ -22,6 +23,13 @@ DEFAULT_AUTHOR = "Penfold"
 LINE_WIDTH = 1.0
 HIGHLIGHT_OPACITY = 0.75
 TEXT_BOX_FONT_SIZE = 11.0
+# How much of the colour the soft fill of rectangles and circles has, over white (D72).
+FILL_STRENGTH = 0.25
+# Colours read from a PDF closer than this to Penfold's, in each component, are taken as Penfold's.
+COLOR_TOLERANCE = 0.02
+# In a text box's default appearance (/DA): its font and size ("/Helv 11 Tf"), and black letters ("0 g").
+FONT_SETTING = re.compile(r"/([^\s/]+)\s+([\d.]+)\s+Tf")
+BLACK_TEXT = re.compile(r"(?:^|\s)(?:0(?:\.0*)?\s+g|0(?:\.0*)?\s+0(?:\.0*)?\s+0(?:\.0*)?\s+rg)(?:\s|$)")
 # Never listed: they are not notes (links, form fields, pop-up windows of notes…).
 NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
 
@@ -113,7 +121,10 @@ class Annotation:
     areas of the text it marks, in the same units, for highlights, underlines and strikethroughs; the line goes from
     its start to its end (x, y, x, y) for arrows.
 
-    A managed annotation is drawn and written by Penfold, with a unique name (/NM) and its creation date. One read
+    A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once
+    changed, the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from
+    a PDF Penfold cannot draw again (a cloudy border, a closed arrowhead, another font…): changing it would lose that,
+    so the interface warns first (D72). One read
     from a PDF knows its origin, its place in the /Annots of its page there, so that saving can take it out of the
     page when it is deleted or changed (written again); those made in Penfold have none. A text box
     reads turned clockwise by text_turn degrees from the page as shown (the turn Penfold gave the page when it was
@@ -131,9 +142,11 @@ class Annotation:
     line: tuple[float, float, float, float] | None = None
     name: str = ""
     created: datetime | None = None
+    modified: datetime | None = None
     managed: bool = False
     origin: int | None = None
     style: Style = field(default_factory=Style)
+    foreign_look: tuple[str, ...] = ()
     text_turn: int = 0
     drawing: bytes = field(default=b"", repr=False)
 
@@ -180,10 +193,33 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         text_turn=text_turn,
         drawing=drawing,
         style=style or default_style(kind),
-        name=f"penfold-{uuid.uuid4()}",
+        name=_new_name(),
         created=datetime.now(UTC),
         managed=True,
     )
+
+
+def managed_copy(annotation: Annotation) -> Annotation:
+    """The annotation as Penfold draws and writes it, to change it: one read from a PDF becomes managed (D60, D72).
+
+    It keeps its name, author and creation date (with a name and a date if it had none), and is changed now.
+
+    Raises:
+        ValueError: it is of a type Penfold does not make, so it cannot draw it.
+    """
+    if annotation.managed:
+        return annotation
+    if annotation.kind is Kind.OTHER:
+        message = f"Penfold does not draw annotations of type {annotation.subtype}"
+        raise ValueError(message)
+    now = datetime.now(UTC)
+    return replace(
+        annotation, managed=True, name=annotation.name or _new_name(), created=annotation.created or now, modified=now
+    )
+
+
+def _new_name() -> str:
+    return f"penfold-{uuid.uuid4()}"
 
 
 def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:
@@ -213,17 +249,118 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
     area = frame.place(annotation.get("/Rect"))
     if area is None:
         return None
+    kind = SUBTYPE_KINDS.get(str(subtype), Kind.OTHER)
+    color = _color(annotation.get("/C"))
+    look = _Look(annotation, kind, color)
     return Annotation(
         page=page,
-        kind=SUBTYPE_KINDS.get(str(subtype), Kind.OTHER),
+        kind=kind,
         subtype=str(subtype)[1:],
         rectangle=area,
         text=text(annotation.get("/Contents")),
         author=text(annotation.get("/T")),
-        color=_color(annotation.get("/C")),
+        color=color,
         quads=_quads(annotation.get("/QuadPoints"), frame),
+        line=look.line(frame) if kind is Kind.ARROW else None,
+        name=text(annotation.get("/NM")),
+        created=date(annotation.get("/CreationDate")),
+        modified=date(annotation.get("/M")),
         origin=origin,
+        style=look.style,
+        foreign_look=tuple(look.foreign),
     )
+
+
+class _Look:
+    """How an annotation of a PDF looks (D72): its style, and what of it Penfold cannot draw again."""
+
+    def __init__(self, annotation: pikepdf.Dictionary, kind: Kind, color: tuple[float, float, float] | None) -> None:
+        self._annotation = annotation
+        self.foreign: list[str] = []
+        opacity = number(annotation.get("/CA"))
+        width, dashed = self._border()
+        filled = self._fill(kind, color)
+        self._reversed = False
+        line_ends = self._line_ends() if kind is Kind.ARROW else LineEnds.END
+        font_size = self._font_size() if kind is Kind.TEXT_BOX else TEXT_BOX_FONT_SIZE
+        if kind is Kind.COMMENT and name(annotation.get("/Name")) not in {"", "Comment", "Note"}:
+            self.foreign.append("icon")
+        if "/RD" in annotation and kind in {Kind.RECTANGLE, Kind.CIRCLE, Kind.TEXT_BOX}:
+            self.foreign.append("inner margins")
+        self.style = Style(
+            opacity=min(1.0, max(0.0, opacity)) if opacity is not None else 1.0,
+            line_width=width,
+            dashed=dashed,
+            filled=filled,
+            line_ends=line_ends,
+            font_size=font_size,
+            background=kind is not Kind.TEXT_BOX or "/IC" in annotation,
+            border=kind is not Kind.TEXT_BOX or width > 0,
+        )
+
+    def line(self, frame: PageFrame) -> tuple[float, float, float, float] | None:
+        """The arrow's line on the page as shown, from its start to its end (turned round if its head was first)."""
+        ends = numbers(self._annotation.get("/L"))
+        if ends is None or len(ends) != 4:  # noqa: PLR2004 (two points)
+            return None
+        start, end = frame.point(*ends[:2]), frame.point(*ends[2:])
+        if self._reversed:
+            start, end = end, start
+        return (*start, *end)
+
+    def _border(self) -> tuple[float, bool]:
+        """The width of the line and whether it is dashed (/BS; else the older /Border); 1 point, solid, if none."""
+        effect = self._annotation.get("/BE")
+        if isinstance(effect, pikepdf.Dictionary) and name(effect.get("/S")) == "C":
+            self.foreign.append("cloudy border")
+        border = self._annotation.get("/BS")
+        if isinstance(border, pikepdf.Dictionary):
+            width = number(border.get("/W"))
+            style = name(border.get("/S")) or "S"
+            if style not in {"S", "D"}:
+                self.foreign.append("border style")
+            return (LINE_WIDTH if width is None else max(0.0, width)), style == "D"
+        old = numbers(self._annotation.get("/Border"))
+        if old is not None and len(old) >= 3:  # noqa: PLR2004 (corner radii, then width)
+            return max(0.0, old[2]), False
+        return LINE_WIDTH, False
+
+    def _fill(self, kind: Kind, color: tuple[float, float, float] | None) -> bool:
+        """Whether a rectangle or circle is filled; one not filled with Penfold's soft tint has a foreign look."""
+        inside = _color(self._annotation.get("/IC"))
+        if inside is None or kind not in {Kind.RECTANGLE, Kind.CIRCLE}:
+            return False
+        soft = [1 - FILL_STRENGTH + FILL_STRENGTH * component for component in color or (0.0, 0.0, 0.0)]
+        if any(abs(a - b) > COLOR_TOLERANCE for a, b in zip(inside, soft, strict=True)):
+            self.foreign.append("fill colour")
+        return True
+
+    def _line_ends(self) -> LineEnds:
+        """The arrowheads (/LE); any other than an open one is drawn open, and has a foreign look."""
+        value = self._annotation.get("/LE")
+        ends = [name(value[index]) for index in range(len(value))] if isinstance(value, pikepdf.Array) else []
+        start, end = [*ends, "", ""][:2]
+        heads = [head not in {"", "None"} for head in (start, end)]
+        if any(head not in {"", "None", "OpenArrow"} for head in (start, end)):
+            self.foreign.append("arrowheads")
+        if all(heads):
+            return LineEnds.BOTH
+        if heads[0]:
+            self._reversed = True  # Its only head at the start: the same arrow, from its end.
+        return LineEnds.END if any(heads) else LineEnds.NONE
+
+    def _font_size(self) -> float:
+        """The size of a text box's letters (/DA); another font or colour than black has a foreign look."""
+        appearance = text(self._annotation.get("/DA"))
+        found = FONT_SETTING.search(appearance)
+        if found is None:
+            return TEXT_BOX_FONT_SIZE
+        font, size = found.groups()
+        if font not in {"Helv", "Helvetica", "LiberationSans"} or not BLACK_TEXT.search(appearance):
+            self.foreign.append("font")
+        if "/RC" in self._annotation:
+            self.foreign.append("rich text")
+        return float(size) if float(size) > 0 else TEXT_BOX_FONT_SIZE
 
 
 def _quads(value: object, frame: PageFrame) -> tuple[tuple[float, float, float, float], ...]:
