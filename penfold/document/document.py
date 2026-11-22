@@ -68,15 +68,24 @@ class OpenDocument:
         return cls(path, SourceFile(path))
 
     @classmethod
-    def merge(cls, paths: list[Path], proposed: Path, *, bookmark_per_file: bool, keep_bookmarks: bool) -> Self:
+    def merge(
+        cls,
+        paths: list[Path],
+        proposed: Path,
+        *,
+        bookmark_per_file: bool,
+        keep_bookmarks: bool,
+        respect_permissions: bool,
+    ) -> Self:
         """Merge PDFs, in order, into a new document that is not saved yet (F1, F2, F6); proposed is its file.
 
         It is built on a PDF of its own, as 0.6 does, so it takes nothing from the first file but its pages. With
         bookmark_per_file, each file has an unfolded bookmark named after it (D50), holding the file's own bookmarks if
-        keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another.
+        keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another. With respect_permissions
+        off, a PDF that does not allow assembling it is merged too, and the result has no permissions (D61).
 
         Raises:
-            AssemblyNotAllowedError: a PDF is encrypted, and cannot be merged (F4, D59).
+            AssemblyNotAllowedError: a PDF's permissions, respected, do not let it be merged (F4, D59, D61).
             PasswordRequiredError: a PDF needs a password to be opened.
             DocumentOpenError: a file is missing, unreadable or not a PDF.
         """
@@ -84,6 +93,7 @@ class OpenDocument:
             empty = Path(folder) / "empty.pdf"
             write_empty_pdf(empty)
             document = cls(proposed, SourceFile(empty), is_new=True)
+        document.respect_permissions(respect_permissions)
         try:
             for path in paths:
                 document._append_merged(path, bookmark_per_file=bookmark_per_file, keep_bookmarks=keep_bookmarks)
@@ -162,7 +172,7 @@ class OpenDocument:
         document.
 
         Raises:
-            AssemblyNotAllowedError: the PDF is encrypted, and its pages cannot be added (2.7, D59).
+            AssemblyNotAllowedError: the PDF's permissions, respected, do not let its pages be added (2.7, D59, D61).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
@@ -182,12 +192,12 @@ class OpenDocument:
         """Copy and open a PDF as a new source, listing its annotations and fields; return its first index and the PDF.
 
         Raises:
-            AssemblyNotAllowedError: the PDF is encrypted (2.7, D59).
+            AssemblyNotAllowedError: the PDF's permissions, respected, do not allow it (2.7, D59, D61).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
         source = SourceFile(path)
-        if source.pdf.is_encrypted:
+        if self._respects_permissions and not AccessPermissions.of(source.pdf).assemble:
             source.close()
             raise AssemblyNotAllowedError(str(path))
         start = self.sources.add(source).start

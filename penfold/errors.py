@@ -17,9 +17,10 @@ class PasswordRequiredError(DocumentOpenError):
 
 
 class AssemblyNotAllowedError(PenfoldError):
-    """The PDF is encrypted (with permissions), so its pages cannot be added to another or merged (2.7, D59).
+    """The PDF's user access permissions, which are respected, do not let its pages be added to another or merged.
 
-    They would end up in a file without its encryption.
+    The pages would end up in a file without those permissions (2.7, D59, D61). A PDF that needs a password counts as
+    such until Penfold asks for it.
     """
 
 

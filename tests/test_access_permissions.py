@@ -11,7 +11,7 @@ from gi.repository import Adw, Gio, Gtk, Poppler
 from penfold import config
 from penfold.document.commands.pages import RotatePages
 from penfold.ui.text_selection import PagePoint, TextSelection
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until_stable
 from tests.sample_pdfs import allowing, make_pdf, make_pdf_with_permissions
 from tests.test_document_window import action_enabled, open_and_wait, window
 from tests.test_forms import build_form
@@ -151,8 +151,9 @@ def test_ignoring_permissions_lets_text_be_selected_and_fields_be_filled_in(
 ) -> None:
     assert open_and_wait(window, allow_only(build_form(tmp_path / "form.pdf"), "print_lowres"))
     ignored.set_boolean("respect-permissions", False)
-    process_pending_events()
     view = window.document_view
+    # The fields are made again once GTK places them.
+    wait_until_stable(lambda: sorted(view._form_layer._editors))
     point = PagePoint(0, 10.0, 10.0)
     view._set_selection(TextSelection(point, PagePoint(0, 500.0, 500.0), Poppler.SelectionStyle.GLYPH))
     assert view.selection is not None

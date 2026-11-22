@@ -9,7 +9,7 @@ from penfold.document.commands.pages import AddPages, DeletePages
 from penfold.document.document import OpenDocument
 from penfold.document.saving import save
 from penfold.errors import AssemblyNotAllowedError
-from tests.sample_pdfs import make_pdf
+from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
 from tests.test_adding_pages import outlined_pdf
 
 
@@ -42,8 +42,12 @@ def form_pdf(path: Path, names: list[str], font: str = "/Helv") -> Path:
     return path
 
 
-def merge(paths: list[Path], tmp_path: Path, *, per_file: bool = True, keep: bool = True) -> OpenDocument:
-    return OpenDocument.merge(paths, tmp_path / "merged.pdf", bookmark_per_file=per_file, keep_bookmarks=keep)
+def merge(
+    paths: list[Path], tmp_path: Path, *, per_file: bool = True, keep: bool = True, respect: bool = True
+) -> OpenDocument:
+    return OpenDocument.merge(
+        paths, tmp_path / "merged.pdf", bookmark_per_file=per_file, keep_bookmarks=keep, respect_permissions=respect
+    )
 
 
 def save_and_open(document: OpenDocument) -> pikepdf.Pdf:
@@ -89,10 +93,27 @@ def test_the_bookmarks_of_the_files_as_chosen(
     assert [bookmark.title for bookmark in first_children] == under_first
 
 
-def test_a_protected_pdf_cannot_be_merged(tmp_path: Path) -> None:
+def test_a_pdf_whose_permissions_deny_assembling_cannot_be_merged(tmp_path: Path) -> None:
     paths = [make_pdf(tmp_path / "plain.pdf"), make_pdf(tmp_path / "locked.pdf", passwords=("owner", ""))]
     with pytest.raises(AssemblyNotAllowedError):
         merge(paths, tmp_path)
+
+
+def test_a_pdf_whose_permissions_allow_assembling_is_merged(tmp_path: Path) -> None:
+    paths = [make_pdf(tmp_path / "plain.pdf"), make_pdf_with_permissions(tmp_path / "open.pdf", "modify_assembly")]
+    document = merge(paths, tmp_path)
+    assert document.page_count == 3 + 3
+    document.close()
+
+
+def test_with_permissions_ignored_any_pdf_without_password_is_merged_and_the_result_has_none(tmp_path: Path) -> None:
+    locked = make_pdf(tmp_path / "locked.pdf", page_count=2, passwords=("owner", ""))
+    document = merge([make_pdf(tmp_path / "plain.pdf"), locked], tmp_path, respect=False)
+    assert document.page_count == 3 + 2
+    with save_and_open(document) as pdf:
+        assert not pdf.is_encrypted
+        assert len(pdf.pages) == 3 + 2
+    document.close()
 
 
 def test_fields_with_the_same_name_are_numbered(tmp_path: Path) -> None:

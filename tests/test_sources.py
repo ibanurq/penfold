@@ -6,7 +6,7 @@ import pytest
 
 from penfold.document.sources import SourceFile, Sources, SourceSpan, count_pages, locate
 from penfold.errors import AssemblyNotAllowedError, DocumentOpenError
-from tests.sample_pdfs import make_pdf
+from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
 
 SPANS = (SourceSpan(Path("a.pdf"), 0, 3), SourceSpan(Path("b.pdf"), 3, 2), SourceSpan(Path("c.pdf"), 5, 1))
 
@@ -39,9 +39,22 @@ def test_added_pdfs_are_copied_and_numbered_after_the_others(tmp_path: Path) -> 
 
 
 def test_pages_are_counted_before_merging(tmp_path: Path) -> None:
-    assert count_pages(make_pdf(tmp_path / "four.pdf", page_count=4)) == 4
-    for passwords in (("owner", ""), ("owner", "user")):
-        with pytest.raises(AssemblyNotAllowedError):
-            count_pages(make_pdf(tmp_path / f"locked-{passwords[1]}.pdf", passwords=passwords))
+    assert count_pages(make_pdf(tmp_path / "four.pdf", page_count=4), respect_permissions=True) == 4
     with pytest.raises(DocumentOpenError):
-        count_pages(tmp_path / "missing.pdf")
+        count_pages(tmp_path / "missing.pdf", respect_permissions=True)
+
+
+def test_pdfs_that_deny_assembling_are_counted_only_with_permissions_ignored(tmp_path: Path) -> None:
+    locked = make_pdf(tmp_path / "locked.pdf", page_count=3, passwords=("owner", ""))
+    with pytest.raises(AssemblyNotAllowedError):
+        count_pages(locked, respect_permissions=True)
+    assert count_pages(locked, respect_permissions=False) == 3
+    allowed = make_pdf_with_permissions(tmp_path / "allowed.pdf", "modify_assembly")
+    assert count_pages(allowed, respect_permissions=True) == 3
+
+
+def test_pdfs_that_need_a_password_cannot_be_merged_yet(tmp_path: Path) -> None:
+    protected = make_pdf(tmp_path / "protected.pdf", passwords=("owner", "user"))
+    for respect in (True, False):
+        with pytest.raises(AssemblyNotAllowedError):
+            count_pages(protected, respect_permissions=respect)

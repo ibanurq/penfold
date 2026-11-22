@@ -68,6 +68,19 @@ def test_pdfs_that_deny_assembling_cannot_be_added(document: OpenDocument, tmp_p
     assert len(document.sources.spans) == 1
 
 
+def test_with_permissions_ignored_their_pages_are_added_and_saved_without_them(
+    document: OpenDocument, tmp_path: Path
+) -> None:
+    document.respect_permissions(False)
+    added = document.add_source(make_pdf(tmp_path / "locked.pdf", page_count=2, passwords=("owner", "")))
+    document.execute(AddPages(document, added, document.page_count))
+    plan = document.save_plan()
+    save(plan)
+    with pikepdf.open(plan.target) as pdf:
+        assert not pdf.is_encrypted
+        assert len(pdf.pages) == document.page_count
+
+
 def test_the_annotations_of_the_added_pages_are_listed(document: OpenDocument, tmp_path: Path) -> None:
     path = make_pdf(tmp_path / "noted.pdf", page_count=2)
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:

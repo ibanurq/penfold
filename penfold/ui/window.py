@@ -312,7 +312,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         try:
             added = document.add_blank_page(source) if isinstance(source, PaperSize) else document.add_source(source)
         except AssemblyNotAllowedError:
-            self._show_message(_("“{name}” has restrictions, so its pages cannot be added").format(name=source.name))
+            message = _("The user access permissions of “{name}” do not allow adding its pages")
+            self._show_message(message.format(name=source.name))
             return
         except DocumentOpenError:
             self._show_message(_("Could not open “{name}”").format(name=source.name))
@@ -715,6 +716,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 proposed,
                 bookmark_per_file=request.bookmark_per_file,
                 keep_bookmarks=request.keep_bookmarks,
+                respect_permissions=self._settings.get_boolean(RESPECT_PERMISSIONS_KEY),
             )
         except PenfoldError as error:
             logger.warning("Could not merge (%s)", type(error).__name__)

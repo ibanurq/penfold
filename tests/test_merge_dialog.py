@@ -125,3 +125,21 @@ def test_several_pdfs_dropped_open_merge_with_them(window: "PenfoldWindow", tmp_
 
 def test_merge_is_an_action_of_the_application(application: "PenfoldApplication") -> None:
     assert application.lookup_action("merge") is not None
+
+
+def test_with_permissions_ignored_every_pdf_without_password_can_be_merged(
+    application: "PenfoldApplication",  # noqa: ARG001
+    tmp_path: Path,
+) -> None:
+    from penfold import config
+    from penfold.ui.dialogs.merge_dialog import PenfoldMergeDialog
+
+    settings = Gio.Settings(schema_id=config.APP_ID)
+    settings.set_boolean("respect-permissions", False)
+    try:
+        dialog = PenfoldMergeDialog()
+        dialog.add_files(files(tmp_path))
+        assert [file.page_count for file in dialog.files] == [2, 3, 3]
+        assert dialog.total_label.get_label() == "3 files · 8 pages in total"
+    finally:
+        settings.reset("respect-permissions")

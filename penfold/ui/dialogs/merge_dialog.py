@@ -17,6 +17,7 @@ from penfold.document.sources import count_pages
 from penfold.errors import AssemblyNotAllowedError, DocumentOpenError
 from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.file_dialogs import pdf_file_dialog
+from penfold.ui.preferences_dialog import RESPECT_PERMISSIONS_KEY
 
 PDF_SUFFIX = ".pdf"
 DROP_ABOVE = "drop-above"
@@ -98,13 +99,17 @@ class PenfoldMergeDialog(Adw.Dialog):
         return PdfsToMerge(paths, self.bookmark_per_file_row.get_active(), self.keep_bookmarks_row.get_active())
 
     def add_files(self, paths: list[Path]) -> None:
-        """Add PDFs at the end of the list; files that are not PDFs are left out, and unreadable ones explained."""
+        """Add PDFs at the end of the list; files that are not PDFs are left out, and unreadable ones explained.
+
+        A PDF whose permissions do not let it be merged is listed as such, unless they are ignored (D61).
+        """
+        respect_permissions = Gio.Settings(schema_id=config.APP_ID).get_boolean(RESPECT_PERMISSIONS_KEY)
         unreadable = []
         for path in paths:
             if path.suffix.lower() != PDF_SUFFIX:
                 continue
             try:
-                self.files.append(FileToMerge(path, count_pages(path)))
+                self.files.append(FileToMerge(path, count_pages(path, respect_permissions=respect_permissions)))
             except AssemblyNotAllowedError:
                 self.files.append(FileToMerge(path, None))
             except DocumentOpenError:
