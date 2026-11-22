@@ -39,7 +39,7 @@ class PenfoldDocumentHeader(Adw.Bin):
         lock in front, whose tooltip says what they do not allow (D58, D59).
         """
         self.protected_icon.set_visible(document.denies_anything)
-        self.protected_icon.set_tooltip_text(describe_denied_permissions(document.access_permissions))
+        self.protected_icon.set_tooltip_text(describe_denied_permissions(document.permissions))
         mark = UNSAVED_MARK if document.is_modified else ""
         if document.title:
             self.title_widget.set_title(mark + document.title)
@@ -50,7 +50,7 @@ class PenfoldDocumentHeader(Adw.Bin):
 
 
 def describe_denied_permissions(permissions: AccessPermissions) -> str:
-    """Say what the user access permissions of a PDF do not allow, one line each (the tooltip of the lock, D59)."""
+    """Say what the user access permissions of a PDF do not allow, one line each (the tooltip of the lock, D59, D61)."""
     sentences = {
         "print": _("It cannot be printed"),
         "fill_forms": _("Its forms cannot be filled in"),
@@ -60,4 +60,5 @@ def describe_denied_permissions(permissions: AccessPermissions) -> str:
         "modify": _("Its form cannot be flattened"),
     }
     lines = [f"• {sentences[name]}" for name in permissions.denied]
-    return "\n".join([_("This PDF has restrictions:"), *lines])
+    # The last line says that the option exists (D61, 9).
+    return "\n".join([_("User access permissions of this PDF:"), *lines, "", _("They can be ignored in Preferences.")])

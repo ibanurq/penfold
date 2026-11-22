@@ -73,11 +73,16 @@ class FormLayer:
         if self._document is None:
             return
         # A PDF that does not allow filling in its form shows the fields as they are, to read (D59).
-        locked = not self._document.access_permissions.fill_forms
+        locked = not self._document.permissions.fill_forms
         for form_field in self._document.form_fields:
             field = replace(form_field, read_only=True) if locked else form_field
             for widget in field.widgets:
                 self._places.setdefault(widget.page, []).append((field, widget))
+
+    def permissions_changed(self, layout: PageLayout) -> None:
+        """Make the fields again, since filling them in may be allowed or denied now (D60)."""
+        self.clear()
+        self.pages_changed(layout)
 
     def form_changed(self) -> None:
         """Show the values after an edit, an undo or a redo."""

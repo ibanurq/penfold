@@ -47,6 +47,7 @@ class OpenDocument:
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
         self.title = _read_title(pdf)
         self.access_permissions = AccessPermissions.of(pdf)
+        self._respects_permissions = True
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
         self.annotations: list[Annotation] = read_annotations(pdf)
         self.form_fields: list[FormField] = read_form_fields(pdf)
@@ -105,9 +106,23 @@ class OpenDocument:
             self.bookmarks.extend(own)
 
     @property
+    def permissions(self) -> AccessPermissions:
+        """What Penfold lets the user do with the document: every tool asks this (D59, D60).
+
+        The PDF's user access permissions while they are respected; everything once they are not.
+        """
+        return self.access_permissions if self._respects_permissions else AccessPermissions()
+
+    def respect_permissions(self, respect: bool) -> None:
+        """Follow the PDF's user access permissions, or ignore them ("Respect Document Permissions", D60)."""
+        if respect != self._respects_permissions:
+            self._respects_permissions = respect
+            self._notify(Change.PERMISSIONS)
+
+    @property
     def denies_anything(self) -> bool:
-        """Whether the PDF denies something (D59); an encrypted PDF that allows everything denies nothing."""
-        return self.access_permissions.denies_anything
+        """Whether Penfold denies something with the document (D59, D60); an encrypted PDF may allow everything."""
+        return self.permissions.denies_anything
 
     @property
     def file_name(self) -> str:
@@ -270,7 +285,7 @@ class OpenDocument:
         Raises:
             ValueError: flattening was asked of a PDF that does not allow changing its content (D59).
         """
-        if flatten and not self.access_permissions.modify:
+        if flatten and not self.permissions.modify:
             message = "this PDF does not allow flattening its form"
             raise ValueError(message)
         plan = SavePlan.take(
@@ -286,7 +301,7 @@ class OpenDocument:
         Raises:
             ValueError: the PDF does not allow printing (D59).
         """
-        if not self.access_permissions.print:
+        if not self.permissions.print:
             message = "this PDF does not allow printing"
             raise ValueError(message)
         plan = SavePlan.take(self.sources.spans, target, self.pages, [], None)
@@ -300,7 +315,7 @@ class OpenDocument:
         Raises:
             ValueError: the PDF does not allow assembling it, so neither extracting its pages (D59).
         """
-        if not self.access_permissions.assemble:
+        if not self.permissions.assemble:
             message = "this PDF does not allow extracting its pages"
             raise ValueError(message)
         pages = [self.pages[position] for position in positions]

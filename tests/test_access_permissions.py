@@ -1,14 +1,17 @@
-"""PDFs with permissions (D58, D59): the red lock, the tools each one allows, Ctrl+P and the question about changes."""
+"""PDFs with permissions (D58 to D60): the lock, the tools each one allows, Ctrl+P, changes, ignoring them."""
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pikepdf
 import pytest
-from gi.repository import Adw, Gtk, Poppler
+from gi.repository import Adw, Gio, Gtk, Poppler
 
+from penfold import config
 from penfold.document.commands.pages import RotatePages
 from penfold.ui.text_selection import PagePoint, TextSelection
+from tests.gtk_helpers import process_pending_events
 from tests.sample_pdfs import allowing, make_pdf, make_pdf_with_permissions
 from tests.test_document_window import action_enabled, open_and_wait, window
 from tests.test_forms import build_form
@@ -35,11 +38,13 @@ def test_a_pdf_that_denies_something_has_a_red_lock_that_says_what_it_does_not_a
     icon = window.document_header.protected_icon
     assert (icon.get_visible(), icon.has_css_class("error")) == (True, True)
     assert icon.get_tooltip_text() == (
-        "This PDF has restrictions:\n"
+        "User access permissions of this PDF:\n"
         "• Its forms cannot be filled in\n"
         "• It cannot be annotated\n"
         "• Its pages and bookmarks cannot be changed\n"
-        "• Its form cannot be flattened"
+        "• Its form cannot be flattened\n"
+        "\n"
+        "They can be ignored in Preferences."
     )
     assert open_and_wait(window, make_pdf(tmp_path / "open.pdf"))
     assert not icon.get_visible()
@@ -107,3 +112,52 @@ def test_fields_are_read_only_if_the_pdf_does_not_allow_filling_them(window: "Pe
     view = editors[0].view
     assert isinstance(view, Gtk.TextView)
     assert not view.get_editable()
+
+
+@pytest.fixture
+def ignored() -> Iterator[Gio.Settings]:
+    """Return Penfold's settings, with "Respect Document Permissions" turned back on afterwards."""
+    settings = Gio.Settings(schema_id=config.APP_ID)
+    yield settings
+    settings.reset("respect-permissions")
+    process_pending_events()
+
+
+def test_ignoring_permissions_removes_the_lock_and_allows_everything_at_once(
+    locked_window: "PenfoldWindow", ignored: Gio.Settings
+) -> None:
+    icon = locked_window.document_header.protected_icon
+    ignored.set_boolean("respect-permissions", False)
+    process_pending_events()
+    assert not icon.get_visible()
+    assert {name: action_enabled(locked_window, name) for name in TOOLS} == dict.fromkeys(TOOLS, True)
+    ignored.set_boolean("respect-permissions", True)
+    process_pending_events()
+    assert icon.get_visible()
+    assert not action_enabled(locked_window, "print")
+
+
+def test_a_pdf_opened_while_permissions_are_ignored_allows_everything(
+    window: "PenfoldWindow", tmp_path: Path, ignored: Gio.Settings
+) -> None:
+    ignored.set_boolean("respect-permissions", False)
+    assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "locked.pdf"))
+    assert not window.document_header.protected_icon.get_visible()
+    assert {name: action_enabled(window, name) for name in TOOLS} == dict.fromkeys(TOOLS, True)
+
+
+def test_ignoring_permissions_lets_text_be_selected_and_fields_be_filled_in(
+    window: "PenfoldWindow", tmp_path: Path, ignored: Gio.Settings
+) -> None:
+    assert open_and_wait(window, allow_only(build_form(tmp_path / "form.pdf"), "print_lowres"))
+    ignored.set_boolean("respect-permissions", False)
+    process_pending_events()
+    view = window.document_view
+    point = PagePoint(0, 10.0, 10.0)
+    view._set_selection(TextSelection(point, PagePoint(0, 500.0, 500.0), Poppler.SelectionStyle.GLYPH))
+    assert view.selection is not None
+    editors = [item for item in view._form_layer._editors.values() if item.field.name == "notes"]
+    assert editors
+    text_view = editors[0].view
+    assert isinstance(text_view, Gtk.TextView)
+    assert text_view.get_editable()

@@ -7,6 +7,7 @@ import pytest
 
 from penfold.document.access_permissions import AccessPermissions
 from penfold.document.document import OpenDocument
+from penfold.document.history import Change
 from penfold.errors import DocumentOpenError, PasswordRequiredError
 from tests.sample_pdfs import PERMISSIONS, make_pdf, make_pdf_with_permissions
 
@@ -93,3 +94,17 @@ def test_pages_without_labels_are_named_by_their_position(tmp_path: Path) -> Non
     del document.pages[0]
     assert document.page_count == 2
     assert [document.page_label(index) for index in range(2)] == ["1", "2"]
+
+
+def test_a_document_that_ignores_permissions_allows_everything_and_says_so(tmp_path: Path) -> None:
+    document = OpenDocument.open(make_pdf_with_permissions(tmp_path / "locked.pdf"))
+    changes: list[Change] = []
+    document.add_listener(changes.append)
+    document.respect_permissions(False)
+    assert (document.permissions, document.denies_anything) == (AccessPermissions(), False)
+    assert document.access_permissions.denied == ["print", "fill_forms", "annotate", "assemble", "copy", "modify"]
+    document.respect_permissions(False)
+    document.respect_permissions(True)
+    assert document.denies_anything
+    assert changes == [Change.PERMISSIONS, Change.PERMISSIONS]
+    document.close()

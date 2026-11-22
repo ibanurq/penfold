@@ -358,7 +358,7 @@ class BookmarksView(Gtk.Box):
 
         A PDF that does not allow assembling it does not let its bookmarks move (D59).
         """
-        if row.bookmark is None or self.document is None or not self.document.access_permissions.assemble:
+        if row.bookmark is None or self.document is None or not self.document.permissions.assemble:
             return None
         selected = self.selected_bookmarks()
         if any(bookmark is row.bookmark for bookmark in selected):

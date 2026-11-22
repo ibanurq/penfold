@@ -87,7 +87,7 @@ class BookmarkEditing:
         A PDF that does not allow assembling it does not let its bookmarks change (D59).
         """
         document = self._document()
-        editable = document is not None and document.access_permissions.assemble
+        editable = document is not None and document.permissions.assemble
         outline = document.bookmarks if editable and document is not None else []
         selected = self._view.selected_bookmarks() if editable else []
         for name, enabled in (

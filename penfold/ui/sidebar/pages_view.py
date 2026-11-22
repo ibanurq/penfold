@@ -533,7 +533,7 @@ class PagesView(Gtk.Box):
 
         A PDF that does not allow assembling it does not let its pages move (D59).
         """
-        if self.document is None or not self.document.access_permissions.assemble:
+        if self.document is None or not self.document.permissions.assemble:
             return None
         page = cell.thumbnail.page
         selected = self.selected_pages()

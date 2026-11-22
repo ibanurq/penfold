@@ -19,6 +19,8 @@ class Change(enum.Flag):
     FORM = enum.auto()
     FILE = enum.auto()
     """Where the document is saved, or whether it has changes to save."""
+    PERMISSIONS = enum.auto()
+    """What the document allows: whether its user access permissions are respected (D60)."""
 
 
 class Command(Protocol):

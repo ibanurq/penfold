@@ -218,6 +218,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         """Show the values of the form fields after an edit, an undo or a redo."""
         self._form_layer.form_changed()
 
+    def permissions_changed(self) -> None:
+        """Follow what the document allows now (D60): the fields to fill in, and selecting text."""
+        if self.renderer is not None:
+            self._form_layer.permissions_changed(self.renderer.layout)
+        if not self._can_copy:
+            self.selection = None
+        self._move_fields()
+        self.queue_draw()
+
     @property
     def page_count(self) -> int:
         """Number of pages of the shown PDF (0 without one)."""
@@ -825,7 +834,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     @property
     def _can_copy(self) -> bool:
-        return self.document is None or self.document.access_permissions.copy
+        return self.document is None or self.document.permissions.copy
 
     def _set_selection(self, selection: TextSelection | None) -> None:
         """Select text; a PDF that does not let its text be copied has none selected (D59)."""

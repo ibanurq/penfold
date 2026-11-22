@@ -31,6 +31,7 @@ from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import attach_main_menu
+from penfold.ui.preferences_dialog import RESPECT_PERMISSIONS_KEY
 from penfold.ui.printing import DocumentPrinting
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
@@ -118,6 +119,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._saving = False
         self._close_confirmed = False
         self._undo_toast: tuple[Adw.Toast, Command] | None = None
+        self._settings = Gio.Settings(schema_id=config.APP_ID)
+        self._settings.connect(f"changed::{RESPECT_PERMISSIONS_KEY}", self._on_respect_permissions_changed)
         attach_main_menu(self.welcome_menu_button)
         self._add_actions()
         self.document_view.connect("current-page-changed", self._on_current_page_changed)
@@ -252,7 +255,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         A PDF that does not allow assembling it has all of them off (D59).
         """
         document = self.document
-        assemble = document is not None and document.access_permissions.assemble
+        assemble = document is not None and document.permissions.assemble
         selected = len(self.pages_view.selected_pages()) if assemble else 0
         page_count = document.page_count if document is not None else 0
         for name, enabled in (
@@ -270,7 +273,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _on_move_requested(self, _view: PagesView, positions: list[int], before: int) -> None:
         """Move dragged thumbnails (E1); dropping them where they already are changes nothing."""
-        if self.document is None or not self.document.access_permissions.assemble:
+        if self.document is None or not self.document.permissions.assemble:
             return
         command = MovePages(self.document, positions, before)
         if command.moves_anything:
@@ -408,7 +411,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         """
         if self.document is None:
             return
-        if then is None and self.document.form_fields and self.document.access_permissions.modify:
+        if then is None and self.document.form_fields and self.document.permissions.modify:
             dialog = PenfoldSaveAsDialog()
             dialog.connect("continue-requested", lambda _dialog, flatten: self._choose_target(None, flatten=flatten))
             dialog.present(self)
@@ -445,7 +448,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def _print_shortcut(self) -> None:
         """Ctrl+P prints; in a PDF that does not allow it, where Print is greyed out, it says so (K3, D59)."""
-        if self.document is not None and not self.document.access_permissions.print:
+        if self.document is not None and not self.document.permissions.print:
             self.toast_overlay.add_toast(Adw.Toast(title=_("This PDF does not allow printing")))
         else:
             self.activate_action("win.print", None)
@@ -506,7 +509,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         document = self.document
         enabled = document is not None and not self._saving
         for name in SAVE_ACTIONS:
-            allowed = name != "print" or (document is not None and document.access_permissions.print)
+            allowed = name != "print" or (document is not None and document.permissions.print)
             self._enable_action(name, enabled and allowed)
 
     def _show_title(self) -> None:
@@ -550,7 +553,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "visible",
             GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.INVERT_BOOLEAN,
         )
-        self._chosen_sidebar_width = clamp_width(self._settings().get_int("sidebar-width"))
+        self._chosen_sidebar_width = clamp_width(self._settings.get_int("sidebar-width"))
         self._fit_sidebar_width()
         # The window's new width is known as soon as it is asked for (default-width); maximized and full-screen
         # windows get theirs from the screen, once they are laid out.
@@ -676,7 +679,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_sidebar_resize_finished(self, _sidebar: PenfoldSidebar) -> None:
         """The zoom is fitted once, when the border is released, not while dragging (B4)."""
         self.document_view.defer_fit(False)
-        self._settings().set_int("sidebar-width", self._chosen_sidebar_width)
+        self._settings.set_int("sidebar-width", self._chosen_sidebar_width)
 
     # Opening.
 
@@ -737,6 +740,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return False
         self._close_document()
         self.document, self.renderer = document, renderer
+        document.respect_permissions(self._settings.get_boolean(RESPECT_PERMISSIONS_KEY))
         document.add_listener(self._on_document_changed)
         self._grow_for_document()
         self._show_title()
@@ -779,6 +783,16 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.bookmark_editing.update_actions()
         if Change.FORM in changes:
             self.document_view.form_changed()
+        if Change.PERMISSIONS in changes:
+            self._update_page_actions()
+            self._update_save_actions()
+            self.bookmark_editing.update_actions()
+            self.document_view.permissions_changed()
+
+    def _on_respect_permissions_changed(self, settings: Gio.Settings, key: str) -> None:
+        """Turning "Respect Document Permissions" on or off applies at once (D60): the lock and the tools follow."""
+        if self.document is not None:
+            self.document.respect_permissions(settings.get_boolean(key))
 
     def _show_sidebar_when_it_fits(self) -> None:
         """Show the panel as soon as the window is wide enough for it and the document (or after half a second).
@@ -875,7 +889,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _grow_for_document(self) -> None:
         if self.document is not None and self.stack.get_visible_child_name() == "document":
             return
-        settings = self._settings()
+        settings = self._settings
         if settings.get_boolean("window-maximized"):
             self.maximize()
         else:
@@ -884,15 +898,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _remember_size(self) -> None:
         if self.stack.get_visible_child_name() != "document":
             return
-        settings = self._settings()
+        settings = self._settings
         settings.set_boolean("window-maximized", self.is_maximized())
         if not self.is_maximized():
             width, height = self.get_default_size()
             settings.set_int("window-width", width)
             settings.set_int("window-height", height)
-
-    def _settings(self) -> Gio.Settings:
-        return Gio.Settings(schema_id=config.APP_ID)
 
     def _on_close_request(self, _window: Gtk.Window) -> bool:
         """Closing the window (Ctrl+W, its button) asks first about unsaved changes (A8)."""
