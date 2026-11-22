@@ -9,14 +9,17 @@ import pytest
 from penfold.document.annotations import (
     Annotation,
     AnnotationGroup,
+    Hit,
     Kind,
     LineEnds,
     Style,
     default_style,
     group_of,
+    hit,
     managed_copy,
     new_annotation,
     read_annotations,
+    topmost,
 )
 from penfold.document.pdf_values import date
 from tests.sample_pdfs import make_pdf
@@ -221,3 +224,27 @@ def test_pdf_dates() -> None:
     assert date(pikepdf.String("D:20261399")) is None
     assert date(pikepdf.String("nonsense")) is None
     assert date(None) is None
+
+
+def test_what_a_point_is_on() -> None:
+    red = (1.0, 0.0, 0.0)
+    square = new_annotation(Kind.RECTANGLE, 0, (100, 100, 200, 200), red, "")
+    filled = new_annotation(Kind.CIRCLE, 0, (100, 100, 200, 200), red, "", style=Style(filled=True))
+    arrow = new_annotation(Kind.ARROW, 0, (0, 0, 100, 100), red, "", line=(0, 0, 100, 100))
+    marked = new_annotation(Kind.HIGHLIGHT, 0, (0, 0, 50, 20), red, "", quads=((0, 0, 50, 10), (0, 12, 30, 20)))
+    assert [hit(square, x, 150, 2) for x in (99, 101, 150, 250)] == [Hit.ON, Hit.ON, Hit.INSIDE, Hit.NONE]
+    assert (hit(filled, 150, 150, 2), hit(filled, 100, 150, 2), hit(filled, 105, 105, 2)) == (Hit.ON, Hit.ON, Hit.NONE)
+    assert (hit(arrow, 52, 50, 2), hit(arrow, 60, 50, 2), hit(arrow, 104, 104, 2)) == (Hit.ON, Hit.NONE, Hit.NONE)
+    assert (hit(marked, 40, 5, 2), hit(marked, 40, 15, 2)) == (Hit.ON, Hit.NONE)  # Between its lines, nothing.
+
+
+def test_the_one_most_hit_and_on_top_is_chosen(tmp_path: Path) -> None:
+    red = (1.0, 0.0, 0.0)
+    read = read_one(tmp_path, "/Square")
+    first = new_annotation(Kind.RECTANGLE, 0, (0, 0, 9, 9), red, "")
+    second = new_annotation(Kind.RECTANGLE, 0, (0, 0, 9, 9), red, "")
+    annotations = [first, read, second]
+    assert topmost(annotations, {0: Hit.ON, 1: Hit.ON, 2: Hit.ON}) is second
+    assert topmost(annotations, {0: Hit.ON, 1: Hit.ON, 2: Hit.INSIDE}) is first  # On it beats inside it.
+    assert topmost(annotations, {1: Hit.ON}) is read
+    assert topmost(annotations, {0: Hit.NONE}) is None

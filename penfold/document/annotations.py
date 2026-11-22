@@ -7,6 +7,7 @@ the PDF is saved. Links, form fields and pop-up windows are not annotations to l
 """
 
 import enum
+import math
 import re
 import uuid
 from dataclasses import dataclass, field, replace
@@ -223,6 +224,77 @@ def managed_copy(annotation: Annotation) -> Annotation:
 
 def _new_name() -> str:
     return f"penfold-{uuid.uuid4()}"
+
+
+class Hit(enum.IntEnum):
+    """How much a point is on an annotation, to choose among several under the pointer (D72)."""
+
+    NONE = 0
+    INSIDE = 1
+    """Inside a rectangle or circle with nothing inside: what is under it may be wanted instead."""
+    ON = 2
+    """On what it draws: its line, its fill, its marked text, its box."""
+
+
+def hit(annotation: Annotation, x: float, y: float, reach: float) -> Hit:
+    """How much a point of the page (as shown, like the annotation) is on an annotation, reach points around its lines.
+
+    Comments stay upright on turned pages, so the interface places them itself; here their rectangle counts.
+    """
+    if annotation.kind in TEXT_MARKUPS and annotation.quads:
+        return Hit.ON if any(_within(quad, x, y, 0.0) for quad in annotation.quads) else Hit.NONE
+    if annotation.kind is Kind.ARROW and annotation.line is not None:
+        width = annotation.style.line_width / 2 + reach
+        return Hit.ON if _distance_to_line(annotation.line, x, y) <= width else Hit.NONE
+    if annotation.kind in {Kind.RECTANGLE, Kind.CIRCLE}:
+        return _shape_hit(annotation, x, y, reach)
+    return Hit.ON if _within(annotation.rectangle, x, y, 0.0) else Hit.NONE
+
+
+def _shape_hit(annotation: Annotation, x: float, y: float, reach: float) -> Hit:
+    """On a rectangle's or circle's line (or anywhere inside, filled), or in its empty inside."""
+    left, top, right, bottom = annotation.rectangle
+    width = annotation.style.line_width + reach
+    if annotation.kind is Kind.RECTANGLE:
+        inside = _within(annotation.rectangle, x, y, 0.0)
+        on_line = _within(annotation.rectangle, x, y, reach) and not _within(
+            (left + width, top + width, right - width, bottom - width), x, y, 0.0
+        )
+    else:
+        centre_x, centre_y = (left + right) / 2, (top + bottom) / 2
+        half_x, half_y = max((right - left) / 2, 1e-6), max((bottom - top) / 2, 1e-6)
+        distance = math.hypot((x - centre_x) / half_x, (y - centre_y) / half_y)
+        inside = distance <= 1
+        on_line = abs(distance - 1) * min(half_x, half_y) <= width
+    if on_line or (inside and annotation.style.filled):
+        return Hit.ON
+    return Hit.INSIDE if inside else Hit.NONE
+
+
+def _within(rectangle: tuple[float, float, float, float], x: float, y: float, margin: float) -> bool:
+    left, top, right, bottom = rectangle
+    return left - margin <= x <= right + margin and top - margin <= y <= bottom + margin
+
+
+def _distance_to_line(line: tuple[float, float, float, float], x: float, y: float) -> float:
+    """The distance from a point to a line segment."""
+    start_x, start_y, end_x, end_y = line
+    length = (end_x - start_x) ** 2 + (end_y - start_y) ** 2
+    along = 0.0 if not length else ((x - start_x) * (end_x - start_x) + (y - start_y) * (end_y - start_y)) / length
+    along = min(1.0, max(0.0, along))
+    return math.hypot(x - (start_x + along * (end_x - start_x)), y - (start_y + along * (end_y - start_y)))
+
+
+def topmost(annotations: list[Annotation], hits: dict[int, Hit]) -> Annotation | None:
+    """The annotation a point is most on, among those it hits (by their place in the list), the one on top first.
+
+    Those made or changed in Penfold are on top of those of the PDF, which are in the order of their pages' /Annots.
+    """
+    found = [(hits[index], annotation, index) for index, annotation in enumerate(annotations) if hits.get(index)]
+    if not found:
+        return None
+    _hit, annotation, _index = max(found, key=lambda item: (item[0], item[1].managed, item[1].origin or 0, item[2]))
+    return annotation
 
 
 def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:

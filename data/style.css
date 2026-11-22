@@ -172,3 +172,8 @@ textview.form-field > text {
   padding: 8px;
   background: none;
 }
+
+/* The colours at the top of an annotation's menu (D72). */
+.annotation-menu-colors {
+  margin: 6px 6px;
+}

@@ -19,6 +19,7 @@ from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordR
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 from penfold.ui.annotating import Annotating
+from penfold.ui.annotation_editing import AnnotationEditing
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool, bar_position
 from penfold.ui.bookmark_editing import BookmarkEditing
 
@@ -619,6 +620,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.document_view,
             lambda: self.document,
             lambda: self._settings.get_string(AUTHOR_NAME_KEY),
+        )
+        self.annotation_editing = AnnotationEditing(
+            self, self.document_view, lambda: self.document, self._show_undo_toast
         )
         self.annotations_view = AnnotationsView()
         self.annotations_view.connect("annotation-activated", self._on_destination_activated)

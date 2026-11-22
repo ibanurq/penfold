@@ -14,7 +14,7 @@ from typing import ClassVar
 
 from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
 
-from penfold.document.annotations import Annotation, Kind
+from penfold.document.annotations import Annotation, Hit, Kind, hit, topmost
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle, merge_lines
 from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
@@ -55,6 +55,12 @@ DRAG_THRESHOLD = 3
 # Makes the annotation of a shape from its page and its two ends on the page as shown; None for one too small to keep
 # (a click).
 ShapeMaker = Callable[[ShownPage, tuple[float, float], tuple[float, float]], Annotation | None]
+# How far from a line a click still reaches it, in pixels of the screen (D72).
+HIT_REACH = 4.0
+# The outline of the annotation whose menu is open: its margin, width and corner radius, in pixels.
+MARK_MARGIN = 3.0
+MARK_WIDTH = 2.0
+MARK_RADIUS = 4.0
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
 
@@ -114,6 +120,15 @@ class PageClick:
     view_point: tuple[float, float]
 
 
+@dataclass(frozen=True)
+class AnnotationClick:
+    """A right click or a long press on an annotation: the annotation and the point in the view."""
+
+    annotation: Annotation
+    x: float
+    y: float
+
+
 def clamp_zoom(zoom: float) -> float:
     """Keep a zoom between the limits."""
     return min(MAX_ZOOM, max(MIN_ZOOM, zoom))
@@ -133,6 +148,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         "shape-drawn": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
         # A click on a page with a tool that places things (comments): a PageClick.
         "page-clicked": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
+        # A right click (or a long press) on an annotation, for its menu (D72): an AnnotationClick.
+        "annotation-menu-requested": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
     }
 
     hscroll_policy = GObject.Property(type=Gtk.ScrollablePolicy, default=Gtk.ScrollablePolicy.MINIMUM)
@@ -180,6 +197,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._click: PagePoint | None = None
         # An annotation being made (a shape being dragged, a comment being written), shown over its page.
         self._preview: Annotation | None = None
+        # The annotation whose menu is open, outlined so that it is clear which one it is (D72).
+        self._marked: Annotation | None = None
         # A text box being written on a page (H3).
         self.text_editor: TextBoxEditor | None = None
         self._form_layer = FormLayer(self)
@@ -684,6 +703,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             draw_tiles = functools.partial(self._draw_tiles, origin=(x, y), box=box, ready=ready, missing=missing)
             draw_tiles(snapshot)
             self._draw_annotations(snapshot, x, y, box, draw_tiles)
+            self._draw_mark(snapshot, x, y, box)
             self._draw_matches(snapshot, x, y, box)
             self._draw_selection(snapshot, x, y, box)
         for page in self._nearby_pages(visible):
@@ -819,6 +839,42 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             context.scale(self.zoom, self.zoom)
             paint_annotations(context, page, annotations, highlights=False)
 
+    def _draw_mark(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
+        """Outline the marked annotation, if it is on this page, in the accent colour."""
+        if self._marked is None or self.renderer is None:
+            return
+        page = self.renderer.layout[box.page]
+        bounds = self.annotation_bounds(page, self._marked)
+        if bounds is None:
+            return
+        left, top, right, bottom = bounds
+        zoom = self.zoom
+        outline = Gsk.RoundedRect()  # init_from_rect fills it in place (what it returns is empty in Python).
+        outline.init_from_rect(
+            Graphene.Rect().init(
+                x + left * zoom - MARK_MARGIN,
+                y + top * zoom - MARK_MARGIN,
+                (right - left) * zoom + 2 * MARK_MARGIN,
+                (bottom - top) * zoom + 2 * MARK_MARGIN,
+            ),
+            MARK_RADIUS,
+        )
+        color = Adw.StyleManager.get_default().get_accent_color_rgba()
+        snapshot.append_border(outline, [MARK_WIDTH] * 4, [color] * 4)
+
+    def annotation_bounds(self, page: ShownPage, annotation: Annotation) -> Rectangle | None:
+        """Where an annotation is on a page as shown, in points (None if it is on another page)."""
+        if annotation.page != page.source:
+            return None
+        if annotation.kind is Kind.COMMENT:
+            return self._upright_rectangle(page, annotation)
+        return page.from_source(annotation.rectangle)
+
+    def set_marked(self, annotation: Annotation | None) -> None:
+        """Outline an annotation (None: none), while its menu is open."""
+        self._marked = annotation
+        self.queue_draw()
+
     def _draw_matches(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         for result in self._matches.get(box.page, []):
             color = rgba(CURRENT_MATCH_COLOR if result is self._current_match else MATCH_COLOR)
@@ -856,6 +912,12 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         click = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
         click.connect("pressed", self._on_pressed)
         self.add_controller(click)
+        right_click = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+        right_click.connect("pressed", lambda _gesture, _presses, x, y: self._ask_for_menu(x, y))
+        self.add_controller(right_click)
+        long_press = Gtk.GestureLongPress(touch_only=True)
+        long_press.connect("pressed", lambda _gesture, x, y: self._ask_for_menu(x, y))
+        self.add_controller(long_press)
         drag = Gtk.GestureDrag(button=Gdk.BUTTON_PRIMARY)
         drag.connect("drag-update", self._on_drag_update)
         drag.connect("drag-end", self._on_drag_end)
@@ -883,22 +945,51 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return PagePoint(box.page, (page_y - box.y) / self.zoom, (page_x - box.x) / self.zoom)
 
     def comment_at(self, x: float, y: float) -> Annotation | None:
-        """Return the comment with text under a point of the widget, if any.
-
-        A comment stays upright on a turned page, keeping the corner that is its top left unturned (NoRotate).
-        """
+        """Return the comment with text under a point of the widget, if any."""
         point = self.page_point(x, y)
         if point is None or self.document is None or self.renderer is None:
             return None
         page = self.renderer.layout[point.page]
         for annotation in reversed(self.document.annotations):  # The last made is on top.
-            if annotation.kind is not Kind.COMMENT or not annotation.text or annotation.page != page.source:
-                continue
-            left, top, right, bottom = annotation.rectangle
-            corner_x, corner_y, _x, _y = page.from_source((left, top, left, top))
-            if corner_x <= point.x <= corner_x + right - left and corner_y <= point.y <= corner_y + bottom - top:
-                return annotation
+            if annotation.kind is Kind.COMMENT and annotation.text and annotation.page == page.source:
+                left, top, right, bottom = self._upright_rectangle(page, annotation)
+                if left <= point.x <= right and top <= point.y <= bottom:
+                    return annotation
         return None
+
+    def annotation_at(self, x: float, y: float) -> Annotation | None:
+        """Return the annotation under a point of the widget, if any: the one it is most on, then the one on top."""
+        point = self.page_point(x, y)
+        if point is None or self.document is None or self.renderer is None:
+            return None
+        page = self.renderer.layout[point.page]
+        source_x, source_y = page.to_source(point.x, point.y)
+        reach = HIT_REACH / self.zoom
+        hits: dict[int, Hit] = {}
+        for index, annotation in enumerate(self.document.annotations):
+            if annotation.page != page.source:
+                continue
+            if annotation.kind is Kind.COMMENT:
+                left, top, right, bottom = self._upright_rectangle(page, annotation)
+                hits[index] = Hit.ON if left <= point.x <= right and top <= point.y <= bottom else Hit.NONE
+            else:
+                hits[index] = hit(annotation, source_x, source_y, reach)
+        return topmost(self.document.annotations, hits)
+
+    def _upright_rectangle(self, page: ShownPage, annotation: Annotation) -> Rectangle:
+        """Where a comment is on a page as shown: upright, keeping the corner that is its top left unturned."""
+        left, top, right, bottom = annotation.rectangle
+        corner_x, corner_y, _x, _y = page.from_source((left, top, left, top))
+        return corner_x, corner_y, corner_x + right - left, corner_y + bottom - top
+
+    def _ask_for_menu(self, x: float, y: float) -> None:
+        """Ask for the menu of the annotation under a point, if there is one; elsewhere, nothing happens (D72)."""
+        if self.text_editor is not None:
+            self.text_editor.finish(apply=True)
+        annotation = self.annotation_at(x, y)
+        if annotation is not None:
+            self.grab_focus()
+            self.emit("annotation-menu-requested", AnnotationClick(annotation, x, y))
 
     def upright_square(self, source: int, x: float, y: float, side: float) -> Rectangle | None:
         """The square, on the unturned page, of an upright mark (a comment) shown centred on a point of it."""

@@ -9,11 +9,12 @@ of the system (fallback); in the PDF, every font used goes inside it, only with 
 """
 
 import io
+from dataclasses import replace
 
 import cairo
 from gi.repository import Pango, PangoCairo
 
-from penfold.document.annotations import TEXT_BOX_FONT_SIZE, Style
+from penfold.document.annotations import TEXT_BOX_FONT_SIZE, Annotation, Style
 from penfold.document.appearance import TEXT_BOX_BACKGROUND, tint
 
 FONT_FAMILY = "Liberation Sans"
@@ -74,6 +75,17 @@ def text_box_pdf(text: str, size: tuple[float, float], color: Color, style: Styl
     paint_text_box(cairo.Context(surface), text, size, color, style)
     surface.finish()
     return output.getvalue()
+
+
+def redrawn(annotation: Annotation) -> Annotation:
+    """A text box with its saved drawing made again, after its text, colour or format changed.
+
+    It is drawn upright in its own box: across the page if its text reads turned a quarter (text_turn).
+    """
+    left, top, right, bottom = annotation.rectangle
+    width, height = right - left, bottom - top
+    size = (height, width) if annotation.text_turn % 180 else (width, height)
+    return replace(annotation, drawing=text_box_pdf(annotation.text, size, annotation.color or BLACK, annotation.style))
 
 
 def _layout(context: cairo.Context, text: str, width: float, font_size: float) -> Pango.Layout:
