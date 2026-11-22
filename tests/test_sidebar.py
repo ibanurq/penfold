@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pikepdf
 import pytest
-from gi.repository import Gdk, Graphene, Gtk
+from gi.repository import Gdk, Gio, Graphene, Gtk
 
 from penfold.ui.sidebar.pages_view import column_count
 from tests.gtk_helpers import process_pending_events, wait_until, wait_until_stable
@@ -149,8 +149,14 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     assert [annotation.kind for annotation in view.shown_annotations()] == [
         Kind.COMMENT
     ]  # shapes and other types are hidden by default
-    view.shown_groups.update({AnnotationGroup.SHAPES, AnnotationGroup.OTHERS})
-    view.refresh()
+    menu = view.filter_button.get_menu_model()
+    assert menu is not None
+    groups = menu.get_item_link(0, Gio.MENU_LINK_SECTION)
+    assert groups is not None
+    assert groups.get_n_items() == len(AnnotationGroup)  # a check item for each group, as GNOME's menus
+    view.activate_action("annotations-filter.shapes", None)
+    view.activate_action("annotations-filter.others", None)
+    assert view.shown_groups == {AnnotationGroup.SHAPES, AnnotationGroup.TEXT_ELEMENTS, AnnotationGroup.OTHERS}
     # Shapes come first, from the top of the page down; a freehand drawing is a shape too (D64).
     assert [annotation.subtype for annotation in view.shown_annotations()] == [
         "Ink",
@@ -194,7 +200,6 @@ def test_dragging_the_panel_edge_fits_the_zoom_once_released(window: "PenfoldWin
     window.sidebar.emit("resize-finished")
     wait_until_stable(lambda: (view.get_width(), view.zoom))
     assert view.zoom < zoom
-    from gi.repository import Gio
 
     from penfold import config
 
@@ -236,7 +241,6 @@ def test_thumbnails_keep_their_size_and_the_columns_follow_the_panel(window: "Pe
 
 
 def test_zooming_the_thumbnails_changes_the_columns_and_is_remembered(window: "PenfoldWindow", tmp_path: Path) -> None:
-    from gi.repository import Gio
 
     from penfold import config
     from penfold.ui.sidebar.pages_view import MIN_THUMBNAIL_WIDTH

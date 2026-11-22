@@ -21,6 +21,8 @@ COLOR_BAR_WIDTH = 3
 ROW_TEXT_LINES = 4
 # Marked texts are read a few at a time, for at most this long (seconds) each time, so the window never waits.
 TEXT_TIME_SLICE = 0.008
+# The actions of the filter's menu, one for each group: "annotations-filter.shapes".
+FILTER_ACTIONS = "annotations-filter"
 # Shown by default, as in 0.6: the group of comments and text boxes.
 DEFAULT_GROUPS = frozenset({AnnotationGroup.TEXT_ELEMENTS})
 # Icon of each type: Adwaita's when it has one, otherwise a provisional one (D37).
@@ -37,15 +39,6 @@ KIND_ICONS = {
 }
 
 
-# The icon of each group in the filter: the one of its best-known type.
-GROUP_KINDS = {
-    AnnotationGroup.TEXT_MARKUPS: Kind.HIGHLIGHT,
-    AnnotationGroup.SHAPES: Kind.RECTANGLE,
-    AnnotationGroup.TEXT_ELEMENTS: Kind.COMMENT,
-    AnnotationGroup.OTHERS: Kind.OTHER,
-}
-
-
 def group_names() -> dict[AnnotationGroup, str]:
     """Name of each group, as in the print dialogue (translated when called)."""
     return {
@@ -54,16 +47,6 @@ def group_names() -> dict[AnnotationGroup, str]:
         AnnotationGroup.TEXT_ELEMENTS: _("Text Elements"),
         AnnotationGroup.OTHERS: _("Other Types"),
     }
-
-
-def show_kind_icon(image: Gtk.Image, kind: Kind) -> None:
-    """Show the icon of a type, in violet when it is provisional (D37, D70)."""
-    icon_name, provisional = KIND_ICONS[kind]
-    image.set_from_icon_name(icon_name)
-    if provisional:
-        image.add_css_class("provisional-icon")
-    else:
-        image.remove_css_class("provisional-icon")
 
 
 def display_color(annotation: Annotation) -> tuple[float, float, float]:
@@ -135,6 +118,15 @@ class AnnotationRow(Gtk.Box):
         self.append(top)
         self.append(bottom)
 
+    def show_kind(self, kind: Kind) -> None:
+        """Show the icon of the annotation's type, in violet when it is provisional (D37, D70)."""
+        icon_name, provisional = KIND_ICONS[kind]
+        self.icon.set_from_icon_name(icon_name)
+        if provisional:
+            self.icon.add_css_class("provisional-icon")
+        else:
+            self.icon.remove_css_class("provisional-icon")
+
     def show_text(self, text: str | None) -> None:
         """Show the annotation's text, "No text" if it has none, or nothing while it is being read (None)."""
         if text:
@@ -167,7 +159,8 @@ class AnnotationsView(Gtk.Box):
             icon_name="penfold-filter-symbolic", tooltip_text=_("Filter"), valign=Gtk.Align.CENTER
         )
         self.filter_button.add_css_class("provisional-icon")
-        self.filter_button.set_popover(self._filter_popover())
+        self.insert_action_group(FILTER_ACTIONS, self._filter_actions())
+        self.filter_button.set_menu_model(self._filter_menu())
         self.append(view_header(_("Annotations"), self.filter_button))
         self.document: OpenDocument | None = None
         self.content: PageContent | None = None
@@ -313,7 +306,7 @@ class AnnotationsView(Gtk.Box):
         position = self.position(annotation)
         label = self.document.page_label(position) if self.document is not None else str(position + 1)
         row.page.set_label(self._page_format.format(label=label))
-        show_kind_icon(row.icon, annotation.kind)
+        row.show_kind(annotation.kind)
         row.author.set_label(annotation.author or _("(External)"))
         row.color_bar.set_color(display_color(annotation))
         self._rows[id(annotation)] = row
@@ -388,26 +381,29 @@ class AnnotationsView(Gtk.Box):
                 _("{group} ({count})").format(group=self._group_names[group], count=self._counts.get(group, 0))
             )
 
-    def _filter_popover(self) -> Gtk.Popover:
-        """The list "Show" with a box and an icon for each group (D64)."""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=6, margin_bottom=6)
-        title = Gtk.Label(label=_("Show"), xalign=0, margin_start=6, margin_bottom=4)
-        title.add_css_class("dim-label")
-        box.append(title)
-        for group, name in group_names().items():
-            row = Gtk.Box(spacing=8)
-            check = Gtk.CheckButton(active=group in self.shown_groups)
-            check.connect("toggled", self._on_group_toggled, group)
-            icon = Gtk.Image()
-            show_kind_icon(icon, GROUP_KINDS[group])
-            row.append(icon)
-            row.append(Gtk.Label(label=name, xalign=0))
-            check.set_child(row)
-            box.append(check)
-        return Gtk.Popover(child=box)
+    def _filter_actions(self) -> Gio.SimpleActionGroup:
+        """One action with a true or false state for each group: whether the list shows it."""
+        actions = Gio.SimpleActionGroup()
+        for group in AnnotationGroup:
+            action = Gio.SimpleAction.new_stateful(
+                group.value, None, GLib.Variant.new_boolean(group in self.shown_groups)
+            )
+            action.connect("change-state", self._on_group_toggled, group)
+            actions.add_action(action)
+        return actions
 
-    def _on_group_toggled(self, check: Gtk.CheckButton, group: AnnotationGroup) -> None:
-        if check.get_active():
+    def _filter_menu(self) -> Gio.Menu:
+        """The menu "Show" with a check item for each group (D64), as GNOME's standard menus."""
+        groups = Gio.Menu()
+        for group, name in group_names().items():
+            groups.append(name, f"{FILTER_ACTIONS}.{group.value}")
+        menu = Gio.Menu()
+        menu.append_section(_("Show"), groups)
+        return menu
+
+    def _on_group_toggled(self, action: Gio.SimpleAction, state: GLib.Variant, group: AnnotationGroup) -> None:
+        action.set_state(state)
+        if state.get_boolean():
             self.shown_groups.add(group)
         else:
             self.shown_groups.discard(group)
