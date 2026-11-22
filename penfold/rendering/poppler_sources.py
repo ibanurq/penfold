@@ -17,8 +17,9 @@ class PopplerSources:
         """Read the sources that a function gives; they may grow as PDFs are added to the document."""
         self._spans = spans
         self._documents: dict[str, Poppler.Document] = {}
-        # The annotations hidden on each page, by source index: their drawn place and their flags before.
-        self._hidden: dict[int, dict[int, tuple[Poppler.Annot, Poppler.AnnotFlag]]] = {}
+        # The annotations hidden on each page, by source index: by their subtype and drawn place, with their flags
+        # before.
+        self._hidden: dict[int, dict[tuple[str, int], tuple[Poppler.Annot, Poppler.AnnotFlag]]] = {}
 
     def page(self, source_index: int) -> Poppler.Page:
         """The page with this source index.
@@ -42,26 +43,36 @@ class PopplerSources:
             self._documents[uri] = Poppler.Document.new_from_file(uri, span.password or None)
         return self._documents[uri], span.start
 
-    def hide_annotations(self, source_index: int, hidden: Mapping[int, str]) -> None:
+    def hide_annotations(self, source_index: int, hidden: Mapping[tuple[str, int], str]) -> None:
         """Leave out these annotations of a page when it is drawn, and show again those left out before.
 
-        They are named by their drawn place (document/annotations.py) and their subtype ("StrikeOut"); one whose type
-        does not match is left as it is, rather than hide another.
+        They are named by their subtype ("StrikeOut") and drawn place (document/annotations.py), with their unique
+        name (/NM), if any, which is looked for first.
         """
         before = self._hidden.get(source_index, {})
         if not hidden and not before:
             return
-        for place in set(before) - set(hidden):
-            annotation, flags = before.pop(place)
+        for key in set(before) - set(hidden):
+            annotation, flags = before.pop(key)
             annotation.set_flags(flags)
-        annotations = [mapping.annot for mapping in self.page(source_index).get_annot_mapping()]
-        for place, subtype in hidden.items():
-            if place in before or place >= len(annotations):
-                continue
-            annotation = annotations[place]
-            if annotation.get_annot_type().value_nick.replace("-", "") != subtype.lower():
-                continue
-            flags = annotation.get_flags()
-            annotation.set_flags(flags | Poppler.AnnotFlag.HIDDEN)
-            before[place] = (annotation, flags)
+        of_type: dict[str, list[Poppler.Annot]] = {}
+        for mapping in self.page(source_index).get_annot_mapping():
+            nick = mapping.annot.get_annot_type().value_nick.replace("-", "")
+            of_type.setdefault(nick, []).append(mapping.annot)
+        for key, name in hidden.items():
+            subtype, place = key
+            found = None if key in before else _find(of_type.get(subtype.lower(), []), place, name)
+            if found is not None:
+                flags = found.get_flags()
+                found.set_flags(flags | Poppler.AnnotFlag.HIDDEN)
+                before[key] = (found, flags)
         self._hidden[source_index] = before
+
+
+def _find(annotations: list[Poppler.Annot], place: int, name: str) -> Poppler.Annot | None:
+    """The annotation of a type with this name, or else the one at this place among them."""
+    if name:
+        named = [annotation for annotation in annotations if annotation.get_name() == name]
+        if len(named) == 1:
+            return named[0]
+    return annotations[place] if place < len(annotations) else None

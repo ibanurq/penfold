@@ -127,9 +127,10 @@ class Annotation:
     a PDF Penfold cannot draw again (a cloudy border, a closed arrowhead, another font…): changing it would lose that,
     so the interface warns first (D72). One read
     from a PDF knows its origin, its place in the /Annots of its page there, so that saving can take it out of the
-    page when it is deleted or changed (written again), and its drawn place, its place among those viewers draw on
-    the page (all but pop-up windows), so that Poppler can leave it out when Penfold draws it instead; those made in
-    Penfold have neither. A text box
+    page when it is deleted or changed (written again), and its drawn place, its place among the annotations of its
+    type on the page, so that Poppler can find it (with its name, if it has one) and leave it out when Penfold draws it
+    instead (Poppler skips those it cannot read, so the place among all of them would not do); those made in Penfold
+    have neither. A text box
     reads turned clockwise by text_turn degrees from the page as shown (the turn Penfold gave the page when it was
     written, so that it was upright), and keeps its saved drawing: a one-page PDF with the fonts it uses inside.
     """
@@ -308,15 +309,17 @@ def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:
         annots = page.obj.get("/Annots")
         if not isinstance(annots, pikepdf.Array):
             continue
-        drawn = 0
+        of_type: dict[str, int] = {}
         for position in range(len(annots)):
             annotation = annots[position]
-            if not isinstance(annotation, pikepdf.Dictionary) or annotation.get("/Subtype") == pikepdf.Name.Popup:
+            if not isinstance(annotation, pikepdf.Dictionary):
                 continue
+            subtype = str(annotation.get("/Subtype"))
+            drawn = of_type.get(subtype, 0)
+            of_type[subtype] = drawn + 1
             read = _read_annotation(annotation, index, position, frame)
             if read is not None:
                 annotations.append(replace(read, drawn_place=drawn))
-            drawn += 1
     return sorted(annotations, key=lambda item: (item.page, item.rectangle[1], item.rectangle[0]))
 
 

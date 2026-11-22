@@ -116,9 +116,9 @@ class Renderer(GObject.Object):
         # What each part of the interface wants (the document, the thumbnails…), so they do not replace each other.
         self._wanted: dict[str, dict[TileKey, int]] = {}
         self._in_progress: set[TileKey] = set()
-        # The annotations Poppler leaves out, by source index: their drawn place and subtype; and how many times
-        # those of each page changed, so that a tile drawn before a change is not kept.
-        self._hidden: dict[int, Mapping[int, str]] = {}
+        # The annotations Poppler leaves out, by source index: by their subtype and drawn place, with their name; and
+        # how many times those of each page changed, so that a tile drawn before a change is not kept.
+        self._hidden: dict[int, Mapping[tuple[str, int], str]] = {}
         self._hidden_changes: dict[int, int] = {}
         self._condition = threading.Condition()
         self._closed = False
@@ -200,10 +200,10 @@ class Renderer(GObject.Object):
 
         Until the new tiles are drawn, the old ones are still shown (closest_textures).
         """
-        hidden: dict[int, dict[int, str]] = {}
+        hidden: dict[int, dict[tuple[str, int], str]] = {}
         for annotation in annotations:
             if annotation.drawn_place is not None:
-                hidden.setdefault(annotation.page, {})[annotation.drawn_place] = annotation.subtype
+                hidden.setdefault(annotation.page, {})[annotation.subtype, annotation.drawn_place] = annotation.name
         changed = {source for source in {*hidden, *self._hidden} if hidden.get(source) != self._hidden.get(source)}
         if not changed:
             return
@@ -236,7 +236,7 @@ class Renderer(GObject.Object):
         self._stale.clear()
         self._cache_bytes = 0
 
-    def _next_request(self) -> tuple[TileKey, Mapping[int, str], int] | None:
+    def _next_request(self) -> tuple[TileKey, Mapping[tuple[str, int], str], int] | None:
         """Wait for a tile to draw and take it; None when the renderer is closed.
 
         It comes with the annotations to hide on its page, and how many times those changed.

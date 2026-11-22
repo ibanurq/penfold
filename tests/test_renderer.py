@@ -174,7 +174,10 @@ def test_draws_a_merged_document(tmp_path: Path) -> None:
 
 
 def make_annotated_pdf(path: Path) -> Path:
-    """The black square page, with a link, a note's pop-up window and a black square annotation at the bottom right."""
+    """The black square page with annotations, the last a black square at the bottom right.
+
+    Before it, a note and its pop-up window, and a freehand drawing Poppler cannot read (it has no strokes).
+    """
     make_black_square_pdf(path)
     with pikepdf.open(path, allow_overwriting_input=True) as pdf:
         note = pdf.make_indirect(
@@ -193,7 +196,10 @@ def make_annotated_pdf(path: Path) -> Path:
                 BS=pikepdf.Dictionary(W=1),
             )
         )
-        pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([popup, note, square]))
+        broken = pdf.make_indirect(
+            pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Ink, Rect=[0, 0, 9, 9])
+        )
+        pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([popup, note, broken, square]))
         pdf.save(path)
     return path
 
@@ -210,7 +216,7 @@ def dark_at(renderer: Renderer, key: TileKey, point: tuple[int, int]) -> bool:
 def test_annotations_penfold_draws_instead_are_left_out(tmp_path: Path) -> None:
     document = OpenDocument.open(make_annotated_pdf(tmp_path / "annotated.pdf"))
     square = next(annotation for annotation in document.annotations if annotation.kind is Kind.RECTANGLE)
-    assert square.drawn_place == 1  # The pop-up window does not count.
+    assert square.drawn_place == 0  # The first square: the broken drawing, which Poppler skips, does not count.
     page_renderer = Renderer(document.sources.spans, worker_count=2)
     key, bottom_right = TileKey(0, 0, 0.5), (245, 340)
     try:
