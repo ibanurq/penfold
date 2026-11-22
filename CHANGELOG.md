@@ -5,6 +5,30 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.8 — 2026-11-22
+
+Eighth preview of Penfold 1.0: Preferences, the choice of a light or dark style, and PDFs with an open password.
+
+### Added
+- Preferences (in the main menu, Ctrl+,): the author name of new annotations (empty: “Penfold”) and “Respect Document
+  Permissions”, on by default. Every change is kept at once.
+- With “Respect Document Permissions” off, the permissions of a PDF are ignored: no lock and every tool, at once in
+  every window. Files are still saved keeping their permissions, and PDFs that deny assembling can be merged or have
+  their pages added to another document; the result has no permissions.
+- Three circles at the top of the main menu choose the style: follow the system (the default), light or dark. The
+  pages of the PDF keep their colours.
+- PDFs with an open password ask for it when they are opened, however that is done; a wrong password asks again.
+  Penfold does not remember it. Saving, Save As and extracting keep both passwords and the permissions.
+- A PDF opened with its owner password allows everything, with no lock.
+- PDFs with an open password can be merged or have their pages added to another document, asking for the password;
+  the result has none.
+
+### Changed
+- “Restrictions” are now called user access permissions, as in the PDF standard. The lock’s tooltip lists them and
+  says they can be ignored in Preferences.
+- Only its permissions stop a PDF from being merged or having its pages added: an encrypted PDF that allows assembling
+  no longer counts as protected.
+
 ## 1.0.0-alpha.7 — 2026-11-21
 
 Seventh preview of Penfold 1.0: forms are filled in and saved, the document is printed choosing which annotations go
