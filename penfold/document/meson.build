@@ -9,6 +9,7 @@ install_data(
   'forms.py',
   'geometry.py',
   'history.py',
+  'page_frame.py',
   'page_labels.py',
   'pages.py',
   'pdf_values.py',

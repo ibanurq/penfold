@@ -13,7 +13,8 @@ from datetime import UTC, datetime
 
 import pikepdf
 
-from penfold.document.pdf_values import numbers, page_height, rectangle, text
+from penfold.document.page_frame import PageFrame
+from penfold.document.pdf_values import numbers, text
 
 # The author of new annotations when none is set in the preferences (D60).
 DEFAULT_AUTHOR = "Penfold"
@@ -71,7 +72,8 @@ TEXT_MARKUPS = frozenset({Kind.HIGHLIGHT, Kind.UNDERLINE, Kind.STRIKE_OUT})
 class Annotation:
     """One annotation of a page.
 
-    The rectangle is in PDF points from the top left corner of the page: left, top, right, bottom. The quads are the
+    The rectangle is in PDF points from the top left corner of the page as shown (page_frame.py): left, top, right,
+    bottom. The quads are the
     areas of the text it marks, in the same units, for highlights, underlines and strikethroughs; the line goes from
     its start to its end (x, y, x, y) for arrows.
 
@@ -139,24 +141,24 @@ def read_annotations(pdf: pikepdf.Pdf, first_page: int = 0) -> list[Annotation]:
     """
     annotations = []
     for index, page in enumerate(pdf.pages, start=first_page):
-        height = page_height(page)
+        frame = PageFrame.of(page)
         annots = page.obj.get("/Annots")
         if not isinstance(annots, pikepdf.Array):
             continue
         for position in range(len(annots)):
             annotation = annots[position]
             if isinstance(annotation, pikepdf.Dictionary):
-                read = _read_annotation(annotation, index, height)
+                read = _read_annotation(annotation, index, frame)
                 if read is not None:
                     annotations.append(read)
     return sorted(annotations, key=lambda item: (item.page, item.rectangle[1], item.rectangle[0]))
 
 
-def _read_annotation(annotation: pikepdf.Dictionary, page: int, height: float) -> Annotation | None:
+def _read_annotation(annotation: pikepdf.Dictionary, page: int, frame: PageFrame) -> Annotation | None:
     subtype = annotation.get("/Subtype")
     if not isinstance(subtype, pikepdf.Name) or str(subtype) in NOT_LISTED:
         return None
-    area = rectangle(annotation.get("/Rect"), height)
+    area = frame.place(annotation.get("/Rect"))
     if area is None:
         return None
     return Annotation(
@@ -167,19 +169,20 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, height: float) -
         text=text(annotation.get("/Contents")),
         author=text(annotation.get("/T")),
         color=_color(annotation.get("/C")),
-        quads=_quads(annotation.get("/QuadPoints"), height),
+        quads=_quads(annotation.get("/QuadPoints"), frame),
     )
 
 
-def _quads(value: object, height: float) -> tuple[tuple[float, float, float, float], ...]:
-    """Turn /QuadPoints (groups of four corners) into the rectangles around each group."""
+def _quads(value: object, frame: PageFrame) -> tuple[tuple[float, float, float, float], ...]:
+    """Turn /QuadPoints (groups of four corners) into the rectangles around each group, on the page as shown."""
     corners = numbers(value)
     if not corners:
         return ()
     quads = []
     for start in range(0, len(corners) - 7, 8):
-        xs, ys = corners[start : start + 8 : 2], corners[start + 1 : start + 8 : 2]
-        quads.append((min(xs), height - max(ys), max(xs), height - min(ys)))
+        points = [frame.point(corners[index], corners[index + 1]) for index in range(start, start + 8, 2)]
+        xs, ys = [x for x, _y in points], [y for _x, y in points]
+        quads.append((min(xs), min(ys), max(xs), max(ys)))
     return tuple(quads)
 
 
