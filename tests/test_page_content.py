@@ -16,12 +16,15 @@ from tests.sample_pdfs import make_pdf, source_spans
 
 A4 = (595.0, 842.0)
 LAYOUT = PageLayout([A4] * 3)
+# The text boxes' font (D69), which the tests need anyway; with the system's default font, Poppler may join words.
+FONT = "Liberation Sans"
 
 
 def make_text_pdf(path: Path) -> Path:
     """Three A4 pages with two lines of text each, and links on the first page."""
     surface = cairo.PDFSurface(str(path), *A4)
     context = cairo.Context(surface)
+    context.select_font_face(FONT)
     context.set_font_size(12)
     for page in range(3):
         for line in range(2):
@@ -106,7 +109,7 @@ def test_selection_across_pages_takes_the_pages_in_between_whole(content: PageCo
 
 
 def test_double_click_selects_a_word(content: PageContent) -> None:
-    point = PagePoint(0, 97, 120)
+    point = PagePoint(0, 97, 120)  # In "line", in "Page 1 line 2"
     selection = TextSelection(point, point, Poppler.SelectionStyle.WORD)
     assert selection.text(content, LAYOUT) == "line"
 
