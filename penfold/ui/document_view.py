@@ -18,10 +18,13 @@ from penfold.document.annotations import Annotation, Kind
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle, merge_lines
 from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
+from penfold.rendering.layout import ShownPage
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
+from penfold.rendering.text_box import Color
 from penfold.rendering.text_search import SearchResult
 from penfold.ui.form_layer import FormLayer, ShownBox
+from penfold.ui.text_box_editor import TextBoxEditor
 from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
 # Zoom limits and step, as in 0.6: from 30 % to 400 %, 20 points at a time.
@@ -49,9 +52,9 @@ MATCH_COLOR = (0.97, 0.89, 0.36, 0.45)
 CURRENT_MATCH_COLOR = (1.0, 0.47, 0.0, 0.5)
 # A press that moves less than this, in pixels, is a click (it follows links), not a drag.
 DRAG_THRESHOLD = 3
-# Makes the annotation of a shape from the source index of its page and its two ends on the unturned page; None for
-# one too small to keep (a click).
-ShapeMaker = Callable[[int, tuple[float, float], tuple[float, float]], Annotation | None]
+# Makes the annotation of a shape from its page and its two ends on the page as shown; None for one too small to keep
+# (a click).
+ShapeMaker = Callable[[ShownPage, tuple[float, float], tuple[float, float]], Annotation | None]
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
 
@@ -177,6 +180,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._click: PagePoint | None = None
         # An annotation being made (a shape being dragged, a comment being written), shown over its page.
         self._preview: Annotation | None = None
+        # A text box being written on a page (H3).
+        self.text_editor: TextBoxEditor | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -559,6 +564,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         offset_x, offset_y = self._hadjustment.get_value(), self._vadjustment.get_value()
         boxes = [ShownBox(box.page, box.x - offset_x, box.y - offset_y) for box in self._visible_boxes()]
         self._form_layer.allocate(boxes, self.zoom)
+        editor = self.text_editor
+        page_box = self._box(editor.page) if editor is not None else None
+        if editor is not None and page_box is not None:
+            editor.allocate((page_box.x - offset_x, page_box.y - offset_y), self.zoom)
 
     def do_measure(self, _orientation: object, _for_size: int) -> tuple[int, int, int, int]:
         """The view takes whatever space it is given; scrolling shows the rest."""
@@ -682,6 +691,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                 wanted.setdefault(key, PRELOAD_PAGES + abs(page - self.current_page))
         self.renderer.request(wanted)
         self._form_layer.snapshot(snapshot)
+        if self.text_editor is not None:
+            self.text_editor.snapshot(snapshot)
 
     def _draw_page_frame(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Draw the white page with its edge, before its tiles."""
@@ -923,6 +934,23 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.set_preview(None)
         self.queue_draw()
 
+    def write_text_box(self, page: int, corner: tuple[float, float], width: float, color: Color) -> TextBoxEditor:
+        """Start writing a text box on a page (by position), from a corner (points as shown); set its on_done."""
+        if self.text_editor is not None:
+            self.text_editor.finish(apply=True)
+        editor = TextBoxEditor(self, page, corner, width, color)
+        self.text_editor = editor
+
+        def done(_text: str | None) -> None:
+            if self.text_editor is editor:
+                self.text_editor = None
+            self.grab_focus()
+
+        editor.on_done = done
+        self.queue_allocate()
+        editor.grab_focus()
+        return editor
+
     def set_preview(self, annotation: Annotation | None) -> None:
         """Show an annotation being made over its page (None: none)."""
         self._preview = annotation
@@ -973,8 +1001,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         width, height = page.size
         end_x = (start_x + offset_x + self._hadjustment.get_value() - box.x) / self.zoom
         end_y = (start_y + offset_y + self._vadjustment.get_value() - box.y) / self.zoom
-        end = page.to_source(min(max(end_x, 0.0), width), min(max(end_y, 0.0), height))
-        self.set_preview(self._shape_maker(page.source, page.to_source(start.x, start.y), end))
+        end = (min(max(end_x, 0.0), width), min(max(end_y, 0.0), height))
+        self.set_preview(self._shape_maker(page, (start.x, start.y), end))
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
         """The end of a selection or a shape; a click without moving follows a link, or clears the selection."""

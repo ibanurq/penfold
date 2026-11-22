@@ -7,6 +7,7 @@ They look as in 0.6 (docs/specification.md, "Saving annotations with their own a
 speech bubble of GNOME's icon collection (D68). Texts are written in UTF-16, so that no character can break the file.
 """
 
+import io
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -15,7 +16,7 @@ from datetime import UTC, datetime
 import pikepdf
 
 from penfold.document.annotations import Annotation, Kind
-from penfold.document.geometry import Rectangle
+from penfold.document.geometry import HALF_TURN, Rectangle
 from penfold.document.page_frame import PageFrame
 
 # Line width of underlines, strikethroughs, rectangles, circles and arrows, and of the comment's outline, in points.
@@ -25,6 +26,9 @@ HIGHLIGHT_OPACITY = 0.75
 # The arrowhead: the length of its two strokes, in points, and their angle with the line.
 ARROWHEAD_LENGTH = 10.0
 ARROWHEAD_ANGLE = math.pi / 6
+# The text box (its drawing is made with Pango, in the rendering layer): font size and background strength (H3).
+TEXT_BOX_FONT_SIZE = 11.0
+TEXT_BOX_BACKGROUND = 0.14
 # A comment is a square of this side, in points.
 COMMENT_SIZE = 20.0
 # Annotation flags (/F, 12.5.3): "Print", it is printed; "NoRotate", it stays upright when the page is turned.
@@ -61,8 +65,24 @@ def write_annotation(pdf: pikepdf.Pdf, annotation: Annotation, page: pikepdf.Pag
     """Add an annotation made in Penfold to a page of the PDF, placed with the frame of the page as shown.
 
     Raises:
-        ValueError: it is not one Penfold writes yet.
+        ValueError: it is not one Penfold writes, or a text box has no drawing.
     """
+    if annotation.kind is Kind.TEXT_BOX:
+        entries, appearance = _text_box(pdf, annotation, frame)
+    else:
+        entries, appearance = _drawn(pdf, annotation, frame)
+    dictionary = pikepdf.Dictionary(_common_entries(annotation, page))
+    for key, value in entries.items():
+        dictionary[key] = value
+    dictionary.AP = pikepdf.Dictionary(N=appearance)
+    annots = page.obj.get("/Annots")
+    if not isinstance(annots, pikepdf.Array):
+        page.obj.Annots = annots = pdf.make_indirect(pikepdf.Array())
+    annots.append(pdf.make_indirect(dictionary))
+
+
+def _drawn(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[dict[str, object], pikepdf.Object]:
+    """The entries of an annotation drawn here, and its drawing in the page's units inside its /Rect."""
     writers = {
         Kind.HIGHLIGHT: _text_markup,
         Kind.UNDERLINE: _text_markup,
@@ -82,14 +102,37 @@ def write_annotation(pdf: pikepdf.Pdf, annotation: Annotation, page: pikepdf.Pag
     stream.Subtype = pikepdf.Name.Form
     stream.BBox = written.entries["/Rect"]
     stream.Resources = written.resources
-    dictionary = pikepdf.Dictionary(_common_entries(annotation, page))
-    for key, value in written.entries.items():
-        dictionary[key] = value
-    dictionary.AP = pikepdf.Dictionary(N=pdf.make_indirect(stream))
-    annots = page.obj.get("/Annots")
-    if not isinstance(annots, pikepdf.Array):
-        page.obj.Annots = annots = pdf.make_indirect(pikepdf.Array())
-    annots.append(pdf.make_indirect(dictionary))
+    return written.entries, pdf.make_indirect(stream)
+
+
+def _text_box(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[dict[str, object], pikepdf.Object]:
+    """A text box (FreeText): its entries, and its drawing made with Pango, with the fonts it uses inside (D69).
+
+    The drawing is upright in its own box; its matrix turns it as the text reads on the page (12.5.5).
+    """
+    if not annotation.drawing:
+        message = "a text box needs its drawing"
+        raise ValueError(message)
+    bounds = _bounds(_rectangle_points(annotation.rectangle, frame))
+    left, top, right, bottom = annotation.rectangle
+    across = annotation.text_turn % HALF_TURN != 0
+    width, height = (bottom - top, right - left) if across else (right - left, bottom - top)
+    with pikepdf.open(io.BytesIO(annotation.drawing)) as box:
+        appearance = pdf.copy_foreign(box.make_indirect(box.pages[0].as_form_xobject()))
+    appearance.BBox = pikepdf.Array(_rounded((0, 0, width, height)))
+    angle = math.radians(annotation.text_turn + frame.rotation)
+    cos, sin = round(math.cos(angle)), round(math.sin(angle))
+    appearance.Matrix = pikepdf.Array([cos, sin, -sin, cos, 0, 0])
+    color = annotation.color or (0.0, 0.0, 0.0)
+    entries: dict[str, object] = {
+        "/Rect": bounds,
+        "/BS": _border(),
+        "/IC": pikepdf.Array(_rounded(1 - TEXT_BOX_BACKGROUND + TEXT_BOX_BACKGROUND * value for value in color)),
+        "/DA": pikepdf.String(f"0 g /Helv {TEXT_BOX_FONT_SIZE:g} Tf"),
+        "/DS": pikepdf.String(f"font: {TEXT_BOX_FONT_SIZE:g}pt 'Liberation Sans'; color: #000000"),
+        "/Q": 0,
+    }
+    return entries, appearance
 
 
 @dataclass

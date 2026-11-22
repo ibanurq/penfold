@@ -89,3 +89,11 @@ into `node_modules/`, which is not part of the repository.
     in `data/icons/scalable/actions/penfold-type-*-symbolic.svg`.
 - Used for good (D68): the outline of `comment`, by Jakub Steiner, is the speech bubble drawn on the page for a comment
   annotation, and written into the PDFs saved, in `penfold/document/appearance.py` (`BUBBLE`).
+
+## Liberation Sans (Penfold 1.0)
+
+- Project: https://github.com/liberationfonts/liberation-fonts — Copyright Red Hat, Inc.
+- Licence: SIL Open Font License 1.1, which allows embedding the font in documents.
+- Not included in Penfold: it comes with the system (Debian's `fonts-liberation`) or with the GNOME runtime of the
+  Flatpak. Text boxes are drawn with it, and the characters they use are embedded in the PDFs saved (D69); characters
+  it lacks are drawn, and embedded, with other fonts of the system.

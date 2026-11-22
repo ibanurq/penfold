@@ -8,7 +8,7 @@ annotations to list.
 
 import enum
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pikepdf
@@ -77,7 +77,9 @@ class Annotation:
     areas of the text it marks, in the same units, for highlights, underlines and strikethroughs; the line goes from
     its start to its end (x, y, x, y) for arrows.
 
-    A managed annotation is drawn and written by Penfold, with a unique name (/NM) and its creation date.
+    A managed annotation is drawn and written by Penfold, with a unique name (/NM) and its creation date. A text box
+    reads turned clockwise by text_turn degrees from the page as shown (the turn Penfold gave the page when it was
+    written, so that it was upright), and keeps its saved drawing: a one-page PDF with the fonts it uses inside.
     """
 
     page: int
@@ -92,6 +94,8 @@ class Annotation:
     name: str = ""
     created: datetime | None = None
     managed: bool = False
+    text_turn: int = 0
+    drawing: bytes = field(default=b"", repr=False)
 
     @property
     def group(self) -> AnnotationGroup:
@@ -109,6 +113,8 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     text: str = "",
     quads: tuple[tuple[float, float, float, float], ...] = (),
     line: tuple[float, float, float, float] | None = None,
+    text_turn: int = 0,
+    drawing: bytes = b"",
 ) -> Annotation:
     """Make an annotation in Penfold, now, by an author ("Penfold" if none is set), with a unique name.
 
@@ -128,6 +134,8 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         color=color,
         quads=quads,
         line=line,
+        text_turn=text_turn,
+        drawing=drawing,
         name=f"penfold-{uuid.uuid4()}",
         created=datetime.now(UTC),
         managed=True,

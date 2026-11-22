@@ -24,6 +24,7 @@ from penfold.document.appearance import (
 )
 from penfold.document.geometry import Rectangle
 from penfold.rendering.layout import ShownPage
+from penfold.rendering.text_box import paint_text_box
 
 BLACK = (0.0, 0.0, 0.0)
 
@@ -42,6 +43,8 @@ def paint_annotations(
         context.save()
         if annotation.kind is Kind.COMMENT:
             _paint_comment(context, page, annotation)  # Upright, whatever the turn.
+        elif annotation.kind is Kind.TEXT_BOX:
+            _paint_text_box(context, page, annotation)
         else:
             context.transform(_turn(page))
             _paint_on_unturned_page(context, annotation)
@@ -140,6 +143,18 @@ def _paint_arrow(context: cairo.Context, annotation: Annotation) -> None:
             context.move_to(*wing)
             context.line_to(end_x, end_y)
     context.stroke()
+
+
+def _paint_text_box(context: cairo.Context, page: ShownPage, annotation: Annotation) -> None:
+    """The text box, turned as its text reads: turned with the page since it was written (text_turn)."""
+    left, top, right, bottom = page.from_source(annotation.rectangle)
+    turn = (page.rotation - annotation.text_turn) % 360
+    shown_width, shown_height = right - left, bottom - top
+    size = (shown_height, shown_width) if turn % 180 else (shown_width, shown_height)
+    context.translate((left + right) / 2, (top + bottom) / 2)
+    context.rotate(math.radians(turn))
+    context.translate(-size[0] / 2, -size[1] / 2)
+    paint_text_box(context, annotation.text, size, annotation.color or BLACK)
 
 
 def _paint_comment(context: cairo.Context, page: ShownPage, annotation: Annotation) -> None:

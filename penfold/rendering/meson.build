@@ -5,6 +5,7 @@ install_data(
   'page_content.py',
   'poppler_sources.py',
   'renderer.py',
+  'text_box.py',
   'text_search.py',
   install_dir: pkgdatadir / 'penfold' / 'rendering',
 )

@@ -20,6 +20,7 @@ REQUIRED_LIBRARY_VERSIONS = {
     "Gsk": "4.0",
     "Graphene": "1.0",
     "Pango": "1.0",
+    "PangoCairo": "1.0",
     "Adw": "1",
     "Poppler": "0.18",
 }

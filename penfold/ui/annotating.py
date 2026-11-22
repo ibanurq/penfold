@@ -7,7 +7,8 @@ greyed out.
 The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released
 (H1). H and U mark the text selected without changing the tool, or else choose their tool (H7). Rectangles, circles
 and arrows are drawn by dragging, from where the drag starts to where it ends (H4). A click places a comment, whose
-text is written in a popover (H2, H5, D68).
+text is written in a popover (H2, H5, D68). A drag sets the width of a text box (a click gives it a usual width),
+whose text is written on the page (H3, D69).
 """
 
 from collections.abc import Callable
@@ -19,6 +20,8 @@ from penfold.document.appearance import COMMENT_SIZE
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle
+from penfold.rendering.layout import ShownPage
+from penfold.rendering.text_box import DEFAULT_WIDTH, NARROWEST, text_box_pdf, text_height
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.document_view import DocumentView, PageClick
@@ -54,6 +57,8 @@ class Annotating:
         self._chosen_color = ANNOTATION_COLORS[0]
         self._bar_shown = False
         self.comment_popover: CommentPopover | None = None
+        # Where the last drag of the text box tool framed it: the page, the corner and the width, as shown.
+        self._text_box_frame: tuple[ShownPage, Point, float] = (ShownPage(0, (0.0, 0.0)), (0.0, 0.0), 0.0)
         self._annotate = Gio.SimpleAction.new_stateful("annotate", None, GLib.Variant.new_boolean(False))
         self._annotate.set_enabled(False)
         self._annotate.connect("change-state", self._on_annotate)
@@ -143,23 +148,76 @@ class Annotating:
         action.set_state(value)
         self._chosen_tool = Tool(value.get_string())
         self._document_view.marking = self.tool in MARKING_TOOLS
-        self._document_view.set_shape_maker(self._make_shape if self.tool in SHAPE_TOOLS else None)
+        makers = {**dict.fromkeys(SHAPE_TOOLS, self._make_shape), Tool.TEXT_BOX: self._frame_text_box}
+        self._document_view.set_shape_maker(makers.get(self.tool))
         self._document_view.placing = self.tool is Tool.COMMENT
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
 
-    def _make_shape(self, page: int, start: Point, end: Point) -> Annotation | None:
+    def _make_shape(self, page: ShownPage, shown_start: Point, shown_end: Point) -> Annotation | None:
         """The shape of the tool chosen from one end of a drag to the other; None for a click."""
         kind = self.tool.kind
+        start, end = page.to_source(*shown_start), page.to_source(*shown_end)
         if kind is None or max(abs(end[0] - start[0]), abs(end[1] - start[1])) < SMALLEST_SHAPE:
             return None
         rectangle = (min(start[0], end[0]), min(start[1], end[1]), max(start[0], end[0]), max(start[1], end[1]))
         line = (*start, *end) if kind is Kind.ARROW else None
-        return new_annotation(kind, page, rectangle, self.color, self._author(), line=line)
+        return new_annotation(kind, page.source, rectangle, self.color, self._author(), line=line)
 
-    def _on_shape_drawn(self, _view: DocumentView, shape: Annotation) -> None:
+    def _frame_text_box(self, page: ShownPage, shown_start: Point, shown_end: Point) -> Annotation:
+        """The empty text box a drag frames: as wide as the drag (a click: the usual width), inside the page."""
+        page_width, _page_height = page.size
+        left = min(shown_start[0], shown_end[0])
+        width = abs(shown_end[0] - shown_start[0])
+        if width < SMALLEST_SHAPE:
+            left, width = shown_start[0], DEFAULT_WIDTH
+        width = max(NARROWEST, min(width, page_width - left))
+        left = min(left, page_width - width)
+        self._text_box_frame = (page, (left, shown_start[1]), width)
+        return self._text_box(page, (left, shown_start[1]), width, "")
+
+    def _text_box(self, page: ShownPage, corner: Point, width: float, text: str) -> Annotation:
+        """A text box with this text, upright on the page as shown: its height follows the text."""
+        height = text_height(text, width)
+        left, top = corner
+        corners = [page.to_source(left, top), page.to_source(left + width, top + height)]
+        rectangle = (
+            min(x for x, _y in corners),
+            min(y for _x, y in corners),
+            max(x for x, _y in corners),
+            max(y for _x, y in corners),
+        )
+        drawing = text_box_pdf(text, (width, height), self.color) if text else b""
+        return new_annotation(
+            Kind.TEXT_BOX,
+            page.source,
+            rectangle,
+            self.color,
+            self._author(),
+            text=text,
+            text_turn=page.rotation,
+            drawing=drawing,
+        )
+
+    def _on_shape_drawn(self, view: DocumentView, shape: Annotation) -> None:
         document = self._document()
-        if document is not None and self.allowed:
+        if document is None or not self.allowed:
+            return
+        if shape.kind is not Kind.TEXT_BOX:
             document.execute(AddAnnotations(document, [shape]))
+            return
+        page, corner, width = self._text_box_frame
+        position = document.page_position(page.source)
+        if position is None:
+            return
+        editor = view.write_text_box(position, corner, width, self.color)
+        done = editor.on_done
+
+        def write(text: str | None) -> None:
+            done(text)
+            if text and self.allowed:
+                document.execute(AddAnnotations(document, [self._text_box(page, corner, width, text)]))
+
+        editor.on_done = write
 
     def _on_page_clicked(self, view: DocumentView, click: PageClick) -> None:
         """With the comment tool, a click shows where the comment goes and asks for its text."""
