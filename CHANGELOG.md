@@ -5,6 +5,40 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.9 — 2026-11-22
+
+Ninth preview of Penfold 1.0: annotations are made, with the pencil’s floating bar, and saved as the PDF standard asks.
+
+### Added
+- The pencil shows a floating bar at the bottom of the document, with the look of the zoom buttons: Select Text, then
+  the tools by group (highlight, underline, strike through · rectangle, circle, arrow · comment, text box) and the
+  colour, whose palette of six circles opens above it and closes on choosing. A tool stays chosen until another one is,
+  or Esc; hiding the bar goes back to Select Text. Toasts rise above the bar.
+- Highlight, underline and strike through mark the text selected when the mouse is released, one mark per line,
+  fitted to the characters; a selection over several pages makes one mark on each, undone together. H and U mark the
+  text selected without changing the tool, or else choose their tool. Text can be marked even in a PDF that does not
+  let it be copied.
+- Rectangles, circles and arrows are drawn by dragging, shown while dragging and kept inside the page.
+- A comment is placed with a click: its speech bubble shows there, and its text is written in a popover below it
+  (Enter, a new line; Ctrl+Enter, apply; Esc, cancel). Its text shows when the pointer is over it.
+- A text box is written on the page, in a box that grows with the text: a drag sets its width, a click gives it the
+  usual width; Ctrl+Enter or a click outside apply, Esc cancels. Its font, Liberation Sans 11 pt, goes inside the PDF
+  with only the characters used, and characters it lacks are taken from other fonts of the system: any text shows
+  everywhere, and the lines break as they did while writing.
+- Every annotation made can be undone and redone; its author is the one in Preferences (empty: “Penfold”).
+- Annotations are saved with their own drawing and every entry of the PDF standard (colour, opacity, border, unique
+  name, dates, texts in UTF-16…), so any viewer shows them as Penfold does and any editor can change them. Comments
+  stay upright on turned pages. Saving, printing and extracting write them.
+- With any tool but Select Text, the mouse goes through form fields to the page.
+- A PDF that does not allow annotating has the pencil greyed out.
+- The Keyboard Shortcuts window lists the annotation keys first: H, U and Esc.
+
+### Changed
+- Annotations are grouped in four groups everywhere: text highlights, shapes, text elements and, new, other types.
+  The Annotations panel lists them in those four sections, with the icon of each type on its row, and its filter is a
+  popover with a box for each group, which stays open while choosing. The print dialogue has a fourth switch.
+- Annotations of turned or cropped pages are placed as they are shown, like form fields.
+
 ## 1.0.0-alpha.8 — 2026-11-22
 
 Eighth preview of Penfold 1.0: Preferences, the choice of a light or dark style, and PDFs with an open password.
