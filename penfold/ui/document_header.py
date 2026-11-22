@@ -7,7 +7,7 @@ from gi.repository import Adw, Gtk
 from penfold import config
 from penfold.document.access_permissions import AccessPermissions
 from penfold.document.document import OpenDocument
-from penfold.ui.menus import main_menu
+from penfold.ui.menus import attach_main_menu
 
 # The template uses this widget by name: importing it also registers its type with GTK.
 from penfold.ui.page_entry import PenfoldPageEntry
@@ -30,7 +30,7 @@ class PenfoldDocumentHeader(Adw.Bin):
     def __init__(self) -> None:
         """Create the header with the shared main menu."""
         super().__init__()
-        self.main_menu_button.set_menu_model(main_menu())
+        attach_main_menu(self.main_menu_button)
 
     def show_document(self, document: OpenDocument) -> None:
         """Show the title of the PDF and, under it, the file name; without a title, only the file name.

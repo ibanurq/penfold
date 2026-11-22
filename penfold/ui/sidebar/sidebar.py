@@ -5,7 +5,7 @@ from typing import ClassVar
 from gi.repository import Adw, GObject, Graphene, Gtk
 
 from penfold import config
-from penfold.ui.menus import main_menu
+from penfold.ui.menus import attach_main_menu
 
 PAGES = "pages"
 BOOKMARKS = "bookmarks"
@@ -48,7 +48,7 @@ class PenfoldSidebar(Adw.Bin):
     def __init__(self) -> None:
         """Create the panel with its views empty until a document is shown."""
         super().__init__()
-        self.main_menu_button.set_menu_model(main_menu())
+        attach_main_menu(self.main_menu_button)
         self._previous_view = PAGES
         self._grab_offset = 0.0
         self._updating = False

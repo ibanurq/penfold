@@ -11,6 +11,7 @@ from penfold.ui.about import present_about_dialog
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.preferences_dialog import PenfoldPreferencesDialog
 from penfold.ui.shortcuts_dialog import present_shortcuts_dialog
+from penfold.ui.style_selector import STYLE_KEY, apply_style
 from penfold.ui.window import WINDOW_ACCELERATORS, PenfoldWindow
 
 ACCELERATORS = {
@@ -49,6 +50,14 @@ class PenfoldApplication(Adw.Application):
             _("Open a new window"),
             None,
         )
+
+    def do_startup(self) -> None:
+        """Show the style chosen in the main menu, and follow its changes (D62)."""
+        Adw.Application.do_startup(self)
+        self._settings = Gio.Settings(schema_id=config.APP_ID)
+        self.add_action(self._settings.create_action(STYLE_KEY))
+        self._settings.connect(f"changed::{STYLE_KEY}", lambda settings, key: apply_style(settings.get_string(key)))
+        apply_style(self._settings.get_string(STYLE_KEY))
 
     def do_handle_local_options(self, options: GLib.VariantDict) -> int:
         """Open an empty window with --new-window (New Window in the dock's menu, A6), even from a second launch."""

@@ -22,6 +22,16 @@
       <default>160</default>
       <summary>Width of the thumbnails in the Pages view, in pixels (D39)</summary>
     </key>
+    <!-- The style chosen in the main menu (D62). -->
+    <key name="style" type="s">
+      <choices>
+        <choice value="system"/>
+        <choice value="light"/>
+        <choice value="dark"/>
+      </choices>
+      <default>'system'</default>
+      <summary>Style of the interface: follow the system, light or dark</summary>
+    </key>
     <!-- Preferences (D60, D61). -->
     <key name="author-name" type="s">
       <default>''</default>

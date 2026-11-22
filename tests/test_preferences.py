@@ -53,8 +53,8 @@ def test_preferences_come_before_the_keyboard_shortcuts_in_the_main_menu() -> No
         assert items is not None
         for item in range(items.get_n_items()):
             action = items.get_item_attribute_value(item, "action")
-            assert action is not None
-            actions.append(action.get_string())
+            if action is not None:  # the style circles have none (D62)
+                actions.append(action.get_string())
     assert actions[actions.index("app.preferences") + 1] == "app.shortcuts"
 
 

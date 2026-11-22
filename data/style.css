@@ -52,6 +52,35 @@
 }
 
 
+/* The style circles of the main menu (D62): half light and half dark for the system's, and a ring around the chosen. */
+.style-selector {
+  margin: 6px 0;
+}
+
+.style-circle {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%);
+}
+
+.style-circle.system {
+  background: linear-gradient(-45deg, #222226 50%, #ffffff 50%);
+}
+
+.style-circle.light {
+  background: #ffffff;
+}
+
+.style-circle.dark {
+  background: #222226;
+}
+
+.style-circle:checked {
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%), 0 0 0 2px var(--popover-bg-color), 0 0 0 4px var(--accent-bg-color);
+}
+
 /* Where dragged bookmarks go inside another (G6): the row in the accent colour (above and below: drop-above/below). */
 .drop-inside {
   background-color: color-mix(in srgb, var(--accent-bg-color) 25%, transparent);

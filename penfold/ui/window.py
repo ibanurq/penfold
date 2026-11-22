@@ -30,7 +30,7 @@ from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
-from penfold.ui.menus import main_menu
+from penfold.ui.menus import attach_main_menu
 from penfold.ui.printing import DocumentPrinting
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
@@ -118,7 +118,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._saving = False
         self._close_confirmed = False
         self._undo_toast: tuple[Adw.Toast, Command] | None = None
-        self.welcome_menu_button.set_menu_model(main_menu())
+        attach_main_menu(self.welcome_menu_button)
         self._add_actions()
         self.document_view.connect("current-page-changed", self._on_current_page_changed)
         self.document_view.connect("zoom-changed", self._on_zoom_changed)

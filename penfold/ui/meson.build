@@ -16,6 +16,7 @@ install_data(
   'preferences_dialog.py',
   'printing.py',
   'shortcuts_dialog.py',
+  'style_selector.py',
   'text_selection.py',
   'welcome_page.py',
   'window.py',
