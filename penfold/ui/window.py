@@ -311,7 +311,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return
         source = choice.source
         try:
-            added = document.add_blank_page(source) if isinstance(source, PaperSize) else document.add_source(source)
+            added = (
+                document.add_blank_page(source)
+                if isinstance(source, PaperSize)
+                else document.add_source(source, choice.password)
+            )
         except AssemblyNotAllowedError:
             message = _("The user access permissions of “{name}” do not allow adding its pages")
             self._show_message(message.format(name=source.name))
@@ -738,7 +742,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         proposed = request.paths[0].parent / _("merged.pdf")
         try:
             document = OpenDocument.merge(
-                request.paths,
+                request.files,
                 proposed,
                 bookmark_per_file=request.bookmark_per_file,
                 keep_bookmarks=request.keep_bookmarks,

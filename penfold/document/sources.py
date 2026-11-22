@@ -134,18 +134,44 @@ class Sources:
             source.close()
 
 
-def count_pages(path: Path, *, respect_permissions: bool) -> int:
-    """Return how many pages a PDF has, to list it before merging it (F1).
+def count_pages(path: Path, *, respect_permissions: bool, password: str = "") -> int:
+    """Return how many pages a PDF has, to list it before merging it (F1); a PDF may need its password (D61).
 
     Raises:
         AssemblyNotAllowedError: the PDF's permissions, if respected, do not let it be merged (F4, D59, D61).
+        PasswordRequiredError: the PDF needs a password to be opened, and this one is missing or wrong.
         DocumentOpenError: the file is missing, unreadable or not a PDF.
     """
-    try:
-        pdf = open_source(path)
-    except PasswordRequiredError as error:
-        raise AssemblyNotAllowedError(str(path)) from error
-    with pdf:
-        if respect_permissions and not AccessPermissions.of(pdf).assemble:
-            raise AssemblyNotAllowedError(str(path))
+    with open_source(path, password) as pdf:
+        check_assembly(pdf, path, respect_permissions=respect_permissions)
         return len(pdf.pages)
+
+
+def check_assembly(pdf: pikepdf.Pdf, path: Path, *, respect_permissions: bool) -> None:
+    """Make sure the pages of a PDF may go into another file: merged, or added to another document.
+
+    Only its permissions stop it, while they are respected and it was not opened with its owner password; the result
+    has neither its permissions nor its passwords (D61, 3, 6 and 7).
+
+    Raises:
+        AssemblyNotAllowedError: they may not.
+    """
+    owner = pdf.is_encrypted and pdf.owner_password_matched
+    if respect_permissions and not owner and not AccessPermissions.of(pdf).assemble:
+        raise AssemblyNotAllowedError(str(path))
+
+
+def needs_password(path: Path) -> bool:
+    """Whether a PDF asks for a password to be opened (D61)."""
+    return not opens_with(path, "")
+
+
+def opens_with(path: Path, password: str) -> bool:
+    """Whether a password opens a PDF; a file that cannot be read at all is reported when its pages are taken."""
+    try:
+        open_source(path, password).close()
+    except PasswordRequiredError:
+        return False
+    except DocumentOpenError:
+        return True
+    return True

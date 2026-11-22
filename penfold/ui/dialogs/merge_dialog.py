@@ -4,7 +4,8 @@ Files are added with the button or dropped on the dialogue; only PDFs are listed
 red, so it is clear that they will be left out (F4). At least two files that can be merged are needed (F3).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import partial
 from gettext import gettext as _
 from gettext import ngettext
 from pathlib import Path
@@ -13,9 +14,11 @@ from typing import ClassVar, cast
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from penfold import config
-from penfold.document.sources import count_pages
-from penfold.errors import AssemblyNotAllowedError, DocumentOpenError
+from penfold.document.document import PdfToMerge
+from penfold.document.sources import count_pages, needs_password
+from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordRequiredError
 from penfold.ui.autoscroll import DragAutoscroll
+from penfold.ui.dialogs.password_question import password_question
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.preferences_dialog import RESPECT_PERMISSIONS_KEY
 
@@ -26,19 +29,28 @@ DROP_BELOW = "drop-below"
 
 @dataclass(frozen=True)
 class FileToMerge:
-    """A file in the list: its path and how many pages it has; None for an encrypted PDF, which cannot be merged."""
+    """A file in the list: its path and how many pages it has; None for a PDF that cannot be merged (F4, D61).
+
+    A PDF with an open password keeps the one typed for it (D61, 6).
+    """
 
     path: Path
     page_count: int | None
+    password: str = field(default="", repr=False)
 
 
 @dataclass(frozen=True)
 class PdfsToMerge:
     """What the user chose: the files that can be merged, in order, and how their bookmarks are kept."""
 
-    paths: list[Path]
+    files: list[PdfToMerge]
     bookmark_per_file: bool
     keep_bookmarks: bool
+
+    @property
+    def paths(self) -> list[Path]:
+        """The paths of the files, in order."""
+        return [file.path for file in self.files]
 
 
 class DraggedFile(GObject.Object):
@@ -72,6 +84,10 @@ class PenfoldMergeDialog(Adw.Dialog):
         """Prepare an empty list."""
         super().__init__()
         self.files: list[FileToMerge] = []
+        # The files given but not added yet: one with a password waits for it (D61), and those after it.
+        self._to_add: list[Path] = []
+        self._unreadable: list[str] = []
+        self._respect_permissions = True
         # A file dropped on another row, moved when its drag ends: its position and the one it goes before.
         self._pending_move: tuple[int, int] | None = None
         placeholder = Gtk.Label(
@@ -95,31 +111,56 @@ class PenfoldMergeDialog(Adw.Dialog):
     @property
     def request(self) -> PdfsToMerge:
         """What is chosen now."""
-        paths = [file.path for file in self.files if file.page_count is not None]
-        return PdfsToMerge(paths, self.bookmark_per_file_row.get_active(), self.keep_bookmarks_row.get_active())
+        files = [PdfToMerge(file.path, file.password) for file in self.files if file.page_count is not None]
+        return PdfsToMerge(files, self.bookmark_per_file_row.get_active(), self.keep_bookmarks_row.get_active())
 
     def add_files(self, paths: list[Path]) -> None:
         """Add PDFs at the end of the list; files that are not PDFs are left out, and unreadable ones explained.
 
-        A PDF whose permissions do not let it be merged is listed as such, unless they are ignored (D61).
+        A PDF whose permissions do not let it be merged is listed as such, unless they are ignored (D61). A PDF with an
+        open password is added once it is typed, one at a time; Cancel leaves it out (D61, 6).
         """
-        respect_permissions = Gio.Settings(schema_id=config.APP_ID).get_boolean(RESPECT_PERMISSIONS_KEY)
-        unreadable = []
-        for path in paths:
-            if path.suffix.lower() != PDF_SUFFIX:
-                continue
-            try:
-                self.files.append(FileToMerge(path, count_pages(path, respect_permissions=respect_permissions)))
-            except AssemblyNotAllowedError:
-                self.files.append(FileToMerge(path, None))
-            except DocumentOpenError:
-                unreadable.append(path.name)
+        self._respect_permissions = Gio.Settings(schema_id=config.APP_ID).get_boolean(RESPECT_PERMISSIONS_KEY)
+        self._to_add += [path for path in paths if path.suffix.lower() == PDF_SUFFIX]
+        self._add_next()
+
+    def _add_next(self) -> None:
+        """Add the files waiting, until one asks for its password; at the end, say which could not be read."""
+        while self._to_add:
+            path = self._to_add.pop(0)
+            if needs_password(path):
+                self._show_files()
+                password_question(path.name, partial(self._add_file, path), self._add_next).present(self)
+                return
+            self._add_file(path)
         self._show_files()
-        if unreadable:
-            heading = _("Could not open “{name}”").format(name=", ".join(unreadable))
+        if self._unreadable:
+            heading = _("Could not open “{name}”").format(name=", ".join(self._unreadable))
+            self._unreadable = []
             message = Adw.AlertDialog(heading=heading, default_response="ok", close_response="ok")
             message.add_response("ok", _("_OK"))
             message.present(self)
+
+    def _add_file(self, path: Path, password: str = "") -> bool:
+        """Add a PDF to the list, read with its password; False if the password is wrong (then the next waits)."""
+        try:
+            page_count = count_pages(path, respect_permissions=self._respect_permissions, password=password)
+        except PasswordRequiredError:
+            return False
+        except AssemblyNotAllowedError:
+            self.files.append(FileToMerge(path, None))
+        except DocumentOpenError:
+            self._unreadable.append(path.name)
+        else:
+            self.files.append(FileToMerge(path, page_count, password))
+        if password:
+            # The question closes once it is answered; the files after this one are added then.
+            GLib.idle_add(self._add_next_later)
+        return True
+
+    def _add_next_later(self) -> bool:
+        self._add_next()
+        return GLib.SOURCE_REMOVE
 
     def remove_file(self, position: int) -> None:
         """Take a file out of the list."""

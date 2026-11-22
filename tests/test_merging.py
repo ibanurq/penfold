@@ -6,10 +6,10 @@ import pikepdf
 import pytest
 
 from penfold.document.commands.pages import AddPages, DeletePages
-from penfold.document.document import OpenDocument
+from penfold.document.document import OpenDocument, PdfToMerge
 from penfold.document.saving import save
-from penfold.errors import AssemblyNotAllowedError
-from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
+from penfold.errors import AssemblyNotAllowedError, PasswordRequiredError
+from tests.sample_pdfs import USER_PASSWORD, make_pdf, make_pdf_with_password, make_pdf_with_permissions
 from tests.test_adding_pages import outlined_pdf
 
 
@@ -46,7 +46,11 @@ def merge(
     paths: list[Path], tmp_path: Path, *, per_file: bool = True, keep: bool = True, respect: bool = True
 ) -> OpenDocument:
     return OpenDocument.merge(
-        paths, tmp_path / "merged.pdf", bookmark_per_file=per_file, keep_bookmarks=keep, respect_permissions=respect
+        [PdfToMerge(path) for path in paths],
+        tmp_path / "merged.pdf",
+        bookmark_per_file=per_file,
+        keep_bookmarks=keep,
+        respect_permissions=respect,
     )
 
 
@@ -146,3 +150,28 @@ def test_the_fields_of_added_pages_join_the_form(tmp_path: Path) -> None:
     with save_and_open(document) as saved:
         fields = saved.Root.AcroForm.Fields
         assert [str(fields[index].T) for index in range(len(fields))] == ["name", "name_2"]
+
+
+def test_pdfs_with_a_password_are_merged_with_it_and_the_result_has_none(tmp_path: Path) -> None:
+    secret = make_pdf_with_password(tmp_path / "secret.pdf", "modify_assembly", page_count=2)
+    files = [PdfToMerge(make_pdf(tmp_path / "plain.pdf")), PdfToMerge(secret, USER_PASSWORD)]
+    document = OpenDocument.merge(
+        files, tmp_path / "merged.pdf", bookmark_per_file=True, keep_bookmarks=True, respect_permissions=True
+    )
+    with save_and_open(document) as pdf:
+        assert not pdf.is_encrypted
+        assert len(pdf.pages) == 3 + 2
+    document.close()
+
+
+def test_a_wrong_password_stops_merging(tmp_path: Path) -> None:
+    secret = make_pdf_with_password(tmp_path / "secret.pdf", "modify_assembly")
+    with pytest.raises(PasswordRequiredError):
+        OpenDocument.merge(
+            [PdfToMerge(secret, "not-the-password")],
+            tmp_path / "merged.pdf",
+            bookmark_per_file=True,
+            keep_bookmarks=True,
+            respect_permissions=True,
+        )
+    assert "not-the-password" not in repr(PdfToMerge(secret, "not-the-password"))

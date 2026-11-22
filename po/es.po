@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-22 05:42+0100\n"
+"POT-Creation-Date: 2026-11-22 05:58+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -97,7 +97,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/save_as_dialog.blp:22
 #: penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:979
+#: penfold/ui/window.py:983
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -257,7 +257,7 @@ msgstr "Elementos con texto"
 msgid "Comments, text boxes, stamps, etc."
 msgstr "Comentarios, cuadros de texto, sellos, etc."
 
-#: data/ui/dialogs/save_as_dialog.blp:8 penfold/ui/window.py:430
+#: data/ui/dialogs/save_as_dialog.blp:8 penfold/ui/window.py:434
 msgid "Save As"
 msgstr "Guardar como"
 
@@ -303,7 +303,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:86 penfold/ui/bookmark_editing.py:173
-#: penfold/ui/window.py:981
+#: penfold/ui/window.py:985
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -443,15 +443,15 @@ msgstr[1] "{count} marcadores eliminados"
 msgid "Edit Text"
 msgstr "Editar el texto"
 
-#: penfold/ui/dialogs/add_pages_dialog.py:31
+#: penfold/ui/dialogs/add_pages_dialog.py:38
 msgid "Letter"
 msgstr "Carta"
 
-#: penfold/ui/dialogs/add_pages_dialog.py:121
+#: penfold/ui/dialogs/add_pages_dialog.py:144
 msgid "Choose PDF"
 msgstr "Elegir PDF"
 
-#: penfold/ui/dialogs/add_pages_dialog.py:152
+#: penfold/ui/dialogs/add_pages_dialog.py:175
 #, python-brace-format
 msgid "Page {label} ({number} of {count})"
 msgstr "Página {label} ({number} de {count})"
@@ -482,51 +482,51 @@ msgstr ""
 "No puedes eliminar todas las páginas: desactiva «Eliminar las páginas "
 "después»."
 
-#: penfold/ui/dialogs/merge_dialog.py:78
+#: penfold/ui/dialogs/merge_dialog.py:94
 msgid "Drag PDFs here or click “Add PDFs…”"
 msgstr "Arrastra aquí los PDF o pulsa «Añadir PDF…»"
 
-#: penfold/ui/dialogs/merge_dialog.py:119 penfold/ui/window.py:320
-#: penfold/ui/window.py:721 penfold/ui/window.py:766
+#: penfold/ui/dialogs/merge_dialog.py:138 penfold/ui/window.py:324
+#: penfold/ui/window.py:725 penfold/ui/window.py:770
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
-#: penfold/ui/dialogs/merge_dialog.py:121 penfold/ui/extraction.py:125
-#: penfold/ui/window.py:858
+#: penfold/ui/dialogs/merge_dialog.py:141 penfold/ui/extraction.py:125
+#: penfold/ui/window.py:862
 msgid "_OK"
 msgstr "_Aceptar"
 
-#: penfold/ui/dialogs/merge_dialog.py:141
+#: penfold/ui/dialogs/merge_dialog.py:182
 #, python-brace-format
 msgid "{count} file"
 msgid_plural "{count} files"
 msgstr[0] "{count} archivo"
 msgstr[1] "{count} archivos"
 
-#: penfold/ui/dialogs/merge_dialog.py:142
+#: penfold/ui/dialogs/merge_dialog.py:183
 #, python-brace-format
 msgid "{count} page in total"
 msgid_plural "{count} pages in total"
 msgstr[0] "{count} página en total"
 msgstr[1] "{count} páginas en total"
 
-#: penfold/ui/dialogs/merge_dialog.py:152
+#: penfold/ui/dialogs/merge_dialog.py:193
 msgid "Cannot be merged"
 msgstr "No se puede combinar"
 
-#: penfold/ui/dialogs/merge_dialog.py:155
+#: penfold/ui/dialogs/merge_dialog.py:196
 #, python-brace-format
 msgid "{count} page"
 msgid_plural "{count} pages"
 msgstr[0] "{count} página"
 msgstr[1] "{count} páginas"
 
-#: penfold/ui/dialogs/merge_dialog.py:160
+#: penfold/ui/dialogs/merge_dialog.py:201
 msgid "Remove From List"
 msgstr "Quitar de la lista"
 
-#: penfold/ui/dialogs/merge_dialog.py:231
+#: penfold/ui/dialogs/merge_dialog.py:272
 msgid "Add PDFs"
 msgstr "Añadir PDF"
 
@@ -622,7 +622,7 @@ msgstr "_Renombrar"
 msgid "_Overwrite"
 msgstr "_Sobrescribir"
 
-#: penfold/ui/extraction.py:123 penfold/ui/window.py:501
+#: penfold/ui/extraction.py:123 penfold/ui/window.py:505
 #, python-brace-format
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
@@ -918,57 +918,57 @@ msgid_plural "{count} pages deleted"
 msgstr[0] "Página eliminada"
 msgstr[1] "{count} páginas eliminadas"
 
-#: penfold/ui/window.py:316
+#: penfold/ui/window.py:320
 #, python-brace-format
 msgid "The user access permissions of “{name}” do not allow adding its pages"
 msgstr ""
 "Los permisos de acceso del usuario de «{name}» no permiten añadir sus páginas"
 
-#: penfold/ui/window.py:326
+#: penfold/ui/window.py:330
 msgid "Blank page added"
 msgstr "Página en blanco añadida"
 
-#: penfold/ui/window.py:328
+#: penfold/ui/window.py:332
 #, python-brace-format
 msgid "{count} page added"
 msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:361
+#: penfold/ui/window.py:365
 #, python-brace-format
 msgid "{count} page extracted into its own file"
 msgid_plural "{count} pages extracted, one file each"
 msgstr[0] "{count} página extraída en su propio archivo"
 msgstr[1] "{count} páginas extraídas, cada una en su archivo"
 
-#: penfold/ui/window.py:364
+#: penfold/ui/window.py:368
 #, python-brace-format
 msgid "{count} page extracted"
 msgid_plural "{count} pages extracted"
 msgstr[0] "{count} página extraída"
 msgstr[1] "{count} páginas extraídas"
 
-#: penfold/ui/window.py:371
+#: penfold/ui/window.py:375
 #, python-brace-format
 msgid "{count} page extracted and deleted"
 msgid_plural "{count} pages extracted and deleted"
 msgstr[0] "{count} página extraída y eliminada"
 msgstr[1] "{count} páginas extraídas y eliminadas"
 
-#: penfold/ui/window.py:376
+#: penfold/ui/window.py:380
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:429
+#: penfold/ui/window.py:433
 msgid "_flattened.pdf"
 msgstr "_aplanado.pdf"
 
-#: penfold/ui/window.py:454
+#: penfold/ui/window.py:458
 msgid "This PDF does not allow printing"
 msgstr "Este PDF no permite imprimir"
 
-#: penfold/ui/window.py:488
+#: penfold/ui/window.py:492
 #, python-brace-format
 msgid "The value of {count} form field could not be saved"
 msgid_plural "The values of {count} form fields could not be saved"
@@ -976,40 +976,40 @@ msgstr[0] "No se pudo guardar el valor de {count} campo del formulario"
 msgstr[1] "No se pudieron guardar los valores de {count} campos del formulario"
 
 #. An exported copy: the document keeps its file and its changes (I6).
-#: penfold/ui/window.py:496
+#: penfold/ui/window.py:500
 #, python-brace-format
 msgid "Flattened copy saved as “{name}”"
 msgstr "Copia aplanada guardada como «{name}»"
 
-#: penfold/ui/window.py:525
+#: penfold/ui/window.py:529
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:738
+#: penfold/ui/window.py:742
 msgid "merged.pdf"
 msgstr "combinado.pdf"
 
-#: penfold/ui/window.py:749
+#: penfold/ui/window.py:753
 msgid "Could not merge the PDFs"
 msgstr "No se pudieron combinar los PDF"
 
-#: penfold/ui/window.py:756
+#: penfold/ui/window.py:760
 #, python-brace-format
 msgid "PDFs merged: {count} page"
 msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:974
+#: penfold/ui/window.py:978
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:975
+#: penfold/ui/window.py:979
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:980
+#: penfold/ui/window.py:984
 msgid "_Discard"
 msgstr "_Descartar"

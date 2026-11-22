@@ -150,11 +150,15 @@ def test_draws_the_pages_of_a_pdf_added_later(tmp_path: Path) -> None:
 
 
 def test_draws_a_merged_document(tmp_path: Path) -> None:
-    from penfold.document.document import OpenDocument
+    from penfold.document.document import OpenDocument, PdfToMerge
 
     paths = [make_black_square_pdf(tmp_path / "square.pdf"), make_pdf(tmp_path / "blank.pdf", page_count=2)]
     document = OpenDocument.merge(
-        paths, tmp_path / "merged.pdf", bookmark_per_file=False, keep_bookmarks=False, respect_permissions=True
+        [PdfToMerge(path) for path in paths],
+        tmp_path / "merged.pdf",
+        bookmark_per_file=False,
+        keep_bookmarks=False,
+        respect_permissions=True,
     )
     page_renderer = Renderer(document.sources.spans, worker_count=1)
     try:

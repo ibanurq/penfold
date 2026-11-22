@@ -110,3 +110,56 @@ def test_a_pdf_opened_with_its_password_can_be_printed(window: "PenfoldWindow", 
     to_print = tmp_path / "print.pdf"
     save(document.print_plan(to_print, frozenset()))
     assert DocumentPrinting(window, document, pytest.fail).make_operation(to_print) is not None
+
+
+def test_merging_asks_for_each_password_and_leaves_out_a_cancelled_file(
+    window: "PenfoldWindow", tmp_path: Path
+) -> None:
+    from penfold.ui.dialogs.merge_dialog import PenfoldMergeDialog
+
+    first = make_pdf_with_password(tmp_path / "first.pdf", "modify_assembly", page_count=2)
+    second = make_pdf_with_password(tmp_path / "second.pdf", "modify_assembly")
+    merging = PenfoldMergeDialog()
+    merging.present(window)
+    merging.add_files([make_pdf(tmp_path / "plain.pdf", page_count=1), first, second, make_pdf(tmp_path / "last.pdf")])
+    question = window.get_visible_dialog()
+    assert isinstance(question, Adw.AlertDialog)
+    assert question.get_body() == "Opening “first.pdf” requires its password."
+    answer(question, "wrong")
+    assert window.get_visible_dialog() is question  # asked again
+    answer(question, USER_PASSWORD)
+    wait_until(lambda: window.get_visible_dialog() not in (question, merging))
+    second_question = window.get_visible_dialog()
+    assert isinstance(second_question, Adw.AlertDialog)
+    assert second_question.get_body() == "Opening “second.pdf” requires its password."
+    second_question.emit("response", "cancel")
+    wait_until(lambda: window.get_visible_dialog() is merging)
+    assert [(file.path.name, file.page_count) for file in merging.files] == [
+        ("plain.pdf", 1),
+        ("first.pdf", 2),
+        ("last.pdf", 3),
+    ]
+    assert [file.password for file in merging.request.files] == ["", USER_PASSWORD, ""]
+    merging.force_close()
+
+
+def test_adding_pages_asks_for_the_password_of_the_pdf_chosen(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.ui.dialogs.add_pages_dialog import PenfoldAddPagesDialog
+
+    assert open_and_wait(window, make_pdf(tmp_path / "book.pdf"))
+    adding = PenfoldAddPagesDialog(3, 0, [])
+    adding.present(window)
+    secret = make_pdf_with_password(tmp_path / "secret.pdf", "modify_assembly", page_count=2)
+    adding.choose_file(secret)
+    question = window.get_visible_dialog()
+    assert isinstance(question, Adw.AlertDialog)
+    answer(question, "wrong")
+    assert adding.choice.source != secret
+    answer(question, USER_PASSWORD)
+    wait_until(lambda: window.get_visible_dialog() is adding)
+    assert (adding.choice.source, adding.choice.password) == (secret, USER_PASSWORD)
+    adding.force_close()
+    window.add_pages(adding.choice)
+    document = window.document
+    assert document is not None
+    assert document.page_count == 3 + 2

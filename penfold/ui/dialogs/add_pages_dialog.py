@@ -6,7 +6,8 @@ PDF with page labels, the label of that page is shown under it (D49).
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import partial
 from gettext import gettext as _
 from pathlib import Path
 from typing import ClassVar
@@ -15,15 +16,21 @@ from gi.repository import Adw, Gio, GLib, GObject, Gtk
 
 from penfold import config
 from penfold.document.pages import PaperSize
+from penfold.document.sources import needs_password, opens_with
+from penfold.ui.dialogs.password_question import password_question
 from penfold.ui.file_dialogs import pdf_file_dialog
 
 
 @dataclass(frozen=True)
 class PagesToAdd:
-    """What the user chose: a PDF or a blank page of a size, and the position of the page they go before."""
+    """What the user chose: a PDF or a blank page of a size, and the position of the page they go before.
+
+    A PDF with an open password comes with it (D61, 6).
+    """
 
     source: Path | PaperSize
     position: int
+    password: str = field(default="", repr=False)
 
 
 def size_name(size: PaperSize) -> str:
@@ -66,6 +73,7 @@ class PenfoldAddPagesDialog(Adw.Dialog):
         self._page_count = page_count
         self._page_label = page_label
         self._file: Path | None = None
+        self._password = ""
         # Filling in the dialogue must not choose options as the user's changes do.
         self._ready = False
         self.size_dropdown.set_model(Gtk.StringList.new([size_name(size) for size in PaperSize]))
@@ -84,19 +92,34 @@ class PenfoldAddPagesDialog(Adw.Dialog):
     def choice(self) -> PagesToAdd:
         """What is chosen now."""
         source: Path | PaperSize | None = self._file
+        password = self._password
         if self.blank_check.get_active() or source is None:
             source = list(PaperSize)[self.size_dropdown.get_selected()]
+            password = ""
         if self.start_check.get_active():
             position = 0
         elif self.after_check.get_active():
             position = self.page_spin.get_value_as_int()
         else:
             position = self._page_count
-        return PagesToAdd(source, position)
+        return PagesToAdd(source, position, password)
 
     def choose_file(self, path: Path) -> None:
-        """Take the PDF whose pages will be added, and choose that option."""
-        self._file = path
+        """Take the PDF whose pages will be added, and choose that option; one with a password, once it is typed."""
+        if needs_password(path):
+            password_question(path.name, partial(self._take_file_with, path)).present(self)
+        else:
+            self._take_file(path, "")
+
+    def _take_file_with(self, path: Path, password: str) -> bool:
+        """Take a PDF if its password opens it; False to ask again (D61, 6)."""
+        if not opens_with(path, password):
+            return False
+        self._take_file(path, password)
+        return True
+
+    def _take_file(self, path: Path, password: str) -> None:
+        self._file, self._password = path, password
         self.pdf_row.set_subtitle(GLib.markup_escape_text(path.name))
         self.pdf_check.set_active(True)
         self._update_add_button()

@@ -4,9 +4,17 @@ from pathlib import Path
 
 import pytest
 
-from penfold.document.sources import SourceFile, Sources, SourceSpan, count_pages, locate
-from penfold.errors import AssemblyNotAllowedError, DocumentOpenError
-from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
+from penfold.document.sources import (
+    SourceFile,
+    Sources,
+    SourceSpan,
+    count_pages,
+    locate,
+    needs_password,
+    opens_with,
+)
+from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordRequiredError
+from tests.sample_pdfs import OWNER_PASSWORD, USER_PASSWORD, make_pdf, make_pdf_with_password, make_pdf_with_permissions
 
 SPANS = (SourceSpan(Path("a.pdf"), 0, 3), SourceSpan(Path("b.pdf"), 3, 2), SourceSpan(Path("c.pdf"), 5, 1))
 
@@ -53,8 +61,18 @@ def test_pdfs_that_deny_assembling_are_counted_only_with_permissions_ignored(tmp
     assert count_pages(allowed, respect_permissions=True) == 3
 
 
-def test_pdfs_that_need_a_password_cannot_be_merged_yet(tmp_path: Path) -> None:
-    protected = make_pdf(tmp_path / "protected.pdf", passwords=("owner", "user"))
-    for respect in (True, False):
-        with pytest.raises(AssemblyNotAllowedError):
-            count_pages(protected, respect_permissions=respect)
+def test_pdfs_that_need_a_password_are_counted_with_it(tmp_path: Path) -> None:
+    protected = make_pdf_with_password(tmp_path / "protected.pdf", "modify_assembly")
+    assert needs_password(protected)
+    assert not needs_password(make_pdf(tmp_path / "plain.pdf"))
+    assert (opens_with(protected, "wrong"), opens_with(protected, USER_PASSWORD)) == (False, True)
+    with pytest.raises(PasswordRequiredError):
+        count_pages(protected, respect_permissions=True)
+    assert count_pages(protected, respect_permissions=True, password=USER_PASSWORD) == 3
+
+
+def test_the_owner_password_lets_any_pdf_be_merged(tmp_path: Path) -> None:
+    locked = make_pdf_with_password(tmp_path / "locked.pdf")  # allows nothing
+    with pytest.raises(AssemblyNotAllowedError):
+        count_pages(locked, respect_permissions=True, password=USER_PASSWORD)
+    assert count_pages(locked, respect_permissions=True, password=OWNER_PASSWORD) == 3

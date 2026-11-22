@@ -1,8 +1,8 @@
 """The open document: one PDF and what Penfold knows about it."""
 
 import tempfile
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Self
 
@@ -16,7 +16,7 @@ from penfold.document.history import Change, Command, History
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
 from penfold.document.saving import SavePlan
-from penfold.document.sources import SourceFile, Sources
+from penfold.document.sources import SourceFile, Sources, check_assembly
 from penfold.errors import AssemblyNotAllowedError, PenfoldError
 
 
@@ -26,6 +26,14 @@ class AddedPdf:
 
     pages: list[Page]
     bookmarks: list[Bookmark]
+
+
+@dataclass(frozen=True)
+class PdfToMerge:
+    """A PDF to merge, with its open password if it has one (D61); the password is kept out of any log."""
+
+    path: Path
+    password: str = field(default="", repr=False)
 
 
 class OpenDocument:
@@ -72,7 +80,7 @@ class OpenDocument:
     @classmethod
     def merge(
         cls,
-        paths: list[Path],
+        files: Sequence[PdfToMerge],
         proposed: Path,
         *,
         bookmark_per_file: bool,
@@ -84,11 +92,12 @@ class OpenDocument:
         It is built on a PDF of its own, as 0.6 does, so it takes nothing from the first file but its pages. With
         bookmark_per_file, each file has an unfolded bookmark named after it (D50), holding the file's own bookmarks if
         keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another. With respect_permissions
-        off, a PDF that does not allow assembling it is merged too, and the result has no permissions (D61).
+        off, a PDF that does not allow assembling it is merged too, and the result has no permissions (D61). A PDF
+        with an open password comes with it; the result has none.
 
         Raises:
             AssemblyNotAllowedError: a PDF's permissions, respected, do not let it be merged (F4, D59, D61).
-            PasswordRequiredError: a PDF needs a password to be opened.
+            PasswordRequiredError: a PDF needs a password to be opened, and its one is missing or wrong.
             DocumentOpenError: a file is missing, unreadable or not a PDF.
         """
         with tempfile.TemporaryDirectory(prefix="penfold-") as folder:
@@ -97,17 +106,17 @@ class OpenDocument:
             document = cls(proposed, SourceFile(empty), is_new=True)
         document.respect_permissions(respect_permissions)
         try:
-            for path in paths:
-                document._append_merged(path, bookmark_per_file=bookmark_per_file, keep_bookmarks=keep_bookmarks)
+            for file in files:
+                document._append_merged(file, bookmark_per_file=bookmark_per_file, keep_bookmarks=keep_bookmarks)
         except PenfoldError:
             document.close()
             raise
         document._positions = document._index_positions()
         return document
 
-    def _append_merged(self, path: Path, *, bookmark_per_file: bool, keep_bookmarks: bool) -> None:
+    def _append_merged(self, file: PdfToMerge, *, bookmark_per_file: bool, keep_bookmarks: bool) -> None:
         """Put the pages of a PDF at the end of a document being merged, with the bookmarks chosen."""
-        added = self.add_source(path)
+        added = self.add_source(file.path, file.password)
         self.pages.extend(added.pages)
         [file_bookmark] = added.bookmarks
         own = file_bookmark.children if keep_bookmarks else []
@@ -169,19 +178,19 @@ class OpenDocument:
     def _index_positions(self) -> dict[int, int]:
         return {page.source_index: position for position, page in enumerate(self.pages)}
 
-    def add_source(self, path: Path) -> AddedPdf:
+    def add_source(self, path: Path, password: str = "") -> AddedPdf:
         """Copy and open a PDF whose pages will be added (by the AddPages command).
 
-        Its pages come with a new bookmark, unfolded and named after the file, that leads to the first of them and
-        holds the PDF's own bookmarks (D50). Its annotations are listed from now on, while their pages are in the
-        document.
+        A PDF with an open password needs it (D61). Its pages come with a new bookmark, unfolded and named after the
+        file, that leads to the first of them and holds the PDF's own bookmarks (D50). Its annotations are listed from
+        now on, while their pages are in the document.
 
         Raises:
             AssemblyNotAllowedError: the PDF's permissions, respected, do not let its pages be added (2.7, D59, D61).
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
-        start, pdf = self._take_source(path)
+        start, pdf = self._take_source(path, password)
         own_bookmarks = for_added_pages(read_bookmarks(pdf), start)
         return AddedPdf(_pages_of(pdf, start), [Bookmark(path.stem, page=start, is_open=True, children=own_bookmarks)])
 
@@ -193,7 +202,7 @@ class OpenDocument:
             start, pdf = self._take_source(path)
             return AddedPdf(_pages_of(pdf, start), [])
 
-    def _take_source(self, path: Path) -> tuple[int, pikepdf.Pdf]:
+    def _take_source(self, path: Path, password: str = "") -> tuple[int, pikepdf.Pdf]:
         """Copy and open a PDF as a new source, listing its annotations and fields; return its first index and the PDF.
 
         Raises:
@@ -201,10 +210,12 @@ class OpenDocument:
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
-        source = SourceFile(path)
-        if self._respects_permissions and not AccessPermissions.of(source.pdf).assemble:
+        source = SourceFile(path, password)
+        try:
+            check_assembly(source.pdf, path, respect_permissions=self._respects_permissions)
+        except AssemblyNotAllowedError:
             source.close()
-            raise AssemblyNotAllowedError(str(path))
+            raise
         start = self.sources.add(source).start
         self.annotations = [*self.annotations, *read_annotations(source.pdf, start)]
         self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]

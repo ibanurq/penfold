@@ -88,10 +88,12 @@ def test_files_are_reordered_and_removed(application: "PenfoldApplication", tmp_
 def test_merging_shows_the_new_document_with_its_bookmarks(
     window: "PenfoldWindow", tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from penfold.document.document import PdfToMerge
     from penfold.ui.dialogs.merge_dialog import PdfsToMerge
     from penfold.ui.sidebar import sidebar
 
-    window.merge(PdfsToMerge([outlined_pdf(tmp_path / "one.pdf"), make_pdf(tmp_path / "two.pdf")], True, True))
+    files = [PdfToMerge(outlined_pdf(tmp_path / "one.pdf")), PdfToMerge(make_pdf(tmp_path / "two.pdf"))]
+    window.merge(PdfsToMerge(files, True, True))
     document = window.document
     assert document is not None
     assert (document.page_count, document.file_name, document.is_modified) == (8, "merged.pdf", True)

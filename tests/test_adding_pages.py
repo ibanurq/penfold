@@ -11,7 +11,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.pages import PaperSize
 from penfold.document.saving import save
 from penfold.errors import AssemblyNotAllowedError
-from tests.sample_pdfs import make_pdf
+from tests.sample_pdfs import USER_PASSWORD, make_pdf, make_pdf_with_password
 from tests.test_bookmarks import add_outline
 
 FORM = Path(__file__).parent / "fixtures" / "form.pdf"
@@ -193,3 +193,16 @@ def test_the_fields_of_added_pdfs_are_told_apart_by_their_source(document: OpenD
     document.add_source(FORM)
     document.add_source(FORM)
     assert [field.key for field in document.form_fields if field.name == "name"] == [(5, "name"), (6, "name")]
+
+
+def test_pages_of_a_pdf_with_a_password_are_added_with_it_and_saved_without_it(
+    document: OpenDocument, tmp_path: Path
+) -> None:
+    secret = make_pdf_with_password(tmp_path / "secret.pdf", "modify_assembly", page_count=2)
+    added = document.add_source(secret, USER_PASSWORD)
+    document.execute(AddPages(document, added, document.page_count))
+    plan = document.save_plan()
+    save(plan)
+    with pikepdf.open(plan.target) as pdf:
+        assert not pdf.is_encrypted
+        assert len(pdf.pages) == document.page_count
