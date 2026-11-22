@@ -16,6 +16,7 @@ data/ui/window.blp
 data/ui/zoom_controls.blp
 penfold/application.py
 penfold/ui/about.py
+penfold/ui/annotation_toolbar.py
 penfold/ui/bookmark_editing.py
 penfold/ui/dialogs/add_pages_dialog.py
 penfold/ui/dialogs/extract_pages_dialog.py
@@ -26,6 +27,7 @@ penfold/ui/document_header.py
 penfold/ui/extraction.py
 penfold/ui/file_dialogs.py
 penfold/ui/page_entry.py
+penfold/ui/palette.py
 penfold/ui/printing.py
 penfold/ui/shortcuts_dialog.py
 penfold/ui/style_selector.py

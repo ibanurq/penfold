@@ -18,6 +18,8 @@ from penfold.document.saving import SavePlan, save
 from penfold.errors import AssemblyNotAllowedError, DocumentOpenError, PasswordRequiredError, PenfoldError, SaveError
 from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
+from penfold.ui.annotating import Annotating
+from penfold.ui.annotation_toolbar import AnnotationToolbar, bar_position
 from penfold.ui.bookmark_editing import BookmarkEditing
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
@@ -111,6 +113,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child()
     document_view: DocumentView = Gtk.Template.Child()
     zoom_controls: PenfoldZoomControls = Gtk.Template.Child()
+    document_overlay: Gtk.Overlay = Gtk.Template.Child()
 
     def __init__(self, application: Gtk.Application) -> None:
         """Create a window of the application, showing the welcome page."""
@@ -539,7 +542,18 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._update_edit_actions()
         self._update_page_actions()
         self.bookmark_editing.update_actions()
+        self.annotating.update_actions()
         self._update_save_actions()
+
+    def _place_annotation_toolbar(self, overlay: Gtk.Overlay, child: Gtk.Widget, area: Gdk.Rectangle) -> bool:
+        """Put the annotation bar at the bottom of the document, centred, left of the zoom buttons (D32)."""
+        if child is not self.annotation_toolbar:
+            return False
+        _minimum, natural = child.get_preferred_size()
+        area.width, area.height = natural.width, natural.height
+        area.x = bar_position(overlay.get_width(), natural.width)
+        area.y = overlay.get_height() - natural.height - child.get_margin_bottom()
+        return True
 
     def _update_zoom_actions(self) -> None:
         for name, enabled in (
@@ -579,6 +593,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.sidebar.add_view(sidebar_views.BOOKMARKS, self.bookmarks_view)
         self.bookmark_editing = BookmarkEditing(
             self, self.bookmarks_view, self.document_view, lambda: self.document, self._show_undo_toast
+        )
+        self.annotation_toolbar = AnnotationToolbar()
+        self.document_overlay.add_overlay(self.annotation_toolbar)
+        self.document_overlay.connect("get-child-position", self._place_annotation_toolbar)
+        self.annotating = Annotating(
+            self, self.annotation_toolbar, self.document_view, self.toast_overlay, lambda: self.document
         )
         self.annotations_view = AnnotationsView()
         self.annotations_view.connect("annotation-activated", self._on_destination_activated)
@@ -822,6 +842,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._update_page_actions()
             self._update_save_actions()
             self.bookmark_editing.update_actions()
+            self.annotating.update_actions()
             self.document_view.permissions_changed()
 
     def _on_respect_permissions_changed(self, settings: Gio.Settings, key: str) -> None:

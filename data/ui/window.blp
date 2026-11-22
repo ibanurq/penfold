@@ -45,7 +45,7 @@ template $PenfoldWindow: Adw.ApplicationWindow {
             [top]
             $PenfoldDocumentHeader document_header {}
 
-            content: Overlay {
+            content: Overlay document_overlay {
               child: ScrolledWindow {
                 child: $PenfoldDocumentView document_view {
                   styles [

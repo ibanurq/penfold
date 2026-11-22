@@ -300,9 +300,9 @@ def test_a_colour_and_clearing_the_format(window: "PenfoldWindow") -> None:
 
 
 def test_colours_go_to_and_from_hex() -> None:
-    from penfold.ui.sidebar.bookmark_format import BOOKMARK_COLORS, color_to_hex, hex_to_color
+    from penfold.ui.palette import COLORS, color_to_hex, hex_to_color
 
-    assert [color_to_hex(hex_to_color(value)) for value in BOOKMARK_COLORS] == list(BOOKMARK_COLORS)
+    assert [color_to_hex(hex_to_color(value)) for value in COLORS] == list(COLORS)
     with pytest.raises(ValueError, match="not a colour"):
         hex_to_color("red")
 

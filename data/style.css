@@ -143,3 +143,29 @@ textview.form-field > text {
 .form-field.read-only {
   background: none;
 }
+
+/* The floating annotation bar (02-interfaz, 5; D32): a light card with a shadow, like a popover. */
+.annotation-bar {
+  padding: 6px;
+  border-radius: 14px;
+  background-color: var(--popover-bg-color);
+  color: var(--popover-fg-color);
+  box-shadow: 0 1px 5px 1px rgb(0 0 0 / 9%), 0 2px 14px 3px rgb(0 0 0 / 5%), 0 0 0 1px rgb(0 0 0 / 5%);
+}
+
+.annotation-bar separator {
+  margin: 6px 4px;
+}
+
+/* The colour chosen, on the colour button. */
+.color-swatch {
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+/* While the annotation bar is shown, the toasts rise above it (D32). */
+.annotation-bar-shown > toast {
+  margin-bottom: 78px;
+}

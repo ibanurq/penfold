@@ -16,7 +16,8 @@ from penfold.document.commands.bookmarks import Placement, can_move
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer
 from penfold.ui.autoscroll import DragAutoscroll
-from penfold.ui.sidebar.bookmark_format import color_to_hex, format_button
+from penfold.ui.palette import color_to_hex
+from penfold.ui.sidebar.bookmark_format import format_button
 from penfold.ui.sidebar.view_header import (
     RecentUse,
     empty_label,

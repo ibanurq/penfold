@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 __all__ = ["window"]
 
 
-TOOLS = ("save", "save-as", "print", "add-pages", "extract-pages", "add-bookmark")
+TOOLS = ("save", "save-as", "print", "add-pages", "extract-pages", "add-bookmark", "annotate")
 
 
 @pytest.fixture
@@ -90,6 +90,7 @@ def test_tools_follow_what_the_pdf_allows(window: "PenfoldWindow", tmp_path: Pat
         "add-pages": False,
         "extract-pages": False,
         "add-bookmark": False,
+        "annotate": False,
     }
     assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "open.pdf", "print_lowres", "modify_assembly"))
     assert {name: action_enabled(window, name) for name in ("print", "add-pages", "add-bookmark")} == dict.fromkeys(

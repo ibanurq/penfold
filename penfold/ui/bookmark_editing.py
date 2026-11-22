@@ -29,7 +29,7 @@ from penfold.document.document import OpenDocument
 from penfold.document.history import Command
 from penfold.ui.dialogs.text_question import text_question
 from penfold.ui.document_view import DocumentView
-from penfold.ui.sidebar.bookmark_format import color_to_hex, hex_to_color
+from penfold.ui.palette import color_to_hex, hex_to_color
 from penfold.ui.sidebar.bookmarks_view import BookmarksView
 
 

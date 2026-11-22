@@ -146,6 +146,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._pixel = 1.0
         self._scale = 1.0
         self._pointer: tuple[float, float] | None = None
+        # The cursor over the pages while a tool that draws is chosen (02-interfaz, 5).
+        self._drawing_cursor: str | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -884,12 +886,27 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             root = self.get_root()
             Gtk.UriLauncher(uri=target.uri).launch(root if isinstance(root, Gtk.Window) else None, None, None)
 
+    def set_drawing_cursor(self, name: str | None) -> None:
+        """Show this cursor over the pages, for a tool that draws; None for the usual ones (text, links)."""
+        self._drawing_cursor = name
+        if self._pointer is not None:
+            self._show_cursor(*self._pointer)
+
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
-        """A hand over links, the text cursor over pages (if the PDF lets its text be copied, D59)."""
         self._pointer = (x, y)
-        if self.link_at(x, y) is not None:
+        self._show_cursor(x, y)
+
+    def _show_cursor(self, x: float, y: float) -> None:
+        """The drawing tool's cursor over pages; without one, a hand over links and the text cursor over pages.
+
+        The text cursor only if the PDF lets its text be copied (D59).
+        """
+        on_page = self.page_point(x, y) is not None
+        if self._drawing_cursor is not None:
+            self.set_cursor_from_name(self._drawing_cursor if on_page else None)
+        elif self.link_at(x, y) is not None:
             self.set_cursor_from_name("pointer")
-        elif self._can_copy and self.page_point(x, y) is not None:
+        elif self._can_copy and on_page:
             self.set_cursor_from_name("text")
         else:
             self.set_cursor_from_name(None)

@@ -1,0 +1,134 @@
+"""The floating annotation bar (02-interfaz, 5; D10, D32, D65): the tools, by group, and the colour.
+
+It floats at the bottom of the document, centred, left of the zoom buttons. The pencil of the header shows and hides
+it. The tools and the colour are the window's actions "annotation-tool" and "annotation-color", whose states it shows.
+"""
+
+import enum
+from gettext import gettext as _
+
+from gi.repository import GLib, Gtk
+
+from penfold.document.annotations import Kind
+from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_swatch, show_color
+
+TOOL_ACTION = "win.annotation-tool"
+COLOR_ACTION = "win.annotation-color"
+# The room the zoom buttons take at the right of the document, which the bar leaves free (D32).
+ZOOM_BUTTONS_ROOM = 72
+BAR_MARGIN = 18
+
+
+class Tool(enum.Enum):
+    """The tools of the bar; one is chosen at a time (02-interfaz, 5)."""
+
+    SELECT = "select"
+    HIGHLIGHT = "highlight"
+    UNDERLINE = "underline"
+    STRIKE_OUT = "strike-out"
+    RECTANGLE = "rectangle"
+    CIRCLE = "circle"
+    ARROW = "arrow"
+    COMMENT = "comment"
+    TEXT_BOX = "text-box"
+
+    @property
+    def kind(self) -> Kind | None:
+        """The type of annotation it makes; None for Select Text."""
+        return TOOL_KINDS.get(self)
+
+
+TOOL_KINDS = {
+    Tool.HIGHLIGHT: Kind.HIGHLIGHT,
+    Tool.UNDERLINE: Kind.UNDERLINE,
+    Tool.STRIKE_OUT: Kind.STRIKE_OUT,
+    Tool.RECTANGLE: Kind.RECTANGLE,
+    Tool.CIRCLE: Kind.CIRCLE,
+    Tool.ARROW: Kind.ARROW,
+    Tool.COMMENT: Kind.COMMENT,
+    Tool.TEXT_BOX: Kind.TEXT_BOX,
+}
+# The tools by group, in the order of the print dialogue (D64, D65). Icons of Adwaita only; those that do not fit yet
+# are provisional, in violet (D70).
+TOOL_GROUPS = (
+    ((Tool.SELECT, "format-text-plaintext-symbolic", True),),
+    (
+        (Tool.HIGHLIGHT, "text-editor-symbolic", True),
+        (Tool.UNDERLINE, "format-text-underline-symbolic", False),
+        (Tool.STRIKE_OUT, "format-text-strikethrough-symbolic", False),
+    ),
+    (
+        (Tool.RECTANGLE, "checkbox-symbolic", True),
+        (Tool.CIRCLE, "radio-symbolic", True),
+        (Tool.ARROW, "mail-forward-symbolic", True),
+    ),
+    (
+        (Tool.COMMENT, "chat-message-new-symbolic", True),
+        (Tool.TEXT_BOX, "insert-text-symbolic", True),
+    ),
+)
+
+
+def tool_names() -> dict[Tool, str]:
+    """The name of each tool, for its tooltip (translated when called)."""
+    return {
+        Tool.SELECT: _("Select Text"),
+        Tool.HIGHLIGHT: _("Highlight"),
+        Tool.UNDERLINE: _("Underline"),
+        Tool.STRIKE_OUT: _("Strike Through"),
+        Tool.RECTANGLE: _("Rectangle"),
+        Tool.CIRCLE: _("Circle"),
+        Tool.ARROW: _("Arrow"),
+        Tool.COMMENT: _("Comment"),
+        Tool.TEXT_BOX: _("Text Box"),
+    }
+
+
+class AnnotationToolbar(Gtk.Box):
+    """A light card with the tool buttons, separated by group, and the colour button that opens the palette above."""
+
+    __gtype_name__ = "PenfoldAnnotationToolbar"
+
+    def __init__(self) -> None:
+        """Create the bar, hidden until the pencil shows it."""
+        super().__init__(spacing=4, halign=Gtk.Align.START, valign=Gtk.Align.END, visible=False)
+        self.set_margin_bottom(BAR_MARGIN)
+        self.add_css_class("annotation-bar")
+        names = tool_names()
+        self.tool_buttons: dict[Tool, Gtk.ToggleButton] = {}
+        for index, group in enumerate(TOOL_GROUPS):
+            if index:
+                self.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+            for tool, icon_name, provisional in group:
+                button = Gtk.ToggleButton(icon_name=icon_name, tooltip_text=names[tool], action_name=TOOL_ACTION)
+                button.set_action_target_value(GLib.Variant.new_string(tool.value))
+                button.add_css_class("flat")
+                if provisional:
+                    button.add_css_class("provisional-icon")
+                self.tool_buttons[tool] = button
+                self.append(button)
+        self.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        self.swatch = color_swatch(ANNOTATION_COLORS[0])
+        circles = Gtk.Box(spacing=9, margin_top=6, margin_bottom=6, margin_start=3, margin_end=3)
+        for value in ANNOTATION_COLORS:
+            circles.append(color_circle(value, COLOR_ACTION))
+        self.color_button = Gtk.MenuButton(
+            child=self.swatch,
+            tooltip_text=_("Color"),
+            popover=Gtk.Popover(child=circles),
+            direction=Gtk.ArrowType.UP,
+            always_show_arrow=True,
+        )
+        self.color_button.add_css_class("flat")
+        self.append(self.color_button)
+
+    def show_color(self, value: str) -> None:
+        """Show the colour chosen on the colour button."""
+        show_color(self.swatch, value)
+
+
+def bar_position(document_width: int, bar_width: int) -> int:
+    """Where the bar starts: centred on the document, or further left to leave the zoom buttons free (D32)."""
+    centred = (document_width - bar_width) // 2
+    widest = document_width - ZOOM_BUTTONS_ROOM - bar_width
+    return max(0, min(centred, widest))

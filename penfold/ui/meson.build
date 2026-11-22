@@ -1,6 +1,8 @@
 install_data(
   '__init__.py',
   'about.py',
+  'annotating.py',
+  'annotation_toolbar.py',
   'autoscroll.py',
   'bookmark_editing.py',
   'document_header.py',
@@ -13,6 +15,7 @@ install_data(
   'form_toggle.py',
   'menus.py',
   'page_entry.py',
+  'palette.py',
   'preferences_dialog.py',
   'printing.py',
   'shortcuts_dialog.py',
