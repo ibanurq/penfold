@@ -160,7 +160,7 @@ class AnnotationsView(Gtk.Box):
         )
         self.filter_button.add_css_class("provisional-icon")
         self.insert_action_group(FILTER_ACTIONS, self._filter_actions())
-        self.filter_button.set_menu_model(self._filter_menu())
+        self.filter_button.set_popover(self._filter_popover())
         self.append(view_header(_("Annotations"), self.filter_button))
         self.document: OpenDocument | None = None
         self.content: PageContent | None = None
@@ -392,14 +392,12 @@ class AnnotationsView(Gtk.Box):
             actions.add_action(action)
         return actions
 
-    def _filter_menu(self) -> Gio.Menu:
-        """The menu "Show" with a check item for each group (D64), as GNOME's standard menus."""
-        groups = Gio.Menu()
+    def _filter_popover(self) -> Gtk.Popover:
+        """A box for each group (D64). Unlike a menu, it stays open to tick several; Esc or a click outside close it."""
+        boxes = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=6, margin_bottom=6)
         for group, name in group_names().items():
-            groups.append(name, f"{FILTER_ACTIONS}.{group.value}")
-        menu = Gio.Menu()
-        menu.append_section(_("Show"), groups)
-        return menu
+            boxes.append(Gtk.CheckButton(label=name, action_name=f"{FILTER_ACTIONS}.{group.value}"))
+        return Gtk.Popover(child=boxes)
 
     def _on_group_toggled(self, action: Gio.SimpleAction, state: GLib.Variant, group: AnnotationGroup) -> None:
         action.set_state(state)

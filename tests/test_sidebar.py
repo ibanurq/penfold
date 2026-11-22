@@ -149,14 +149,17 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     assert [annotation.kind for annotation in view.shown_annotations()] == [
         Kind.COMMENT
     ]  # shapes and other types are hidden by default
-    menu = view.filter_button.get_menu_model()
-    assert menu is not None
-    groups = menu.get_item_link(0, Gio.MENU_LINK_SECTION)
-    assert groups is not None
-    assert groups.get_n_items() == len(AnnotationGroup)  # a check item for each group, as GNOME's menus
+    popover = view.filter_button.get_popover()
+    assert popover is not None
+    column = popover.get_child()
+    assert column is not None
+    boxes = [box for box in column if isinstance(box, Gtk.CheckButton)]
+    assert [box.get_label() for box in boxes] == ["Text Highlights", "Shapes", "Text Elements", "Other Types"]
+    assert [box.get_active() for box in boxes] == [False, False, True, False]
     view.activate_action("annotations-filter.shapes", None)
     view.activate_action("annotations-filter.others", None)
     assert view.shown_groups == {AnnotationGroup.SHAPES, AnnotationGroup.TEXT_ELEMENTS, AnnotationGroup.OTHERS}
+    assert [box.get_active() for box in boxes] == [False, True, True, True]
     # Shapes come first, from the top of the page down; a freehand drawing is a shape too (D64).
     assert [annotation.subtype for annotation in view.shown_annotations()] == [
         "Ink",
