@@ -1,4 +1,7 @@
-"""Annotation edits: making (H1 to H4) and deleting annotations (H9), edits that can be undone like any other (D19)."""
+"""Annotation edits: making (H1 to H4), changing (H11, D72) and deleting them (H9).
+
+Each is an edit that can be undone like any other (D19).
+"""
 
 from collections.abc import Iterable
 
@@ -81,3 +84,56 @@ class DeleteAnnotations:
         for place, annotation in self._places:
             annotations.insert(place, annotation)
         self._document.annotations = annotations
+
+
+class ChangeAnnotation:
+    """Put a changed copy of an annotation in its place: another colour, format or text (H11, D72).
+
+    The copy is managed: Penfold draws it and writes it when the document is saved. One read from a PDF keeps its
+    origin, so that saving takes the original out of its page (D60).
+    """
+
+    changes = Change.ANNOTATIONS
+
+    def __init__(self, document: OpenDocument, annotation: Annotation, changed: Annotation) -> None:
+        """Prepare the change of an annotation of the document.
+
+        Raises:
+            ValueError: the annotation is not in the document, or the copy is not a managed copy of it.
+        """
+        if not any(item is annotation for item in document.annotations):
+            message = "the annotation to change is not in the document"
+            raise ValueError(message)
+        self._document = document
+        self.annotation = annotation
+        self.changed = self._checked(changed)
+
+    def apply(self) -> None:
+        """Put the changed copy in the annotation's place."""
+        self._swap(self.annotation, self.changed)
+
+    def revert(self) -> None:
+        """Put the annotation back as it was."""
+        self._swap(self.changed, self.annotation)
+
+    def retouch(self, changed: Annotation) -> None:
+        """Change the copy again while it is being edited (Format…); use it through OpenDocument.amend.
+
+        Raises:
+            ValueError: the copy is not a managed copy of the annotation.
+        """
+        current, self.changed = self.changed, self._checked(changed)
+        self._swap(current, self.changed)
+
+    def _checked(self, changed: Annotation) -> Annotation:
+        if not changed.managed:
+            message = "a changed annotation is drawn and written by Penfold"
+            raise ValueError(message)
+        before = self.annotation
+        if (changed.page, changed.kind, changed.origin) != (before.page, before.kind, before.origin):
+            message = "a changed annotation keeps its page, kind and origin"
+            raise ValueError(message)
+        return changed
+
+    def _swap(self, old: Annotation, new: Annotation) -> None:
+        self._document.annotations = [new if item is old else item for item in self._document.annotations]

@@ -1,5 +1,6 @@
 """Saving: the PDF changed in place, nothing lost, never a damaged file (03-arquitectura 6, D14, D15, J1)."""
 
+import dataclasses
 import stat
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pikepdf
 import pytest
 
 from penfold.document.annotations import Kind, new_annotation
-from penfold.document.commands.annotations import AddAnnotations, DeleteAnnotations
+from penfold.document.commands.annotations import AddAnnotations, ChangeAnnotation, DeleteAnnotations
 from penfold.document.commands.pages import DeletePages, MovePages, RotatePages
 from penfold.document.document import OpenDocument
 from penfold.document.pages import Page
@@ -190,6 +191,16 @@ def test_undoing_a_deletion_keeps_the_note_in_the_pdf(document: OpenDocument) ->
     document.undo()
     with save_over(document) as pdf:
         assert str(pdf.pages[4].obj.Annots[0].Contents) == "Hello"
+
+
+def test_a_changed_note_of_another_program_is_written_again(document: OpenDocument) -> None:
+    note = document.annotations[0]
+    changed = dataclasses.replace(note, text="Bye", color=(0.4, 0.6, 1.0), managed=True)
+    document.execute(ChangeAnnotation(document, note, changed))
+    with save_over(document) as pdf:
+        annots = pdf.pages[4].obj.Annots
+        assert [str(annots[index].Contents) for index in range(len(annots))] == ["Bye"]
+        assert str(annots[0].T) == "Someone"
 
 
 def test_annotations_made_and_deleted_are_not_written(document: OpenDocument) -> None:
