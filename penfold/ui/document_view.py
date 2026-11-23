@@ -939,21 +939,33 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return None if position is None else self._box(position)
 
     def edit_handles(
-        self, annotation: Annotation, on_done: Callable[[Annotation | None], None], *, resizable: bool
+        self,
+        annotation: Annotation,
+        on_done: Callable[[Annotation | None], None],
+        *,
+        resizable: bool,
+        shown: Annotation | None = None,
     ) -> HandleEditor:
         """Start moving an annotation, and resizing it with handles if it is resizable (D73); shown as it changes.
 
-        on_done receives the annotation changed, or None if the change was cancelled or nothing changed.
+        on_done receives the annotation changed, or None if the change was cancelled or nothing changed. Until it
+        changes, it shows as shown (by default, as it is).
         """
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
         if self.handle_editor is not None:
             self.handle_editor.finish(apply=True)
-        self.handle_editor = HandleEditor(self, annotation, on_done, resizable=resizable)
+        self.handle_editor = HandleEditor(self, annotation, on_done, resizable=resizable, shown=shown)
         self.set_hidden(annotation)
-        self.set_preview(annotation)
+        self.set_preview(self.handle_editor.annotation)
         self.grab_focus()
         return self.handle_editor
+
+    def has_text_under(self, annotation: Annotation) -> bool:
+        """Whether there is text under a mark on text, to cover more or less of it (D73)."""
+        if self.content is None or self.renderer is None or self.renderer.layout.position(annotation.page) is None:
+            return False
+        return bool(self.content.text_in_areas(annotation.page, list(annotation.quads)))
 
     def finish_editing(self) -> None:
         """Accept what is being edited on a page, as Enter does: a text box being written, an annotation being moved.

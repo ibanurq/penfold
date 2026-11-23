@@ -7,17 +7,28 @@ outside it accept the change; Esc cancels it. The document view owns the editor 
 Rectangles and circles have a handle at each corner (document/reshaping.py); text boxes one at each side, which change
 only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py);
 arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments
-have no handles: they keep their size, and are only moved.
+have no handles: they keep their size, and are only moved. Marks on text have a handle where they start and one where
+they end: each covers the text up to the other, letter by letter, as a selection does; they do not move.
 """
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from gi.repository import Adw, Gdk, Graphene, Gsk, Gtk
+from gi.repository import Adw, Gdk, Graphene, Gsk, Gtk, Poppler
 
-from penfold.document.annotations import Annotation, Hit, Kind, hit, managed_copy
-from penfold.document.geometry import turn_point
-from penfold.document.reshaping import Handle, Point, corner_handles, end_handles, moved, with_corner, with_end
+from penfold.document.annotations import TEXT_MARKUPS, Annotation, Hit, Kind, hit, managed_copy
+from penfold.document.geometry import merge_lines, turn_point
+from penfold.document.reshaping import (
+    Handle,
+    Point,
+    corner_handles,
+    end_handles,
+    mark_handles,
+    moved,
+    with_corner,
+    with_end,
+    with_lines,
+)
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import side_handles, with_side
 
@@ -34,6 +45,10 @@ WHITE = (1.0, 1.0, 1.0, 1.0)
 CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
+# The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.
+UNFRAMED_KINDS = END_KINDS | TEXT_MARKUPS
+# How far inside the text a mark keeps the end not dragged, in points, so that its first or last letter stays in.
+INSIDE_THE_TEXT = 1.0
 
 
 class HandleEditor:
@@ -46,16 +61,17 @@ class HandleEditor:
         on_done: Callable[[Annotation | None], None],
         *,
         resizable: bool,
+        shown: Annotation | None = None,
     ) -> None:
         """Edit an annotation of the document on its page; without handles if it is not resizable (it only moves).
 
         on_done receives the annotation changed when the change is accepted, or None if it is cancelled or nothing
         changed. One of a PDF that Penfold does not manage is moved as it is, keeping its drawing (D73); a handle makes
-        it managed, drawn again by Penfold.
+        it managed, drawn again by Penfold. It shows as shown (by default, as it is) until it changes.
         """
         self._view = view
         self.original = annotation
-        self.annotation = annotation
+        self.annotation = shown or annotation
         self.on_done = on_done
         self._resizable = resizable
         # While dragging: the handle taken (None: moving the whole annotation), the annotation and the point (on the
@@ -76,9 +92,12 @@ class HandleEditor:
             self.finish(apply=True)
             return
         grabbed = self.handle_at(x, y)
-        if grabbed is None and not self._is_on_annotation(page, point):
+        on_annotation = self._is_on_annotation(page, point)
+        if grabbed is None and not on_annotation:
             self.finish(apply=True)
             return
+        if grabbed is None and self.annotation.kind in TEXT_MARKUPS:
+            return  # Marks do not move: a press on one does nothing.
         self._grabbed = grabbed
         self._drag_start = (self.annotation, page.to_source(*point))
 
@@ -93,11 +112,32 @@ class HandleEditor:
         offset = (now_x - start_x, now_y - start_y)
         if self._grabbed is None:
             self.annotation = moved(begun_with, offset, page.source_size)
+            self._view.set_preview(self.annotation)
+            return
+        handle_x, handle_y = _handles(page, begun_with)[self._grabbed]
+        target = (handle_x + offset[0], handle_y + offset[1])
+        if begun_with.kind in TEXT_MARKUPS:
+            self.annotation = self._marking(page, managed_copy(begun_with), self._grabbed, target)
         else:
-            handle_x, handle_y = _handles(page, begun_with)[self._grabbed]
-            target = (handle_x + offset[0], handle_y + offset[1])
             self.annotation = _dragged(page, managed_copy(begun_with), self._grabbed, target)
         self._view.set_preview(self.annotation)
+
+    def _marking(self, page: ShownPage, mark: Annotation, end: Handle, point: Point) -> Annotation:
+        """A mark covering the text from its end not dragged to a point of its page, letter by letter.
+
+        Without text there, it stays as it was.
+        """
+        content = self._view.content
+        if content is None:
+            return mark
+        width, height = page.source_size
+        focus = (min(max(point[0], 0.0), width), min(max(point[1], 0.0), height))
+        handles = mark_handles(mark)
+        kept_x, kept_y = handles[Handle.END if end is Handle.START else Handle.START]
+        kept_x += -INSIDE_THE_TEXT if end is Handle.START else INSIDE_THE_TEXT
+        selection = (kept_x, kept_y, *focus) if end is Handle.END else (*focus, kept_x, kept_y)
+        characters = content.selected_characters(page.source, selection, Poppler.SelectionStyle.GLYPH)
+        return with_lines(mark, merge_lines(characters))
 
     def release(self) -> None:
         """The end of a drag."""
@@ -156,7 +196,7 @@ class HandleEditor:
         Under it, so that the frame shows only where the annotation has no line of its own (around a circle).
         """
         bounds = self._view.annotation_bounds(page, self.annotation)
-        if bounds is None or self.annotation.kind in END_KINDS:  # Its handles at its ends show it well enough.
+        if bounds is None or self.annotation.kind in UNFRAMED_KINDS:
             return
         left, top, right, bottom = bounds
         x, y = origin
@@ -204,8 +244,8 @@ class HandleEditor:
             return "move"
         left, top, right, bottom = bounds
         across, down = handle_x - (left + right) / 2, handle_y - (top + bottom) / 2
-        if handle in {Handle.START, Handle.END}:  # An end goes anywhere.
-            return "crosshair"
+        if handle in {Handle.START, Handle.END}:  # An end of a mark follows the text; that of an arrow goes anywhere.
+            return "text" if self.annotation.kind in TEXT_MARKUPS else "crosshair"
         if handle in {Handle.LEFT, Handle.RIGHT}:  # In the middle of a side: it stretches one way only.
             return "ew-resize" if abs(across) > abs(down) else "ns-resize"
         return "nwse-resize" if (across > 0) == (down > 0) else "nesw-resize"
@@ -219,6 +259,8 @@ def _handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:
         return side_handles(annotation, page.source_size)
     if annotation.kind in END_KINDS:
         return end_handles(annotation)
+    if annotation.kind in TEXT_MARKUPS:
+        return mark_handles(annotation)
     return {}
 
 

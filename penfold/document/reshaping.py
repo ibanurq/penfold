@@ -1,8 +1,10 @@
 """Moving annotations and changing their size with handles (D72, D73).
 
 Rectangles and circles have a handle at each corner, arrows one at each end; text boxes have one at each side, which
-change only their width (rendering/text_box.py: their height follows the text). Comments are only moved, and marks on
-text follow the text instead (the interface selects it). Everything stays inside the annotation's page.
+change only their width (rendering/text_box.py: their height follows the text). Comments are only moved. Marks on text
+(highlights, underlines, strikethroughs) have one where they start and one where they end, and they cover the text
+from one to the other (the interface asks Poppler for it); they do not move. Everything stays inside the annotation's
+page.
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -11,14 +13,14 @@ import enum
 import math
 from dataclasses import replace
 
-from penfold.document.annotations import Annotation, Kind
-from penfold.document.geometry import Rectangle, Size
+from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
+from penfold.document.geometry import Rectangle, Size, bounds
 
 Point = tuple[float, float]
 # The smallest width or height of a shape, and the shortest arrow, in points: a smaller one would hardly be seen.
 SMALLEST_SIZE = 3.0
 MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.COMMENT, Kind.TEXT_BOX})
-RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.TEXT_BOX})
+RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.TEXT_BOX, *TEXT_MARKUPS})
 
 
 class Handle(enum.Enum):
@@ -45,7 +47,7 @@ def can_move(annotation: Annotation) -> bool:
 
 
 def can_resize(annotation: Annotation) -> bool:
-    """Whether an annotation is of a type whose size or ends change with handles."""
+    """Whether an annotation is of a type whose size or ends change with handles (marks: the text they cover)."""
     return annotation.kind in RESIZABLE
 
 
@@ -83,6 +85,26 @@ def end_handles(annotation: Annotation) -> dict[Handle, Point]:
         return {}
     start_x, start_y, end_x, end_y = annotation.line
     return {Handle.START: (start_x, start_y), Handle.END: (end_x, end_y)}
+
+
+def mark_handles(annotation: Annotation) -> dict[Handle, Point]:
+    """Where the handles of a mark on text are: the middle of the start of its first line and of the end of its last."""
+    if not annotation.quads:
+        return {}
+    lines = sorted(annotation.quads, key=lambda line: (line[1], line[0]))
+    first_left, first_top, _right, first_bottom = lines[0]
+    _left, last_top, last_right, last_bottom = lines[-1]
+    return {
+        Handle.START: (first_left, (first_top + first_bottom) / 2),
+        Handle.END: (last_right, (last_top + last_bottom) / 2),
+    }
+
+
+def with_lines(annotation: Annotation, lines: list[Rectangle]) -> Annotation:
+    """A mark on text covering other lines of text (as selected); with none, it stays as it was."""
+    if not lines:
+        return annotation
+    return replace(annotation, quads=tuple(lines), rectangle=bounds(lines))
 
 
 def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size: Size) -> Annotation:

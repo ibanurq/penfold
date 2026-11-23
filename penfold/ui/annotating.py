@@ -19,7 +19,7 @@ from penfold.document.annotations import Annotation, Kind, new_annotation
 from penfold.document.appearance import COMMENT_SIZE
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
-from penfold.document.geometry import Rectangle
+from penfold.document.geometry import bounds
 from penfold.document.reshaping import SMALLEST_SIZE
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import DEFAULT_WIDTH, NARROWEST, text_box_pdf, text_height
@@ -127,7 +127,7 @@ class Annotating:
             return False
         author = self._author()
         annotations = [
-            new_annotation(kind, page, _bounds(lines), self.color, author, quads=tuple(lines))
+            new_annotation(kind, page, bounds(lines), self.color, author, quads=tuple(lines))
             for page, lines in areas.items()
         ]
         self._document_view.clear_selection()
@@ -263,13 +263,3 @@ class Annotating:
             action.set_state(value)
             self._chosen_color = value.get_string()
             self._toolbar.show_color(self._chosen_color)
-
-
-def _bounds(lines: list[Rectangle]) -> Rectangle:
-    """The rectangle around the lines a mark covers."""
-    return (
-        min(line[0] for line in lines),
-        min(line[1] for line in lines),
-        max(line[2] for line in lines),
-        max(line[3] for line in lines),
-    )

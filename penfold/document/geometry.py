@@ -45,6 +45,17 @@ def turn_rectangle(rectangle: Rectangle, size: Size, rotation: int) -> Rectangle
     return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
 
 
+def bounds(rectangles: Iterable[Rectangle]) -> Rectangle:
+    """The rectangle around some rectangles (the lines a mark covers); there must be at least one."""
+    chosen = list(rectangles)
+    return (
+        min(item[0] for item in chosen),
+        min(item[1] for item in chosen),
+        max(item[2] for item in chosen),
+        max(item[3] for item in chosen),
+    )
+
+
 def merge_lines(rectangles: Iterable[Rectangle]) -> list[Rectangle]:
     """Join the areas of selected text that are on the same line into one rectangle per line (H1).
 

@@ -10,9 +10,11 @@ from penfold.document.reshaping import (
     can_resize,
     corner_handles,
     end_handles,
+    mark_handles,
     moved,
     with_corner,
     with_end,
+    with_lines,
 )
 
 PAGE = (600.0, 800.0)
@@ -35,7 +37,7 @@ def test_which_types_move_and_which_change_their_size() -> None:
     marks = new_annotation(Kind.HIGHLIGHT, 0, (10, 10, 50, 20), RED, "Iban", quads=((10, 10, 50, 20),))
     comment = shape(Kind.COMMENT, (10, 10, 30, 30))
     assert [can_move(item) for item in (shape(), arrow(), comment, marks)] == [True, True, True, False]
-    assert [can_resize(item) for item in (shape(), arrow(), comment, marks)] == [True, True, False, False]
+    assert [can_resize(item) for item in (shape(), arrow(), comment, marks)] == [True, True, False, True]
 
 
 def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
@@ -129,3 +131,16 @@ def test_only_the_ends_of_an_arrow_change_it() -> None:
         with_end(arrow(), Handle.TOP_LEFT, (0, 0), PAGE)
     with pytest.raises(ValueError, match="not an end"):
         with_end(shape(), Handle.START, (0, 0), PAGE)
+
+
+def test_the_handles_of_a_mark_are_where_its_text_starts_and_ends() -> None:
+    lines = ((72, 110, 140, 122), (72, 90, 150, 102))  # Read from the PDF, not in order.
+    marks = new_annotation(Kind.STRIKE_OUT, 0, (72, 90, 150, 122), RED, "Iban", quads=lines)
+    assert mark_handles(marks) == {Handle.START: (72, 96), Handle.END: (140, 116)}
+
+
+def test_a_mark_covers_other_lines_and_its_rectangle_follows() -> None:
+    marks = new_annotation(Kind.HIGHLIGHT, 0, (72, 90, 150, 102), RED, "Iban", quads=((72, 90, 150, 102),))
+    longer = with_lines(marks, [(72, 90, 150, 102), (72, 110, 100, 122)])
+    assert (longer.quads, longer.rectangle) == (((72, 90, 150, 102), (72, 110, 100, 122)), (72, 90, 150, 122))
+    assert with_lines(marks, []) is marks  # No text: as it was.

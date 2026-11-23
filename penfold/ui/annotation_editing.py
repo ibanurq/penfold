@@ -19,7 +19,7 @@ from gettext import ngettext
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from penfold.document.annotations import Annotation, Kind, managed_copy
+from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind, managed_copy
 from penfold.document.commands.annotations import ChangeAnnotation, DeleteAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.history import Command
@@ -93,14 +93,14 @@ class AnnotationEditing:
         self._color.set_enabled(allowed and colored)
         self._edit_text.set_enabled(allowed)
         self._format.set_enabled(allowed)
-        self._reshape.set_enabled(allowed)
+        self._reshape.set_enabled(allowed and self._can_reshape(annotation))
         self._delete.set_enabled(allowed)
         model = _menu_model(
             colored=colored,
             with_text=annotation.kind in WITH_TEXT,
             with_format=has_format(annotation.kind),
-            moved=can_move(annotation),
-            resized=_can_resize(annotation),
+            moved=can_move(annotation) or can_resize(annotation),
+            resized=can_resize(annotation),
         )
         menu = Gtk.PopoverMenu.new_from_model(model)
         if colored:
@@ -184,8 +184,18 @@ class AnnotationEditing:
     def reshape(self) -> None:
         """Show the handles of the annotation of the menu on its page, to move it or change its size (D73)."""
         annotation = self.annotation
-        if annotation is not None and can_move(annotation):
+        if annotation is not None and self._can_reshape(annotation):
             self._when_menu_closed(lambda: self._edit_shape(annotation))
+
+    def _can_reshape(self, annotation: Annotation) -> bool:
+        """Whether Move and Resize can be used on an annotation now (D73).
+
+        A mark on text needs text under it, and to be drawn again by Penfold: it changes the text it covers. Any other
+        that moves can be moved: one of a PDF keeps its own drawing.
+        """
+        if annotation.kind in TEXT_MARKUPS:
+            return _can_resize(annotation) and self._document_view.has_text_under(annotation)
+        return can_move(annotation)
 
     def _edit_shape(self, annotation: Annotation) -> None:
         """Move an annotation, or resize it with handles, shown as it changes (Poppler leaves out one of the PDF).
@@ -206,7 +216,10 @@ class AnnotationEditing:
             elif not annotation.managed:
                 renderer.hide_annotations(document.replaced_annotations)
 
-        view.edit_handles(annotation, done, resizable=_can_resize(annotation))
+        # A mark shows as Penfold draws it from the start: it will be drawn again, and Poppler's own drawing of it
+        # multiplies its colour with the page under it, which it cannot do painted apart.
+        shown = managed_copy(annotation) if annotation.kind in TEXT_MARKUPS else None
+        view.edit_handles(annotation, done, resizable=_can_resize(annotation), shown=shown)
 
     def _open_format(self, annotation: Annotation) -> None:
         document, place = self._document(), self._document_view.view_rectangle(annotation)

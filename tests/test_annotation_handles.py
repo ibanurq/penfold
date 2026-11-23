@@ -11,6 +11,7 @@ from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.commands.pages import RotatePages
 from penfold.document.reshaping import Handle
 from penfold.rendering.text_box import text_box_pdf, text_height, written_frame
+from penfold.ui.annotation_toolbar import Tool
 from tests.gtk_helpers import process_pending_events, wait_until
 from tests.test_annotation_menu import annotated_window, make_annotated_pdf
 from tests.test_document_window import open_and_wait, window
@@ -203,7 +204,7 @@ def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow"
         Kind.ARROW: True,
     }
     assert resized == {
-        Kind.HIGHLIGHT: False,
+        Kind.HIGHLIGHT: True,  # The text it covers.
         Kind.RECTANGLE: False,  # A cloudy border: Penfold would lose it (D73).
         Kind.OTHER: False,
         Kind.COMMENT: False,  # Its size is fixed.
@@ -437,3 +438,83 @@ def test_saving_accepts_a_text_box_being_written(window: "PenfoldWindow", tmp_pa
     with pikepdf.open(document.path) as pdf:
         annotations = pdf.pages[0].obj.Annots
         assert [str(annotations[index].Subtype) for index in range(len(annotations))] == ["/FreeText"]
+
+
+@pytest.fixture
+def mark_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A page with two lines of text, "Page 1 line 1" and "Page 1 line 2", and the first one highlighted."""
+    from penfold.ui.text_selection import PagePoint, TextSelection
+    from tests.test_page_content import make_text_pdf
+
+    assert open_and_wait(window, make_text_pdf(tmp_path / "text.pdf"))
+    window.document_view._set_selection(TextSelection(PagePoint(0, 95, 70), PagePoint(0, 97, 300)))
+    assert window.annotating.mark_selection(Tool.HIGHLIGHT)
+    return window
+
+
+def the_mark(window: "PenfoldWindow") -> Annotation:
+    assert window.document is not None
+    return next(item for item in window.document.annotations if item.kind is Kind.HIGHLIGHT)
+
+
+def marked_text(window: "PenfoldWindow") -> str:
+    content = window.document_view.content
+    assert content is not None
+    return content.text_in_areas(0, list(the_mark(window).quads))
+
+
+def test_the_end_of_a_mark_covers_more_text_letter_by_letter(mark_window: "PenfoldWindow") -> None:
+    from penfold.document.reshaping import mark_handles
+
+    window = mark_window
+    original = the_mark(window)
+    assert marked_text(window) == "Page 1 line 1"
+    editor = start_editing(window, (90, 96))
+    end_x, end_y = mark_handles(original)[Handle.END]
+    assert editor.handle_at(*widget_point(window, 0, end_x, end_y)) is Handle.END
+    assert editor.cursor_at(*widget_point(window, 0, end_x, end_y)) == "text"
+    drag(window, 0, (end_x, end_y), (100, 116))  # Into the second line, just before its "1".
+    press_key(window, Gdk.KEY_Return)
+    assert marked_text(window) == "Page 1 line 1 Page"
+    assert len(the_mark(window).quads) == 2
+    window.activate_action("win.undo", None)
+    assert the_mark(window) is original
+
+
+def test_the_start_of_a_mark_covers_less_text(mark_window: "PenfoldWindow") -> None:
+    from penfold.document.reshaping import mark_handles
+
+    window = mark_window
+    start_x, start_y = mark_handles(the_mark(window))[Handle.START]
+    start_editing(window, (90, 96))
+    drag(window, 0, (start_x, start_y), (start_x + 40, start_y))  # Past "Page 1 ".
+    press_key(window, Gdk.KEY_Return)
+    assert marked_text(window) == "line 1"
+
+
+def test_a_press_on_a_mark_does_not_move_it(mark_window: "PenfoldWindow") -> None:
+    window = mark_window
+    original = the_mark(window)
+    start_editing(window, (90, 96))
+    drag(window, 0, (100, 96), (150, 200))
+    view = window.document_view
+    assert view.handle_editor is not None  # Still editing.
+    press_key(window, Gdk.KEY_Return)
+    assert the_mark(window) is original
+
+
+def test_a_mark_without_text_under_it_cannot_change(mark_window: "PenfoldWindow") -> None:
+    window = mark_window
+    document = window.document
+    assert document is not None
+    empty = new_annotation(Kind.UNDERLINE, 0, (100, 400, 200, 412), RED, "Iban", quads=((100, 400, 200, 412),))
+    document.execute(AddAnnotations(document, [empty]))
+    process_pending_events()
+    view = window.document_view
+    view._ask_for_menu(*widget_point(window, 0, 150, 406))
+    process_pending_events()
+    action = window.lookup_action("reshape-annotation")
+    assert action is not None
+    assert not action.get_enabled()
+    assert window.annotation_editing.menu is not None
+    window.annotation_editing.menu.popdown()
