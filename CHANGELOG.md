@@ -5,6 +5,27 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.11 — 2026-11-23
+
+Eleventh preview of Penfold 1.0: annotations are moved and resized on the page, with handles.
+
+### Added
+- Move and Resize, in the menu of an annotation (Move for comments, whose size is fixed), also from the Annotations
+  panel. The annotation shows its handles over a thin frame: dragging a handle changes its size, dragging the
+  annotation moves it, inside its page. Enter or a click outside accept the change, Esc cancels it, and one undo takes
+  it back.
+- Rectangles and circles have a handle at each corner; arrows one at each end.
+- Text boxes have a handle at each side, which changes only their width: the text is laid out again as the handle is
+  dragged, and the box grows or shrinks to it.
+- Highlights, underlines and strikethroughs have a handle where they start and one where they end, which cover more
+  or less text, letter by letter; the item is greyed out where there is no text under them.
+- Annotations made with other programs are moved keeping the drawing their program made, on the screen and when
+  saving. They are resized only if Penfold can draw all of their look again; otherwise their menu has Move.
+
+### Fixed
+- Saving, printing, extracting, editing the pages or closing first accept what is being edited on the page: a move
+  not accepted yet, or a text box being written, were left out of the file saved.
+
 ## 1.0.0-alpha.10 — 2026-11-23
 
 Tenth preview of Penfold 1.0: annotations are edited from their menu, a right click away, also those made with other
