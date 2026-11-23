@@ -84,9 +84,9 @@ def show_context_menu(
 ) -> Gtk.PopoverMenu:
     """Show a context menu at a point (x, y) of a widget; once it has closed, it is taken away from the widget.
 
-    The keyboard focus goes back to where it was inside focus_back (a list), or to focus_back itself: otherwise GTK
-    gives it to another widget when the menu goes away, and the Menu key would not reach the list again. It is left
-    where an action of the menu has put it, in a dialogue for example.
+    The keyboard focus goes back to where it was, or to focus_back (a list) if that widget has gone (an item
+    deleted): otherwise GTK gives it to another widget when the menu goes away. It is left where an action of the menu
+    has put it, in a dialogue.
     """
     root = parent.get_root()
     focused = root.get_focus() if isinstance(root, Gtk.Window) else None
@@ -103,9 +103,8 @@ def _take_away(menu: Gtk.PopoverMenu, focus_back: Gtk.Widget | None, focused: Gt
     if focus_back is not None and isinstance(root, Gtk.Window) and focus_back.get_mapped():
         focus = root.get_focus()
         dialog = isinstance(root, Adw.ApplicationWindow | Adw.Window) and root.get_visible_dialog() is not None
-        if not dialog and (focus is None or not focus.is_ancestor(focus_back)):
-            back = focused if focused is not None and focused.get_mapped() and focused.is_ancestor(focus_back) else None
-            (back or focus_back).grab_focus()
+        if not dialog and focus is not focused:
+            (focused if focused is not None and focused.get_mapped() else focus_back).grab_focus()
     return GLib.SOURCE_REMOVE
 
 

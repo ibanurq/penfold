@@ -428,10 +428,14 @@ class PagesView(Gtk.Box):
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
-        """The Menu key, or Shift+F10, opens the menu at the first thumbnail selected, if it is shown."""
+        """The Menu key, or Shift+F10, opens the menu of the selection."""
+        return is_menu_key(keyval, state) and self.open_menu()
+
+    def open_menu(self) -> bool:
+        """Open the menu at the first thumbnail selected, if it is shown; return whether it opened (keyboard)."""
         selected = self.selected_pages()
         cell = self._cells.get(selected[0]) if selected else None
-        if not is_menu_key(keyval, state) or cell is None:
+        if cell is None or not cell.get_mapped():
             return False
         self._ask_for_menu(cell, cell.get_width() / 2, cell.get_height() / 2)
         return True

@@ -146,3 +146,25 @@ def test_closing_the_menu_gives_the_focus_back_to_the_thumbnails(window: "Penfol
     close(menu)
     wait_until(lambda: menu.get_parent() is None)
     assert pages.has_focus_inside()
+
+
+def test_the_menu_key_opens_the_menu_wherever_the_focus_is(window: "PenfoldWindow") -> None:
+    """A click on a thumbnail leaves the focus in the document; the key acts on the view shown, as Delete."""
+    from penfold.ui.sidebar import sidebar as sidebar_views
+
+    pages = window.pages_view
+    cell(window, 1)
+    select(window, 1)
+    window.document_view.grab_focus()
+    assert window._on_menu_key(window, None)
+    menu = pages.menu
+    assert menu is not None
+    wait_until(menu.get_mapped)
+    close(menu)
+    wait_until(lambda: menu.get_parent() is None)
+    assert window.document_view.has_focus()  # Back where it was.
+    window.sidebar.show_view(sidebar_views.ANNOTATIONS)
+    assert not window._on_menu_key(window, None)
+    window.sidebar.show_view(sidebar_views.PAGES)
+    window.split_view.set_show_sidebar(False)
+    assert not window._on_menu_key(window, None)

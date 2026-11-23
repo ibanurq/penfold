@@ -211,3 +211,13 @@ def test_a_pdf_that_denies_assembling_shows_the_menu_greyed_out(
         assert not enabled(new_window, name), name
     new_window.destroy()
     process_pending_events()
+
+
+def test_the_menu_key_opens_the_menu_of_the_bookmarks_wherever_the_focus_is(window: "PenfoldWindow") -> None:
+    row(window, 2)
+    select(window, 2)
+    window.document_view.grab_focus()
+    assert window._on_menu_key(window, None)
+    menu = window.bookmarks_view.menu
+    assert menu is not None
+    close(menu)

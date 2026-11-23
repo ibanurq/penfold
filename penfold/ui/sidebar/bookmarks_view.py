@@ -352,15 +352,19 @@ class BookmarksView(Gtk.Box):
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
-        """The Menu key, or Shift+F10, opens the menu at the first bookmark selected, if its row is shown."""
+        """The Menu key, or Shift+F10, opens the menu of the selection."""
+        return is_menu_key(keyval, state) and self.open_menu()
+
+    def open_menu(self) -> bool:
+        """Open the menu at the first bookmark selected, if its row is shown; return whether it opened (keyboard)."""
         bitset = self.selection.get_selection()
-        if not is_menu_key(keyval, state) or bitset.is_empty():
+        if bitset.is_empty():
             return False
         position = bitset.get_minimum()
         tree_row = self.tree.get_row(position)
         item = tree_row.get_item() if tree_row is not None else None
         row = self._rows.get(id(item.bookmark)) if isinstance(item, BookmarkItem) else None
-        if row is None:
+        if row is None or not row.get_mapped():
             return False
         self._ask_for_menu(row, position, row.get_width() / 2, row.get_height() / 2)
         return True

@@ -242,14 +242,17 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._enable_action(name, enabled)
 
     def _add_delete_key(self) -> None:
-        """Let Delete delete what is selected in the panel (E3), F2 rename a bookmark (D74), H and U mark text (H7).
+        """Add the keys without Control: Delete, F2, the Menu key (or Shift+F10), and H and U.
 
-        They are handled after the focused widget, so that they still delete or type while typing in a field (L4).
+        Delete deletes what is selected in the panel (E3); F2 renames a bookmark and the Menu key opens the menu of the
+        pages or bookmarks selected (D74); H and U mark text (H7). They are handled after the focused widget, so that
+        they still delete or type while typing in a field (L4).
         """
         controller = Gtk.ShortcutController(propagation_phase=Gtk.PropagationPhase.BUBBLE)
         for trigger, callback in (
             ("Delete", self._on_delete_key),
             ("F2", self._on_rename_key),
+            ("Menu|<Shift>F10", self._on_menu_key),
             ("h", lambda _widget, _arguments: self._on_marking_key(Tool.HIGHLIGHT)),
             ("u", lambda _widget, _arguments: self._on_marking_key(Tool.UNDERLINE)),
         ):
@@ -282,6 +285,19 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return False
         action.activate(None)
         return True
+
+    def _on_menu_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
+        """The Menu key, or Shift+F10, opens the menu of what is selected in Pages or Bookmarks, if shown (D74).
+
+        As Delete, wherever the focus is: a click on a thumbnail or a bookmark leaves it in the document.
+        """
+        if self.get_visible_dialog() is not None or not self.split_view.get_show_sidebar():
+            return False
+        if self.sidebar.visible_view == sidebar_views.PAGES:
+            return self.pages_view.open_menu()
+        if self.sidebar.visible_view == sidebar_views.BOOKMARKS:
+            return self.bookmarks_view.open_menu()
+        return False
 
     def _on_rename_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
         """F2 renames the bookmark selected while the Bookmarks view is shown, and never while a dialogue is open."""
