@@ -5,7 +5,8 @@ handles. Dragging a handle changes its size; dragging it from anywhere else on i
 outside it accept the change; Esc cancels it. The document view owns the editor and passes it the mouse and the keys.
 
 Rectangles and circles have a handle at each corner (document/reshaping.py); text boxes one at each side, which change
-only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py).
+only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py);
+arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the change).
 """
 
 from collections.abc import Callable
@@ -13,9 +14,9 @@ from typing import TYPE_CHECKING
 
 from gi.repository import Adw, Gdk, Graphene, Gsk, Gtk
 
-from penfold.document.annotations import Annotation, Kind
+from penfold.document.annotations import Annotation, Hit, Kind, hit
 from penfold.document.geometry import turn_point
-from penfold.document.reshaping import Handle, Point, corner_handles, moved, with_corner
+from penfold.document.reshaping import Handle, Point, corner_handles, end_handles, moved, with_corner, with_end
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import side_handles, with_side
 
@@ -31,11 +32,12 @@ FRAME_WIDTH = 1.0
 WHITE = (1.0, 1.0, 1.0, 1.0)
 CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
+END_KINDS = frozenset({Kind.ARROW})
 
 
 def has_handles(annotation: Annotation) -> bool:
     """Whether an annotation is edited with handles."""
-    return annotation.kind in CORNER_KINDS | SIDE_KINDS
+    return annotation.kind in CORNER_KINDS | SIDE_KINDS | END_KINDS
 
 
 class HandleEditor:
@@ -152,7 +154,7 @@ class HandleEditor:
         Under it, so that the frame shows only where the annotation has no line of its own (around a circle).
         """
         bounds = self._view.annotation_bounds(page, self.annotation)
-        if bounds is None:
+        if bounds is None or self.annotation.kind in END_KINDS:  # Its handles at its ends show it well enough.
             return
         left, top, right, bottom = bounds
         x, y = origin
@@ -180,7 +182,10 @@ class HandleEditor:
         }
 
     def _is_on_annotation(self, page: ShownPage, point: Point) -> bool:
-        """Whether a point of the page as shown is on the annotation (anywhere within its frame)."""
+        """Whether a point of the page as shown is on the annotation: on an arrow's line, or anywhere in its frame."""
+        if self.annotation.kind in END_KINDS:
+            reach = HANDLE_REACH / self._view.zoom
+            return hit(self.annotation, *page.to_source(*point), reach) is not Hit.NONE
         bounds = self._view.annotation_bounds(page, self.annotation)
         if bounds is None:
             return False
@@ -196,6 +201,8 @@ class HandleEditor:
             return "move"
         left, top, right, bottom = bounds
         across, down = handle_x - (left + right) / 2, handle_y - (top + bottom) / 2
+        if handle in {Handle.START, Handle.END}:  # An end goes anywhere.
+            return "crosshair"
         if handle in {Handle.LEFT, Handle.RIGHT}:  # In the middle of a side: it stretches one way only.
             return "ew-resize" if abs(across) > abs(down) else "ns-resize"
         return "nwse-resize" if (across > 0) == (down > 0) else "nesw-resize"
@@ -207,6 +214,8 @@ def _handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:
         return corner_handles(annotation)
     if annotation.kind in SIDE_KINDS:
         return side_handles(annotation, page.source_size)
+    if annotation.kind in END_KINDS:
+        return end_handles(annotation)
     return {}
 
 
@@ -214,6 +223,8 @@ def _dragged(page: ShownPage, annotation: Annotation, handle: Handle, point: Poi
     """The annotation with one of its handles taken to a point of its unturned page."""
     if annotation.kind in SIDE_KINDS:
         return with_side(annotation, handle, point, page.source_size)
+    if annotation.kind in END_KINDS:
+        return with_end(annotation, handle, point, page.source_size)
     return with_corner(annotation, handle, point, page.source_size)
 
 

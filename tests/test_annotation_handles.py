@@ -167,7 +167,7 @@ def test_move_and_resize_is_only_in_the_menu_of_the_types_that_have_handles(
         Kind.OTHER: False,
         Kind.COMMENT: False,
         Kind.TEXT_BOX: True,  # Plain, as Penfold draws them.
-        Kind.ARROW: False,
+        Kind.ARROW: True,
     }
 
 
@@ -240,3 +240,60 @@ def test_a_text_box_moves_as_a_whole(text_box_window: "PenfoldWindow") -> None:
     press_key(window, Gdk.KEY_Return)
     left, top, right, bottom = box.rectangle
     assert the_box(window).rectangle == pytest.approx((left + 50, top + 30, right + 50, bottom + 30))
+
+
+LINE = (100.0, 300.0, 400.0, 500.0)
+
+
+@pytest.fixture
+def arrow_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A document with an arrow made in Penfold on its first page, from (100, 300) to (400, 500)."""
+    from tests.sample_pdfs import make_pdf
+
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=1))
+    document = window.document
+    assert document is not None
+    arrow = new_annotation(Kind.ARROW, 0, (100, 300, 400, 500), RED, "Iban", line=LINE)
+    document.execute(AddAnnotations(document, [arrow]))
+    process_pending_events()
+    return window
+
+
+def the_arrow(window: "PenfoldWindow") -> Annotation:
+    assert window.document is not None
+    return next(item for item in window.document.annotations if item.kind is Kind.ARROW)
+
+
+def test_an_arrow_has_a_handle_at_each_end(arrow_window: "PenfoldWindow") -> None:
+    window = arrow_window
+    editor = start_editing(window, (250, 400))
+    assert editor.handle_at(*widget_point(window, 0, 100, 300)) is Handle.START
+    assert editor.handle_at(*widget_point(window, 0, 400, 500)) is Handle.END
+    assert editor.handle_at(*widget_point(window, 0, 400, 300)) is None  # No corners.
+    assert editor.cursor_at(*widget_point(window, 0, 400, 500)) == "crosshair"
+    assert editor.cursor_at(*widget_point(window, 0, 250, 400)) == "move"
+    assert editor.cursor_at(*widget_point(window, 0, 350, 320)) is None  # Off its line, though within its frame.
+
+
+def test_an_end_goes_where_it_is_dragged_and_the_other_stays(arrow_window: "PenfoldWindow") -> None:
+    window = arrow_window
+    original = the_arrow(window)
+    start_editing(window, (250, 400))
+    drag(window, 0, (400, 500), (450, 250))
+    press_key(window, Gdk.KEY_Return)
+    changed = the_arrow(window)
+    assert changed.line == pytest.approx((100, 300, 450, 250))
+    assert changed.rectangle == pytest.approx((100, 250, 450, 300))
+    window.activate_action("win.undo", None)
+    assert the_arrow(window) is original
+
+
+def test_dragging_its_line_moves_it_and_a_press_off_its_line_accepts(arrow_window: "PenfoldWindow") -> None:
+    window = arrow_window
+    start_editing(window, (250, 400))
+    drag(window, 0, (250, 400), (270, 380))
+    view = window.document_view
+    view._on_pressed(None, 1, *widget_point(window, 0, 350, 320))  # type: ignore[arg-type]
+    process_pending_events()
+    assert view.handle_editor is None
+    assert the_arrow(window).line == pytest.approx((120, 280, 420, 480))
