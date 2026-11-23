@@ -6,7 +6,8 @@ outside it accept the change; Esc cancels it. The document view owns the editor 
 
 Rectangles and circles have a handle at each corner (document/reshaping.py); text boxes one at each side, which change
 only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py);
-arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the change).
+arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments
+have no handles: they keep their size, and are only moved.
 """
 
 from collections.abc import Callable
@@ -33,11 +34,6 @@ WHITE = (1.0, 1.0, 1.0, 1.0)
 CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
-
-
-def has_handles(annotation: Annotation) -> bool:
-    """Whether an annotation is edited with handles."""
-    return annotation.kind in CORNER_KINDS | SIDE_KINDS | END_KINDS
 
 
 class HandleEditor:

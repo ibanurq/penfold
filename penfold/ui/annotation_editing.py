@@ -23,11 +23,11 @@ from penfold.document.annotations import Annotation, Kind, managed_copy
 from penfold.document.commands.annotations import ChangeAnnotation, DeleteAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.history import Command
+from penfold.document.reshaping import can_move, can_resize
 from penfold.rendering.text_box import redrawn, with_text, written_frame
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.document_view import AnnotationClick, DocumentView
 from penfold.ui.format_popover import FormatPopover, has_format
-from penfold.ui.handle_editor import has_handles
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_to_hex, hex_to_color
 
 # No colour circle is ringed for a colour that is not one of the palette's.
@@ -99,7 +99,8 @@ class AnnotationEditing:
             colored=colored,
             with_text=annotation.kind in WITH_TEXT,
             with_format=has_format(annotation.kind),
-            reshaped=_can_reshape(annotation),
+            moved=_can_reshape(annotation),
+            resized=can_resize(annotation),
         )
         menu = Gtk.PopoverMenu.new_from_model(model)
         if colored:
@@ -356,12 +357,14 @@ class AnnotationEditing:
 
 
 def _can_reshape(annotation: Annotation) -> bool:
-    """Whether an annotation is moved or resized with handles: of a type that has them, drawn again by Penfold."""
-    return has_handles(annotation) and (annotation.managed or not annotation.foreign_look)
+    """Whether an annotation is moved (or resized) on its page: of a type that moves, drawn again by Penfold."""
+    return can_move(annotation) and (annotation.managed or not annotation.foreign_look)
 
 
-def _menu_model(*, colored: bool, with_text: bool, with_format: bool, reshaped: bool) -> Gio.Menu:
+def _menu_model(*, colored: bool, with_text: bool, with_format: bool, moved: bool, resized: bool) -> Gio.Menu:
     """The menu of an annotation: the colours, Edit Text…, Format… and Move and Resize (those it has), and Delete.
+
+    One that moves but keeps its size (a comment) has Move instead of Move and Resize.
 
     It is one section, with separators of its own between the groups: GTK measures a menu with a custom item and
     several sections too short, and the menu then scrolls.
@@ -373,9 +376,9 @@ def _menu_model(*, colored: bool, with_text: bool, with_format: bool, reshaped: 
         items.append(_("_Edit Text…"), "win.edit-annotation-text")
     if with_format:
         items.append(_("_Format…"), "win.format-annotation")
-    if reshaped:
-        items.append(_("_Move and Resize"), "win.reshape-annotation")
-    if with_text or with_format or reshaped:
+    if moved:
+        items.append(_("_Move and Resize") if resized else _("_Move"), "win.reshape-annotation")
+    if with_text or with_format or moved:
         items.append_item(_custom_item("separator"))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()

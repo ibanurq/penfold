@@ -165,7 +165,7 @@ def test_move_and_resize_is_only_in_the_menu_of_the_types_that_have_handles(
         Kind.HIGHLIGHT: False,
         Kind.RECTANGLE: False,
         Kind.OTHER: False,
-        Kind.COMMENT: False,
+        Kind.COMMENT: True,
         Kind.TEXT_BOX: True,  # Plain, as Penfold draws them.
         Kind.ARROW: True,
     }
@@ -297,3 +297,52 @@ def test_dragging_its_line_moves_it_and_a_press_off_its_line_accepts(arrow_windo
     process_pending_events()
     assert view.handle_editor is None
     assert the_arrow(window).line == pytest.approx((120, 280, 420, 480))
+
+
+COMMENT_SQUARE = (200.0, 200.0, 220.0, 220.0)
+
+
+@pytest.fixture
+def comment_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A document with a comment made in Penfold on its first page."""
+    from tests.sample_pdfs import make_pdf
+
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=1))
+    document = window.document
+    assert document is not None
+    comment = new_annotation(Kind.COMMENT, 0, COMMENT_SQUARE, RED, "Iban", text="A note")
+    document.execute(AddAnnotations(document, [comment]))
+    process_pending_events()
+    return window
+
+
+def the_comment(window: "PenfoldWindow") -> Annotation:
+    assert window.document is not None
+    return next(item for item in window.document.annotations if item.kind is Kind.COMMENT)
+
+
+def test_a_comment_has_no_handles_and_moves_keeping_its_size(comment_window: "PenfoldWindow") -> None:
+    window = comment_window
+    original = the_comment(window)
+    editor = start_editing(window, (210, 210))
+    assert editor.handle_at(*widget_point(window, 0, 200, 200)) is None
+    assert editor.cursor_at(*widget_point(window, 0, 210, 210)) == "move"
+    drag(window, 0, (210, 210), (300, 260))
+    press_key(window, Gdk.KEY_Return)
+    assert the_comment(window).rectangle == pytest.approx((290, 250, 310, 270))
+    assert the_comment(window).text == "A note"
+    window.activate_action("win.undo", None)
+    assert the_comment(window) is original
+
+
+def test_a_comment_on_a_turned_page_moves_as_the_pointer(comment_window: "PenfoldWindow") -> None:
+    window = comment_window
+    document = window.document
+    assert document is not None
+    document.execute(RotatePages(document, [0], 90))
+    process_pending_events()
+    # Upright on the turned page, it keeps the corner that is its top left unturned: (200, 200) shows at (642, 200).
+    start_editing(window, (652, 210))
+    drag(window, 0, (652, 210), (612, 250))  # 40 left and 40 down as shown: 40 down and 40 right unturned.
+    press_key(window, Gdk.KEY_Return)
+    assert the_comment(window).rectangle == pytest.approx((240, 240, 260, 260))
