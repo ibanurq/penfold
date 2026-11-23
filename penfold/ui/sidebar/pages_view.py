@@ -416,7 +416,9 @@ class PagesView(Gtk.Box):
             self.selection.select_item(page, True)
         found, point = cell.compute_point(self, Graphene.Point().init(x, y))
         if found:
-            self.menu = show_context_menu(pages_menu_model(), self, point.x, point.y, {SEPARATOR: separator()})
+            self.menu = show_context_menu(
+                pages_menu_model(), self, (point.x, point.y), {SEPARATOR: separator()}, focus_back=self.grid
+            )
             self.menu.connect("closed", self._on_menu_closed)
 
     def _on_menu_closed(self, menu: Gtk.PopoverMenu) -> None:

@@ -341,7 +341,8 @@ class BookmarksView(Gtk.Box):
         found, point = row.compute_point(self, Graphene.Point().init(x, y))
         if found:
             custom = {COLORS: color_row(PALETTE, "win.bookmark-color"), SEPARATOR: separator()}
-            self.menu = show_context_menu(bookmarks_menu_model(), self, point.x, point.y, custom)
+            model = bookmarks_menu_model()
+            self.menu = show_context_menu(model, self, (point.x, point.y), custom, focus_back=self.list)
             self.menu.connect("closed", self._on_menu_closed)
 
     def _on_menu_closed(self, menu: Gtk.PopoverMenu) -> None:

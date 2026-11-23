@@ -129,3 +129,20 @@ def test_a_pdf_that_denies_assembling_shows_the_menu_greyed_out(
         assert not enabled(new_window, name)
     new_window.destroy()
     process_pending_events()
+
+
+def test_closing_the_menu_gives_the_focus_back_to_the_thumbnails(window: "PenfoldWindow") -> None:
+    """Otherwise GTK gives it to another widget, and the Menu key does not reach the thumbnails again."""
+    pages = window.pages_view
+    select(window, 1)
+    item = cell(window, 1).get_parent()
+    assert item is not None
+    item.grab_focus()
+    assert pages.has_focus_inside()
+    assert pages._on_key_pressed(Gtk.EventControllerKey(), Gdk.KEY_Menu, 0, Gdk.ModifierType(0))
+    menu = pages.menu
+    assert menu is not None
+    wait_until(menu.get_mapped)
+    close(menu)
+    wait_until(lambda: menu.get_parent() is None)
+    assert pages.has_focus_inside()

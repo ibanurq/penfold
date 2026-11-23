@@ -5,7 +5,15 @@ from collections.abc import Iterator
 import pytest
 from gi.repository import Gio, GLib, Gtk
 
-from penfold.ui.context_menu import COLORS, SEPARATOR, color_row, context_menu, custom_item, separator
+from penfold.ui.context_menu import (
+    COLORS,
+    SEPARATOR,
+    color_row,
+    context_menu,
+    custom_item,
+    separator,
+    show_context_menu,
+)
 from penfold.ui.palette import COLORS as PALETTE
 from tests.gtk_helpers import wait_until, wait_until_stable
 
@@ -91,3 +99,28 @@ def all_widgets(widget: Gtk.Widget) -> Iterator[Gtk.Widget]:
     yield widget
     for child in children(widget):
         yield from all_widgets(child)
+
+
+def test_the_focus_goes_back_inside_the_widget_given_once_the_menu_closes(parent: Gtk.Box) -> None:
+    outside, inside = Gtk.Button(label="Outside"), Gtk.Button(label="Inside")
+    focus_back = Gtk.Box()
+    focus_back.append(inside)
+    parent.append(outside)
+    parent.append(focus_back)
+    inside.grab_focus()
+    menu = show_context_menu(menu_model(), parent, (20, 20), focus_back=focus_back)
+    wait_until(menu.get_mapped)
+    outside.grab_focus()  # Where GTK may leave it.
+    menu.popdown()
+    wait_until(lambda: menu.get_parent() is None)
+    assert inside.has_focus()
+
+
+def test_a_click_on_a_colour_closes_the_menu(parent: Gtk.Box) -> None:
+    custom = {COLORS: color_row(PALETTE, "win.bookmark-color"), SEPARATOR: separator()}
+    menu = show_context_menu(menu_model(), parent, (20, 20), custom)
+    wait_until(menu.get_mapped)
+    circle = next(widget for widget in all_widgets(menu) if widget.has_css_class("color-circle"))
+    assert isinstance(circle, Gtk.Button)
+    circle.emit("clicked")
+    wait_until(lambda: not menu.get_mapped())

@@ -10,7 +10,7 @@ Shift+F10 at the item selected (menu_gestures, is_menu_key).
 
 from collections.abc import Callable, Iterable, Mapping
 
-from gi.repository import Gdk, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from penfold.ui.palette import color_circle
 
@@ -32,15 +32,26 @@ def separator() -> Gtk.Widget:
 
 
 def color_row(colors: Iterable[str], action_name: str) -> Gtk.Widget:
-    """Colour circles bound to a text action with a state (#rrggbb), and a separator below, as a section's."""
+    """Colour circles bound to a text action with a state (#rrggbb), and a separator below, as a section's.
+
+    A click on a colour changes it and closes the menu, as a click on an item does.
+    """
     row = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, homogeneous=True)
     row.add_css_class("context-menu-colors")
     for value in colors:
-        row.append(color_circle(value, action_name))
+        circle = color_circle(value, action_name)
+        circle.connect("clicked", _close_menu)
+        row.append(circle)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     box.append(row)
     box.append(separator())
     return box
+
+
+def _close_menu(circle: Gtk.Widget) -> None:
+    menu = circle.get_ancestor(Gtk.Popover)
+    if isinstance(menu, Gtk.Popover):
+        menu.popdown()
 
 
 def context_menu(
@@ -64,18 +75,37 @@ def context_menu(
 
 
 def show_context_menu(
-    model: Gio.MenuModel, parent: Gtk.Widget, x: float, y: float, custom: Mapping[str, Gtk.Widget] | None = None
+    model: Gio.MenuModel,
+    parent: Gtk.Widget,
+    point: tuple[float, float],
+    custom: Mapping[str, Gtk.Widget] | None = None,
+    *,
+    focus_back: Gtk.Widget | None = None,
 ) -> Gtk.PopoverMenu:
-    """Show a context menu at a point of a widget; once it has closed, it is taken away from the widget."""
-    menu = context_menu(model, parent, x, y, custom or {})
+    """Show a context menu at a point (x, y) of a widget; once it has closed, it is taken away from the widget.
+
+    The keyboard focus goes back to where it was inside focus_back (a list), or to focus_back itself: otherwise GTK
+    gives it to another widget when the menu goes away, and the Menu key would not reach the list again. It is left
+    where an action of the menu has put it, in a dialogue for example.
+    """
+    root = parent.get_root()
+    focused = root.get_focus() if isinstance(root, Gtk.Window) else None
+    menu = context_menu(model, parent, *point, custom or {})
     # After the action chosen has run, and outside the popover's own signal.
-    menu.connect("closed", lambda closed: GLib.idle_add(_take_away, closed))
+    menu.connect("closed", lambda closed: GLib.idle_add(_take_away, closed, focus_back, focused))
     menu.popup()
     return menu
 
 
-def _take_away(menu: Gtk.PopoverMenu) -> bool:
+def _take_away(menu: Gtk.PopoverMenu, focus_back: Gtk.Widget | None, focused: Gtk.Widget | None) -> bool:
+    root = menu.get_root()
     menu.unparent()
+    if focus_back is not None and isinstance(root, Gtk.Window) and focus_back.get_mapped():
+        focus = root.get_focus()
+        dialog = isinstance(root, Adw.ApplicationWindow | Adw.Window) and root.get_visible_dialog() is not None
+        if not dialog and (focus is None or not focus.is_ancestor(focus_back)):
+            back = focused if focused is not None and focused.get_mapped() and focused.is_ancestor(focus_back) else None
+            (back or focus_back).grab_focus()
     return GLib.SOURCE_REMOVE
 
 
