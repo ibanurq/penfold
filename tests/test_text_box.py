@@ -12,8 +12,21 @@ from penfold.document.annotations import Annotation, Kind, Style, new_annotation
 from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
+from penfold.document.reshaping import Handle  # noqa: E402
 from penfold.document.saving import save  # noqa: E402
-from penfold.rendering.text_box import BORDER, PADDING, text_box_pdf, text_height, with_text, written_frame  # noqa: E402
+from penfold.rendering.layout import ShownPage  # noqa: E402
+from penfold.rendering.text_box import (  # noqa: E402
+    BORDER,
+    NARROWEST,
+    PADDING,
+    side_handles,
+    text_box_pdf,
+    text_height,
+    with_side,
+    with_text,
+    written_frame,
+    written_height,
+)
 from tests.sample_pdfs import make_pdf  # noqa: E402
 
 BLUE = (0.6, 0.757, 0.945)
@@ -131,3 +144,67 @@ def test_another_text_keeps_where_it_starts_and_its_width(text_turn: int) -> Non
     new_area = (longer.rectangle[2] - longer.rectangle[0]) * (longer.rectangle[3] - longer.rectangle[1])
     assert new_area > area  # Taller as it reads, for the longer text.
     assert longer.text == TEXT + " " + TEXT
+
+
+def frame(box: Annotation) -> tuple[float, float, float]:
+    """Where a box's text starts and how wide it is, as its text reads: left, top, width."""
+    (left, top), width = written_frame(box, A4_SIZE)
+    return left, top, width
+
+
+def written_point(box: Annotation, x: float, y: float) -> tuple[float, float]:
+    """A point of the box's page given as its text reads, in points of the unturned page."""
+    return ShownPage(box.page, A4_SIZE, box.text_turn).to_source(x, y)
+
+
+@pytest.mark.parametrize("text_turn", [0, 90, 180, 270])
+def test_the_handles_of_a_text_box_are_in_the_middle_of_its_sides(text_turn: int) -> None:
+    box = text_box(0, (100, 150), 160, text_turn=text_turn)
+    (left, top), width = written_frame(box, A4_SIZE)
+    middle = top + written_height(box) / 2
+    handles = side_handles(box, A4_SIZE)
+    assert handles[Handle.LEFT] == pytest.approx(written_point(box, left, middle))
+    assert handles[Handle.RIGHT] == pytest.approx(written_point(box, left + width, middle))
+
+
+@pytest.mark.parametrize("text_turn", [0, 90, 180, 270])
+def test_narrower_from_the_right_side_it_is_taller_and_starts_where_it_did(text_turn: int) -> None:
+    box = text_box(0, (100, 150), 160, text_turn=text_turn)
+    left, top, _width = frame(box)
+    narrower = with_side(box, Handle.RIGHT, written_point(box, left + 120, top + 300), A4_SIZE)
+    assert frame(narrower) == pytest.approx((left, top, 120))
+    assert written_height(narrower) == pytest.approx(text_height(TEXT, 120))
+    assert written_height(narrower) > written_height(box)
+    assert narrower.drawing == box.drawing  # Drawn again by whoever uses it, once it is done.
+
+
+@pytest.mark.parametrize("text_turn", [0, 90])
+def test_wider_from_the_left_side_its_height_follows_the_text_and_it_ends_where_it_did(text_turn: int) -> None:
+    box = text_box(0, (100, 150), 160, text_turn=text_turn)
+    left, top, width = frame(box)
+    wider = with_side(box, Handle.LEFT, written_point(box, left - 60, top - 40), A4_SIZE)
+    assert frame(wider) == pytest.approx((left - 60, top, width + 60))
+    assert written_height(wider) == pytest.approx(text_height(TEXT, width + 60))
+
+
+def test_a_text_box_is_never_narrower_than_the_narrowest() -> None:
+    box = text_box(0, (100, 150), 160)
+    assert frame(with_side(box, Handle.RIGHT, (20, 160), A4_SIZE)) == pytest.approx((100, 150, NARROWEST))
+    assert frame(with_side(box, Handle.LEFT, (400, 160), A4_SIZE)) == pytest.approx((260 - NARROWEST, 150, NARROWEST))
+
+
+@pytest.mark.parametrize("text_turn", [0, 90])
+def test_a_text_box_is_never_wider_than_its_page(text_turn: int) -> None:
+    box = text_box(0, (100, 150), 160, text_turn=text_turn)
+    left, top, _width = frame(box)
+    page_width, _height = ShownPage(0, A4_SIZE, text_turn).size
+    widest = with_side(box, Handle.RIGHT, written_point(box, page_width, top), A4_SIZE)
+    beyond = with_side(box, Handle.RIGHT, written_point(box, 5000, top), A4_SIZE)
+    assert frame(beyond) == pytest.approx(frame(widest))
+    assert frame(widest) == pytest.approx((left, top, page_width - left))
+    assert frame(with_side(box, Handle.LEFT, written_point(box, -90, top), A4_SIZE))[0] == pytest.approx(0)
+
+
+def test_only_the_sides_change_a_text_box() -> None:
+    with pytest.raises(ValueError, match="not a side"):
+        with_side(text_box(0, (100, 150), 160), Handle.TOP_LEFT, (0, 0), A4_SIZE)

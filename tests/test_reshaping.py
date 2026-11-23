@@ -1,0 +1,131 @@
+"""Moving annotations and changing their size with handles (D72, D73)."""
+
+import pytest
+
+from penfold.document.annotations import Annotation, Kind, new_annotation
+from penfold.document.reshaping import (
+    SMALLEST_SIZE,
+    Handle,
+    can_move,
+    can_resize,
+    corner_handles,
+    end_handles,
+    moved,
+    with_corner,
+    with_end,
+)
+
+PAGE = (600.0, 800.0)
+RED = (0.9, 0.2, 0.2)
+
+
+def shape(
+    kind: Kind = Kind.RECTANGLE, rectangle: tuple[float, float, float, float] = (100, 100, 200, 150)
+) -> Annotation:
+    return new_annotation(kind, 0, rectangle, RED, "Iban")
+
+
+def arrow(line: tuple[float, float, float, float] = (100, 100, 200, 150)) -> Annotation:
+    start_x, start_y, end_x, end_y = line
+    rectangle = (min(start_x, end_x), min(start_y, end_y), max(start_x, end_x), max(start_y, end_y))
+    return new_annotation(Kind.ARROW, 0, rectangle, RED, "Iban", line=line)
+
+
+def test_which_types_move_and_which_change_their_size() -> None:
+    marks = new_annotation(Kind.HIGHLIGHT, 0, (10, 10, 50, 20), RED, "Iban", quads=((10, 10, 50, 20),))
+    comment = shape(Kind.COMMENT, (10, 10, 30, 30))
+    assert [can_move(item) for item in (shape(), arrow(), comment, marks)] == [True, True, True, False]
+    assert [can_resize(item) for item in (shape(), arrow(), comment, marks)] == [True, True, False, False]
+
+
+def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
+    marks = new_annotation(Kind.UNDERLINE, 0, (10, 10, 50, 40), RED, "Iban", quads=((10, 10, 50, 20), (10, 30, 40, 40)))
+    assert moved(marks, (5, 7), PAGE).quads == ((15, 17, 55, 27), (15, 37, 45, 47))
+    assert moved(marks, (5, 7), PAGE).rectangle == (15, 17, 55, 47)
+    original = arrow()
+    pointing = moved(original, (-20, 30), PAGE)
+    assert (pointing.line, pointing.rectangle) == ((80, 130, 180, 180), (80, 130, 180, 180))
+    assert (pointing.name, pointing.color, pointing.style) == (original.name, original.color, original.style)
+
+
+def test_moving_stops_at_the_edges_of_the_page() -> None:
+    assert moved(shape(), (-500, -500), PAGE).rectangle == (0, 0, 100, 50)
+    assert moved(shape(), (900, 900), PAGE).rectangle == (500, 750, 600, 800)
+
+
+def test_one_already_out_of_the_page_is_not_pushed_in_but_goes_no_further() -> None:
+    out = shape(rectangle=(-30, 100, 70, 150))
+    assert moved(out, (0, 10), PAGE).rectangle == (-30, 110, 70, 160)
+    assert moved(out, (-10, 0), PAGE).rectangle == (-30, 100, 70, 150)
+    assert moved(out, (10, 0), PAGE).rectangle == (-20, 100, 80, 150)
+
+
+def test_the_handles_of_a_shape_are_its_corners_and_of_an_arrow_its_ends() -> None:
+    assert corner_handles(shape()) == {
+        Handle.TOP_LEFT: (100, 100),
+        Handle.TOP_RIGHT: (200, 100),
+        Handle.BOTTOM_RIGHT: (200, 150),
+        Handle.BOTTOM_LEFT: (100, 150),
+    }
+    assert end_handles(arrow()) == {Handle.START: (100, 100), Handle.END: (200, 150)}
+
+
+@pytest.mark.parametrize(
+    ("corner", "point", "expected"),
+    [
+        (Handle.BOTTOM_RIGHT, (250, 180), (100, 100, 250, 180)),
+        (Handle.TOP_LEFT, (50, 60), (50, 60, 200, 150)),
+        (Handle.TOP_RIGHT, (300, 20), (100, 20, 300, 150)),
+        (Handle.BOTTOM_LEFT, (90, 400), (90, 100, 200, 400)),
+    ],
+)
+def test_a_corner_goes_where_it_is_taken_and_the_opposite_one_stays(
+    corner: Handle, point: tuple[float, float], expected: tuple[float, float, float, float]
+) -> None:
+    assert with_corner(shape(), corner, point, PAGE).rectangle == expected
+
+
+def test_taken_past_the_opposite_corner_the_shape_turns_over() -> None:
+    assert with_corner(shape(Kind.CIRCLE), Handle.BOTTOM_RIGHT, (40, 20), PAGE).rectangle == (40, 20, 100, 100)
+
+
+def test_a_corner_stays_inside_the_page() -> None:
+    assert with_corner(shape(), Handle.BOTTOM_RIGHT, (900, 1000), PAGE).rectangle == (100, 100, 600, 800)
+    assert with_corner(shape(), Handle.TOP_LEFT, (-50, -9), PAGE).rectangle == (0, 0, 200, 150)
+
+
+def test_a_shape_never_gets_smaller_than_the_smallest_size() -> None:
+    squeezed = with_corner(shape(), Handle.BOTTOM_RIGHT, (101, 99), PAGE).rectangle
+    assert squeezed == (100, 100 - SMALLEST_SIZE, 100 + SMALLEST_SIZE, 100)
+
+
+def test_at_the_edge_of_the_page_the_smallest_shape_goes_the_other_way() -> None:
+    at_edge = shape(rectangle=(0, 0, 50, 50))
+    assert with_corner(at_edge, Handle.TOP_RIGHT, (-20, 30), PAGE).rectangle == (0, 30, SMALLEST_SIZE, 50)
+
+
+def test_only_corners_change_a_shape() -> None:
+    with pytest.raises(ValueError, match="not a corner"):
+        with_corner(shape(), Handle.START, (0, 0), PAGE)
+
+
+def test_an_end_of_an_arrow_goes_where_it_is_taken_and_the_other_stays() -> None:
+    longer = with_end(arrow(), Handle.END, (300, 50), PAGE)
+    assert (longer.line, longer.rectangle) == ((100, 100, 300, 50), (100, 50, 300, 100))
+    assert with_end(arrow(), Handle.START, (250, 400), PAGE).line == (250, 400, 200, 150)
+
+
+def test_an_end_stays_inside_the_page() -> None:
+    assert with_end(arrow(), Handle.START, (-40, 900), PAGE).line == (0, 800, 200, 150)
+
+
+def test_an_arrow_too_short_stays_as_it_was() -> None:
+    original = arrow()
+    assert with_end(original, Handle.END, (101, 101), PAGE) is original
+
+
+def test_only_the_ends_of_an_arrow_change_it() -> None:
+    with pytest.raises(ValueError, match="not an end"):
+        with_end(arrow(), Handle.TOP_LEFT, (0, 0), PAGE)
+    with pytest.raises(ValueError, match="not an end"):
+        with_end(shape(), Handle.START, (0, 0), PAGE)

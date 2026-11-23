@@ -20,6 +20,7 @@ from penfold.document.appearance import COMMENT_SIZE
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle
+from penfold.document.reshaping import SMALLEST_SIZE
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import DEFAULT_WIDTH, NARROWEST, text_box_pdf, text_height
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
@@ -33,8 +34,6 @@ DRAWING_CURSOR = "crosshair"
 DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.COMMENT, Tool.TEXT_BOX})
 MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT})
 SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
-# A drag shorter than this, in points, is a click: it draws nothing.
-SMALLEST_SHAPE = 3.0
 
 
 class Annotating:
@@ -158,7 +157,7 @@ class Annotating:
         """The shape of the tool chosen from one end of a drag to the other; None for a click."""
         kind = self.tool.kind
         start, end = page.to_source(*shown_start), page.to_source(*shown_end)
-        if kind is None or max(abs(end[0] - start[0]), abs(end[1] - start[1])) < SMALLEST_SHAPE:
+        if kind is None or max(abs(end[0] - start[0]), abs(end[1] - start[1])) < SMALLEST_SIZE:
             return None
         rectangle = (min(start[0], end[0]), min(start[1], end[1]), max(start[0], end[0]), max(start[1], end[1]))
         line = (*start, *end) if kind is Kind.ARROW else None
@@ -169,7 +168,7 @@ class Annotating:
         page_width, _page_height = page.size
         left = min(shown_start[0], shown_end[0])
         width = abs(shown_end[0] - shown_start[0])
-        if width < SMALLEST_SHAPE:
+        if width < SMALLEST_SIZE:
             left, width = shown_start[0], DEFAULT_WIDTH
         width = max(NARROWEST, min(width, page_width - left))
         left = min(left, page_width - width)

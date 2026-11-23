@@ -16,7 +16,8 @@ from gi.repository import Pango, PangoCairo
 
 from penfold.document.annotations import TEXT_BOX_FONT_SIZE, Annotation, Style
 from penfold.document.appearance import TEXT_BOX_BACKGROUND, tint
-from penfold.document.geometry import Size
+from penfold.document.geometry import Size, turn_point, turned_size
+from penfold.document.reshaping import Handle, Point
 from penfold.rendering.layout import ShownPage
 
 FONT_FAMILY = "Liberation Sans"
@@ -106,8 +107,53 @@ def with_text(annotation: Annotation, text: str, source_size: Size) -> Annotatio
 
     It grows or shrinks downwards as its text reads, whatever the turn of the page now.
     """
+    corner, width = written_frame(annotation, source_size)
+    return _framed(replace(annotation, text=text), corner, width, source_size)
+
+
+def side_handles(annotation: Annotation, source_size: Size) -> dict[Handle, Point]:
+    """Where the handles of a text box are (D73): in the middle of the sides where its lines start and end."""
     (left, top), width = written_frame(annotation, source_size)
-    height = text_height(text, width, annotation.style.font_size)
+    height = written_height(annotation)
+    written = ShownPage(annotation.page, source_size, annotation.text_turn)
+    middle = top + height / 2
+    return {Handle.LEFT: written.to_source(left, middle), Handle.RIGHT: written.to_source(left + width, middle)}
+
+
+def with_side(annotation: Annotation, side: Handle, point: Point, source_size: Size) -> Annotation:
+    """A text box with a side taken to a point of its page (D73): only its width changes, and its height follows.
+
+    The other side stays where it was; the box is never narrower than NARROWEST nor wider than its page (draw it with
+    redrawn).
+
+    Raises:
+        ValueError: the handle is not a side.
+    """
+    if side not in {Handle.LEFT, Handle.RIGHT}:
+        message = f"{side} is not a side of a text box"
+        raise ValueError(message)
+    (left, top), width = written_frame(annotation, source_size)
+    right = left + width
+    page_width, _page_height = turned_size(source_size, annotation.text_turn)
+    x, _y = turn_point(*point, source_size, annotation.text_turn)
+    narrowest = min(NARROWEST, page_width)
+    if side is Handle.LEFT:
+        left = min(max(x, 0.0), max(right - narrowest, 0.0))
+    else:
+        right = max(min(x, page_width), min(left + narrowest, page_width))
+    return _framed(annotation, (left, top), right - left, source_size)
+
+
+def written_height(annotation: Annotation) -> float:
+    """The height of a text box as its text reads: across the page if the text reads turned a quarter."""
+    left, top, right, bottom = annotation.rectangle
+    return right - left if annotation.text_turn % 180 else bottom - top
+
+
+def _framed(annotation: Annotation, corner: Point, width: float, source_size: Size) -> Annotation:
+    """A text box from a corner and as wide as given, as its text reads, as tall as its text needs."""
+    left, top = corner
+    height = text_height(annotation.text, width, annotation.style.font_size)
     written = ShownPage(annotation.page, source_size, annotation.text_turn)
     corners = [written.to_source(left, top), written.to_source(left + width, top + height)]
     rectangle = (
@@ -116,7 +162,7 @@ def with_text(annotation: Annotation, text: str, source_size: Size) -> Annotatio
         max(x for x, _y in corners),
         max(y for _x, y in corners),
     )
-    return replace(annotation, text=text, rectangle=rectangle)
+    return replace(annotation, rectangle=rectangle)
 
 
 def _layout(context: cairo.Context, text: str, width: float, font_size: float) -> Pango.Layout:

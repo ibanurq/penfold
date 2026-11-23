@@ -14,6 +14,7 @@ install_data(
   'page_labels.py',
   'pages.py',
   'pdf_values.py',
+  'reshaping.py',
   'saving.py',
   'sources.py',
   install_dir: pkgdatadir / 'penfold' / 'document',
