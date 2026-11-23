@@ -3,9 +3,12 @@
 They open without an arrow, from the pointer to its right, and are one section with separators of their own between
 the groups: GTK measures a menu with a custom item and several sections too short, and the menu then scrolls. A row
 of colour circles is a custom item too.
+
+In the lists of the side panel, a right click or a long press asks for the menu at the pointer, and the Menu key or
+Shift+F10 at the item selected (menu_gestures, is_menu_key).
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 from gi.repository import Gdk, Gio, GLib, Gtk
 
@@ -58,3 +61,34 @@ def context_menu(
     place.x, place.y, place.width, place.height = round(x), round(y), 1, 1
     menu.set_pointing_to(place)
     return menu
+
+
+def show_context_menu(
+    model: Gio.MenuModel, parent: Gtk.Widget, x: float, y: float, custom: Mapping[str, Gtk.Widget] | None = None
+) -> Gtk.PopoverMenu:
+    """Show a context menu at a point of a widget; once it has closed, it is taken away from the widget."""
+    menu = context_menu(model, parent, x, y, custom or {})
+    # After the action chosen has run, and outside the popover's own signal.
+    menu.connect("closed", lambda closed: GLib.idle_add(_take_away, closed))
+    menu.popup()
+    return menu
+
+
+def _take_away(menu: Gtk.PopoverMenu) -> bool:
+    menu.unparent()
+    return GLib.SOURCE_REMOVE
+
+
+def menu_gestures(widget: Gtk.Widget, ask_for_menu: Callable[[float, float], None]) -> None:
+    """Ask for a menu at the point of a widget where it is right-clicked, or long pressed on a touch screen."""
+    right_click = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+    right_click.connect("pressed", lambda _gesture, _presses, x, y: ask_for_menu(x, y))
+    widget.add_controller(right_click)
+    long_press = Gtk.GestureLongPress(touch_only=True)
+    long_press.connect("pressed", lambda _gesture, x, y: ask_for_menu(x, y))
+    widget.add_controller(long_press)
+
+
+def is_menu_key(keyval: int, state: Gdk.ModifierType) -> bool:
+    """Whether a key asks for the menu of what is selected: the Menu key, or Shift+F10."""
+    return keyval == Gdk.KEY_Menu or (keyval == Gdk.KEY_F10 and bool(state & Gdk.ModifierType.SHIFT_MASK))

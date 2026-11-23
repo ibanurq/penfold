@@ -90,6 +90,7 @@ RESPONSE_CANCEL = "cancel"
 RESPONSE_DISCARD = "discard"
 RESPONSE_SAVE = "save"
 QUARTER_TURN = 90
+HALF_TURN = 180
 WINDOW_ACCELERATORS = {
     "win.close": ["<Control>w"],
     **{f"win.{name}": keys for name, keys in EDIT_ACTIONS.items()},
@@ -174,6 +175,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "redo": lambda: self._undo_or_redo(redo=True),
             "rotate-pages-left": lambda: self._rotate_selected_pages(-QUARTER_TURN),
             "rotate-pages-right": lambda: self._rotate_selected_pages(QUARTER_TURN),
+            "rotate-pages-180": lambda: self._rotate_selected_pages(HALF_TURN),
             "delete-pages": self._delete_selected_pages,
             "add-pages": self._open_add_pages_dialog,
             "extract-pages": self._open_extract_pages_dialog,
@@ -292,6 +294,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         for name, enabled in (
             ("rotate-pages-left", selected > 0),
             ("rotate-pages-right", selected > 0),
+            ("rotate-pages-180", selected > 0),
             ("delete-pages", 0 < selected < page_count),
             ("add-pages", assemble),
             ("extract-pages", assemble),

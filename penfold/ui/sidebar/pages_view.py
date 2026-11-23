@@ -7,8 +7,9 @@ centred vertically. The thumbnail of the page being read is marked, with a soft 
 document.
 
 With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6); a click away from the thumbnails, or
-Esc, clears the selection (D47). Thumbnails are dragged to reorder the pages, several at once if the one dragged is
-selected (E1). Adding and extracting come with phase 4.
+Esc, clears the selection (D47). A right click on a thumbnail, a long press, or the Menu key (or Shift+F10) opens the
+menu of the pages selected; a thumbnail not selected is selected alone first (D74). Thumbnails are dragged to reorder
+the pages, several at once if the one dragged is selected (E1). Adding and extracting come with phase 4.
 """
 
 import math
@@ -23,6 +24,7 @@ from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import Rectangle
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
 from penfold.ui.autoscroll import DragAutoscroll
+from penfold.ui.context_menu import SEPARATOR, custom_item, is_menu_key, menu_gestures, separator, show_context_menu
 from penfold.ui.document_view import append_page_frame
 from penfold.ui.sidebar.view_header import header_button, unselect_all, unselect_on_empty_click, view_header
 
@@ -62,6 +64,22 @@ def fit_page(page_size: tuple[float, float], box_width: float, box_height: float
     scale = min(box_width / page_width, box_height / page_height)
     width, height = page_width * scale, page_height * scale
     return (box_width - width) / 2, (box_height - height) / 2, width, height
+
+
+def pages_menu_model() -> Gio.Menu:
+    """The menu of the pages selected (02-interfaz, 6.1; D74): the three turns and Delete.
+
+    One section, with a separator of its own (ui/context_menu.py).
+    """
+    items = Gio.Menu()
+    items.append(_("Rotate _Left"), "win.rotate-pages-left")
+    items.append(_("Rotate _Right"), "win.rotate-pages-right")
+    items.append(_("Rotate _180°"), "win.rotate-pages-180")
+    items.append_item(custom_item(SEPARATOR))
+    items.append(_("_Delete"), "win.delete-pages")
+    menu = Gio.Menu()
+    menu.append_section(None, items)
+    return menu
 
 
 def rgba(red: float, green: float, blue: float, alpha: float) -> Gdk.RGBA:
@@ -266,6 +284,11 @@ class PagesView(Gtk.Box):
         self.grid.add_css_class("navigation-sidebar")
         self.scrolled = Gtk.ScrolledWindow(child=self.grid, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         unselect_on_empty_click(self.scrolled, self.selection)
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", self._on_key_pressed)
+        self.grid.add_controller(keys)
+        # The menu of the pages selected, while it is open.
+        self.menu: Gtk.PopoverMenu | None = None
         self.append(self._add_drop_target())
         self.selection_label, self.action_bar = self._action_bar()
         self.append(self.action_bar)
@@ -396,6 +419,35 @@ class PagesView(Gtk.Box):
         pages = self.document.pages if self.document is not None else []
         self._selected_sources = {pages[position].source_index for position in selected if position < len(pages)}
 
+    # Menu of the pages selected (D74).
+
+    def _ask_for_menu(self, cell: PageCell, x: float, y: float) -> None:
+        """Open the menu at a point of a thumbnail; a thumbnail not selected is selected alone first."""
+        page = cell.thumbnail.page
+        if not 0 <= page < self.pages.get_n_items():
+            return
+        if not self.selection.is_selected(page):
+            self.selection.select_item(page, True)
+        found, point = cell.compute_point(self, Graphene.Point().init(x, y))
+        if found:
+            self.menu = show_context_menu(pages_menu_model(), self, point.x, point.y, {SEPARATOR: separator()})
+            self.menu.connect("closed", self._on_menu_closed)
+
+    def _on_menu_closed(self, menu: Gtk.PopoverMenu) -> None:
+        if self.menu is menu:
+            self.menu = None
+
+    def _on_key_pressed(
+        self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
+    ) -> bool:
+        """The Menu key, or Shift+F10, opens the menu at the first thumbnail selected, if it is shown."""
+        selected = self.selected_pages()
+        cell = self._cells.get(selected[0]) if selected else None
+        if not is_menu_key(keyval, state) or cell is None:
+            return False
+        self._ask_for_menu(cell, cell.get_width() / 2, cell.get_height() / 2)
+        return True
+
     # Zoom of the thumbnails (D39).
 
     @property
@@ -518,6 +570,7 @@ class PagesView(Gtk.Box):
         click = Gtk.GestureClick()
         click.connect("released", self._on_cell_clicked, item)
         cell.add_controller(click)
+        menu_gestures(cell, lambda x, y: self._ask_for_menu(cell, x, y))
         drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
         drag.connect("prepare", self._on_drag_prepare, cell)
         drag.connect("drag-begin", self._on_drag_begin, cell)
