@@ -197,7 +197,8 @@ class AnnotationEditing:
 
         def done(changed: Annotation | None) -> None:
             if changed is not None and document.permissions.annotate:
-                document.execute(ChangeAnnotation(document, annotation, changed))
+                drawn = redrawn(changed) if changed.kind is Kind.TEXT_BOX else changed
+                document.execute(ChangeAnnotation(document, annotation, drawn))
             elif not annotation.managed:
                 renderer.hide_annotations(document.replaced_annotations)
 

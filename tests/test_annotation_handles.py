@@ -10,6 +10,7 @@ from penfold.document.annotations import Annotation, Kind, new_annotation
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.commands.pages import RotatePages
 from penfold.document.reshaping import Handle
+from penfold.rendering.text_box import text_box_pdf, text_height, written_frame
 from tests.gtk_helpers import process_pending_events
 from tests.test_annotation_menu import annotated_window, make_annotated_pdf
 from tests.test_document_window import open_and_wait, window
@@ -165,6 +166,77 @@ def test_move_and_resize_is_only_in_the_menu_of_the_types_that_have_handles(
         Kind.RECTANGLE: False,
         Kind.OTHER: False,
         Kind.COMMENT: False,
-        Kind.TEXT_BOX: False,
+        Kind.TEXT_BOX: True,  # Plain, as Penfold draws them.
         Kind.ARROW: False,
     }
+
+
+TEXT = "A text long enough to need a few lines in a box of this width, and then some more words."
+A4 = (595.0, 842.0)
+
+
+@pytest.fixture
+def text_box_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A document with a text box made in Penfold on its first page, 200 points wide from (100, 100)."""
+    from tests.sample_pdfs import make_pdf
+
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=1))
+    document = window.document
+    assert document is not None
+    height = text_height(TEXT, 200)
+    box = new_annotation(
+        Kind.TEXT_BOX,
+        0,
+        (100, 100, 300, 100 + height),
+        RED,
+        "Iban",
+        text=TEXT,
+        drawing=text_box_pdf(TEXT, (200, height), RED),
+    )
+    document.execute(AddAnnotations(document, [box]))
+    process_pending_events()
+    return window
+
+
+def the_box(window: "PenfoldWindow") -> Annotation:
+    assert window.document is not None
+    return next(item for item in window.document.annotations if item.kind is Kind.TEXT_BOX)
+
+
+def test_a_text_box_has_a_handle_at_each_side(text_box_window: "PenfoldWindow") -> None:
+    window = text_box_window
+    box = the_box(window)
+    middle = (box.rectangle[1] + box.rectangle[3]) / 2
+    editor = start_editing(window, (200, box.rectangle[1] + 5))
+    assert editor.handle_at(*widget_point(window, 0, 100, middle)) is Handle.LEFT
+    assert editor.handle_at(*widget_point(window, 0, 300, middle)) is Handle.RIGHT
+    assert editor.handle_at(*widget_point(window, 0, 300, box.rectangle[1])) is None  # No corners.
+    assert editor.cursor_at(*widget_point(window, 0, 300, middle)) == "ew-resize"
+
+
+def test_narrower_it_grows_taller_as_it_is_dragged_and_is_drawn_again(text_box_window: "PenfoldWindow") -> None:
+    window = text_box_window
+    box = the_box(window)
+    middle = (box.rectangle[1] + box.rectangle[3]) / 2
+    editor = start_editing(window, (200, box.rectangle[1] + 5))
+    drag(window, 0, (300, middle), (220, middle + 40))
+    shown = editor.annotation  # As the drag ends, before it is accepted: the text laid out again.
+    (left, top), width = written_frame(shown, A4)
+    assert (left, top, width) == pytest.approx((100, 100, 120))  # The left side stays.
+    assert shown.rectangle[3] - shown.rectangle[1] == pytest.approx(text_height(TEXT, 120))
+    press_key(window, Gdk.KEY_Return)
+    changed = the_box(window)
+    assert changed.rectangle == pytest.approx(shown.rectangle)
+    assert changed.drawing != box.drawing  # Its saved drawing, made again for the new width.
+    window.activate_action("win.undo", None)
+    assert the_box(window) is box
+
+
+def test_a_text_box_moves_as_a_whole(text_box_window: "PenfoldWindow") -> None:
+    window = text_box_window
+    box = the_box(window)
+    start_editing(window, (200, box.rectangle[1] + 5))
+    drag(window, 0, (200, box.rectangle[1] + 5), (250, box.rectangle[1] + 35))
+    press_key(window, Gdk.KEY_Return)
+    left, top, right, bottom = box.rectangle
+    assert the_box(window).rectangle == pytest.approx((left + 50, top + 30, right + 50, bottom + 30))
