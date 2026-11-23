@@ -24,6 +24,7 @@ from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
 from penfold.rendering.text_box import Color
 from penfold.rendering.text_search import SearchResult
 from penfold.ui.form_layer import FormLayer, ShownBox
+from penfold.ui.handle_editor import HandleEditor
 from penfold.ui.text_box_editor import TextBoxEditor
 from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
@@ -203,6 +204,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._hidden: Annotation | None = None
         # A text box being written on a page (H3).
         self.text_editor: TextBoxEditor | None = None
+        # An annotation being moved or resized with handles (D73).
+        self.handle_editor: HandleEditor | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -288,6 +291,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             for annotation in self.document.annotations:
                 if annotation.managed and annotation is not self._hidden:
                     self._managed.setdefault(annotation.page, []).append(annotation)
+        editor = self.handle_editor
+        annotations = [] if self.document is None else self.document.annotations
+        if editor is not None and not any(item is editor.original for item in annotations):
+            editor.finish(apply=False)  # Undone or deleted meanwhile.
         self.queue_draw()
 
     def form_changed(self) -> None:
@@ -704,8 +711,13 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                     ready.append((key, texture))
             draw_tiles = functools.partial(self._draw_tiles, origin=(x, y), box=box, ready=ready, missing=missing)
             draw_tiles(snapshot)
+            shown = self.renderer.layout[box.page]
+            if self.handle_editor is not None:
+                self.handle_editor.snapshot_frame(snapshot, shown, (x, y), self.zoom)
             self._draw_annotations(snapshot, x, y, box, draw_tiles)
             self._draw_mark(snapshot, x, y, box)
+            if self.handle_editor is not None:
+                self.handle_editor.snapshot_handles(snapshot, shown, (x, y), self.zoom)
             self._draw_matches(snapshot, x, y, box)
             self._draw_selection(snapshot, x, y, box)
         for page in self._nearby_pages(visible):
@@ -888,6 +900,63 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         place.width, place.height = max(1, round((right - left) * self.zoom)), max(1, round((bottom - top) * self.zoom))
         return place
 
+    def shown_page(self, source: int) -> ShownPage | None:
+        """A page as shown, by its source index (None if it is not in the document)."""
+        position = None if self.renderer is None else self.renderer.layout.position(source)
+        return None if self.renderer is None or position is None else self.renderer.layout[position]
+
+    def point_on_page(self, page: ShownPage, x: float, y: float) -> tuple[float, float] | None:
+        """A point of the view on a page as shown, in points, even outside the page (None if it is not laid out)."""
+        box = self._page_box(page)
+        if box is None or self._hadjustment is None or self._vadjustment is None:
+            return None
+        return (
+            (x + self._hadjustment.get_value() - box.x) / self.zoom,
+            (y + self._vadjustment.get_value() - box.y) / self.zoom,
+        )
+
+    def point_in_view(self, page: ShownPage, point: tuple[float, float]) -> tuple[float, float]:
+        """Where a point of a page as shown, in points, is in the view, in pixels."""
+        box = self._page_box(page)
+        if box is None or self._hadjustment is None or self._vadjustment is None:
+            return (math.inf, math.inf)
+        x, y = point
+        return (
+            box.x - self._hadjustment.get_value() + x * self.zoom,
+            box.y - self._vadjustment.get_value() + y * self.zoom,
+        )
+
+    def _page_box(self, page: ShownPage) -> PageBox | None:
+        position = None if self.renderer is None else self.renderer.layout.position(page.source)
+        return None if position is None else self._box(position)
+
+    def edit_handles(
+        self, annotation: Annotation, original: Annotation, on_done: Callable[[Annotation | None], None]
+    ) -> HandleEditor:
+        """Start moving or resizing an annotation with handles (D73): a managed copy of the original, shown instead.
+
+        on_done receives the annotation changed, or None if the change was cancelled or nothing changed.
+        """
+        if self.text_editor is not None:
+            self.text_editor.finish(apply=True)
+        if self.handle_editor is not None:
+            self.handle_editor.finish(apply=True)
+        self.handle_editor = HandleEditor(self, annotation, original, on_done)
+        self.set_hidden(original)
+        self.set_preview(annotation)
+        self.grab_focus()
+        return self.handle_editor
+
+    def stop_handle_editing(self, editor: HandleEditor) -> None:
+        """Stop showing an annotation's handles, and show it as it is in the document."""
+        if self.handle_editor is not editor:
+            return
+        self.handle_editor = None
+        self.set_preview(None)
+        self.set_hidden(None)
+        if self._pointer is not None:
+            self._show_cursor(*self._pointer)
+
     def set_hidden(self, annotation: Annotation | None) -> None:
         """Leave out of the painting an annotation being edited on the page (None: none), under its editor."""
         self._hidden = annotation
@@ -1009,6 +1078,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         """Ask for the menu of the annotation under a point, if there is one; elsewhere, nothing happens (D72)."""
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
+        if self.handle_editor is not None:
+            self.handle_editor.finish(apply=True)
         annotation = self.annotation_at(x, y)
         if annotation is not None:
             self.grab_focus()
@@ -1095,6 +1166,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.text_editor.finish(apply=True)
             return
         self.grab_focus()
+        if self.handle_editor is not None:
+            self.handle_editor.press(x, y)
+            return
         if self._shape_maker is not None:
             self._set_selection(None)
             self._shape_start = self.page_point(x, y)
@@ -1110,6 +1184,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._set_selection(TextSelection(self._press, self._press, self._press_style))
 
     def _on_drag_update(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
+        if self.handle_editor is not None:
+            _found, start_x, start_y = gesture.get_start_point()
+            self.handle_editor.drag(start_x + offset_x, start_y + offset_y)
+            return
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
             return
@@ -1142,6 +1220,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
         """The end of a selection or a shape; a click without moving follows a link, or clears the selection."""
+        if self.handle_editor is not None:
+            self._on_drag_update(gesture, offset_x, offset_y)
+            if self.handle_editor is not None:
+                self.handle_editor.release()
+            return
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
             shape, self._shape_start = self._preview, None
@@ -1194,7 +1277,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         The text cursor only if the PDF lets its text be copied (D59).
         """
         on_page = self.page_point(x, y) is not None
-        if self._drawing_cursor is not None:
+        if self.handle_editor is not None:
+            self.set_cursor_from_name(self.handle_editor.cursor_at(x, y))
+        elif self._drawing_cursor is not None:
             self.set_cursor_from_name(self._drawing_cursor if on_page else None)
         elif self.link_at(x, y) is not None:
             self.set_cursor_from_name("pointer")
@@ -1255,11 +1340,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         # Keys a form field leaves (the arrows at the ends of its text…) are not for the view.
         if self.renderer is None or self._vadjustment is None or self._hadjustment is None or self.get_focus_child():
             return False
+        if self.handle_editor is not None and self.handle_editor.key_pressed(keyval):
+            return True
         control = bool(state & Gdk.ModifierType.CONTROL_MASK)
-        if control and keyval in {Gdk.KEY_c, Gdk.KEY_C}:
-            return self.copy_selection()
         if control:
-            return False
+            return keyval in {Gdk.KEY_c, Gdk.KEY_C} and self.copy_selection()
         vertical = {Gdk.KEY_Up: -SCROLL_STEP, Gdk.KEY_Down: SCROLL_STEP}.get(keyval)
         if vertical is not None:
             self._vadjustment.set_value(self._vadjustment.get_value() + vertical)

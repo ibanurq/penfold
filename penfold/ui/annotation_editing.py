@@ -3,7 +3,8 @@
 The menu has the six colours at the top (the annotation's own with a ring) and, below, what can be done with that
 type of annotation. A click on a colour changes it and closes the menu; Edit Text… edits the text of a comment in
 its popover and that of a text box on the page; Format… opens its Format panel beside it, whose changes show at once
-and are undone as one edit; Delete deletes it without asking, with a toast to undo it. While
+and are undone as one edit; Move and Resize shows its handles on the page (D73), and the change is one edit too;
+Delete deletes it without asking, with a toast to undo it. While
 the menu is open, the annotation is outlined. Annotations of types Penfold does not make only have Delete. A PDF that
 does not allow annotating shows the menu with everything greyed out.
 
@@ -26,6 +27,7 @@ from penfold.rendering.text_box import redrawn, with_text, written_frame
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.document_view import AnnotationClick, DocumentView
 from penfold.ui.format_popover import FormatPopover, has_format
+from penfold.ui.handle_editor import has_handles
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_to_hex, hex_to_color
 
 # No colour circle is ringed for a colour that is not one of the palette's.
@@ -65,9 +67,11 @@ class AnnotationEditing:
         self._edit_text.connect("activate", lambda _action, _parameter: self.edit_text())
         self._format = Gio.SimpleAction.new("format-annotation", None)
         self._format.connect("activate", lambda _action, _parameter: self.format())
+        self._reshape = Gio.SimpleAction.new("reshape-annotation", None)
+        self._reshape.connect("activate", lambda _action, _parameter: self.reshape())
         self._delete = Gio.SimpleAction.new("delete-annotation", None)
         self._delete.connect("activate", lambda _action, _parameter: self.delete())
-        for action in (self._color, self._edit_text, self._format, self._delete):
+        for action in (self._color, self._edit_text, self._format, self._reshape, self._delete):
             window.add_action(action)
         document_view.connect("annotation-menu-requested", self._on_menu_requested)
 
@@ -89,9 +93,13 @@ class AnnotationEditing:
         self._color.set_enabled(allowed and colored)
         self._edit_text.set_enabled(allowed)
         self._format.set_enabled(allowed)
+        self._reshape.set_enabled(allowed)
         self._delete.set_enabled(allowed)
         model = _menu_model(
-            colored=colored, with_text=annotation.kind in WITH_TEXT, with_format=has_format(annotation.kind)
+            colored=colored,
+            with_text=annotation.kind in WITH_TEXT,
+            with_format=has_format(annotation.kind),
+            reshaped=_can_reshape(annotation),
         )
         menu = Gtk.PopoverMenu.new_from_model(model)
         if colored:
@@ -171,6 +179,29 @@ class AnnotationEditing:
                 self._warn_of_foreign_look(lambda: self._open_format(annotation))
 
         self._when_menu_closed(open_panel)
+
+    def reshape(self) -> None:
+        """Show the handles of the annotation of the menu on its page, to move it or change its size (D73)."""
+        annotation = self.annotation
+        if annotation is not None and _can_reshape(annotation):
+            self._when_menu_closed(lambda: self._edit_shape(annotation))
+
+    def _edit_shape(self, annotation: Annotation) -> None:
+        """Edit an annotation with handles, shown as it changes (Poppler leaves out one of the PDF meanwhile)."""
+        view, document = self._document_view, self._document()
+        renderer = view.renderer
+        if document is None or renderer is None or not any(item is annotation for item in document.annotations):
+            return
+        if not annotation.managed:
+            renderer.hide_annotations([*document.replaced_annotations, annotation])
+
+        def done(changed: Annotation | None) -> None:
+            if changed is not None and document.permissions.annotate:
+                document.execute(ChangeAnnotation(document, annotation, changed))
+            elif not annotation.managed:
+                renderer.hide_annotations(document.replaced_annotations)
+
+        view.edit_handles(managed_copy(annotation), annotation, done)
 
     def _open_format(self, annotation: Annotation) -> None:
         document, place = self._document(), self._document_view.view_rectangle(annotation)
@@ -323,8 +354,13 @@ class AnnotationEditing:
         dialog.present(self._window)
 
 
-def _menu_model(*, colored: bool, with_text: bool, with_format: bool) -> Gio.Menu:
-    """The menu of an annotation: the colours (if it has them), Edit Text… and Format… (if it has them), and Delete.
+def _can_reshape(annotation: Annotation) -> bool:
+    """Whether an annotation is moved or resized with handles: of a type that has them, drawn again by Penfold."""
+    return has_handles(annotation) and (annotation.managed or not annotation.foreign_look)
+
+
+def _menu_model(*, colored: bool, with_text: bool, with_format: bool, reshaped: bool) -> Gio.Menu:
+    """The menu of an annotation: the colours, Edit Text…, Format… and Move and Resize (those it has), and Delete.
 
     It is one section, with separators of its own between the groups: GTK measures a menu with a custom item and
     several sections too short, and the menu then scrolls.
@@ -336,7 +372,9 @@ def _menu_model(*, colored: bool, with_text: bool, with_format: bool) -> Gio.Men
         items.append(_("_Edit Text…"), "win.edit-annotation-text")
     if with_format:
         items.append(_("_Format…"), "win.format-annotation")
-    if with_text or with_format:
+    if reshaped:
+        items.append(_("_Move and Resize"), "win.reshape-annotation")
+    if with_text or with_format or reshaped:
         items.append_item(_custom_item("separator"))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()

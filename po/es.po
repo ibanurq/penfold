@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-22 17:24+0100\n"
+"POT-Creation-Date: 2026-11-23 16:04+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -94,7 +94,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:311
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:342
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
 #: penfold/ui/window.py:1056
@@ -433,18 +433,18 @@ msgstr "Abrir una ventana nueva"
 msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
-#: penfold/ui/annotation_editing.py:279
+#: penfold/ui/annotation_editing.py:310
 #, python-brace-format
 msgid "Annotation deleted"
 msgid_plural "{count} annotations deleted"
 msgstr[0] "Anotación eliminada"
 msgstr[1] "{count} anotaciones eliminadas"
 
-#: penfold/ui/annotation_editing.py:305
+#: penfold/ui/annotation_editing.py:336
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:307
+#: penfold/ui/annotation_editing.py:338
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -452,19 +452,23 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:312
+#: penfold/ui/annotation_editing.py:343
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:336
+#: penfold/ui/annotation_editing.py:372
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:338
+#: penfold/ui/annotation_editing.py:374
 msgid "_Format…"
 msgstr "_Formato…"
 
-#: penfold/ui/annotation_editing.py:341
+#: penfold/ui/annotation_editing.py:376
+msgid "_Move and Resize"
+msgstr "_Mover y cambiar tamaño"
+
+#: penfold/ui/annotation_editing.py:379
 msgid "_Delete"
 msgstr "_Eliminar"
 
@@ -958,19 +962,19 @@ msgstr "Sin texto"
 msgid "Filter"
 msgstr "Filtro"
 
-#: penfold/ui/sidebar/annotations_view.py:267
+#: penfold/ui/sidebar/annotations_view.py:265
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
 
-#: penfold/ui/sidebar/annotations_view.py:267
+#: penfold/ui/sidebar/annotations_view.py:265
 msgid "This PDF has no annotations"
 msgstr "Este PDF no tiene anotaciones"
 
-#: penfold/ui/sidebar/annotations_view.py:338
+#: penfold/ui/sidebar/annotations_view.py:343
 msgid "(External)"
 msgstr "(Externa)"
 
-#: penfold/ui/sidebar/annotations_view.py:436
+#: penfold/ui/sidebar/annotations_view.py:441
 #, python-brace-format
 msgid "{group} ({count})"
 msgstr "{group} ({count})"
