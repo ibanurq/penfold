@@ -1,4 +1,4 @@
-"""Editing bookmarks from the window (G3 to G7): the actions of the bar of the Bookmarks view (02-interfaz, 6.2; D23).
+"""Editing bookmarks from the window (G3 to G7): the actions of the Bookmarks view (02-interfaz, 6.2; D23, D74).
 
 Each action runs a bookmark edit on the document, so it can be undone, and selects again the bookmarks it edited.
 What cannot be done with the bookmarks selected is greyed out (D21).
@@ -170,7 +170,7 @@ class BookmarkEditing:
             if document is self._document():
                 self._execute(document, RenameBookmark(document, bookmark, title))
 
-        text_question(_("Edit Text"), bookmark.title, _("_Save"), rename).present(self._window)
+        text_question(_("Rename"), bookmark.title, _("_Save"), rename).present(self._window)
 
     def _point_selected(self) -> None:
         """Make the bookmark selected lead to the start of the current page (G5)."""

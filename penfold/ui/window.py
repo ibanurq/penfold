@@ -242,13 +242,14 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._enable_action(name, enabled)
 
     def _add_delete_key(self) -> None:
-        """Let the Delete key delete what is selected in the panel (E3), and H and U highlight or underline (H7).
+        """Let Delete delete what is selected in the panel (E3), F2 rename a bookmark (D74), H and U mark text (H7).
 
         They are handled after the focused widget, so that they still delete or type while typing in a field (L4).
         """
         controller = Gtk.ShortcutController(propagation_phase=Gtk.PropagationPhase.BUBBLE)
         for trigger, callback in (
             ("Delete", self._on_delete_key),
+            ("F2", self._on_rename_key),
             ("h", lambda _widget, _arguments: self._on_marking_key(Tool.HIGHLIGHT)),
             ("u", lambda _widget, _arguments: self._on_marking_key(Tool.UNDERLINE)),
         ):
@@ -278,6 +279,20 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return True
         action = self.lookup_action("delete-pages")
         if self.sidebar.visible_view != sidebar_views.PAGES or action is None or not action.get_enabled():
+            return False
+        action.activate(None)
+        return True
+
+    def _on_rename_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
+        """F2 renames the bookmark selected while the Bookmarks view is shown, and never while a dialogue is open."""
+        action = self.lookup_action("rename-bookmark")
+        if (
+            self.get_visible_dialog() is not None
+            or not self.split_view.get_show_sidebar()
+            or self.sidebar.visible_view != sidebar_views.BOOKMARKS
+            or action is None
+            or not action.get_enabled()
+        ):
             return False
         action.activate(None)
         return True

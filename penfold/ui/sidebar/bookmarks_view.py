@@ -1,21 +1,33 @@
 """The Bookmarks view of the side panel (02-interfaz, 6.2; D23): the outline as a tree.
 
 It shows each bookmark's style and page, lets the user unfold it and go to a bookmark, and follows the reading (D40).
-With bookmarks selected, a bar at the bottom edits them through the window's actions. A click away from the rows, or
-Esc, clears the selection (D47). Bookmarks are dragged before, after or inside another (G6), several at once if the
-one dragged is selected.
+With bookmarks selected, a bar at the bottom edits them through the window's actions; so does the menu that a right
+click on a row, a long press, or the Menu key (or Shift+F10) opens, after selecting alone a row not selected (D74). A
+click away from the rows, or Esc, clears the selection (D47). Bookmarks are dragged before, after or inside another
+(G6), several at once if the one dragged is selected.
 """
 
 from gettext import gettext as _
 from typing import ClassVar
 
-from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
 
 from penfold.document.bookmarks import Bookmark, ReadingIndex, topmost
 from penfold.document.commands.bookmarks import Placement, can_move
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer
 from penfold.ui.autoscroll import DragAutoscroll
+from penfold.ui.context_menu import (
+    COLORS,
+    SEPARATOR,
+    color_row,
+    custom_item,
+    is_menu_key,
+    menu_gestures,
+    separator,
+    show_context_menu,
+)
+from penfold.ui.palette import COLORS as PALETTE
 from penfold.ui.palette import color_to_hex
 from penfold.ui.sidebar.bookmark_format import format_button
 from penfold.ui.sidebar.view_header import (
@@ -83,6 +95,31 @@ def title_markup(bookmark: Bookmark) -> str:
     if bookmark.bold:
         text = f"<b>{text}</b>"
     return text
+
+
+def bookmarks_menu_model() -> Gio.Menu:
+    """The menu of the bookmarks selected (02-interfaz, 6.2; D74).
+
+    The eight colours, bold and italic (ticked when all the bookmarks selected have them), Clear Formatting, Rename…
+    (F2), Point to the Current Page, the two indents and Delete; one section, with separators of its own
+    (ui/context_menu.py).
+    """
+    items = Gio.Menu()
+    items.append_item(custom_item(COLORS))
+    items.append(_("_Bold"), "win.bookmark-bold")
+    items.append(_("_Italic"), "win.bookmark-italic")
+    items.append(_("_Clear Formatting"), "win.clear-bookmark-format")
+    rename = Gio.MenuItem.new(_("_Rename…"), "win.rename-bookmark")
+    rename.set_attribute_value("accel", GLib.Variant.new_string("F2"))
+    items.append_item(rename)
+    items.append(_("_Point to the Current Page"), "win.point-bookmark")
+    items.append(_("Increase Inden_t"), "win.indent-bookmarks")
+    items.append(_("Decrea_se Indent"), "win.outdent-bookmarks")
+    items.append_item(custom_item(SEPARATOR))
+    items.append(_("_Delete"), "win.delete-bookmarks")
+    menu = Gio.Menu()
+    menu.append_section(None, items)
+    return menu
 
 
 class BookmarkRow(Gtk.Box):
@@ -157,6 +194,11 @@ class BookmarksView(Gtk.Box):
         self.stack = Gtk.Stack(vexpand=True)
         self.scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
         unselect_on_empty_click(self.scrolled, self.selection)
+        keys = Gtk.EventControllerKey()
+        keys.connect("key-pressed", self._on_key_pressed)
+        self.list.add_controller(keys)
+        # The menu of the bookmarks selected, while it is open.
+        self.menu: Gtk.PopoverMenu | None = None
         self._add_drop_target()
         DragAutoscroll(self.scrolled)
         self.stack.add_named(self.scrolled, "list")
@@ -307,6 +349,40 @@ class BookmarksView(Gtk.Box):
             bar.pack_start(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
         return bar
 
+    # Menu of the bookmarks selected (D74).
+
+    def _ask_for_menu(self, row: BookmarkRow, position: int, x: float, y: float) -> None:
+        """Open the menu at a point of the row at a position of the list; a row not selected is selected alone."""
+        if not 0 <= position < self.tree.get_n_items():
+            return
+        if not self.selection.is_selected(position):
+            self.selection.select_item(position, True)
+        found, point = row.compute_point(self, Graphene.Point().init(x, y))
+        if found:
+            custom = {COLORS: color_row(PALETTE, "win.bookmark-color"), SEPARATOR: separator()}
+            self.menu = show_context_menu(bookmarks_menu_model(), self, point.x, point.y, custom)
+            self.menu.connect("closed", self._on_menu_closed)
+
+    def _on_menu_closed(self, menu: Gtk.PopoverMenu) -> None:
+        if self.menu is menu:
+            self.menu = None
+
+    def _on_key_pressed(
+        self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
+    ) -> bool:
+        """The Menu key, or Shift+F10, opens the menu at the first bookmark selected, if its row is shown."""
+        bitset = self.selection.get_selection()
+        if not is_menu_key(keyval, state) or bitset.is_empty():
+            return False
+        position = bitset.get_minimum()
+        tree_row = self.tree.get_row(position)
+        item = tree_row.get_item() if tree_row is not None else None
+        row = self._rows.get(id(item.bookmark)) if isinstance(item, BookmarkItem) else None
+        if row is None:
+            return False
+        self._ask_for_menu(row, position, row.get_width() / 2, row.get_height() / 2)
+        return True
+
     def toggle_all(self) -> None:
         """Unfold every branch, or fold them all if they are all unfolded."""
         rows = [self.tree.get_row(index) for index in range(self.tree.get_n_items())]
@@ -343,6 +419,7 @@ class BookmarksView(Gtk.Box):
         click = Gtk.GestureClick()
         click.connect("released", self._on_row_clicked, item)
         row.add_controller(click)
+        menu_gestures(row, lambda x, y: self._ask_for_menu(row, item.get_position(), x, y))
         drag = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
         drag.connect("prepare", self._on_drag_prepare, row)
         drag.connect("drag-begin", self._on_drag_begin, row)
