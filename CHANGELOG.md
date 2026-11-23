@@ -5,6 +5,34 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.10 — 2026-11-23
+
+Tenth preview of Penfold 1.0: annotations are edited from their menu, a right click away, also those made with other
+programs.
+
+### Added
+- A right click on an annotation (or a long press) opens its menu, and outlines it: the six colours at the top, the
+  annotation’s own with a ring, then Edit Text…, Format… and Delete, as its type has them. A left click still only
+  selects text, also over a highlight. Annotations of types Penfold does not make only have Delete; a PDF that does
+  not allow annotating shows the menu greyed out.
+- A colour of the menu changes the annotation at once. Delete deletes it without asking, with a toast to undo it.
+- Edit Text… opens a comment’s popover with its text, and writes a text box’s text on the page, with its format; the
+  box keeps where its text starts and its width, and grows or shrinks to the text.
+- Format… opens a panel beside the annotation, with its colours and the rows of its type: opacity for marks on text;
+  line width (thin, medium, thick), solid or dashed line, a soft fill and opacity for rectangles and circles; the same
+  and arrowheads (at the end, at both ends or none) for arrows; letter size, background and border for text boxes.
+  Every change shows at once, and all of them are undone as one.
+- Annotations made with other programs, of the types Penfold makes, are edited too: Penfold reads their look, name and
+  dates, keeps what is not changed, and warns before changing one whose look it cannot draw again (a cloudy border, a
+  closed arrowhead, another font or background colour). Until changed, they are drawn as their program made them.
+- The Annotations panel: rows are selected and unselected as in Pages and Bookmarks; a right click on a row, the Menu
+  key or Shift+F10 open the menu of its annotation, the document going to it; Delete deletes the rows selected.
+- Annotations deleted or changed are taken out of their pages when saving, printing or extracting, with the pop-up
+  windows of their notes.
+
+### Fixed
+- The group headings of the Annotations panel count the annotations left after an edit.
+
 ## 1.0.0-alpha.9 — 2026-11-22
 
 Ninth preview of Penfold 1.0: annotations are made, with the pencil’s floating bar, and saved as the PDF standard asks.

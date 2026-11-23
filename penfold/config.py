@@ -4,7 +4,7 @@ VERSION must match the version in meson.build (tests/test_build.py checks it).
 """
 
 APP_ID = "io.github.ibanurq.Penfold"
-VERSION = "1.0.0-alpha.9"
+VERSION = "1.0.0-alpha.10"
 GETTEXT_DOMAIN = "penfold"
 RESOURCE_FILE_NAME = "penfold.gresource"
 RESOURCE_BASE_PATH = "/io/github/ibanurq/Penfold"
