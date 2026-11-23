@@ -173,11 +173,12 @@ textview.form-field > text {
   background: none;
 }
 
-/* The colours at the top of an annotation's menu (D72), with a separator below like those between sections. */
-.annotation-menu-colors {
+/* The colours at the top of a context menu (D72, D74), and the separators between its groups, like those between
+   sections. */
+.context-menu-colors {
   margin: 6px 6px 3px;
 }
 
-.annotation-menu-separator {
+.context-menu-separator {
   margin: 6px 0;
 }

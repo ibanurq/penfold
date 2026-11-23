@@ -7,6 +7,7 @@ install_data(
   'autoscroll.py',
   'bookmark_editing.py',
   'comment_popover.py',
+  'context_menu.py',
   'document_header.py',
   'document_view.py',
   'extraction.py',

@@ -17,7 +17,7 @@ from dataclasses import replace
 from gettext import gettext as _
 from gettext import ngettext
 
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind, managed_copy
 from penfold.document.commands.annotations import ChangeAnnotation, DeleteAnnotations
@@ -26,9 +26,10 @@ from penfold.document.history import Command
 from penfold.document.reshaping import can_move, can_resize
 from penfold.rendering.text_box import redrawn, with_text, written_frame
 from penfold.ui.comment_popover import CommentPopover
+from penfold.ui.context_menu import COLORS, SEPARATOR, color_row, context_menu, custom_item, separator
 from penfold.ui.document_view import AnnotationClick, DocumentView
 from penfold.ui.format_popover import FormatPopover, has_format
-from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_to_hex, hex_to_color
+from penfold.ui.palette import ANNOTATION_COLORS, color_to_hex, hex_to_color
 
 # No colour circle is ringed for a colour that is not one of the palette's.
 NO_COLOR = ""
@@ -102,17 +103,11 @@ class AnnotationEditing:
             moved=can_move(annotation) or can_resize(annotation),
             resized=can_resize(annotation),
         )
-        menu = Gtk.PopoverMenu.new_from_model(model)
+        custom = {SEPARATOR: separator()}
         if colored:
-            menu.add_child(_color_row(), "colors")
-        menu.add_child(_separator(), "separator")
-        menu.set_parent(parent or self._document_view)
-        # As context menus open: without an arrow, from the pointer to its right, covering less of the annotation.
-        menu.set_has_arrow(False)
-        menu.set_halign(Gtk.Align.START)
-        place = Gdk.Rectangle()
-        place.x, place.y, place.width, place.height = round(x), round(y), 1, 1
-        menu.set_pointing_to(place)
+            custom[COLORS] = color_row(ANNOTATION_COLORS, "win.annotation-menu-color")
+        # From the pointer to its right, it covers less of the annotation.
+        menu = context_menu(model, parent or self._document_view, x, y, custom)
         menu.connect("closed", self._on_menu_closed)
         self.menu = menu
         self._document_view.set_marked(annotation)
@@ -385,12 +380,11 @@ def _menu_model(*, colored: bool, with_text: bool, with_format: bool, moved: boo
 
     One that moves but keeps its size (a comment) has Move instead of Move and Resize.
 
-    It is one section, with separators of its own between the groups: GTK measures a menu with a custom item and
-    several sections too short, and the menu then scrolls.
+    It is one section, with separators of its own between the groups (as every context menu, ui/context_menu.py).
     """
     items = Gio.Menu()
     if colored:
-        items.append_item(_custom_item("colors"))
+        items.append_item(custom_item(COLORS))
     if with_text:
         items.append(_("_Edit Text…"), "win.edit-annotation-text")
     if with_format:
@@ -398,32 +392,8 @@ def _menu_model(*, colored: bool, with_text: bool, with_format: bool, moved: boo
     if moved:
         items.append(_("_Move and Resize") if resized else _("_Move"), "win.reshape-annotation")
     if with_text or with_format or moved:
-        items.append_item(_custom_item("separator"))
+        items.append_item(custom_item(SEPARATOR))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()
     menu.append_section(None, items)
     return menu
-
-
-def _custom_item(name: str) -> Gio.MenuItem:
-    """A place in the menu for a widget of the popover's own (add_child with this name)."""
-    item = Gio.MenuItem()
-    item.set_attribute_value("custom", GLib.Variant.new_string(name))
-    return item
-
-
-def _separator() -> Gtk.Widget:
-    """A separator between groups of items, as those between sections."""
-    return Gtk.Separator(css_classes=["annotation-menu-separator"])
-
-
-def _color_row() -> Gtk.Widget:
-    """The six colour circles, bound to the action of the menu's colour, and a separator below, as a section's."""
-    row = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, homogeneous=True)
-    row.add_css_class("annotation-menu-colors")
-    for value in ANNOTATION_COLORS:
-        row.append(color_circle(value, "win.annotation-menu-color"))
-    colors = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-    colors.append(row)
-    colors.append(_separator())
-    return colors
