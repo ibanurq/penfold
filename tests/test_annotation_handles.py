@@ -518,3 +518,26 @@ def test_a_mark_without_text_under_it_cannot_change(mark_window: "PenfoldWindow"
     assert not action.get_enabled()
     assert window.annotation_editing.menu is not None
     window.annotation_editing.menu.popdown()
+
+
+def test_move_and_resize_from_the_annotations_panel(annotated_window: "PenfoldWindow") -> None:
+    """From a row of the panel, the handles show on the page, and the page has the focus for Enter and Esc."""
+    from penfold.ui.sidebar import sidebar as sidebar_views
+
+    window = annotated_window
+    window.split_view.set_show_sidebar(True)
+    window.sidebar.show_view(sidebar_views.ANNOTATIONS)
+    process_pending_events()
+    panel = window.annotations_view
+    wait_until(lambda: len(panel.bound_rows()) == 2)
+    row = next(row for row in panel.bound_rows() if row.annotation is not None and row.annotation.kind is Kind.TEXT_BOX)
+    panel._ask_for_menu(row, 10, 10)
+    process_pending_events()
+    window.activate_action("win.reshape-annotation", None)
+    process_pending_events()
+    view = window.document_view
+    assert view.handle_editor is not None
+    assert view.handle_editor.original is row.annotation
+    assert view.has_focus()
+    press_key(window, Gdk.KEY_Escape)
+    assert view.handle_editor is None
