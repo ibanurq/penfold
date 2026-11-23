@@ -1,4 +1,4 @@
-"""Editing bookmarks from the Bookmarks view: its bar, the Delete key and the notice to undo (fase 5)."""
+"""Editing bookmarks from the Bookmarks view: its actions, counter, Delete key and notice to undo (fase 5)."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -63,16 +63,17 @@ def selected_titles(window: "PenfoldWindow") -> list[str]:
     return [bookmark.title for bookmark in window.bookmarks_view.selected_bookmarks()]
 
 
-def test_the_bar_appears_with_bookmarks_selected(window: "PenfoldWindow") -> None:
+def test_the_counter_appears_with_bookmarks_selected(window: "PenfoldWindow") -> None:
     view = window.bookmarks_view
-    assert not view.action_bar.get_revealed()
+    assert not view.counter.get_visible()
     assert not enabled(window, "delete-bookmarks")
     select(window, 0)
-    assert view.action_bar.get_revealed()
+    assert (view.counter.get_visible(), view.counter.get_label()) == (True, "1 selected")
     assert enabled(window, "delete-bookmarks")
     assert not enabled(window, "indent-bookmarks")  # the first of its level
     assert not enabled(window, "outdent-bookmarks")  # at the top level
     select(window, 2, 3)
+    assert view.counter.get_label() == "2 selected"
     assert enabled(window, "indent-bookmarks")
     assert enabled(window, "outdent-bookmarks")
 
@@ -110,7 +111,7 @@ def test_deleting_shows_a_notice_that_undoes_it(window: "PenfoldWindow", monkeyp
     select(window, 1, 2, 4)
     window.activate_action("win.delete-bookmarks", None)
     assert rows(window) == ["Cover", "Broken"]
-    assert not window.bookmarks_view.action_bar.get_revealed()
+    assert not window.bookmarks_view.counter.get_visible()
     [toast] = toasts
     assert toast.get_title() == "2 bookmarks deleted"
     toast.emit("button-clicked")

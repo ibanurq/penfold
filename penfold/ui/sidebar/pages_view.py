@@ -6,8 +6,8 @@ proportions of an upright A4, fitted inside without being distorted, so an A3 lo
 centred vertically. The thumbnail of the page being read is marked, with a soft box over the part shown in the
 document.
 
-With pages selected, a bar at the bottom turns or deletes them (02-interfaz, 6); a click away from the thumbnails, or
-Esc, clears the selection (D47). A right click on a thumbnail, a long press, or the Menu key (or Shift+F10) opens the
+With pages selected, a counter at the bottom says how many (D74); a click away from the thumbnails, or Esc, clears
+the selection (D47). A right click on a thumbnail, a long press, or the Menu key (or Shift+F10) opens the
 menu of the pages selected; a thumbnail not selected is selected alone first (D74). Thumbnails are dragged to reorder
 the pages, several at once if the one dragged is selected (E1). Adding and extracting come with phase 4.
 """
@@ -17,7 +17,7 @@ from gettext import gettext as _
 from gettext import npgettext
 from typing import ClassVar
 
-from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk
 
 from penfold import config
 from penfold.document.document import OpenDocument
@@ -26,7 +26,14 @@ from penfold.rendering.renderer import Renderer, TileKey, round_scale
 from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.context_menu import SEPARATOR, custom_item, is_menu_key, menu_gestures, separator, show_context_menu
 from penfold.ui.document_view import append_page_frame
-from penfold.ui.sidebar.view_header import header_button, unselect_all, unselect_on_empty_click, view_header
+from penfold.ui.sidebar.view_header import (
+    header_button,
+    selection_counter,
+    show_count,
+    unselect_all,
+    unselect_on_empty_click,
+    view_header,
+)
 
 # The cell of every thumbnail has the proportions of an upright A4.
 CELL_RATIO = math.sqrt(2)
@@ -289,11 +296,10 @@ class PagesView(Gtk.Box):
         self.grid.add_controller(keys)
         # The menu of the pages selected, while it is open.
         self.menu: Gtk.PopoverMenu | None = None
+        self.counter = selection_counter()
         self.append(self._add_drop_target())
-        self.selection_label, self.action_bar = self._action_bar()
-        self.append(self.action_bar)
-        self.selection.connect("selection-changed", lambda *_arguments: self._update_action_bar())
-        self.selection.connect("items-changed", lambda *_arguments: self._update_action_bar())
+        self.selection.connect("selection-changed", lambda *_arguments: self._update_selection())
+        self.selection.connect("items-changed", lambda *_arguments: self._update_selection())
         zoom = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
         zoom.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         zoom.connect("scroll", self._on_scroll)
@@ -389,33 +395,13 @@ class PagesView(Gtk.Box):
         """Clear the selection (Esc, D47); return whether any page was selected."""
         return unselect_all(self.selection)
 
-    # Action bar (02-interfaz, 6.1).
+    # Selection.
 
-    def _action_bar(self) -> tuple[Gtk.Label, Gtk.ActionBar]:
-        """The bar shown with pages selected: how many, turn left, turn right and delete."""
-        label = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
-        bar = Gtk.ActionBar(revealed=False)
-        bar.pack_start(label)
-        delete = Gtk.Button(icon_name="edit-delete-symbolic", tooltip_text=_("Delete"), action_name="win.delete-pages")
-        delete.add_css_class("destructive-action")
-        bar.pack_end(delete)
-        for icon_name, tooltip, action_name in (
-            ("object-rotate-right-symbolic", _("Rotate Right"), "win.rotate-pages-right"),
-            ("object-rotate-left-symbolic", _("Rotate Left"), "win.rotate-pages-left"),
-        ):
-            button = Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name)
-            # Until the user chooses icons that do not look like Undo and Redo (D19, D37).
-            button.add_css_class("provisional-icon")
-            bar.pack_end(button)
-        return label, bar
-
-    def _update_action_bar(self) -> None:
+    def _update_selection(self) -> None:
+        """Count the pages selected, and remember them by source index to select them again after an edit."""
         selected = self.selected_pages()
         count = len(selected)
-        self.action_bar.set_revealed(count > 0)
-        self.selection_label.set_label(
-            npgettext("pages", "{count} selected", "{count} selected", count).format(count=count)
-        )
+        show_count(self.counter, count, npgettext("pages", "{count} selected", "{count} selected", count))
         pages = self.document.pages if self.document is not None else []
         self._selected_sources = {pages[position].source_index for position in selected if position < len(pages)}
 
@@ -604,6 +590,7 @@ class PagesView(Gtk.Box):
         self.drop_line.add_css_class("drop-line")
         overlay = Gtk.Overlay(child=self.scrolled)
         overlay.add_overlay(self.drop_line)
+        overlay.add_overlay(self.counter)
         self._drop_overlay = overlay
         drop = Gtk.DropTarget.new(DraggedPages, Gdk.DragAction.MOVE)
         drop.connect("motion", self._on_drop_motion)

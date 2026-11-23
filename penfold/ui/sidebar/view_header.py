@@ -1,11 +1,11 @@
 """Pieces shared by the views of the side panel.
 
-Their header (02-interfaz, 6), noticing recent use (D40) and clearing their selection (D47).
+Their header (02-interfaz, 6), noticing recent use (D40), clearing their selection (D47) and counting it (D74).
 """
 
 import time
 
-from gi.repository import Gtk
+from gi.repository import Gtk, Pango
 
 HEADER_MARGIN = 12
 
@@ -28,6 +28,29 @@ def header_button(label: str, icon_name: str, action_name: str) -> Gtk.Button:
     content.append(Gtk.Image(icon_name=icon_name))
     content.append(Gtk.Label(label=label, use_underline=True))
     return Gtk.Button(child=content, action_name=action_name, valign=Gtk.Align.CENTER)
+
+
+def selection_counter() -> Gtk.Label:
+    """The counter of what is selected, floating at the bottom of a list with the look of a toast (D74).
+
+    It is hidden until show_count gives it a number, and clicks go through it to the list.
+    """
+    counter = Gtk.Label(
+        visible=False,
+        can_target=False,
+        halign=Gtk.Align.CENTER,
+        valign=Gtk.Align.END,
+        ellipsize=Pango.EllipsizeMode.END,
+    )
+    counter.add_css_class("osd")
+    counter.add_css_class("selection-counter")
+    return counter
+
+
+def show_count(counter: Gtk.Label, count: int, text: str) -> None:
+    """Show how many are selected, with this text ("{count} selected"), or hide the counter with none."""
+    counter.set_visible(count > 0)
+    counter.set_label(text.format(count=count))
 
 
 def empty_label(text: str) -> Gtk.Label:

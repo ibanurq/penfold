@@ -67,7 +67,7 @@ class BookmarkEditing:
         for signal in ("selection-changed", "items-changed"):
             view.selection.connect(signal, lambda *_arguments: self.update_actions())
         view.connect("move-requested", self._on_move_requested)
-        # The style the bookmarks selected share, shown by the Format panel (G7).
+        # The style the bookmarks selected share, shown by their menu (G7, D74).
         for name, state in (
             ("bookmark-bold", GLib.Variant.new_boolean(False)),
             ("bookmark-italic", GLib.Variant.new_boolean(False)),
@@ -192,7 +192,7 @@ class BookmarkEditing:
         self._execute(document, command)
 
     def _color(self, value: str) -> None:
-        """Give the bookmarks selected a colour of the Format panel (G7)."""
+        """Give the bookmarks selected a colour of their menu (G7)."""
         document = self._document()
         if document is not None:
             selected = self._view.selected_bookmarks()

@@ -1,13 +1,14 @@
 """The Bookmarks view of the side panel (02-interfaz, 6.2; D23): the outline as a tree.
 
 It shows each bookmark's style and page, lets the user unfold it and go to a bookmark, and follows the reading (D40).
-With bookmarks selected, a bar at the bottom edits them through the window's actions; so does the menu that a right
-click on a row, a long press, or the Menu key (or Shift+F10) opens, after selecting alone a row not selected (D74). A
-click away from the rows, or Esc, clears the selection (D47). Bookmarks are dragged before, after or inside another
-(G6), several at once if the one dragged is selected.
+With bookmarks selected, a counter at the bottom says how many, and the menu that a right click on a row, a long
+press, or the Menu key (or Shift+F10) opens edits them through the window's actions, after selecting alone a row not
+selected (D74). A click away from the rows, or Esc, clears the selection (D47). Bookmarks are dragged before, after
+or inside another (G6), several at once if the one dragged is selected.
 """
 
 from gettext import gettext as _
+from gettext import npgettext
 from typing import ClassVar
 
 from gi.repository import Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
@@ -29,11 +30,12 @@ from penfold.ui.context_menu import (
 )
 from penfold.ui.palette import COLORS as PALETTE
 from penfold.ui.palette import color_to_hex
-from penfold.ui.sidebar.bookmark_format import format_button
 from penfold.ui.sidebar.view_header import (
     RecentUse,
     empty_label,
     header_button,
+    selection_counter,
+    show_count,
     unselect_all,
     unselect_on_empty_click,
     view_header,
@@ -203,9 +205,10 @@ class BookmarksView(Gtk.Box):
         DragAutoscroll(self.scrolled)
         self.stack.add_named(self.scrolled, "list")
         self.stack.add_named(self.empty, "empty")
-        self.append(self.stack)
-        self.action_bar = self._action_bar()
-        self.append(self.action_bar)
+        self.counter = selection_counter()
+        overlay = Gtk.Overlay(child=self.stack)
+        overlay.add_overlay(self.counter)
+        self.append(overlay)
 
     def set_document(self, document: OpenDocument, renderer: Renderer) -> None:
         """Show the bookmarks of a PDF, unfolded as the PDF says; the renderer says where their pages are shown."""
@@ -324,30 +327,8 @@ class BookmarksView(Gtk.Box):
 
     def _remember_selection(self) -> None:
         self._selected = self.selected_bookmarks()
-        self.action_bar.set_revealed(bool(self._selected))
-
-    def _action_bar(self) -> Gtk.ActionBar:
-        """The bar shown with bookmarks selected (02-interfaz, 6.2; D23)."""
-        bar = Gtk.ActionBar(revealed=False)
-        delete = Gtk.Button(
-            icon_name="edit-delete-symbolic", tooltip_text=_("Delete"), action_name="win.delete-bookmarks"
-        )
-        delete.add_css_class("destructive-action")
-        bar.pack_end(delete)
-        indenting = Gtk.Box(spacing=6)
-        for icon_name, tooltip, action_name in (
-            ("format-indent-less-symbolic", _("Decrease Indent"), "win.outdent-bookmarks"),
-            ("format-indent-more-symbolic", _("Increase Indent"), "win.indent-bookmarks"),
-        ):
-            indenting.append(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
-        bar.set_center_widget(indenting)
-        bar.pack_start(format_button())
-        for icon_name, tooltip, action_name in (
-            ("mark-location-symbolic", _("Point to the Current Page"), "win.point-bookmark"),
-            ("insert-text-symbolic", _("Edit Text"), "win.rename-bookmark"),
-        ):
-            bar.pack_start(Gtk.Button(icon_name=icon_name, tooltip_text=tooltip, action_name=action_name))
-        return bar
+        count = len(self._selected)
+        show_count(self.counter, count, npgettext("bookmarks", "{count} selected", "{count} selected", count))
 
     # Menu of the bookmarks selected (D74).
 

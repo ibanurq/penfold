@@ -1,4 +1,4 @@
-"""Editing pages from the side panel: the action bar, the Delete key and the notice to undo (fase 3)."""
+"""Editing pages from the side panel: the counter, the Delete key and the notice to undo (fase 3)."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -43,13 +43,13 @@ def enabled(window: "PenfoldWindow", name: str) -> bool:
     return bool(action.get_enabled())
 
 
-def test_the_bar_appears_with_pages_selected(window: "PenfoldWindow") -> None:
+def test_the_counter_appears_with_pages_selected(window: "PenfoldWindow") -> None:
     pages = window.pages_view
-    assert not pages.action_bar.get_revealed()
+    assert not pages.counter.get_visible()
     assert not enabled(window, "rotate-pages-left")
     select(window, 1, 3)
-    assert pages.action_bar.get_revealed()
-    assert pages.selection_label.get_label() == "2 selected"
+    assert (pages.counter.get_visible(), pages.counter.get_label()) == (True, "2 selected")
+    assert not pages.counter.get_can_target()  # Clicks go through it to the thumbnails.
     assert enabled(window, "rotate-pages-left")
     assert enabled(window, "delete-pages")
 
@@ -92,7 +92,7 @@ def test_deleting_shows_a_notice_that_undoes_it(window: "PenfoldWindow", monkeyp
     assert document.page_count == 3
     assert window.pages_view.pages.get_n_items() == 3
     assert window.pages_view.selected_pages() == []
-    assert not window.pages_view.action_bar.get_revealed()
+    assert not window.pages_view.counter.get_visible()
     assert toasts[0].get_title() == "2 pages deleted"
     toasts[0].emit("button-clicked")
     assert document.page_count == 5
