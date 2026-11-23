@@ -99,8 +99,8 @@ class AnnotationEditing:
             colored=colored,
             with_text=annotation.kind in WITH_TEXT,
             with_format=has_format(annotation.kind),
-            moved=_can_reshape(annotation),
-            resized=can_resize(annotation),
+            moved=can_move(annotation),
+            resized=_can_resize(annotation),
         )
         menu = Gtk.PopoverMenu.new_from_model(model)
         if colored:
@@ -184,11 +184,14 @@ class AnnotationEditing:
     def reshape(self) -> None:
         """Show the handles of the annotation of the menu on its page, to move it or change its size (D73)."""
         annotation = self.annotation
-        if annotation is not None and _can_reshape(annotation):
+        if annotation is not None and can_move(annotation):
             self._when_menu_closed(lambda: self._edit_shape(annotation))
 
     def _edit_shape(self, annotation: Annotation) -> None:
-        """Edit an annotation with handles, shown as it changes (Poppler leaves out one of the PDF meanwhile)."""
+        """Move an annotation, or resize it with handles, shown as it changes (Poppler leaves out one of the PDF).
+
+        One of a PDF is moved as it is (D73), and only has handles if Penfold can draw it again as it is.
+        """
         view, document = self._document_view, self._document()
         renderer = view.renderer
         if document is None or renderer is None or not any(item is annotation for item in document.annotations):
@@ -198,12 +201,12 @@ class AnnotationEditing:
 
         def done(changed: Annotation | None) -> None:
             if changed is not None and document.permissions.annotate:
-                drawn = redrawn(changed) if changed.kind is Kind.TEXT_BOX else changed
+                drawn = redrawn(changed) if changed.kind is Kind.TEXT_BOX and changed.managed else changed
                 document.execute(ChangeAnnotation(document, annotation, drawn))
             elif not annotation.managed:
                 renderer.hide_annotations(document.replaced_annotations)
 
-        view.edit_handles(managed_copy(annotation), annotation, done)
+        view.edit_handles(annotation, done, resizable=_can_resize(annotation))
 
     def _open_format(self, annotation: Annotation) -> None:
         document, place = self._document(), self._document_view.view_rectangle(annotation)
@@ -356,9 +359,12 @@ class AnnotationEditing:
         dialog.present(self._window)
 
 
-def _can_reshape(annotation: Annotation) -> bool:
-    """Whether an annotation is moved (or resized) on its page: of a type that moves, drawn again by Penfold."""
-    return can_move(annotation) and (annotation.managed or not annotation.foreign_look)
+def _can_resize(annotation: Annotation) -> bool:
+    """Whether an annotation is resized with handles: of a type that has them, that Penfold can draw again as it is.
+
+    Any that moves is moved, though: one of a PDF keeps its own drawing (D73).
+    """
+    return can_resize(annotation) and (annotation.managed or not annotation.foreign_look)
 
 
 def _menu_model(*, colored: bool, with_text: bool, with_format: bool, moved: bool, resized: bool) -> Gio.Menu:

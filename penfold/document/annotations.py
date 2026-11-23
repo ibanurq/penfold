@@ -133,6 +133,9 @@ class Annotation:
     have neither. A text box
     reads turned clockwise by text_turn degrees from the page as shown (the turn Penfold gave the page when it was
     written, so that it was upright), and keeps its saved drawing: a one-page PDF with the fonts it uses inside.
+
+    One read from a PDF that was only moved is not drawn again (D73): it keeps the drawing its program made, moved by
+    moved_by on its page (as its rectangle is), and saving moves it in its page instead of writing it again.
     """
 
     page: int
@@ -154,6 +157,12 @@ class Annotation:
     foreign_look: tuple[str, ...] = ()
     text_turn: int = 0
     drawing: bytes = field(default=b"", repr=False)
+    moved_by: tuple[float, float] = (0.0, 0.0)
+
+    @property
+    def moved_as_is(self) -> bool:
+        """Whether it is one of a PDF that was moved keeping the drawing its program made (D73)."""
+        return not self.managed and self.moved_by != (0.0, 0.0)
 
     @property
     def group(self) -> AnnotationGroup:
@@ -207,7 +216,8 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
 def managed_copy(annotation: Annotation) -> Annotation:
     """The annotation as Penfold draws and writes it, to change it: one read from a PDF becomes managed (D60, D72).
 
-    It keeps its name, author and creation date (with a name and a date if it had none), and is changed now.
+    It keeps its name, author and creation date (with a name and a date if it had none), and is changed now. One
+    moved as it was is drawn again where it is now.
 
     Raises:
         ValueError: it is of a type Penfold does not make, so it cannot draw it.
@@ -219,7 +229,12 @@ def managed_copy(annotation: Annotation) -> Annotation:
         raise ValueError(message)
     now = datetime.now(UTC)
     return replace(
-        annotation, managed=True, name=annotation.name or _new_name(), created=annotation.created or now, modified=now
+        annotation,
+        managed=True,
+        name=annotation.name or _new_name(),
+        created=annotation.created or now,
+        modified=now,
+        moved_by=(0.0, 0.0),
     )
 
 

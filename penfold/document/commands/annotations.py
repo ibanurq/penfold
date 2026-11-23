@@ -87,10 +87,11 @@ class DeleteAnnotations:
 
 
 class ChangeAnnotation:
-    """Put a changed copy of an annotation in its place: another colour, format or text (H11, D72).
+    """Put a changed copy of an annotation in its place: another colour, format, text, place or size (H11, D72, D73).
 
     The copy is managed: Penfold draws it and writes it when the document is saved. One read from a PDF keeps its
-    origin, so that saving takes the original out of its page (D60).
+    origin, so that saving takes the original out of its page (D60); or else it was only moved, keeping its drawing,
+    and saving moves it in its page (D73).
     """
 
     changes = Change.ANNOTATIONS
@@ -126,8 +127,8 @@ class ChangeAnnotation:
         self._swap(current, self.changed)
 
     def _checked(self, changed: Annotation) -> Annotation:
-        if not changed.managed:
-            message = "a changed annotation is drawn and written by Penfold"
+        if not changed.managed and not changed.moved_as_is:
+            message = "a changed annotation is drawn and written by Penfold, unless it was only moved"
             raise ValueError(message)
         before = self.annotation
         if (changed.page, changed.kind, changed.origin) != (before.page, before.kind, before.origin):

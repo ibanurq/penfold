@@ -161,7 +161,7 @@ class _Written:
 
 def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, object]:
     """What every annotation has: type, page, unique name, author, dates, flags, colour and text."""
-    created = _date(annotation.created)
+    created = pdf_date(annotation.created)
     entries: dict[str, object] = {
         "/Type": pikepdf.Name.Annot,
         "/Subtype": pikepdf.Name(f"/{annotation.subtype}"),
@@ -169,7 +169,7 @@ def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, obj
         "/NM": pikepdf.String(annotation.name),
         "/T": utf16(annotation.author),
         "/CreationDate": created,
-        "/M": _date(annotation.modified) if annotation.modified else created,
+        "/M": pdf_date(annotation.modified) if annotation.modified else created,
         "/F": PRINT_FLAG,
         "/C": pikepdf.Array(_rounded(annotation.color or (0.0, 0.0, 0.0))),
     }
@@ -315,7 +315,7 @@ def utf16(text: str) -> pikepdf.String:
     return pikepdf.String(b"\xfe\xff" + text.encode("utf-16-be"))
 
 
-def _date(moment: datetime | None) -> pikepdf.String:
+def pdf_date(moment: datetime | None) -> pikepdf.String:
     """A PDF date (7.9.4), in UTC; now if none is given."""
     return pikepdf.String(f"D:{(moment or datetime.now(UTC)).astimezone(UTC):%Y%m%d%H%M%S}Z")
 

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from gi.repository import Adw, Gdk, Graphene, Gsk, Gtk
 
-from penfold.document.annotations import Annotation, Hit, Kind, hit
+from penfold.document.annotations import Annotation, Hit, Kind, hit, managed_copy
 from penfold.document.geometry import turn_point
 from penfold.document.reshaping import Handle, Point, corner_handles, end_handles, moved, with_corner, with_end
 from penfold.rendering.layout import ShownPage
@@ -43,19 +43,21 @@ class HandleEditor:
         self,
         view: "DocumentView",
         annotation: Annotation,
-        original: Annotation,
         on_done: Callable[[Annotation | None], None],
+        *,
+        resizable: bool,
     ) -> None:
-        """Edit an annotation (a managed copy of the original in the document) on its page.
+        """Edit an annotation of the document on its page; without handles if it is not resizable (it only moves).
 
         on_done receives the annotation changed when the change is accepted, or None if it is cancelled or nothing
-        changed.
+        changed. One of a PDF that Penfold does not manage is moved as it is, keeping its drawing (D73); a handle makes
+        it managed, drawn again by Penfold.
         """
         self._view = view
-        self.original = original
+        self.original = annotation
         self.annotation = annotation
-        self._started_with = annotation
         self.on_done = on_done
+        self._resizable = resizable
         # While dragging: the handle taken (None: moving the whole annotation), the annotation and the point (on the
         # unturned page) where the drag started.
         self._grabbed: Handle | None = None
@@ -94,7 +96,7 @@ class HandleEditor:
         else:
             handle_x, handle_y = _handles(page, begun_with)[self._grabbed]
             target = (handle_x + offset[0], handle_y + offset[1])
-            self.annotation = _dragged(page, begun_with, self._grabbed, target)
+            self.annotation = _dragged(page, managed_copy(begun_with), self._grabbed, target)
         self._view.set_preview(self.annotation)
 
     def release(self) -> None:
@@ -103,10 +105,14 @@ class HandleEditor:
         self._drag_start = None
 
     def finish(self, *, apply: bool) -> None:
-        """Stop editing: accept the change (if anything changed) or cancel it."""
+        """Stop editing: accept the change (if its place or size changed) or cancel it.
+
+        A handle taken back where it was changes nothing: one of a PDF stays as its program made it.
+        """
         self.release()
         self._view.stop_handle_editing(self)
-        changed = apply and self.annotation != self._started_with
+        now, before = self.annotation, self.original
+        changed = apply and (now.rectangle, now.line, now.quads) != (before.rectangle, before.line, before.quads)
         self.on_done(self.annotation if changed else None)
 
     def key_pressed(self, keyval: int) -> bool:
@@ -167,15 +173,16 @@ class HandleEditor:
             return
         color = Adw.StyleManager.get_default().get_accent_color_rgba()
         x, y = origin
-        for handle_x, handle_y in _shown_handles(page, self.annotation).values():
+        for handle_x, handle_y in self._shown_handles(page).values():
             _append_handle(snapshot, (x + handle_x * zoom, y + handle_y * zoom), color)
+
+    def _shown_handles(self, page: ShownPage) -> dict[Handle, Point]:
+        """Where the handles are on the page as shown, in points: none if the annotation only moves."""
+        return _shown_handles(page, self.annotation) if self._resizable else {}
 
     def _view_handles(self, page: ShownPage) -> dict[Handle, Point]:
         """Where the handles are in the view, in pixels."""
-        return {
-            handle: self._view.point_in_view(page, point)
-            for handle, point in _shown_handles(page, self.annotation).items()
-        }
+        return {handle: self._view.point_in_view(page, point) for handle, point in self._shown_handles(page).items()}
 
     def _is_on_annotation(self, page: ShownPage, point: Point) -> bool:
         """Whether a point of the page as shown is on the annotation: on an arrow's line, or anywhere in its frame."""
@@ -192,7 +199,7 @@ class HandleEditor:
     def _resize_cursor(self, page: ShownPage, handle: Handle) -> str:
         """The cursor of a handle, by where it is from the middle of the annotation as shown (pages turn)."""
         bounds = self._view.annotation_bounds(page, self.annotation)
-        handle_x, handle_y = _shown_handles(page, self.annotation)[handle]
+        handle_x, handle_y = self._shown_handles(page)[handle]
         if bounds is None:
             return "move"
         left, top, right, bottom = bounds

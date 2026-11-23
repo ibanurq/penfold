@@ -46,7 +46,7 @@ def paint_annotations(
         elif annotation.kind is Kind.TEXT_BOX:
             _paint_text_box(context, page, annotation)
         else:
-            context.transform(_turn(page))
+            context.transform(turn_matrix(page))
             _paint_on_unturned_page(context, annotation)
         context.restore()
 
@@ -62,7 +62,7 @@ def highlight_areas(page: ShownPage, annotation: Annotation) -> list[Rectangle]:
     return [page.from_source(quad) for quad in annotation.quads]
 
 
-def _turn(page: ShownPage) -> cairo.Matrix:
+def turn_matrix(page: ShownPage) -> cairo.Matrix:
     """From the page unturned to the page as shown, turned clockwise by Penfold."""
     width, height = page.source_size
     match page.rotation:

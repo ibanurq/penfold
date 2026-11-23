@@ -20,7 +20,7 @@ from pathlib import Path
 import pikepdf
 
 from penfold.document.annotations import Annotation, AnnotationGroup, group_of
-from penfold.document.appearance import write_annotation
+from penfold.document.appearance import pdf_date, write_annotation
 from penfold.document.bookmarks import BOLD_FLAG, ITALIC_FLAG, Bookmark, View
 from penfold.document.form_filling import fill_in, flatten_form
 from penfold.document.forms import FieldValue, FormField
@@ -28,6 +28,7 @@ from penfold.document.history import Command
 from penfold.document.page_frame import PageFrame
 from penfold.document.page_labels import PageLabel, write_page_labels
 from penfold.document.pages import FULL_TURN, Page
+from penfold.document.pdf_values import numbers
 from penfold.document.sources import Spans, locate
 from penfold.errors import SaveError
 
@@ -35,6 +36,8 @@ from penfold.errors import SaveError
 OUTLINE_LINKS = frozenset({"/Parent", "/Prev", "/Next", "/First", "/Last", "/Count"})
 NEW_FILE_MODE = 0o666  # Narrowed by the user's umask, as for any new file.
 RANDOM_NAME_BYTES = 6
+# The entries of an annotation that are points of its page (x, y, x, y…), moved with it (12.5).
+POINT_LISTS = ("/Rect", "/QuadPoints", "/L", "/Vertices", "/CL")
 # The owner of a field name given on renaming, which no PDF owns (F7).
 RENAMED = -1
 
@@ -55,6 +58,7 @@ class SavePlan:
         annotations: the annotations made in Penfold, written on their pages if the pages are saved.
         removed: the annotations of the source PDFs taken out of their pages, deleted or changed (then written again
             with the others): the source index of their page and their origin (annotations.py).
+        moved: the annotations of the source PDFs only moved, moved in their pages keeping their drawing (D73).
     """
 
     sources: Spans
@@ -67,6 +71,7 @@ class SavePlan:
     left_out: frozenset[AnnotationGroup] = frozenset()
     annotations: tuple[Annotation, ...] = ()
     removed: frozenset[tuple[int, int]] = frozenset()
+    moved: tuple[Annotation, ...] = ()
 
     @classmethod
     def take(
@@ -99,6 +104,7 @@ def save(plan: SavePlan) -> int:
             originals = list(pdf.pages)
             placed = _arrange_pages(pdf, originals, plan.pages, others)
             deleted = [original for index, original in enumerate(originals) if index not in placed]
+            _move_annotations(plan.moved, plan.pages, placed)
             _remove_annotations(pdf, plan.removed, placed)
             _write_annotations(pdf, plan.annotations, plan.pages, placed)
             _write_labels(pdf, plan.pages)
@@ -187,6 +193,51 @@ def _remove_annotations(pdf: pikepdf.Pdf, removed: frozenset[tuple[int, int]], p
         dropped = {item.objgen for position, item in enumerate(items) if position in taken and item.is_indirect}
         kept = [item for position, item in enumerate(items) if position not in taken and not _popup_of(item, dropped)]
         page.obj.Annots = pdf.make_indirect(pikepdf.Array(kept))
+
+
+def _move_annotations(moved: tuple[Annotation, ...], pages: tuple[Page, ...], placed: dict[int, pikepdf.Page]) -> None:
+    """Move in their pages the annotations only moved (D73): their places, not their drawing (/AP), which follows.
+
+    It runs right after the pages are placed, while their /Annots are still in the order they were read in.
+    """
+    turns = {page.source_index: page.rotation for page in pages}
+    for annotation in moved:
+        page = placed.get(annotation.page)
+        items = [] if page is None else list(_items(page.obj.get("/Annots")))
+        if page is None or annotation.origin is None or annotation.origin >= len(items):
+            continue
+        frame = PageFrame.of(page)
+        frame = replace(frame, rotation=(frame.rotation - turns[annotation.page]) % FULL_TURN)
+        start_x, start_y = frame.pdf_point(0.0, 0.0)
+        end_x, end_y = frame.pdf_point(*annotation.moved_by)
+        _move_in_pdf(items[annotation.origin], end_x - start_x, end_y - start_y)
+
+
+def _move_in_pdf(annotation: pikepdf.Object, dx: float, dy: float) -> None:
+    """Move an annotation of a PDF by so much (in the PDF's units): its rectangle, its points and its note's window.
+
+    It is changed now (/M).
+    """
+    if not isinstance(annotation, pikepdf.Dictionary):
+        return
+    for key in POINT_LISTS:
+        points = numbers(annotation.get(key))
+        if points:
+            annotation[key] = _moved_points(points, dx, dy)
+    strokes = annotation.get("/InkList")
+    if isinstance(strokes, pikepdf.Array):
+        annotation["/InkList"] = pikepdf.Array(
+            [_moved_points(numbers(stroke) or [], dx, dy) for stroke in _items(strokes)]
+        )
+    popup = annotation.get("/Popup")
+    if isinstance(popup, pikepdf.Dictionary) and numbers(popup.get("/Rect")):
+        popup["/Rect"] = _moved_points(numbers(popup.get("/Rect")) or [], dx, dy)
+    annotation["/M"] = pdf_date(None)
+
+
+def _moved_points(values: list[float], dx: float, dy: float) -> pikepdf.Array:
+    """A list of points (x, y, x, y…) moved by so much."""
+    return pikepdf.Array([value + (dx if index % 2 == 0 else dy) for index, value in enumerate(values)])
 
 
 def _write_annotations(

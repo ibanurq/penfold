@@ -52,14 +52,17 @@ def can_resize(annotation: Annotation) -> bool:
 def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
     """The annotation moved by an offset, as far as it stays inside its page (it is not pushed in if already out).
 
-    Everything moves with it: its rectangle, the areas of its text, its line. Nothing else changes.
+    Everything moves with it: its rectangle, the areas of its text, its line. Nothing else changes: one of a PDF that
+    Penfold does not manage keeps the drawing its program made, moved as far (moved_by, D73).
     """
     dx, dy = _shift_inside(annotation.rectangle, offset, page_size)
+    moved_x, moved_y = annotation.moved_by
     return replace(
         annotation,
         rectangle=_shifted(annotation.rectangle, dx, dy),
         quads=tuple(_shifted(quad, dx, dy) for quad in annotation.quads),
         line=None if annotation.line is None else _shifted(annotation.line, dx, dy),
+        moved_by=annotation.moved_by if annotation.managed else (moved_x + dx, moved_y + dy),
     )
 
 

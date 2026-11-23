@@ -131,41 +131,82 @@ def test_the_cursor_says_what_a_drag_does(square_window: "PenfoldWindow") -> Non
     assert editor.cursor_at(*widget_point(window, 0, 500, 500)) is None
 
 
-def test_one_of_another_program_becomes_penfolds_when_changed(window: "PenfoldWindow", tmp_path: Path) -> None:
-    path = make_annotated_pdf(tmp_path / "annotated.pdf")
+def plain_square_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """The annotations of another program, with a plain square, which Penfold can draw again as it is."""
     import pikepdf
 
-    with pikepdf.open(path, allow_overwriting_input=True) as pdf:  # A plain square, which Penfold can draw.
+    path = make_annotated_pdf(tmp_path / "annotated.pdf")
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
         del pdf.pages[0].obj.Annots[1]["/BE"]
         pdf.save(path)
     assert open_and_wait(window, path)
+    return window
+
+
+def test_one_of_another_program_moves_keeping_its_own_drawing(window: "PenfoldWindow", tmp_path: Path) -> None:
+    window = plain_square_window(window, tmp_path)
     original = the_square(window)
-    assert not original.managed
-    left, top, _right, _bottom = original.rectangle
+    left, top, right, bottom = original.rectangle
     start_editing(window, (left, top + 50))
     drag(window, 0, (left + 50, top + 50), (left + 60, top + 70))
     press_key(window, Gdk.KEY_Return)
+    moved = the_square(window)
+    assert (moved.managed, moved.moved_as_is, moved.origin) == (False, True, original.origin)
+    assert moved.moved_by == pytest.approx((10, 20))
+    assert moved.rectangle == pytest.approx((left + 10, top + 20, right + 10, bottom + 20))
+    assert window.document is not None
+    assert original in window.document.replaced_annotations  # Poppler leaves it out: Penfold paints it moved.
+    assert window.document_view._managed[0].count(moved) == 1
+    window.activate_action("win.undo", None)
+    assert the_square(window) is original
+
+
+def test_a_handle_makes_one_of_another_program_penfolds(window: "PenfoldWindow", tmp_path: Path) -> None:
+    window = plain_square_window(window, tmp_path)
+    original = the_square(window)
+    left, top, right, bottom = original.rectangle
+    start_editing(window, (left, top + 50))
+    drag(window, 0, (right, bottom), (right + 30, bottom + 10))
+    press_key(window, Gdk.KEY_Return)
     changed = the_square(window)
-    assert (changed.managed, changed.origin) == (True, original.origin)
-    assert changed.rectangle == pytest.approx(
-        (left + 10, top + 20, original.rectangle[2] + 10, original.rectangle[3] + 20)
-    )
+    assert (changed.managed, changed.origin, changed.moved_by) == (True, original.origin, (0.0, 0.0))
+    assert changed.rectangle == pytest.approx((left, top, right + 30, bottom + 10))
 
 
-def test_move_and_resize_is_only_in_the_menu_of_the_types_that_have_handles(
-    annotated_window: "PenfoldWindow",
-) -> None:
-    from penfold.ui.annotation_editing import _can_reshape
+def test_one_penfold_cannot_draw_again_only_moves_without_a_warning(annotated_window: "PenfoldWindow") -> None:
+    window = annotated_window
+    original = the_square(window)  # With a cloudy border.
+    left, top, _right, _bottom = original.rectangle
+    editor = start_editing(window, (left, top + 50))
+    assert editor.handle_at(*widget_point(window, 0, left, top)) is None  # No handles.
+    drag(window, 0, (left + 50, top + 50), (left + 40, top + 45))
+    press_key(window, Gdk.KEY_Return)
+    moved = the_square(window)
+    assert (moved.moved_as_is, moved.foreign_look) == (True, original.foreign_look)
+    assert moved.moved_by == pytest.approx((-10, -5))
+
+
+def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow") -> None:
+    from penfold.document.reshaping import can_move
+    from penfold.ui.annotation_editing import _can_resize
 
     window = annotated_window
     assert window.document is not None
-    reshaped = {item.kind: _can_reshape(item) for item in window.document.annotations}
-    # The square of the other program has a cloudy border: Penfold would lose it (D73).
-    assert reshaped == {
-        Kind.HIGHLIGHT: False,
-        Kind.RECTANGLE: False,
+    moved = {item.kind: can_move(item) for item in window.document.annotations}
+    resized = {item.kind: _can_resize(item) for item in window.document.annotations}
+    assert moved == {
+        Kind.HIGHLIGHT: False,  # Marks follow the text instead.
+        Kind.RECTANGLE: True,
         Kind.OTHER: False,
         Kind.COMMENT: True,
+        Kind.TEXT_BOX: True,
+        Kind.ARROW: True,
+    }
+    assert resized == {
+        Kind.HIGHLIGHT: False,
+        Kind.RECTANGLE: False,  # A cloudy border: Penfold would lose it (D73).
+        Kind.OTHER: False,
+        Kind.COMMENT: False,  # Its size is fixed.
         Kind.TEXT_BOX: True,  # Plain, as Penfold draws them.
         Kind.ARROW: True,
     }
@@ -346,3 +387,13 @@ def test_a_comment_on_a_turned_page_moves_as_the_pointer(comment_window: "Penfol
     drag(window, 0, (652, 210), (612, 250))  # 40 left and 40 down as shown: 40 down and 40 right unturned.
     press_key(window, Gdk.KEY_Return)
     assert the_comment(window).rectangle == pytest.approx((240, 240, 260, 260))
+
+
+def test_a_handle_taken_back_where_it_was_changes_nothing(window: "PenfoldWindow", tmp_path: Path) -> None:
+    window = plain_square_window(window, tmp_path)
+    original = the_square(window)
+    _left, top, right, bottom = original.rectangle
+    start_editing(window, (original.rectangle[0], top + 50))
+    drag(window, 0, (right, bottom), (right, bottom))
+    press_key(window, Gdk.KEY_Return)
+    assert the_square(window) is original

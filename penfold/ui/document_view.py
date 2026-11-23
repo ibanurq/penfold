@@ -18,6 +18,7 @@ from penfold.document.annotations import Annotation, Hit, Kind, Style, hit, topm
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle, merge_lines
 from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
+from penfold.rendering.kept_look import KeptLooks, paint_look
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
@@ -163,8 +164,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._vadjustment: Gtk.Adjustment | None = None
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
-        # The annotations Penfold manages and paints, by the source index of their page.
+        # The annotations Penfold paints, by the source index of their page: those it manages, and those of the PDFs
+        # moved as they are, with the drawings their programs made (D73).
         self._managed: dict[int, list[Annotation]] = {}
+        self._kept_looks: KeptLooks | None = None
         self._rendered_handler = 0
         self.zoom = 1.0
         self.fit = Fit.WIDTH
@@ -258,6 +261,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.renderer = renderer
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
         self.content = PageContent(renderer.poppler)
+        self._kept_looks = KeptLooks(lambda: renderer.sources)
         self._form_layer.set_document(document, renderer.layout)
         self.annotations_changed()
         self.selection = None
@@ -289,7 +293,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._managed = {}
         if self.document is not None:
             for annotation in self.document.annotations:
-                if annotation.managed and annotation is not self._hidden:
+                if (annotation.managed or annotation.moved_as_is) and annotation is not self._hidden:
                     self._managed.setdefault(annotation.page, []).append(annotation)
         editor = self.handle_editor
         annotations = [] if self.document is None else self.document.annotations
@@ -835,7 +839,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             annotations = [*annotations, self._preview]
         no_offset = Graphene.Vec4().init(0, 0, 0, 0)
         for annotation in annotations:
-            if annotation.kind is not Kind.HIGHLIGHT:
+            if annotation.kind is not Kind.HIGHLIGHT or not annotation.managed:
                 continue
             tint = Graphene.Matrix().init_scale(*highlight_tint(annotation))
             for left, top, right, bottom in highlight_areas(page, annotation):
@@ -847,11 +851,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                 draw_tiles(snapshot)
                 snapshot.pop()
                 snapshot.pop()
-        if any(annotation.kind is not Kind.HIGHLIGHT for annotation in annotations):
+        if any(annotation.kind is not Kind.HIGHLIGHT or not annotation.managed for annotation in annotations):
             context = snapshot.append_cairo(Graphene.Rect().init(x, y, box.width, box.height))
             context.translate(x, y)
             context.scale(self.zoom, self.zoom)
-            paint_annotations(context, page, annotations, highlights=False)
+            for annotation in annotations:
+                look = None if annotation.managed or self._kept_looks is None else self._kept_looks.look(annotation)
+                if look is not None:
+                    paint_look(context, page, annotation, look)
+            paint_annotations(context, page, [item for item in annotations if item.managed], highlights=False)
 
     def _draw_mark(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Outline the marked annotation, if it is on this page, in the accent colour."""
@@ -931,9 +939,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return None if position is None else self._box(position)
 
     def edit_handles(
-        self, annotation: Annotation, original: Annotation, on_done: Callable[[Annotation | None], None]
+        self, annotation: Annotation, on_done: Callable[[Annotation | None], None], *, resizable: bool
     ) -> HandleEditor:
-        """Start moving or resizing an annotation with handles (D73): a managed copy of the original, shown instead.
+        """Start moving an annotation, and resizing it with handles if it is resizable (D73); shown as it changes.
 
         on_done receives the annotation changed, or None if the change was cancelled or nothing changed.
         """
@@ -941,8 +949,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.text_editor.finish(apply=True)
         if self.handle_editor is not None:
             self.handle_editor.finish(apply=True)
-        self.handle_editor = HandleEditor(self, annotation, original, on_done)
-        self.set_hidden(original)
+        self.handle_editor = HandleEditor(self, annotation, on_done, resizable=resizable)
+        self.set_hidden(annotation)
         self.set_preview(annotation)
         self.grab_focus()
         return self.handle_editor

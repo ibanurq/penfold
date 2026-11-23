@@ -356,20 +356,30 @@ class OpenDocument:
     def _with_annotation_edits(self, plan: SavePlan) -> SavePlan:
         """Add to a plan what saving changes in the annotations of the pages.
 
-        Saving writes the managed annotations (made or changed in Penfold) and takes out of their pages those of the
-        PDFs that were deleted or changed; the rest are in their pages already.
+        Saving writes the managed annotations (made or changed in Penfold), takes out of their pages those of the PDFs
+        that were deleted or changed, and moves in their pages those only moved (D73); the rest are in their pages
+        already.
         """
         managed = tuple(annotation for annotation in self.annotations if annotation.managed)
-        removed = frozenset((annotation.page, annotation.origin or 0) for annotation in self.replaced_annotations)
-        return replace(plan, annotations=managed, removed=removed)
+        moved = tuple(annotation for annotation in self.annotations if annotation.moved_as_is)
+        kept = {(annotation.page, annotation.origin) for annotation in moved}
+        removed = frozenset(
+            (annotation.page, annotation.origin or 0)
+            for annotation in self.replaced_annotations
+            if (annotation.page, annotation.origin) not in kept
+        )
+        return replace(plan, annotations=managed, removed=removed, moved=moved)
 
     @property
     def replaced_annotations(self) -> list[Annotation]:
-        """The annotations of the source PDFs, as they were read, that were deleted or changed since.
+        """The annotations of the source PDFs, as they were read, that were deleted, changed or moved since.
 
-        Saving takes them out of their pages, and Poppler leaves them out when it draws the pages (03-arquitectura 4.1).
+        Poppler leaves them out when it draws the pages (03-arquitectura 4.1); saving takes those deleted or changed out
+        of their pages, and moves those only moved (D73).
         """
-        unchanged = _by_origin(annotation for annotation in self.annotations if not annotation.managed)
+        unchanged = _by_origin(
+            annotation for annotation in self.annotations if not annotation.managed and not annotation.moved_as_is
+        )
         return [annotation for key, annotation in self._read_annotations.items() if key not in unchanged]
 
     def _filled_in(self) -> tuple[tuple[FormField, FieldValue], ...]:
