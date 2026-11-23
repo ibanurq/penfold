@@ -183,7 +183,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         }
         for name, edit in editing.items():
             action = Gio.SimpleAction(name=name, enabled=False)
-            action.connect("activate", lambda _action, _parameter, edit=edit: edit())
+            action.connect("activate", self._on_editing_action, name, edit)
             self.add_action(action)
         self._add_delete_key()
         layout = Gio.SimpleAction.new_stateful(
@@ -192,6 +192,17 @@ class PenfoldWindow(Adw.ApplicationWindow):
         layout.set_enabled(False)
         layout.connect("change-state", self._on_layout_changed)
         self.add_action(layout)
+
+    def _on_editing_action(
+        self, _action: Gio.SimpleAction, _parameter: None, name: str, edit: Callable[[], object]
+    ) -> None:
+        """Save, print, change the pages…: first accept what is being edited on a page (a text box, a move).
+
+        Undo and redo do not: in a text box being written, they undo its own typing (_undo_or_redo).
+        """
+        if name not in {"undo", "redo"}:
+            self.document_view.finish_editing()
+        edit()
 
     def _on_document_action(self, _action: Gio.SimpleAction, _parameter: None, name: str, handler: object) -> None:
         if name in KEYS_WITHOUT_CONTROL and isinstance(self.get_focus(), Gtk.Editable | Gtk.Text):
@@ -1011,7 +1022,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
             settings.set_int("window-height", height)
 
     def _on_close_request(self, _window: Gtk.Window) -> bool:
-        """Closing the window (Ctrl+W, its button) asks first about unsaved changes (A8)."""
+        """Closing the window (Ctrl+W, its button) asks first about unsaved changes (A8).
+
+        What is being edited on a page counts: it is accepted first.
+        """
+        self.document_view.finish_editing()
         if not self._close_confirmed and self.document is not None and self.document.is_modified:
             self.close_after_asking()
             return True

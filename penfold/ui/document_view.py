@@ -955,6 +955,16 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.grab_focus()
         return self.handle_editor
 
+    def finish_editing(self) -> None:
+        """Accept what is being edited on a page, as Enter does: a text box being written, an annotation being moved.
+
+        Before the document is saved, printed or changed otherwise, so that what shows is what the document has.
+        """
+        if self.text_editor is not None:
+            self.text_editor.finish(apply=True)
+        if self.handle_editor is not None:
+            self.handle_editor.finish(apply=True)
+
     def stop_handle_editing(self, editor: HandleEditor) -> None:
         """Stop showing an annotation's handles, and show it as it is in the document."""
         if self.handle_editor is not editor:

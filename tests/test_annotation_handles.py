@@ -11,7 +11,7 @@ from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.commands.pages import RotatePages
 from penfold.document.reshaping import Handle
 from penfold.rendering.text_box import text_box_pdf, text_height, written_frame
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until
 from tests.test_annotation_menu import annotated_window, make_annotated_pdf
 from tests.test_document_window import open_and_wait, window
 from tests.test_shape_drawing import drag, widget_point
@@ -397,3 +397,43 @@ def test_a_handle_taken_back_where_it_was_changes_nothing(window: "PenfoldWindow
     drag(window, 0, (right, bottom), (right, bottom))
     press_key(window, Gdk.KEY_Return)
     assert the_square(window) is original
+
+
+def test_saving_accepts_a_move_not_accepted_yet(square_window: "PenfoldWindow") -> None:
+    """Saving with the handles still shown saves what shows (it happened with the Save button)."""
+    import pikepdf
+
+    window = square_window
+    document = window.document
+    assert document is not None
+    start_editing(window, (100, 150))
+    drag(window, 0, (200, 150), (230, 190))
+    window.activate_action("win.save", None)
+    assert window.document_view.handle_editor is None
+    wait_until(lambda: not document.is_modified)
+    with pikepdf.open(document.path) as pdf:
+        square = pdf.pages[0].obj.Annots[0]
+        assert float(square.Rect[0]) == pytest.approx(130 - 0.5, abs=1)  # Its line, half a point outside.
+
+
+def test_saving_accepts_a_text_box_being_written(window: "PenfoldWindow", tmp_path: Path) -> None:
+    import pikepdf
+
+    from penfold.ui.annotation_toolbar import Tool
+    from tests.sample_pdfs import make_pdf
+    from tests.test_shape_drawing import choose
+
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=1))
+    document = window.document
+    assert document is not None
+    choose(window, Tool.TEXT_BOX)
+    drag(window, 0, (100, 100), (300, 120))
+    process_pending_events()
+    editor = window.document_view.text_editor
+    assert editor is not None
+    editor.text_view.get_buffer().set_text("Written, not applied yet")
+    window.activate_action("win.save", None)
+    wait_until(lambda: not document.is_modified)
+    with pikepdf.open(document.path) as pdf:
+        annotations = pdf.pages[0].obj.Annots
+        assert [str(annotations[index].Subtype) for index in range(len(annotations))] == ["/FreeText"]
