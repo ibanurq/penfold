@@ -472,6 +472,19 @@ def marked_text(window: "PenfoldWindow") -> str:
     return content.text_in_areas(0, list(the_mark(window).quads))
 
 
+def drop_grip(window: "PenfoldWindow", mark: Annotation, handle: Handle) -> tuple[float, float]:
+    """The middle of a drop handle of a mark on an upright page, in points of the page (D76)."""
+    from penfold.document.reshaping import mark_tips
+    from penfold.ui.handle_editor import DROP_BODY, DROP_SIZE, DROP_TIPS
+
+    tip_x, tip_y = mark_tips(mark)[handle]
+    left, top, right, bottom = DROP_BODY
+    across = ((left + right) / 2 - DROP_TIPS[handle][0]) * DROP_SIZE
+    down = ((top + bottom) / 2 - DROP_TIPS[handle][1]) * DROP_SIZE
+    zoom = window.document_view.zoom
+    return tip_x + across / zoom, tip_y + down / zoom
+
+
 def test_the_end_of_a_mark_covers_more_text_letter_by_letter(mark_window: "PenfoldWindow") -> None:
     from penfold.document.reshaping import mark_handles
 
@@ -480,9 +493,12 @@ def test_the_end_of_a_mark_covers_more_text_letter_by_letter(mark_window: "Penfo
     assert marked_text(window) == "Page 1 line 1"
     editor = start_editing(window, (90, 96))
     end_x, end_y = mark_handles(original)[Handle.END]
-    assert editor.handle_at(*widget_point(window, 0, end_x, end_y)) is Handle.END
-    assert editor.cursor_at(*widget_point(window, 0, end_x, end_y)) == "text"
-    drag(window, 0, (end_x, end_y), (100, 116))  # Into the second line, just before its "1".
+    grip_x, grip_y = drop_grip(window, original, Handle.END)
+    assert grip_y > end_y  # The drop hangs below the last letter.
+    assert editor.handle_at(*widget_point(window, 0, grip_x, grip_y)) is Handle.END
+    assert editor.cursor_at(*widget_point(window, 0, grip_x, grip_y)) == "text"
+    # Into the second line, just before its "1": the end moves as much as the pointer, wherever the drop is taken.
+    drag(window, 0, (grip_x, grip_y), (grip_x + 100 - end_x, grip_y + 116 - end_y))
     press_key(window, Gdk.KEY_Return)
     assert marked_text(window) == "Page 1 line 1 Page"
     assert len(the_mark(window).quads) == 2
@@ -491,14 +507,21 @@ def test_the_end_of_a_mark_covers_more_text_letter_by_letter(mark_window: "Penfo
 
 
 def test_the_start_of_a_mark_covers_less_text(mark_window: "PenfoldWindow") -> None:
+    window = mark_window
+    start_editing(window, (90, 96))
+    grip_x, grip_y = drop_grip(window, the_mark(window), Handle.START)
+    drag(window, 0, (grip_x, grip_y), (grip_x + 40, grip_y))  # Past "Page 1 ".
+    press_key(window, Gdk.KEY_Return)
+    assert marked_text(window) == "line 1"
+
+
+def test_the_drops_are_off_the_text(mark_window: "PenfoldWindow") -> None:
     from penfold.document.reshaping import mark_handles
 
     window = mark_window
-    start_x, start_y = mark_handles(the_mark(window))[Handle.START]
-    start_editing(window, (90, 96))
-    drag(window, 0, (start_x, start_y), (start_x + 40, start_y))  # Past "Page 1 ".
-    press_key(window, Gdk.KEY_Return)
-    assert marked_text(window) == "line 1"
+    editor = start_editing(window, (90, 96))
+    for point in mark_handles(the_mark(window)).values():  # Where the dots were: on the first and last letters.
+        assert editor.handle_at(*widget_point(window, 0, *point)) is None
 
 
 def test_a_press_on_a_mark_does_not_move_it(mark_window: "PenfoldWindow") -> None:

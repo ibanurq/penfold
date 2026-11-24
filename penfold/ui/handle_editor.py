@@ -8,9 +8,11 @@ Rectangles and circles have a handle at each corner (document/reshaping.py); tex
 only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py);
 arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments
 have no handles: they keep their size, and are only moved. Marks on text have a handle where they start and one where
-they end: each covers the text up to the other, letter by letter, as a selection does; they do not move.
+they end: each covers the text up to the other, letter by letter, as a selection does; they do not move. Theirs are
+drops, as the touch selection handles of GNOME (D76): the start one above the first letter, the end one below the last.
 """
 
+import math
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -24,6 +26,7 @@ from penfold.document.reshaping import (
     corner_handles,
     end_handles,
     mark_handles,
+    mark_tips,
     moved,
     with_corner,
     with_end,
@@ -47,6 +50,12 @@ SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
 # The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.
 UNFRAMED_KINDS = END_KINDS | TEXT_MARKUPS
+# The drop handles of marks on text (D76): Adwaita's icons, drawn this big in pixels; where their tip is, and the part
+# of them that a press takes (left, top, right, bottom), as fractions of their size. Their tip is on the text.
+DROP_SIZE = 32
+DROP_ICONS = {Handle.START: "selection-start-symbolic", Handle.END: "selection-end-symbolic"}
+DROP_TIPS = {Handle.START: (11 / 16, 13.6 / 16), Handle.END: (5 / 16, 2.4 / 16)}
+DROP_BODY = (3 / 16, 1 / 16, 13 / 16, 15 / 16)
 # How far inside the text a mark keeps the end not dragged, in points, so that its first or last letter stays in.
 INSIDE_THE_TEXT = 1.0
 
@@ -170,6 +179,8 @@ class HandleEditor:
         page = self._view.shown_page(self.annotation.page)
         if page is None:
             return None
+        if self.annotation.kind in TEXT_MARKUPS:
+            return self._drop_at(page, x, y)
         reached = []
         for handle, (handle_x, handle_y) in self._view_handles(page).items():
             distance = max(abs(x - handle_x), abs(y - handle_y))
@@ -213,8 +224,48 @@ class HandleEditor:
             return
         color = Adw.StyleManager.get_default().get_accent_color_rgba()
         x, y = origin
+        if self.annotation.kind in TEXT_MARKUPS:
+            for handle, (tip_x, tip_y) in self._shown_tips(page).items():
+                self._append_drop(snapshot, handle, (x + tip_x * zoom, y + tip_y * zoom), page.rotation, color)
+            return
         for handle_x, handle_y in self._shown_handles(page).values():
             _append_handle(snapshot, (x + handle_x * zoom, y + handle_y * zoom), color)
+
+    def _append_drop(self, snapshot: Gtk.Snapshot, handle: Handle, tip: Point, rotation: int, color: Gdk.RGBA) -> None:
+        """A drop handle with its tip at a point (pixels of the view), turned as its page."""
+        icon = Gtk.IconTheme.get_for_display(self._view.get_display()).lookup_icon(
+            DROP_ICONS[handle],
+            None,
+            DROP_SIZE,
+            self._view.get_scale_factor(),
+            Gtk.TextDirection.NONE,
+            Gtk.IconLookupFlags(0),
+        )
+        tip_x, tip_y = DROP_TIPS[handle]
+        snapshot.save()
+        snapshot.translate(Graphene.Point().init(*tip))
+        snapshot.rotate(rotation)
+        snapshot.translate(Graphene.Point().init(-tip_x * DROP_SIZE, -tip_y * DROP_SIZE))
+        icon.snapshot_symbolic(snapshot, DROP_SIZE, DROP_SIZE, [color] * 4)
+        snapshot.restore()
+
+    def _shown_tips(self, page: ShownPage) -> dict[Handle, Point]:
+        """Where the tips of a mark's drops are on the page as shown, in points."""
+        if not self._resizable:
+            return {}
+        return {
+            handle: turn_point(*point, page.source_size, page.rotation)
+            for handle, point in mark_tips(self.annotation).items()
+        }
+
+    def _drop_at(self, page: ShownPage, x: float, y: float) -> Handle | None:
+        """The drop under a point of the view, if any (the one whose middle is nearest)."""
+        reached = []
+        for handle, tip in self._shown_tips(page).items():
+            distance = _distance_into_drop(handle, self._view.point_in_view(page, tip), page.rotation, (x, y))
+            if distance is not None:
+                reached.append((distance, handle))
+        return min(reached, key=lambda item: item[0])[1] if reached else None
 
     def _shown_handles(self, page: ShownPage) -> dict[Handle, Point]:
         """Where the handles are on the page as shown, in points: none if the annotation only moves."""
@@ -293,3 +344,17 @@ def _append_handle(snapshot: Gtk.Snapshot, centre: Point, color: Gdk.RGBA) -> No
     snapshot.append_color(white, square)
     snapshot.pop()
     snapshot.append_border(circle, [HANDLE_RING] * 4, [color] * 4)
+
+
+def _distance_into_drop(handle: Handle, tip: Point, rotation: int, point: Point) -> float | None:
+    """How far a point is from the middle of a drop with its tip at a point and turned clockwise; None if off it."""
+    angle = math.radians(rotation)
+    across, down = point[0] - tip[0], point[1] - tip[1]
+    # The point in the drop's own square, before it was turned around its tip.
+    tip_x, tip_y = DROP_TIPS[handle]
+    x = across * math.cos(angle) + down * math.sin(angle) + tip_x * DROP_SIZE
+    y = down * math.cos(angle) - across * math.sin(angle) + tip_y * DROP_SIZE
+    left, top, right, bottom = (side * DROP_SIZE for side in DROP_BODY)
+    if not (left <= x <= right and top <= y <= bottom):
+        return None
+    return math.hypot(x - (left + right) / 2, y - (top + bottom) / 2)

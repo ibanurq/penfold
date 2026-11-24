@@ -11,6 +11,7 @@ from penfold.document.reshaping import (
     corner_handles,
     end_handles,
     mark_handles,
+    mark_tips,
     moved,
     with_corner,
     with_end,
@@ -137,6 +138,8 @@ def test_the_handles_of_a_mark_are_where_its_text_starts_and_ends() -> None:
     lines = ((72, 110, 140, 122), (72, 90, 150, 102))  # Read from the PDF, not in order.
     marks = new_annotation(Kind.STRIKE_OUT, 0, (72, 90, 150, 122), RED, "Iban", quads=lines)
     assert mark_handles(marks) == {Handle.START: (72, 96), Handle.END: (140, 116)}
+    # The drops point at its first letter from above and at its last from below (D76).
+    assert mark_tips(marks) == {Handle.START: (72, 90), Handle.END: (140, 122)}
 
 
 def test_a_mark_covers_other_lines_and_its_rectangle_follows() -> None:

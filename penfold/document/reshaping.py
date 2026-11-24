@@ -100,6 +100,16 @@ def mark_handles(annotation: Annotation) -> dict[Handle, Point]:
     }
 
 
+def mark_tips(annotation: Annotation) -> dict[Handle, Point]:
+    """Where the tips of a mark's drops go (D76): the top left of its first line, the bottom right of its last."""
+    if not annotation.quads:
+        return {}
+    lines = sorted(annotation.quads, key=lambda line: (line[1], line[0]))
+    first_left, first_top, _right, _bottom = lines[0]
+    _left, _top, last_right, last_bottom = lines[-1]
+    return {Handle.START: (first_left, first_top), Handle.END: (last_right, last_bottom)}
+
+
 def with_lines(annotation: Annotation, lines: list[Rectangle]) -> Annotation:
     """A mark on text covering other lines of text (as selected); with none, it stays as it was."""
     if not lines:
