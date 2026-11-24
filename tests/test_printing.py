@@ -44,6 +44,19 @@ def test_ctrl_p_asks_which_annotations_to_print(form_window: "PenfoldWindow") ->
     dialog.close()
 
 
+def test_without_annotations_ctrl_p_prints_at_once(
+    window: "PenfoldWindow", tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from penfold.ui.printing import DocumentPrinting
+
+    started: list[frozenset[AnnotationGroup]] = []
+    monkeypatch.setattr(DocumentPrinting, "start", lambda _self, left_out: started.append(left_out))
+    assert open_and_wait(window, build_form(tmp_path / "form.pdf"))  # Form fields are not annotations.
+    window.activate_action("win.print", None)
+    assert window.get_visible_dialog() is None
+    assert started == [frozenset()]  # Nothing left out (D76).
+
+
 def test_the_pdf_printed_leaves_out_the_groups_and_has_every_page(
     form_window: "PenfoldWindow", tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

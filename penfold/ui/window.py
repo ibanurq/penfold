@@ -534,12 +534,18 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.activate_action("win.print", None)
 
     def _open_print_dialog(self) -> None:
-        """Ask which annotations to print, then print with the system's dialogue (D57)."""
+        """Ask which annotations to print, then print with the system's dialogue (D57).
+
+        Without any annotation there is nothing to ask: the system's dialogue opens at once (D76).
+        """
         document = self.document
         if document is None:
             return
-        dialog = PenfoldPrintDialog()
         printing = DocumentPrinting(self, document, self._show_message)
+        if not document.annotations:
+            printing.start(frozenset())
+            return
+        dialog = PenfoldPrintDialog()
         dialog.connect("print-requested", lambda _dialog, left_out: printing.start(left_out))
         dialog.present(self)
 
