@@ -257,6 +257,9 @@ class BookmarksView(Gtk.Box):
             return
         bookmarks = self.document.bookmarks
         selected = self._selected
+        # GTK scrolls a list whose model is replaced (to the row with the focus): it stays where it was.
+        vadjustment = self.scrolled.get_vadjustment()
+        GLib.idle_add(vadjustment.set_value, vadjustment.get_value())
         # Forget the old rows first: GTK may bind the new ones as soon as the model changes.
         self._rows.clear()
         self._reading = self._marked = None
@@ -359,7 +362,13 @@ class BookmarksView(Gtk.Box):
                 selected.add(index)
         self.selection.set_selection(selected, Gtk.Bitset.new_range(0, self.tree.get_n_items()))
         if scroll and not selected.is_empty():
-            self.list.scroll_to(selected.get_minimum(), Gtk.ListScrollFlags.NONE, None)
+            # Once the list is back where it was (bookmarks_changed): it moves only if the row is out of sight.
+            GLib.idle_add(self._bring_into_sight, selected.get_minimum())
+
+    def _bring_into_sight(self, position: int) -> bool:
+        if position < self.tree.get_n_items():
+            self.list.scroll_to(position, Gtk.ListScrollFlags.NONE, None)
+        return GLib.SOURCE_REMOVE
 
     def _remember_selection(self) -> None:
         self._selected = self.selected_bookmarks()

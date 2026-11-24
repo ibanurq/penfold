@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pikepdf
 import pytest
 from gi.repository import Gtk
 
@@ -370,3 +371,38 @@ def test_dropping_bookmarks_where_they_are_changes_nothing(window: "PenfoldWindo
     cover, intro = document.bookmarks[0], document.bookmarks[1]
     window.bookmarks_view.emit("move-requested", [cover], intro, Placement.BEFORE)
     assert not document.can_undo
+
+
+def test_editing_bookmarks_in_sight_leaves_the_list_where_it_was(
+    application: "PenfoldApplication", tmp_path: Path
+) -> None:
+    """GTK scrolled the rebuilt list to the first bookmark edited; only bookmarks out of sight bring it along."""
+    from gi.repository import GLib
+
+    from penfold.ui.sidebar import sidebar as sidebar_views
+    from penfold.ui.window import PenfoldWindow
+
+    path = make_pdf(tmp_path / "long.pdf", page_count=40)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        with pdf.open_outline() as outline:
+            outline.root.extend(pikepdf.OutlineItem(f"Chapter {page + 1}", page) for page in range(40))
+        pdf.save(path)
+    window = PenfoldWindow(application)
+    window.set_default_size(1100, 600)
+    window.present()
+    try:
+        open_and_wait(window, path)
+        window.sidebar.show_view(sidebar_views.BOOKMARKS)
+        vadjustment = window.bookmarks_view.scrolled.get_vadjustment()
+        wait_until_stable(vadjustment.get_upper)
+        select(window, 5, 6, 7)
+        window.activate_action("win.bookmark-color", GLib.Variant.new_string("#2c873e"))
+        wait_until_stable(vadjustment.get_value)
+        assert vadjustment.get_value() == 0
+        select(window, 35)
+        window.activate_action("win.bookmark-color", GLib.Variant.new_string("#2c873e"))
+        wait_until_stable(vadjustment.get_value)
+        assert vadjustment.get_value() > 0  # Chapter 36 was out of sight.
+    finally:
+        window.destroy()
+        process_pending_events()
