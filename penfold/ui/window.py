@@ -36,6 +36,7 @@ from penfold.ui.dialogs.extract_pages_dialog import PagesToExtract, PenfoldExtra
 from penfold.ui.dialogs.merge_dialog import PdfsToMerge, PenfoldMergeDialog
 from penfold.ui.dialogs.password_question import password_question
 from penfold.ui.dialogs.print_dialog import PenfoldPrintDialog
+from penfold.ui.dialogs.properties_dialog import PenfoldPropertiesDialog
 from penfold.ui.dialogs.save_as_dialog import PenfoldSaveAsDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
 from penfold.ui.document_view import DocumentView, ReadingPosition
@@ -86,6 +87,8 @@ DOCUMENT_ACTIONS = {
     "find-previous": ["<Shift><Control>g"],
     # Ctrl+P: prints, or in a PDF that does not allow it says so (K3, D59); the menu item is win.print.
     "print-shortcut": ["<Control>p"],
+    # The last item of the document menu (07-fase-12, 18).
+    "properties": [],
 }
 # Edits of the document; each is on only while there is something for it to do (D19, D21).
 EDIT_ACTIONS = {
@@ -179,6 +182,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             "find-next": lambda: self._find_step(1),
             "find-previous": lambda: self._find_step(-1),
             "print-shortcut": self._print_shortcut,
+            "properties": self._show_properties,
         }
         for name, handler in handlers.items():
             action = Gio.SimpleAction(name=name, enabled=False)
@@ -552,6 +556,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.toast_overlay.add_toast(Adw.Toast(title=_("This PDF does not allow printing")))
         else:
             self.activate_action("win.print", None)
+
+    def _show_properties(self) -> None:
+        """Show what is known about the document, to read only (07-fase-12, 18)."""
+        if self.document is not None:
+            PenfoldPropertiesDialog(self.document.properties()).present(self)
 
     def _open_print_dialog(self) -> None:
         """Ask which annotations to print, then print with the system's dialogue (D57).

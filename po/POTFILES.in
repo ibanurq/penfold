@@ -24,6 +24,7 @@ penfold/ui/dialogs/add_pages_dialog.py
 penfold/ui/dialogs/extract_pages_dialog.py
 penfold/ui/dialogs/merge_dialog.py
 penfold/ui/dialogs/password_question.py
+penfold/ui/dialogs/properties_dialog.py
 penfold/ui/dialogs/text_question.py
 penfold/ui/document_header.py
 penfold/ui/extraction.py

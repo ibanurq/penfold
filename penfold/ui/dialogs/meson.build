@@ -5,6 +5,7 @@ install_data(
   'merge_dialog.py',
   'password_question.py',
   'print_dialog.py',
+  'properties_dialog.py',
   'save_as_dialog.py',
   'text_question.py',
   install_dir: pkgdatadir / 'penfold' / 'ui' / 'dialogs',

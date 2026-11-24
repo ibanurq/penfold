@@ -12,11 +12,14 @@ from penfold.document.access_permissions import AccessPermissions
 from penfold.document.annotations import Annotation, AnnotationGroup, read_annotations
 from penfold.document.bookmarks import Bookmark, for_added_pages, leading_to, read_bookmarks
 from penfold.document.forms import FieldValue, FormField, read_form_fields
+from penfold.document.geometry import turned_size
 from penfold.document.history import Change, Command, History
+from penfold.document.page_frame import PageFrame
 from penfold.document.page_labels import read_page_labels
 from penfold.document.pages import Page, PaperSize, initial_pages, write_blank_pdf, write_empty_pdf
+from penfold.document.properties import DocumentProperties, PdfInformation, common_size, info_text
 from penfold.document.saving import SavePlan
-from penfold.document.sources import SourceFile, Sources, check_assembly
+from penfold.document.sources import SourceFile, Sources, check_assembly, locate
 from penfold.errors import AssemblyNotAllowedError, PenfoldError
 
 
@@ -50,10 +53,13 @@ class OpenDocument:
         """
         self.path = path
         self.is_new = is_new
+        # A merged document is built on an empty PDF of its own: it has no information or version worth showing.
+        self._merged = is_new
         self.sources = Sources(source)
         pdf = source.pdf
         self.pages: list[Page] = initial_pages(len(pdf.pages), read_page_labels(pdf))
-        self.title = _read_title(pdf)
+        # Without a title, only the file name is shown.
+        self.title = info_text(pdf.docinfo, "/Title")
         self.access_permissions = AccessPermissions.of(pdf)
         # Opened with the owner password: the PDF's permissions do not bind its owner (D61, 7).
         self.opened_by_owner = pdf.is_encrypted and pdf.owner_password_matched
@@ -224,6 +230,26 @@ class OpenDocument:
         self._read_annotations |= _by_origin(read)
         self.form_fields = [*self.form_fields, *read_form_fields(source.pdf, start)]
         return start, source.pdf
+
+    def properties(self) -> DocumentProperties:
+        """What the Properties dialogue shows (07-fase-12, 18): the PDF as it was opened, its pages as they are now."""
+        opened = self.sources.pdf(0)
+        return DocumentProperties(
+            information=PdfInformation() if self._merged else PdfInformation.of(opened),
+            file=None if self.is_new else self.path,
+            file_size=None if self.is_new else _file_size(self.path),
+            page_count=self.page_count,
+            page_size=common_size([self._shown_size(page) for page in self.pages]),
+            pdf_version=None if self._merged else opened.pdf_version,
+            has_password=bool(self.sources.spans[0].password),
+            denied=self.access_permissions.denied,
+        )
+
+    def _shown_size(self, page: Page) -> tuple[float, float]:
+        """The width and height of a page as it is shown, with its own turn and Penfold's, in points."""
+        source, index = locate(self.sources.spans, page.source_index)
+        frame = PageFrame.of(self.sources.pdf(source).pages[index])
+        return turned_size(frame.size, frame.rotation + page.rotation)
 
     def find_page(self, text: str) -> int | None:
         """Find the page that someone typed in the page box: a label first, then a page number.
@@ -419,10 +445,9 @@ def _pages_of(pdf: pikepdf.Pdf, start: int) -> list[Page]:
     return [Page(start + index, label=None if labels is None else labels[index]) for index in range(len(pdf.pages))]
 
 
-def _read_title(pdf: pikepdf.Pdf) -> str | None:
-    """Return the title stored in the PDF, or None if it has none (then only the file name is shown)."""
-    title = pdf.docinfo.get("/Title")
-    if not isinstance(title, pikepdf.String):
+def _file_size(path: Path) -> int | None:
+    """The size of a file in bytes as it is now on disk; None if it cannot be read (moved or deleted)."""
+    try:
+        return path.stat().st_size
+    except OSError:
         return None
-    text = str(title).strip()
-    return text or None
