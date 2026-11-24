@@ -56,7 +56,7 @@ class PenfoldSidebar(Adw.Bin):
         drag = Gtk.GestureDrag()
         drag.connect("drag-begin", self._on_resize_begin)
         drag.connect("drag-update", self._on_resize_update)
-        drag.connect("drag-end", lambda _gesture, _x, _y: self.emit("resize-finished"))
+        drag.connect("drag-end", self._on_resize_end)
         self.resize_handle.add_controller(drag)
 
     def add_view(self, name: str, view: Gtk.Widget) -> None:
@@ -119,7 +119,13 @@ class PenfoldSidebar(Adw.Bin):
         # Keep the edge where it was grabbed under the pointer: remember how far from the edge the press was.
         pointer = self._pointer_x(gesture)
         self._grab_offset = self.get_width() - pointer if pointer is not None else 0.0
+        # The edge stays highlighted while it is dragged, even if the pointer gets ahead of it.
+        self.resize_handle.add_css_class("dragging")
         self.emit("resize-started")
+
+    def _on_resize_end(self, _gesture: Gtk.GestureDrag, _x: float, _y: float) -> None:
+        self.resize_handle.remove_css_class("dragging")
+        self.emit("resize-finished")
 
     def _on_resize_update(self, gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float) -> None:
         """Make the edge follow the pointer exactly.

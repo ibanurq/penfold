@@ -176,6 +176,27 @@ textview.form-field > text {
   background: none;
 }
 
+/* The edge between the panel and the document: over libadwaita's thin grey line, a wider one in the accent colour
+   while the pointer is on it or it is dragged. */
+.resize-handle {
+  box-shadow: inset -1px 0 transparent;
+  transition: box-shadow 100ms ease-out;
+}
+
+.resize-handle:dir(rtl) {
+  box-shadow: inset 1px 0 transparent;
+}
+
+.resize-handle:hover,
+.resize-handle.dragging {
+  box-shadow: inset -3px 0 var(--accent-bg-color);
+}
+
+.resize-handle:dir(rtl):hover,
+.resize-handle:dir(rtl).dragging {
+  box-shadow: inset 3px 0 var(--accent-bg-color);
+}
+
 /* The colours at the top of a context menu (D72, D74), and the separators between its groups, like those between
    sections. */
 .context-menu-colors {

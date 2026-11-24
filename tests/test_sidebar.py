@@ -227,6 +227,18 @@ def test_dragging_the_panel_edge_fits_the_zoom_once_released(window: "PenfoldWin
     assert Gio.Settings(schema_id=config.APP_ID).get_int("sidebar-width") == 500
 
 
+def test_the_panel_edge_stays_highlighted_while_it_is_dragged(window: "PenfoldWindow", tmp_path: Path) -> None:
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    sidebar = window.sidebar
+    handle = sidebar.resize_handle
+    assert handle.has_css_class("resize-handle")
+    gesture = Gtk.GestureDrag()
+    sidebar._on_resize_begin(gesture, 0, 0)
+    assert handle.has_css_class("dragging")
+    sidebar._on_resize_end(gesture, 0, 0)
+    assert not handle.has_css_class("dragging")
+
+
 def test_the_panel_leaves_room_for_the_document(window: "PenfoldWindow", tmp_path: Path) -> None:
     open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
     window.set_default_size(1400, 800)
