@@ -352,7 +352,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if document is None:
             return
         command = DeletePages(document, self.pages_view.selected_pages())
+        had_focus = self.pages_view.has_focus_within
         document.execute(command)
+        if had_focus:
+            # GTK would give the focus to the first thumbnail, scrolling up to it: keep it where the pages were.
+            self.pages_view.focus_page(min(*command.positions, document.page_count - 1))
         count = len(command.positions)
         self._show_undo_toast(ngettext("Page deleted", "{count} pages deleted", count).format(count=count), command)
 

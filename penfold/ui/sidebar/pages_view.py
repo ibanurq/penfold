@@ -383,6 +383,18 @@ class PagesView(Gtk.Box):
         if 0 <= page < self.pages.get_n_items():
             self.grid.scroll_to(page, Gtk.ListScrollFlags.NONE, None)
 
+    @property
+    def has_focus_within(self) -> bool:
+        """Whether a thumbnail has the keyboard focus."""
+        root = self.grid.get_root()
+        focus = root.get_focus() if isinstance(root, Gtk.Window) else None
+        return focus is not None and focus.is_ancestor(self.grid)
+
+    def focus_page(self, page: int) -> None:
+        """Give the keyboard focus to a thumbnail, keeping it in sight, without selecting it."""
+        if 0 <= page < self.pages.get_n_items():
+            self.grid.scroll_to(page, Gtk.ListScrollFlags.FOCUS, None)
+
     def show_visible_areas(self, areas: dict[int, Rectangle]) -> None:
         """Show which part of each page is shown in the document, in points from the page's top left corner (D41)."""
         changed = set(self.visible_areas) | set(areas)

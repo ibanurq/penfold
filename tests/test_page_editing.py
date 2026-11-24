@@ -98,6 +98,29 @@ def test_deleting_shows_a_notice_that_undoes_it(window: "PenfoldWindow", monkeyp
     assert document.page_count == 5
 
 
+def _focused_page(window: "PenfoldWindow") -> int | None:
+    from penfold.ui.sidebar.pages_view import PageCell
+
+    focus = window.get_focus()
+    cell = focus.get_first_child() if focus is not None else None
+    return cell.thumbnail.page if isinstance(cell, PageCell) else None
+
+
+@pytest.mark.parametrize(("deleted", "focused"), [(4, 3), (2, 2)])
+def test_deleting_the_focused_thumbnail_keeps_the_focus_there(
+    window: "PenfoldWindow", deleted: int, focused: int
+) -> None:
+    pages = window.pages_view
+    select(window, deleted)
+    row = pages._cells[deleted].get_parent()
+    assert row is not None
+    row.grab_focus()  # as a click on the thumbnail does
+    assert pages.has_focus_within
+    window.activate_action("win.delete-pages", None)
+    process_pending_events()
+    assert _focused_page(window) == focused  # not the first, as GTK would do, scrolling up to it
+
+
 def test_the_notice_goes_away_once_its_edit_is_undone(window: "PenfoldWindow") -> None:
     dismissed: list[bool] = []
     select(window, 0)
