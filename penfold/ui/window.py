@@ -287,7 +287,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return True
 
     def _on_menu_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
-        """The Menu key, or Shift+F10, opens the menu of what is selected in Pages or Bookmarks, if shown (D74).
+        """The Menu key, or Shift+F10, opens the menu of what is selected in the view of the panel shown (D74, D76).
 
         As Delete, wherever the focus is: a click on a thumbnail or a bookmark leaves it in the document.
         """
@@ -297,6 +297,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return self.pages_view.open_menu()
         if self.sidebar.visible_view == sidebar_views.BOOKMARKS:
             return self.bookmarks_view.open_menu()
+        if self.sidebar.visible_view == sidebar_views.ANNOTATIONS:
+            return self.annotations_view.open_menu()
         return False
 
     def _on_rename_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:

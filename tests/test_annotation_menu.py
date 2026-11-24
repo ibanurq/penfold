@@ -418,3 +418,21 @@ def test_the_headings_count_what_is_left(panel_window: "PenfoldWindow") -> None:
         if isinstance(widget, Gtk.Label) and widget.has_css_class("caption-heading")
     ]
     assert headings == ["Text Elements (1)"]
+
+
+def test_the_menu_key_opens_the_menu_wherever_the_focus_is(panel_window: "PenfoldWindow") -> None:
+    window = panel_window
+    view = window.annotations_view
+    editing = window.annotation_editing
+    wait_until(lambda: len(view.bound_rows()) == 2)
+    window.document_view.grab_focus()
+    assert not window._on_menu_key(window, None)  # Nothing selected.
+    view.selection.select_item(0, True)
+    assert window._on_menu_key(window, None)  # With the focus on the page (D76).
+    process_pending_events()
+    assert editing.menu is not None
+    assert editing.annotation is view.selected_annotations()[0]
+    editing.menu.popdown()
+    process_pending_events()
+    window.split_view.set_show_sidebar(False)
+    assert not window._on_menu_key(window, None)  # Not with the panel hidden.

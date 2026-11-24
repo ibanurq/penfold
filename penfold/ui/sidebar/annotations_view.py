@@ -16,6 +16,7 @@ from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
 from penfold.rendering.renderer import Renderer
 from penfold.ui.annotation_icons import KIND_ICONS
+from penfold.ui.context_menu import is_menu_key
 from penfold.ui.sidebar.view_header import RecentUse, empty_label, unselect_all, unselect_on_empty_click, view_header
 
 # Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
@@ -380,13 +381,14 @@ class AnnotationsView(Gtk.Box):
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
-        """The Menu key, or Shift+F10, asks for the menu of the first annotation selected, at its row."""
-        menu_key = keyval == Gdk.KEY_Menu or (keyval == Gdk.KEY_F10 and state & Gdk.ModifierType.SHIFT_MASK)
+        """The Menu key, or Shift+F10, asks for the menu of the first annotation selected."""
+        return is_menu_key(keyval, state) and self.open_menu()
+
+    def open_menu(self) -> bool:
+        """Ask for the menu of the first annotation selected, at its row if it is shown; return whether it did."""
         selected = self.selected_annotations()
-        if not menu_key or not selected:
-            return False
-        row = self._rows.get(id(selected[0]))
-        if row is None:
+        row = self._rows.get(id(selected[0])) if selected else None
+        if row is None or not row.get_mapped():
             return False
         self._ask_for_menu(row, row.get_width() / 2, row.get_height() / 2)
         return True
