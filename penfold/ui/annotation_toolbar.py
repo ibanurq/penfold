@@ -18,6 +18,8 @@ COLOR_ACTION = "win.annotation-color"
 # The room the zoom buttons take at the right of the document, which the bar leaves free (D32).
 ZOOM_BUTTONS_ROOM = 72
 BAR_MARGIN = 18
+# The space left between the bar and the zoom buttons when they rise above it.
+ZOOM_LIFT_GAP = 12
 
 
 class Tool(enum.Enum):
@@ -131,3 +133,8 @@ def bar_position(document_width: int, bar_width: int) -> int:
     centred = (document_width - bar_width) // 2
     widest = document_width - ZOOM_BUTTONS_ROOM - bar_width
     return max(0, min(centred, widest))
+
+
+def fits_beside_zoom_buttons(document_width: int, bar_width: int) -> bool:
+    """Whether the bar and the zoom buttons fit side by side; if not, the zoom buttons rise above the bar."""
+    return bar_width + ZOOM_BUTTONS_ROOM <= document_width

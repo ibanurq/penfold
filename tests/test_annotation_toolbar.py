@@ -7,9 +7,9 @@ from gi.repository import GLib, Gtk
 
 from penfold.document.annotations import Kind
 from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON
-from penfold.ui.annotation_toolbar import ZOOM_BUTTONS_ROOM, Tool, bar_position
+from penfold.ui.annotation_toolbar import ZOOM_BUTTONS_ROOM, ZOOM_LIFT_GAP, Tool, bar_position, fits_beside_zoom_buttons
 from penfold.ui.palette import ANNOTATION_COLORS
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until_stable
 from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
 from tests.test_document_window import action_enabled, open_and_wait, window
 
@@ -95,6 +95,35 @@ def test_the_bar_is_centred_left_of_the_zoom_buttons() -> None:
     assert bar_position(1000, 400) == 300
     assert bar_position(520, 400) == 520 - ZOOM_BUTTONS_ROOM - 400  # Moved left to leave them free.
     assert bar_position(300, 400) == 0
+
+
+def test_the_zoom_buttons_rise_only_when_they_do_not_fit_beside_the_bar() -> None:
+    assert fits_beside_zoom_buttons(400 + ZOOM_BUTTONS_ROOM, 400)
+    assert not fits_beside_zoom_buttons(400 + ZOOM_BUTTONS_ROOM - 1, 400)
+
+
+def test_in_a_narrow_window_the_zoom_buttons_rise_above_the_bar(window: "PenfoldWindow", tmp_path: Path) -> None:
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    bar, zoom = window.annotation_toolbar, window.zoom_controls
+
+    def zoom_bottom() -> float:
+        bounds = zoom.compute_bounds(window.document_overlay)[1]
+        return bounds.get_y() + bounds.get_height()
+
+    window.split_view.set_show_sidebar(False)
+    window.activate_action("win.annotate", None)
+    bar_width = bar.get_preferred_size()[1].width  # Measured while shown: hidden, it takes no room.
+    window.activate_action("win.annotate", None)
+    window.set_default_size(bar_width + ZOOM_BUTTONS_ROOM - 1, 700)  # One pixel short of fitting.
+    wait_until_stable(zoom_bottom)
+    resting = zoom_bottom()
+    window.activate_action("win.annotate", None)
+    wait_until_stable(zoom_bottom)
+    bar_top = bar.compute_bounds(window.document_overlay)[1].get_y()
+    assert zoom_bottom() == bar_top - ZOOM_LIFT_GAP
+    window.activate_action("win.annotate", None)  # Hidden: they go back down.
+    wait_until_stable(zoom_bottom)
+    assert zoom_bottom() == resting
 
 
 def test_each_tool_has_the_icon_of_its_type_in_the_panel(window: "PenfoldWindow") -> None:

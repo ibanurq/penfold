@@ -21,7 +21,13 @@ from penfold.rendering.renderer import Renderer
 from penfold.rendering.text_search import ContextReader
 from penfold.ui.annotating import Annotating
 from penfold.ui.annotation_editing import AnnotationEditing
-from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool, bar_position
+from penfold.ui.annotation_toolbar import (
+    ZOOM_LIFT_GAP,
+    AnnotationToolbar,
+    Tool,
+    bar_position,
+    fits_beside_zoom_buttons,
+)
 from penfold.ui.bookmark_editing import BookmarkEditing
 
 # The template uses these widgets by name: importing them also registers their types with GTK.
@@ -635,15 +641,32 @@ class PenfoldWindow(Adw.ApplicationWindow):
         else:
             self.toast_overlay.remove_css_class("annotation-bar-shown")
 
-    def _place_annotation_toolbar(self, overlay: Gtk.Overlay, child: Gtk.Widget, area: Gdk.Rectangle) -> bool:
-        """Put the annotation bar at the bottom of the document, centred, left of the zoom buttons (D32)."""
-        if child is not self.annotation_toolbar:
-            return False
-        _minimum, natural = child.get_preferred_size()
-        area.width, area.height = natural.width, natural.height
-        area.x = bar_position(overlay.get_width(), natural.width)
-        area.y = overlay.get_height() - natural.height - child.get_margin_bottom()
-        return True
+    def _place_overlay_child(self, overlay: Gtk.Overlay, child: Gtk.Widget, area: Gdk.Rectangle) -> bool:
+        """Put the annotation bar at the bottom of the document, centred, left of the zoom buttons (D32).
+
+        When the window is too narrow for both, the zoom buttons rise above the bar (07-fase-12, 11).
+        """
+        if child is self.annotation_toolbar:
+            natural = child.get_preferred_size()[1]
+            area.width, area.height = natural.width, natural.height
+            area.x = bar_position(overlay.get_width(), natural.width)
+            area.y = self._annotation_toolbar_top(overlay)
+            return True
+        if child is self.zoom_controls and self.annotation_toolbar.get_visible():
+            bar_width = self.annotation_toolbar.get_preferred_size()[1].width
+            if fits_beside_zoom_buttons(overlay.get_width(), bar_width):
+                return False
+            natural = child.get_preferred_size()[1]  # With its margins: its bottom one is left out.
+            area.width, area.height = natural.width, natural.height
+            area.x = overlay.get_width() - natural.width
+            area.y = self._annotation_toolbar_top(overlay) - ZOOM_LIFT_GAP - natural.height + child.get_margin_bottom()
+            return True
+        return False
+
+    def _annotation_toolbar_top(self, overlay: Gtk.Overlay) -> int:
+        """Where the annotation bar starts, from the top of the document."""
+        bar = self.annotation_toolbar
+        return overlay.get_height() - bar.get_preferred_size()[1].height - bar.get_margin_bottom()
 
     def _update_zoom_actions(self) -> None:
         for name, enabled in (
@@ -686,7 +709,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         )
         self.annotation_toolbar = AnnotationToolbar()
         self.document_overlay.add_overlay(self.annotation_toolbar)
-        self.document_overlay.connect("get-child-position", self._place_annotation_toolbar)
+        self.document_overlay.connect("get-child-position", self._place_overlay_child)
         self.annotation_toolbar.connect("notify::visible", self._on_annotation_toolbar_shown)
         self.annotating = Annotating(
             self,
