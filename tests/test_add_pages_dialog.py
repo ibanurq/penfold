@@ -85,8 +85,15 @@ def test_the_window_adds_the_chosen_pages(window: "PenfoldWindow", tmp_path: Pat
     assert window.document_view.current_page == 1
     window.add_pages(PagesToAdd(PaperSize.A5, 5))
     assert document.page_count == 6
-    document.undo()
+    notice = window._edit_toast
+    assert notice is not None
+    assert notice[0].get_title() == "Blank page added"
+    dismissed: list[bool] = []
+    notice[0].connect("dismissed", lambda _toast: dismissed.append(True))
+    window.activate_action("win.undo", None)
+    process_pending_events()
     assert document.page_count == 5
+    assert (window._edit_toast, dismissed) == (None, [True])  # The notice goes away with what it announced (D76).
 
 
 @pytest.mark.parametrize("name", ["locked.pdf", "missing.pdf"])

@@ -138,8 +138,8 @@ def test_delete_deletes_it_with_a_toast_to_undo_it(annotated_window: "PenfoldWin
     window.activate_action("win.delete-annotation")
     process_pending_events()
     assert Kind.HIGHLIGHT not in [item.kind for item in window.document.annotations]
-    assert window._undo_toast is not None
-    toast, _command = window._undo_toast
+    assert window._edit_toast is not None
+    toast, _command = window._edit_toast
     assert toast.get_title() == "Annotation deleted"
     toast.emit("button-clicked")
     assert annotation(window, Kind.HIGHLIGHT) is not None
@@ -370,8 +370,8 @@ def test_delete_deletes_the_annotations_selected_in_the_panel(panel_window: "Pen
     assert [item.kind for item in selected] == [Kind.COMMENT, Kind.TEXT_BOX]
     assert window._on_delete_key(window, None)
     assert [item.kind for item in window.document.annotations if item.kind in {Kind.COMMENT, Kind.TEXT_BOX}] == []
-    assert window._undo_toast is not None
-    toast, _command = window._undo_toast
+    assert window._edit_toast is not None
+    toast, _command = window._edit_toast
     assert toast.get_title() == "2 annotations deleted"
     window.activate_action("win.undo")
     assert len(window.annotations_view.shown_annotations()) == 2

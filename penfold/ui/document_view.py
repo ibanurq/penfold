@@ -63,6 +63,9 @@ HIT_REACH = 4.0
 MARK_MARGIN = 3.0
 MARK_WIDTH = 2.0
 MARK_RADIUS = 4.0
+# A comment's tooltip shows at most this many lines and characters, then "…" (D76).
+TOOLTIP_LINES = 10
+TOOLTIP_CHARACTERS = 500
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
 
@@ -129,6 +132,14 @@ class AnnotationClick:
     annotation: Annotation
     x: float
     y: float
+
+
+def tooltip_text(text: str) -> str:
+    """A comment's text for its tooltip: cut after some lines, and some characters for a long line, with "…"."""
+    lines = text.strip().splitlines()
+    whole = "\n".join(lines)
+    short = "\n".join(lines[:TOOLTIP_LINES])[:TOOLTIP_CHARACTERS].rstrip()
+    return whole if short == whole else short + "…"
 
 
 def clamp_zoom(zoom: float) -> float:
@@ -1131,7 +1142,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         comment = self.comment_at(x, y)
         if comment is None:
             return False
-        tooltip.set_text(comment.text)
+        tooltip.set_text(tooltip_text(comment.text))
         return True
 
     def link_at(self, x: float, y: float) -> Link | None:

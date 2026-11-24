@@ -125,7 +125,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.renderer: Renderer | None = None
         self._saving = False
         self._close_confirmed = False
-        self._undo_toast: tuple[Adw.Toast, Command] | None = None
+        self._edit_toast: tuple[Adw.Toast, Command] | None = None
         self._settings = Gio.Settings(schema_id=config.APP_ID)
         self._settings.connect(f"changed::{RESPECT_PERMISSIONS_KEY}", self._on_respect_permissions_changed)
         attach_main_menu(self.welcome_menu_button)
@@ -387,14 +387,15 @@ class PenfoldWindow(Adw.ApplicationWindow):
         except DocumentOpenError:
             self._show_message(_("Could not open “{name}”").format(name=source.name))
             return
-        document.execute(AddPages(document, added, choice.position))
+        command = AddPages(document, added, choice.position)
+        document.execute(command)
         self.document_view.go_to(choice.position)
         count = len(added.pages)
         if isinstance(source, PaperSize):
             message = _("Blank page added")
         else:
             message = ngettext("{count} page added", "{count} pages added", count)
-        self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=count)))
+        self._show_edit_toast(Adw.Toast(title=message.format(count=count)), command)
 
     def _open_extract_pages_dialog(self) -> None:
         """Ask which pages to extract and how, starting with the selected ones (E7, E8)."""
@@ -440,7 +441,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_undo_toast(deleted.format(count=count), command)
 
     def _show_undo_toast(self, title: str, command: Command) -> None:
-        """Show a notice with Undo for an edit; it goes away as soon as the edit is no longer the last one."""
+        """Show a notice with Undo for an edit."""
         toast = Adw.Toast(title=title, button_label=_("_Undo"))
 
         def undo(_toast: Adw.Toast) -> None:
@@ -448,17 +449,26 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 self.document.undo()
 
         toast.connect("button-clicked", undo)
-        toast.connect("dismissed", lambda _toast: setattr(self, "_undo_toast", None))
-        self._undo_toast = (toast, command)
+        self._show_edit_toast(toast, command)
+
+    def _show_edit_toast(self, toast: Adw.Toast, command: Command) -> None:
+        """Show a notice about an edit; it goes away as soon as the edit is no longer the last one (D76)."""
+
+        def forget(dismissed: Adw.Toast) -> None:
+            if self._edit_toast is not None and self._edit_toast[0] is dismissed:
+                self._edit_toast = None
+
+        toast.connect("dismissed", forget)
+        self._edit_toast = (toast, command)
         self.toast_overlay.add_toast(toast)
 
-    def _dismiss_stale_undo_toast(self) -> None:
-        """Take away the notice to undo an edit once that edit was undone or another one came after it."""
-        if self._undo_toast is None:
+    def _dismiss_stale_edit_toast(self) -> None:
+        """Take away the notice about an edit once that edit was undone or another one came after it."""
+        if self._edit_toast is None:
             return
-        toast, command = self._undo_toast
+        toast, command = self._edit_toast
         if self.document is None or self.document.last_edit is not command:
-            self._undo_toast = None
+            self._edit_toast = None
             toast.dismiss()
 
     # Saving (J1).
@@ -913,7 +923,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self.document is None or self.renderer is None:
             return
         self._update_edit_actions()
-        self._dismiss_stale_undo_toast()
+        self._dismiss_stale_edit_toast()
         self._show_title()
         if Change.PAGES in changes:
             self._update_page_actions()

@@ -96,3 +96,13 @@ def test_on_a_turned_page_the_comment_is_shown_centred_on_the_click(comment_wind
     assert view.comment_at(*widget_point(window, 0, 291, 91)) == comment
     assert view.comment_at(*widget_point(window, 0, 309, 109)) == comment
     assert view.comment_at(*widget_point(window, 0, 315, 100)) is None
+
+
+def test_a_long_comment_is_cut_in_its_tooltip() -> None:
+    from penfold.ui.document_view import TOOLTIP_CHARACTERS, TOOLTIP_LINES, tooltip_text
+
+    assert tooltip_text("Check this\r\nand that\n") == "Check this\nand that"
+    many_lines = "\n".join(f"Line {number}" for number in range(1, 15))
+    assert tooltip_text(many_lines) == "\n".join(f"Line {number}" for number in range(1, TOOLTIP_LINES + 1)) + "…"
+    one_long_line = "word " * 200
+    assert tooltip_text(one_long_line) == one_long_line[:TOOLTIP_CHARACTERS].rstrip() + "…"

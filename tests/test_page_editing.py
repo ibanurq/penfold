@@ -102,12 +102,12 @@ def test_the_notice_goes_away_once_its_edit_is_undone(window: "PenfoldWindow") -
     dismissed: list[bool] = []
     select(window, 0)
     window.activate_action("win.delete-pages", None)
-    notice = window._undo_toast
+    notice = window._edit_toast
     assert notice is not None
     notice[0].connect("dismissed", lambda _toast: dismissed.append(True))
     window.activate_action("win.undo", None)
     process_pending_events()
-    assert window._undo_toast is None
+    assert window._edit_toast is None
     assert dismissed == [True]
 
 
