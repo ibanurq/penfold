@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-24 15:18+0100\n"
+"POT-Creation-Date: 2026-11-24 15:43+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -94,10 +94,10 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:22
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:355
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:354
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:1105
+#: penfold/ui/window.py:1123
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -234,7 +234,7 @@ msgid "Annotations to Print"
 msgstr "Anotaciones que se imprimen"
 
 #: data/ui/dialogs/print_dialog.blp:42
-#: penfold/ui/sidebar/annotations_view.py:36
+#: penfold/ui/sidebar/annotations_view.py:37
 msgid "Text Highlights"
 msgstr "Resaltados de texto"
 
@@ -243,7 +243,7 @@ msgid "Underlines, strikethroughs, highlights, etc."
 msgstr "Subrayados, tachados, resaltados, etc."
 
 #: data/ui/dialogs/print_dialog.blp:48
-#: penfold/ui/sidebar/annotations_view.py:37
+#: penfold/ui/sidebar/annotations_view.py:38
 msgid "Shapes"
 msgstr "Formas geométricas"
 
@@ -252,7 +252,7 @@ msgid "Circles, rectangles, arrows, etc."
 msgstr "Círculos, rectángulos, flechas, etc."
 
 #: data/ui/dialogs/print_dialog.blp:54
-#: penfold/ui/sidebar/annotations_view.py:38
+#: penfold/ui/sidebar/annotations_view.py:39
 msgid "Text Elements"
 msgstr "Elementos con texto"
 
@@ -261,7 +261,7 @@ msgid "Comments, text boxes, stamps, etc."
 msgstr "Comentarios, cuadros de texto, sellos, etc."
 
 #: data/ui/dialogs/print_dialog.blp:60
-#: penfold/ui/sidebar/annotations_view.py:39
+#: penfold/ui/sidebar/annotations_view.py:40
 msgid "Other Types"
 msgstr "Otros tipos"
 
@@ -269,7 +269,7 @@ msgstr "Otros tipos"
 msgid "Attachments, sounds, etc."
 msgstr "Archivos adjuntos, sonidos, etc."
 
-#: data/ui/dialogs/save_as_dialog.blp:8 penfold/ui/window.py:498
+#: data/ui/dialogs/save_as_dialog.blp:8 penfold/ui/window.py:510
 msgid "Save As"
 msgstr "Guardar como"
 
@@ -315,7 +315,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:86 penfold/ui/bookmark_editing.py:173
-#: penfold/ui/window.py:1107
+#: penfold/ui/window.py:1125
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -360,7 +360,7 @@ msgid "Go to Page"
 msgstr "Ir a la página"
 
 #: data/ui/preferences_dialog.blp:13 data/ui/sidebar/sidebar.blp:69
-#: penfold/ui/shortcuts_dialog.py:42 penfold/ui/sidebar/annotations_view.py:151
+#: penfold/ui/shortcuts_dialog.py:42 penfold/ui/sidebar/annotations_view.py:152
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -436,18 +436,18 @@ msgstr "Abrir un PDF"
 msgid "ibanurq, with AI assistance"
 msgstr "ibanurq, con ayuda de IA"
 
-#: penfold/ui/annotation_editing.py:323
+#: penfold/ui/annotation_editing.py:322
 #, python-brace-format
 msgid "Annotation deleted"
 msgid_plural "{count} annotations deleted"
 msgstr[0] "Anotación eliminada"
 msgstr[1] "{count} anotaciones eliminadas"
 
-#: penfold/ui/annotation_editing.py:349
+#: penfold/ui/annotation_editing.py:348
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:351
+#: penfold/ui/annotation_editing.py:350
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -455,27 +455,31 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:356
+#: penfold/ui/annotation_editing.py:355
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:389
-msgid "_Edit Text…"
-msgstr "E_ditar texto…"
+#: penfold/ui/annotation_editing.py:384
+msgid "_Adjust Ends"
+msgstr "_Ajustar extremos"
 
-#: penfold/ui/annotation_editing.py:391
-msgid "_Format…"
-msgstr "_Formato…"
-
-#: penfold/ui/annotation_editing.py:393
+#: penfold/ui/annotation_editing.py:384
 msgid "_Move and Resize"
 msgstr "_Mover y cambiar tamaño"
 
-#: penfold/ui/annotation_editing.py:393
+#: penfold/ui/annotation_editing.py:385
 msgid "_Move"
 msgstr "_Mover"
 
-#: penfold/ui/annotation_editing.py:396
+#: penfold/ui/annotation_editing.py:397
+msgid "_Edit Text…"
+msgstr "E_ditar texto…"
+
+#: penfold/ui/annotation_editing.py:399
+msgid "_Format…"
+msgstr "_Formato…"
+
+#: penfold/ui/annotation_editing.py:404
 #: penfold/ui/sidebar/bookmarks_view.py:121 penfold/ui/sidebar/pages_view.py:86
 msgid "_Delete"
 msgstr "_Eliminar"
@@ -521,7 +525,7 @@ msgid "Color"
 msgstr "Color"
 
 #: penfold/ui/bookmark_editing.py:125
-#: penfold/ui/sidebar/annotations_view.py:159
+#: penfold/ui/sidebar/annotations_view.py:160
 #: penfold/ui/sidebar/search_view.py:106
 #, python-brace-format
 msgid "Page {label}"
@@ -589,14 +593,14 @@ msgstr ""
 msgid "Drag PDFs here or click “Add PDFs…”"
 msgstr "Arrastra aquí los PDF o pulsa «Añadir PDF…»"
 
-#: penfold/ui/dialogs/merge_dialog.py:138 penfold/ui/window.py:388
-#: penfold/ui/window.py:838 penfold/ui/window.py:883
+#: penfold/ui/dialogs/merge_dialog.py:138 penfold/ui/window.py:390
+#: penfold/ui/window.py:856 penfold/ui/window.py:901
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:141 penfold/ui/extraction.py:125
-#: penfold/ui/window.py:980
+#: penfold/ui/window.py:998
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -725,7 +729,7 @@ msgstr "_Renombrar"
 msgid "_Overwrite"
 msgstr "_Sobrescribir"
 
-#: penfold/ui/extraction.py:123 penfold/ui/window.py:569
+#: penfold/ui/extraction.py:123 penfold/ui/window.py:587
 #, python-brace-format
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
@@ -962,27 +966,27 @@ msgstr "Estilo claro"
 msgid "Dark Style"
 msgstr "Estilo oscuro"
 
-#: penfold/ui/sidebar/annotations_view.py:124
+#: penfold/ui/sidebar/annotations_view.py:125
 msgid "No text"
 msgstr "Sin texto"
 
-#: penfold/ui/sidebar/annotations_view.py:147
+#: penfold/ui/sidebar/annotations_view.py:148
 msgid "Filter"
 msgstr "Filtro"
 
-#: penfold/ui/sidebar/annotations_view.py:248
+#: penfold/ui/sidebar/annotations_view.py:249
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
 
-#: penfold/ui/sidebar/annotations_view.py:248
+#: penfold/ui/sidebar/annotations_view.py:249
 msgid "This PDF has no annotations"
 msgstr "Este PDF no tiene anotaciones"
 
-#: penfold/ui/sidebar/annotations_view.py:326
+#: penfold/ui/sidebar/annotations_view.py:327
 msgid "(External)"
 msgstr "(Externa)"
 
-#: penfold/ui/sidebar/annotations_view.py:424
+#: penfold/ui/sidebar/annotations_view.py:426
 #, python-brace-format
 msgid "{group} ({count})"
 msgstr "{group} ({count})"
@@ -1070,64 +1074,64 @@ msgid_plural "{count} results"
 msgstr[0] "{count} resultado"
 msgstr[1] "{count} resultados"
 
-#: penfold/ui/window.py:355
+#: penfold/ui/window.py:357
 #, python-brace-format
 msgid "Page deleted"
 msgid_plural "{count} pages deleted"
 msgstr[0] "Página eliminada"
 msgstr[1] "{count} páginas eliminadas"
 
-#: penfold/ui/window.py:384
+#: penfold/ui/window.py:386
 #, python-brace-format
 msgid "The user access permissions of “{name}” do not allow adding its pages"
 msgstr ""
 "Los permisos de acceso del usuario de «{name}» no permiten añadir sus páginas"
 
-#: penfold/ui/window.py:394
+#: penfold/ui/window.py:397
 msgid "Blank page added"
 msgstr "Página en blanco añadida"
 
-#: penfold/ui/window.py:396
+#: penfold/ui/window.py:399
 #, python-brace-format
 msgid "{count} page added"
 msgid_plural "{count} pages added"
 msgstr[0] "{count} página añadida"
 msgstr[1] "{count} páginas añadidas"
 
-#: penfold/ui/window.py:429
+#: penfold/ui/window.py:432
 #, python-brace-format
 msgid "{count} page extracted into its own file"
 msgid_plural "{count} pages extracted, one file each"
 msgstr[0] "{count} página extraída en su propio archivo"
 msgstr[1] "{count} páginas extraídas, cada una en su archivo"
 
-#: penfold/ui/window.py:432
+#: penfold/ui/window.py:435
 #, python-brace-format
 msgid "{count} page extracted"
 msgid_plural "{count} pages extracted"
 msgstr[0] "{count} página extraída"
 msgstr[1] "{count} páginas extraídas"
 
-#: penfold/ui/window.py:439
+#: penfold/ui/window.py:442
 #, python-brace-format
 msgid "{count} page extracted and deleted"
 msgid_plural "{count} pages extracted and deleted"
 msgstr[0] "{count} página extraída y eliminada"
 msgstr[1] "{count} páginas extraídas y eliminadas"
 
-#: penfold/ui/window.py:444
+#: penfold/ui/window.py:447
 msgid "_Undo"
 msgstr "_Deshacer"
 
-#: penfold/ui/window.py:497
+#: penfold/ui/window.py:509
 msgid "_flattened.pdf"
 msgstr "_aplanado.pdf"
 
-#: penfold/ui/window.py:522
+#: penfold/ui/window.py:534
 msgid "This PDF does not allow printing"
 msgstr "Este PDF no permite imprimir"
 
-#: penfold/ui/window.py:556
+#: penfold/ui/window.py:574
 #, python-brace-format
 msgid "The value of {count} form field could not be saved"
 msgid_plural "The values of {count} form fields could not be saved"
@@ -1135,40 +1139,40 @@ msgstr[0] "No se pudo guardar el valor de {count} campo del formulario"
 msgstr[1] "No se pudieron guardar los valores de {count} campos del formulario"
 
 #. An exported copy: the document keeps its file and its changes (I6).
-#: penfold/ui/window.py:564
+#: penfold/ui/window.py:582
 #, python-brace-format
 msgid "Flattened copy saved as “{name}”"
 msgstr "Copia aplanada guardada como «{name}»"
 
-#: penfold/ui/window.py:593
+#: penfold/ui/window.py:611
 #, python-brace-format
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:855
+#: penfold/ui/window.py:873
 msgid "merged.pdf"
 msgstr "combinado.pdf"
 
-#: penfold/ui/window.py:866
+#: penfold/ui/window.py:884
 msgid "Could not merge the PDFs"
 msgstr "No se pudieron combinar los PDF"
 
-#: penfold/ui/window.py:873
+#: penfold/ui/window.py:891
 #, python-brace-format
 msgid "PDFs merged: {count} page"
 msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:1100
+#: penfold/ui/window.py:1118
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:1101
+#: penfold/ui/window.py:1119
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:1106
+#: penfold/ui/window.py:1124
 msgid "_Discard"
 msgstr "_Descartar"

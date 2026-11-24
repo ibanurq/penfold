@@ -189,7 +189,7 @@ def test_one_penfold_cannot_draw_again_only_moves_without_a_warning(annotated_wi
 
 def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow") -> None:
     from penfold.document.reshaping import can_move
-    from penfold.ui.annotation_editing import _can_resize
+    from penfold.ui.annotation_editing import _can_resize, _reshape_label
 
     window = annotated_window
     assert window.document is not None
@@ -202,6 +202,15 @@ def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow"
         Kind.COMMENT: True,
         Kind.TEXT_BOX: True,
         Kind.ARROW: True,
+    }
+    labels = {item.kind: _reshape_label(item) for item in window.document.annotations}
+    assert labels == {
+        Kind.HIGHLIGHT: "_Adjust Ends",  # It follows the text, it does not move (D76).
+        Kind.RECTANGLE: "_Move and Resize",  # By its type, as before; this one only moves (D73).
+        Kind.OTHER: None,
+        Kind.COMMENT: "_Move",
+        Kind.TEXT_BOX: "_Move and Resize",
+        Kind.ARROW: "_Move and Resize",
     }
     assert resized == {
         Kind.HIGHLIGHT: True,  # The text it covers.

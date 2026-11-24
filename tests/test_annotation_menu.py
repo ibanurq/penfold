@@ -223,15 +223,15 @@ def test_the_menu_has_the_items_of_the_type() -> None:
     from penfold.ui.annotation_editing import _menu_model
 
     texts = []
-    for with_text, with_format, moved, resized in (
-        (False, False, False, False),
-        (True, False, False, False),
-        (False, True, False, False),
-        (True, True, False, False),
-        (False, True, True, True),
-        (True, False, True, False),
+    for with_text, with_format, reshape in (
+        (False, False, None),
+        (True, False, None),
+        (False, True, None),
+        (True, True, None),
+        (False, True, "_Adjust Ends"),
+        (True, False, "_Move"),
     ):
-        model = _menu_model(colored=True, with_text=with_text, with_format=with_format, moved=moved, resized=resized)
+        model = _menu_model(colored=True, with_text=with_text, with_format=with_format, reshape=reshape)
         found = []
         for index in range(model.get_n_items()):
             section = model.get_item_link(index, "section")
@@ -246,7 +246,7 @@ def test_the_menu_has_the_items_of_the_type() -> None:
         ["_Edit Text…", "_Delete"],
         ["_Format…", "_Delete"],
         ["_Edit Text…", "_Format…", "_Delete"],
-        ["_Format…", "_Move and Resize", "_Delete"],
+        ["_Format…", "_Adjust Ends", "_Delete"],
         ["_Edit Text…", "_Move", "_Delete"],
     ]
 

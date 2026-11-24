@@ -100,8 +100,7 @@ class AnnotationEditing:
             colored=colored,
             with_text=annotation.kind in WITH_TEXT,
             with_format=has_format(annotation.kind),
-            moved=can_move(annotation) or can_resize(annotation),
-            resized=can_resize(annotation),
+            reshape=_reshape_label(annotation),
         )
         custom = {SEPARATOR: separator()}
         if colored:
@@ -375,10 +374,19 @@ def _can_resize(annotation: Annotation) -> bool:
     return can_resize(annotation) and (annotation.managed or not annotation.foreign_look)
 
 
-def _menu_model(*, colored: bool, with_text: bool, with_format: bool, moved: bool, resized: bool) -> Gio.Menu:
-    """The menu of an annotation: the colours, Edit Text…, Format… and Move and Resize (those it has), and Delete.
+def _reshape_label(annotation: Annotation) -> str | None:
+    """The menu item that shows the handles, or None for a type without them.
 
-    One that moves but keeps its size (a comment) has Move instead of Move and Resize.
+    Move and Resize; Move for one of a fixed size (a comment); Adjust Ends for the marks on text, which follow the
+    text instead of moving (D76).
+    """
+    if can_resize(annotation):
+        return _("_Adjust Ends") if annotation.kind in TEXT_MARKUPS else _("_Move and Resize")
+    return _("_Move") if can_move(annotation) else None
+
+
+def _menu_model(*, colored: bool, with_text: bool, with_format: bool, reshape: str | None) -> Gio.Menu:
+    """The menu of an annotation: the colours, Edit Text…, Format…, the item of the handles (those it has), Delete.
 
     It is one section, with separators of its own between the groups (as every context menu, ui/context_menu.py).
     """
@@ -389,9 +397,9 @@ def _menu_model(*, colored: bool, with_text: bool, with_format: bool, moved: boo
         items.append(_("_Edit Text…"), "win.edit-annotation-text")
     if with_format:
         items.append(_("_Format…"), "win.format-annotation")
-    if moved:
-        items.append(_("_Move and Resize") if resized else _("_Move"), "win.reshape-annotation")
-    if with_text or with_format or moved:
+    if reshape:
+        items.append(reshape, "win.reshape-annotation")
+    if with_text or with_format or reshape:
         items.append_item(custom_item(SEPARATOR))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()
