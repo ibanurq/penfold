@@ -90,6 +90,7 @@ class AnnotationRow(Gtk.Box):
     def __init__(self) -> None:
         """Create the row's widgets; the list fills them for each annotation it shows."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=6, margin_bottom=6)
+        self.add_css_class("annotation-row")
         self.annotation: Annotation | None = None
         top = Gtk.Box(spacing=6)
         self.icon = Gtk.Image()
@@ -291,9 +292,9 @@ class AnnotationsView(Gtk.Box):
 
     def _show_mark(self, row: AnnotationRow) -> None:
         if row.annotation is not None and self.position(row.annotation) == self.reading_page:
-            row.add_css_class("reading-position")
+            row.add_css_class("reading-section")
         else:
-            row.remove_css_class("reading-position")
+            row.remove_css_class("reading-section")
 
     def _is_shown(self, item: GObject.Object) -> bool:
         return isinstance(item, AnnotationItem) and item.annotation.group in self.shown_groups
@@ -343,7 +344,7 @@ class AnnotationsView(Gtk.Box):
             if self._rows.get(id(row.annotation)) is row:
                 del self._rows[id(row.annotation)]
             self._pending_texts.pop(row, None)
-            row.remove_css_class("reading-position")
+            row.remove_css_class("reading-section")
 
     def _needs_marked_text(self, annotation: Annotation) -> bool:
         return not annotation.text and annotation.kind in TEXT_MARKUPS and self.content is not None

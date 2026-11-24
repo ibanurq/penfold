@@ -7,15 +7,15 @@
   opacity: 1;
 }
 
-/* The rows of the page being read, in Annotations (D40). */
-.reading-position {
-  background-color: color-mix(in srgb, var(--accent-bg-color) 15%, transparent);
-  border-radius: 6px;
-}
-
-/* The bookmark of the section being read (D40): a line at its left, not a background, unlike the selection (D77). */
+/* The bookmark of the section being read, and the annotations of the page being read (D40): a line at their left,
+   not a background, unlike the selection (D77). */
 .reading-section {
   box-shadow: inset 3px 0 var(--accent-bg-color);
+}
+
+/* Room at the left of every annotation row, so the line of the page being read stands apart from the colour bar. */
+.annotation-row {
+  padding-left: 9px;
 }
 
 /* Background behind the pages: a soft grey, so their edges show in light and dark mode. */

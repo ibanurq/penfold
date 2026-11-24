@@ -404,7 +404,7 @@ def test_annotations_of_the_page_being_read_are_marked(window: "PenfoldWindow", 
 
     def marked() -> list[int]:
         rows = view.bound_rows()
-        return [row.annotation.page for row in rows if row.annotation and row.has_css_class("reading-position")]
+        return [row.annotation.page for row in rows if row.annotation and row.has_css_class("reading-section")]
 
     assert marked() == [0]
     window.document_view.go_to(2)
