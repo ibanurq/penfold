@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ClassVar
 
-from gi.repository import Adw, Gdk, GObject, Graphene, Gsk, Gtk, Poppler
+from gi.repository import Adw, Gdk, GLib, GObject, Graphene, Gsk, Gtk, Poppler
 
 from penfold.document.annotations import Annotation, Hit, Kind, Style, hit, topmost
 from penfold.document.document import OpenDocument
@@ -66,6 +66,9 @@ MARK_RADIUS = 4.0
 # A comment's tooltip shows at most this many lines and characters, then "…" (D76).
 TOOLTIP_LINES = 10
 TOOLTIP_CHARACTERS = 500
+# How long a remembered manual zoom is kept while the window settles after opening (the panel appears, the window
+# grows), instead of fitting the zoom to each new width (07-fase-12, 9).
+START_HOLD_MILLISECONDS = 1500
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
 
@@ -75,6 +78,19 @@ class Fit(enum.Enum):
     WIDTH = "width"
     PAGE = "page"
     MANUAL = "manual"
+
+
+@dataclass(frozen=True)
+class ReadingPosition:
+    """Where a document was being read (07-fase-12, 9).
+
+    The page on the top third of the viewer, how far down it is (0 at its top, 1 at its bottom), and the zoom.
+    """
+
+    page: int
+    depth: float
+    fit: Fit
+    zoom: float
 
 
 @dataclass(frozen=True)
@@ -189,6 +205,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._content_height = 0.0
         self._allocated_width = 0
         self._start_pending = False
+        self._start_position: ReadingPosition | None = None
         self._fit_deferred = False
         self.content: PageContent | None = None
         self.selection: TextSelection | None = None
@@ -264,8 +281,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     # Document.
 
-    def set_document(self, document: OpenDocument, renderer: Renderer) -> None:
-        """Show a PDF from its first page, fitted to the width (Two pages: the whole page), as in 0.6."""
+    def set_document(self, document: OpenDocument, renderer: Renderer, position: ReadingPosition | None = None) -> None:
+        """Show a PDF where it was left, if a position is given (07-fase-12, 9).
+
+        Otherwise it starts on its first page, fitted to the width (Two pages: the whole page), as in 0.6.
+        """
         if self.renderer is not None:
             self.renderer.disconnect(self._rendered_handler)
         self.document = document
@@ -276,12 +296,33 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._form_layer.set_document(document, renderer.layout)
         self.annotations_changed()
         self.selection = None
-        self.current_page = 0
-        self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH
+        start = position if position is not None and 0 <= position.page < self.page_count else None
+        self._start_position = start
+        self.current_page = 0 if start is None else start.page
+        self.fit = self._default_fit if start is None else start.fit
+        if start is not None:
+            if start.fit is Fit.MANUAL:
+                self.zoom = clamp_zoom(start.zoom)
+            GLib.timeout_add(START_HOLD_MILLISECONDS, self._release_start, start)
         self._start_pending = True
         self._allocated_width = 0
         self.queue_allocate()
         self.emit("current-page-changed")
+
+    def reading_position(self) -> ReadingPosition | None:
+        """Where the document is being read, to come back to it when it is opened again; None without one."""
+        anchor = self._anchor()
+        return None if anchor is None else ReadingPosition(anchor[0], anchor[1], self.fit, self.zoom)
+
+    @property
+    def _default_fit(self) -> Fit:
+        return Fit.PAGE if self.two_pages else Fit.WIDTH
+
+    def _release_start(self, start: ReadingPosition) -> bool:
+        """From now on, a new width fits the zoom again, even a remembered manual one (B4)."""
+        if self._start_position is start:
+            self._start_position = None
+        return GLib.SOURCE_REMOVE
 
     def pages_changed(self) -> None:
         """Show the pages again after an edit (the renderer already has them), staying where the reader was.
@@ -589,16 +630,30 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if not self._fit_deferred:
             self._allocated_width = width
         if self.renderer is not None and width_changed and not self._fit_deferred:
-            if self.fit is Fit.MANUAL:
-                self.fit = Fit.PAGE if self.two_pages else Fit.WIDTH
-            self.zoom = self._fitting_zoom(self.fit)
+            # A remembered manual zoom is kept while the window settles after opening.
+            if self.fit is Fit.MANUAL and self._start_position is None:
+                self.fit = self._default_fit
+            if self.fit is not Fit.MANUAL:
+                self.zoom = self._fitting_zoom(self.fit)
             self.emit("zoom-changed")
         self._relayout(keep_position=not self._start_pending)
         if self._start_pending and self.renderer is not None and width > 0:
             self._start_pending = False
-            if self._vadjustment is not None:
-                self._vadjustment.set_value(0)
+            self._show_start()
         self._allocate_fields()
+
+    def _show_start(self) -> None:
+        """Show the first page, or the place where the document was left."""
+        if self._vadjustment is None:
+            return
+        start = self._start_position
+        box = None if start is None else self._box(start.page)
+        if start is None or box is None:
+            self._vadjustment.set_value(0)
+            return
+        self._vadjustment.set_value(box.y + start.depth * box.height - self.get_height() / 3)
+        self._update_current_page()
+        self.emit("current-page-changed")
 
     def _allocate_fields(self) -> None:
         """Place the form fields of the visible pages over them."""

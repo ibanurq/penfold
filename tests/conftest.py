@@ -46,6 +46,17 @@ def settings_schemas(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]
             os.environ[name] = value
 
 
+@pytest.fixture(scope="session", autouse=True)
+def reading_positions_file(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Keep the documents' reading positions in a folder of the tests', never in the user's data folder."""
+    from penfold.ui import reading_positions
+
+    path = tmp_path_factory.mktemp("data") / reading_positions.FILE_NAME
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(reading_positions, "positions_file", lambda: path)
+        yield path
+
+
 @pytest.fixture(scope="session")
 def application(build_directory: Path, settings_schemas: Path) -> Iterator["PenfoldApplication"]:  # noqa: ARG001
     """Return Penfold's application, registered but not running, with the interface files of the build."""

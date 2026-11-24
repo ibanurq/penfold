@@ -46,5 +46,9 @@
       <default>true</default>
       <summary>Whether to respect the user access permissions of a PDF</summary>
     </key>
+    <key name="remember-position" type="b">
+      <default>true</default>
+      <summary>Whether each document opens where it was left, with the same zoom</summary>
+    </key>
   </schema>
 </schemalist>

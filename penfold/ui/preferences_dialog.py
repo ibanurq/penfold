@@ -1,4 +1,4 @@
-"""The Preferences dialogue (D60, D61): the author of new annotations, the annotation bar and a PDF's permissions.
+"""The Preferences dialogue (D60, D61; 07-fase-12, 8 to 10): annotations, permissions and opening documents.
 
 Each row is bound to its setting, so a change is kept as soon as it is made; there is nothing to accept or cancel.
 """
@@ -13,6 +13,7 @@ from penfold.document.annotations import DEFAULT_AUTHOR
 AUTHOR_NAME_KEY = "author-name"
 SHOW_ANNOTATION_BAR_KEY = "show-annotation-bar"
 RESPECT_PERMISSIONS_KEY = "respect-permissions"
+REMEMBER_POSITION_KEY = "remember-position"
 
 # The author entry's icon: a pencil while it is empty, and a button that empties it once it has text (07-fase-12, 8).
 EMPTY_AUTHOR_ICON = "document-edit-symbolic"
@@ -28,6 +29,7 @@ class PenfoldPreferencesDialog(Adw.PreferencesDialog):
     author_entry: Gtk.Entry = Gtk.Template.Child()
     annotation_bar_row: Adw.SwitchRow = Gtk.Template.Child()
     permissions_row: Adw.SwitchRow = Gtk.Template.Child()
+    position_row: Adw.SwitchRow = Gtk.Template.Child()
 
     def __init__(self) -> None:
         """Create the dialogue showing the current settings."""
@@ -40,6 +42,7 @@ class PenfoldPreferencesDialog(Adw.PreferencesDialog):
         self._settings.bind(AUTHOR_NAME_KEY, self.author_entry, "text", Gio.SettingsBindFlags.DEFAULT)
         self._settings.bind(SHOW_ANNOTATION_BAR_KEY, self.annotation_bar_row, "active", Gio.SettingsBindFlags.DEFAULT)
         self._settings.bind(RESPECT_PERMISSIONS_KEY, self.permissions_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self._settings.bind(REMEMBER_POSITION_KEY, self.position_row, "active", Gio.SettingsBindFlags.DEFAULT)
         self._on_author_changed()
 
     def _on_author_changed(self, *_args: object) -> None:

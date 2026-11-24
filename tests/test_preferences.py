@@ -19,7 +19,7 @@ def settings() -> Iterator[Gio.Settings]:
     """Return Penfold's settings, put back to their defaults afterwards (they are shared by the whole session)."""
     penfold_settings = Gio.Settings(schema_id=config.APP_ID)
     yield penfold_settings
-    for key in ("author-name", "show-annotation-bar", "respect-permissions"):
+    for key in ("author-name", "show-annotation-bar", "respect-permissions", "remember-position"):
         penfold_settings.reset(key)
 
 
@@ -133,3 +133,11 @@ def test_the_annotation_bar_option_is_off_by_default_and_kept_at_once(
     assert dialog.annotation_bar_row.get_active() is False
     dialog.annotation_bar_row.set_active(True)
     assert settings.get_boolean("show-annotation-bar")
+
+
+def test_remembering_the_position_is_on_by_default_and_kept_at_once(
+    dialog: "PenfoldPreferencesDialog", settings: Gio.Settings
+) -> None:
+    assert dialog.position_row.get_active() is True
+    dialog.position_row.set_active(False)
+    assert settings.get_boolean("remember-position") is False

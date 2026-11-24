@@ -38,12 +38,18 @@ from penfold.ui.dialogs.password_question import password_question
 from penfold.ui.dialogs.print_dialog import PenfoldPrintDialog
 from penfold.ui.dialogs.save_as_dialog import PenfoldSaveAsDialog
 from penfold.ui.document_header import UNSAVED_MARK, PenfoldDocumentHeader
-from penfold.ui.document_view import DocumentView
+from penfold.ui.document_view import DocumentView, ReadingPosition
 from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import attach_main_menu
-from penfold.ui.preferences_dialog import AUTHOR_NAME_KEY, RESPECT_PERMISSIONS_KEY, SHOW_ANNOTATION_BAR_KEY
+from penfold.ui.preferences_dialog import (
+    AUTHOR_NAME_KEY,
+    REMEMBER_POSITION_KEY,
+    RESPECT_PERMISSIONS_KEY,
+    SHOW_ANNOTATION_BAR_KEY,
+)
 from penfold.ui.printing import DocumentPrinting
+from penfold.ui.reading_positions import ReadingPositions
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
 from penfold.ui.sidebar.bookmarks_view import BookmarksView
@@ -133,6 +139,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._close_confirmed = False
         self._edit_toast: tuple[Adw.Toast, Command] | None = None
         self._settings = Gio.Settings(schema_id=config.APP_ID)
+        self._positions = ReadingPositions()
         self._settings.connect(f"changed::{RESPECT_PERMISSIONS_KEY}", self._on_respect_permissions_changed)
         attach_main_menu(self.welcome_menu_button)
         self._add_actions()
@@ -937,7 +944,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.stack.set_visible_child_name("document")
         # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
         self._show_sidebar_when_it_fits()
-        self.document_view.set_document(document, renderer)
+        self.document_view.set_document(document, renderer, self._remembered_position(document))
         self.pages_view.set_document(document, renderer)
         self.bookmarks_view.set_document(document, renderer)
         assert self.document_view.content is not None
@@ -1015,7 +1022,23 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
         self.add_tick_callback(check)
 
+    def _remembered_position(self, document: OpenDocument) -> ReadingPosition | None:
+        """Where the document was left, if positions are remembered (07-fase-12, 9); never for a new one."""
+        if document.is_new or not self._settings.get_boolean(REMEMBER_POSITION_KEY):
+            return None
+        return self._positions.get(document.path)
+
+    def _remember_position(self) -> None:
+        """Keep where the document shown is being read, before it is closed or replaced."""
+        document = self.document
+        if document is None or document.is_new or not self._settings.get_boolean(REMEMBER_POSITION_KEY):
+            return
+        position = self.document_view.reading_position()
+        if position is not None:
+            self._positions.remember(document.path, position)
+
     def _close_document(self) -> None:
+        self._remember_position()
         if self.renderer is not None:
             self.renderer.close()
         if self.document is not None:

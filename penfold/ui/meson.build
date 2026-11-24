@@ -24,6 +24,7 @@ install_data(
   'page_entry.py',
   'palette.py',
   'preferences_dialog.py',
+  'reading_positions.py',
   'printing.py',
   'shortcuts_dialog.py',
   'style_selector.py',
