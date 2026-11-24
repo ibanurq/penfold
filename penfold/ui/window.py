@@ -42,7 +42,7 @@ from penfold.ui.document_view import DocumentView
 from penfold.ui.extraction import PageExtraction
 from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import attach_main_menu
-from penfold.ui.preferences_dialog import AUTHOR_NAME_KEY, RESPECT_PERMISSIONS_KEY
+from penfold.ui.preferences_dialog import AUTHOR_NAME_KEY, RESPECT_PERMISSIONS_KEY, SHOW_ANNOTATION_BAR_KEY
 from penfold.ui.printing import DocumentPrinting
 from penfold.ui.sidebar import sidebar as sidebar_views
 from penfold.ui.sidebar.annotations_view import AnnotationsView
@@ -950,6 +950,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
         )
         self.sidebar.close_search()
         self._set_document_actions_enabled(True)
+        # "Show Annotation Bar at Start" (07-fase-12, 10): each document opens with the bar, if it may be annotated.
+        if self._settings.get_boolean(SHOW_ANNOTATION_BAR_KEY):
+            self.annotating.show_bar()
         self.document_view.grab_focus()
         return True
 

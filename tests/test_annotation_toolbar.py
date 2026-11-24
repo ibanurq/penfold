@@ -3,8 +3,10 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from gi.repository import GLib, Gtk
+import pytest
+from gi.repository import Gio, GLib, Gtk
 
+from penfold import config
 from penfold.document.annotations import Kind
 from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON
 from penfold.ui.annotation_toolbar import ZOOM_BUTTONS_ROOM, ZOOM_LIFT_GAP, Tool, bar_position, fits_beside_zoom_buttons
@@ -14,9 +16,20 @@ from tests.sample_pdfs import make_pdf, make_pdf_with_permissions
 from tests.test_document_window import action_enabled, open_and_wait, window
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from penfold.ui.window import PenfoldWindow
 
 __all__ = ["window"]
+
+
+@pytest.fixture
+def bar_at_start() -> "Iterator[None]":
+    """Turn "Show Annotation Bar at Start" on, and back to its default afterwards (settings are shared)."""
+    settings = Gio.Settings(schema_id=config.APP_ID)
+    settings.set_boolean("show-annotation-bar", True)
+    yield
+    settings.reset("show-annotation-bar")
 
 
 def choose(window: "PenfoldWindow", tool: Tool) -> None:
@@ -131,3 +144,27 @@ def test_each_tool_has_the_icon_of_its_type_in_the_panel(window: "PenfoldWindow"
         expected = KIND_ICONS[tool.kind] if tool.kind else SELECT_TEXT_ICON
         assert button.get_icon_name() == expected
     assert set(KIND_ICONS) == set(Kind)
+
+
+def test_by_default_a_document_opens_without_the_bar(window: "PenfoldWindow", tmp_path: Path) -> None:
+    assert Gio.Settings(schema_id=config.APP_ID).get_boolean("show-annotation-bar") is False
+    assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    assert not window.annotation_toolbar.get_visible()
+
+
+@pytest.mark.usefixtures("bar_at_start")
+def test_with_the_preference_each_document_opens_with_the_bar(window: "PenfoldWindow", tmp_path: Path) -> None:
+    assert open_and_wait(window, make_pdf(tmp_path / "first.pdf"))
+    process_pending_events()
+    assert (window.annotation_toolbar.get_visible(), window.annotating.tool) == (True, Tool.SELECT)
+    window.activate_action("win.annotate", None)  # Hidden by hand, the next document shows it again.
+    assert open_and_wait(window, make_pdf(tmp_path / "second.pdf"))
+    process_pending_events()
+    assert window.annotation_toolbar.get_visible()
+
+
+@pytest.mark.usefixtures("bar_at_start")
+def test_a_pdf_that_may_not_be_annotated_opens_without_the_bar(window: "PenfoldWindow", tmp_path: Path) -> None:
+    assert open_and_wait(window, make_pdf_with_permissions(tmp_path / "locked.pdf", "modify_form"))
+    process_pending_events()
+    assert (window.annotation_toolbar.get_visible(), action_enabled(window, "annotate")) == (False, False)

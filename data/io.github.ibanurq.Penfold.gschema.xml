@@ -38,6 +38,10 @@
       <summary>Author of new annotations</summary>
       <description>Empty uses “Penfold”.</description>
     </key>
+    <key name="show-annotation-bar" type="b">
+      <default>false</default>
+      <summary>Whether each document opens with the annotation bar shown</summary>
+    </key>
     <key name="respect-permissions" type="b">
       <default>true</default>
       <summary>Whether to respect the user access permissions of a PDF</summary>

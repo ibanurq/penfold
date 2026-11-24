@@ -98,6 +98,11 @@ class Annotating:
         if not allowed and self.bar_shown:
             self._annotate.change_state(GLib.Variant.new_boolean(False))
 
+    def show_bar(self) -> None:
+        """Show the annotation bar, as pressing the pencil does, if the document shown may be annotated."""
+        if self.allowed and not self.bar_shown:
+            self._annotate.change_state(GLib.Variant.new_boolean(True))
+
     @property
     def allowed(self) -> bool:
         """Whether the document shown may be annotated."""

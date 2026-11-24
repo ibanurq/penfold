@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-24 18:16+0100\n"
+"POT-Creation-Date: 2026-11-24 18:26+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -97,7 +97,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:354
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:1150
+#: penfold/ui/window.py:1153
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -315,7 +315,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:86 penfold/ui/bookmark_editing.py:173
-#: penfold/ui/window.py:1152
+#: penfold/ui/window.py:1155
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -368,11 +368,15 @@ msgstr "Anotaciones"
 msgid "Author"
 msgstr "Autor"
 
-#: data/ui/preferences_dialog.blp:35
+#: data/ui/preferences_dialog.blp:34
+msgid "Show Annotation Bar at Start"
+msgstr "Activar barra de anotaciones al inicio"
+
+#: data/ui/preferences_dialog.blp:39
 msgid "Documents"
 msgstr "Documentos"
 
-#: data/ui/preferences_dialog.blp:38
+#: data/ui/preferences_dialog.blp:42
 msgid "Respect Document Permissions"
 msgstr "Respetar los permisos del documento"
 
@@ -584,7 +588,7 @@ msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:141 penfold/ui/extraction.py:125
-#: penfold/ui/window.py:1025
+#: penfold/ui/window.py:1028
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -848,7 +852,7 @@ msgstr "Lila"
 msgid "Burgundy"
 msgstr "Granate"
 
-#: penfold/ui/preferences_dialog.py:48
+#: penfold/ui/preferences_dialog.py:51
 msgid "Clear"
 msgstr "Borrar"
 
@@ -1148,15 +1152,15 @@ msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:1145
+#: penfold/ui/window.py:1148
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:1146
+#: penfold/ui/window.py:1149
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:1151
+#: penfold/ui/window.py:1154
 msgid "_Discard"
 msgstr "_Descartar"
