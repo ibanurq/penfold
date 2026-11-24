@@ -420,7 +420,7 @@ def test_the_row_of_the_section_being_read_is_marked(window: "PenfoldWindow", tm
     window.document_view.go_to(2)
     wait_until_stable(lambda: tuple(window.bookmarks_view._rows))
     marked = [
-        row.title.get_text() for row in window.bookmarks_view._rows.values() if row.has_css_class("reading-position")
+        row.title.get_text() for row in window.bookmarks_view._rows.values() if row.has_css_class("reading-section")
     ]
     assert marked == ["1.1 Scope"]
 

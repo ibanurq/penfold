@@ -329,9 +329,9 @@ class BookmarksView(Gtk.Box):
     def _show_mark(self, row: "BookmarkRow", bookmark: Bookmark) -> None:
         # On the row itself: the list's own row widgets belong to GTK, which may be destroying them at this point.
         if bookmark is self._marked:
-            row.add_css_class("reading-position")
+            row.add_css_class("reading-section")
         else:
-            row.remove_css_class("reading-position")
+            row.remove_css_class("reading-section")
 
     def unselect_all(self) -> bool:
         """Clear the selection (Esc, D47); return whether any bookmark was selected."""
@@ -577,7 +577,7 @@ class BookmarksView(Gtk.Box):
         self._end_room.forget(row)
         if isinstance(row, BookmarkRow) and row.bookmark is not None and self._rows.get(id(row.bookmark)) is row:
             del self._rows[id(row.bookmark)]
-            row.remove_css_class("reading-position")
+            row.remove_css_class("reading-section")
 
     def _on_row_clicked(
         self, gesture: Gtk.GestureClick, _presses: int, _x: float, _y: float, item: Gtk.ListItem

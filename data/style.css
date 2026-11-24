@@ -7,10 +7,15 @@
   opacity: 1;
 }
 
-/* The row of the section or page being read, in Bookmarks and Annotations (D40). */
+/* The rows of the page being read, in Annotations (D40). */
 .reading-position {
   background-color: color-mix(in srgb, var(--accent-bg-color) 15%, transparent);
   border-radius: 6px;
+}
+
+/* The bookmark of the section being read (D40): a line at its left, not a background, unlike the selection (D77). */
+.reading-section {
+  box-shadow: inset 3px 0 var(--accent-bg-color);
 }
 
 /* Background behind the pages: a soft grey, so their edges show in light and dark mode. */
