@@ -211,3 +211,8 @@ textview.form-field > text {
 .context-menu-separator {
   margin: 6px 0;
 }
+
+/* The hint of the empty author entry in Preferences: the name annotations will get (07-fase-12, 8). */
+.author-entry > text > placeholder {
+  font-style: italic;
+}

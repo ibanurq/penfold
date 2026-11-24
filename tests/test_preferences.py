@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 import pytest
-from gi.repository import Adw, Gio
+from gi.repository import Adw, Gio, Gtk
 
 from penfold import config
 from tests.gtk_helpers import process_pending_events
@@ -73,11 +73,11 @@ def test_by_default_there_is_no_author_and_permissions_are_respected(
     dialog: "PenfoldPreferencesDialog", settings: Gio.Settings
 ) -> None:
     assert (settings.get_string("author-name"), settings.get_boolean("respect-permissions")) == ("", True)
-    assert (dialog.author_row.get_text(), dialog.permissions_row.get_active()) == ("", True)
+    assert (dialog.author_entry.get_text(), dialog.permissions_row.get_active()) == ("", True)
 
 
 def test_changes_are_kept_at_once(dialog: "PenfoldPreferencesDialog", settings: Gio.Settings) -> None:
-    dialog.author_row.set_text("Ana")
+    dialog.author_entry.set_text("Ana")
     dialog.permissions_row.set_active(False)
     assert (settings.get_string("author-name"), settings.get_boolean("respect-permissions")) == ("Ana", False)
 
@@ -91,4 +91,37 @@ def test_the_dialogue_shows_the_kept_settings(
     from penfold.ui.preferences_dialog import PenfoldPreferencesDialog
 
     dialog = PenfoldPreferencesDialog()
-    assert (dialog.author_row.get_text(), dialog.permissions_row.get_active()) == ("Ana", False)
+    assert (dialog.author_entry.get_text(), dialog.permissions_row.get_active()) == ("Ana", False)
+
+
+def test_the_empty_author_hints_at_the_name_annotations_get(dialog: "PenfoldPreferencesDialog") -> None:
+    from penfold.document.annotations import DEFAULT_AUTHOR
+
+    assert dialog.author_entry.get_placeholder_text() == DEFAULT_AUTHOR
+
+
+def test_the_author_shows_a_pencil_while_empty_and_a_clear_button_once_written(
+    dialog: "PenfoldPreferencesDialog",
+    settings: Gio.Settings,  # noqa: ARG001 (puts the author back afterwards)
+) -> None:
+    entry, icon = dialog.author_entry, Gtk.EntryIconPosition.SECONDARY
+
+    def shown() -> tuple[str | None, bool]:
+        return entry.get_icon_name(icon), entry.get_icon_activatable(icon)
+
+    assert shown() == ("document-edit-symbolic", False)
+    entry.set_text("Ana")
+    assert shown() == ("edit-clear-symbolic", True)
+
+
+def test_the_clear_button_empties_the_author(dialog: "PenfoldPreferencesDialog", settings: Gio.Settings) -> None:
+    dialog.author_entry.set_text("Ana")
+    dialog.author_entry.emit("icon-press", Gtk.EntryIconPosition.SECONDARY)
+    assert (settings.get_string("author-name"), dialog.author_entry.get_icon_name(Gtk.EntryIconPosition.SECONDARY)) == (
+        "",
+        "document-edit-symbolic",
+    )
+
+
+def test_the_permissions_option_has_no_explanation(dialog: "PenfoldPreferencesDialog") -> None:
+    assert not dialog.permissions_row.get_subtitle()

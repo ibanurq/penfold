@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-24 17:29+0100\n"
+"POT-Creation-Date: 2026-11-24 18:16+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -360,37 +360,21 @@ msgid "Go to Page"
 msgstr "Ir a la página"
 
 #: data/ui/preferences_dialog.blp:13 data/ui/sidebar/sidebar.blp:69
-#: penfold/ui/shortcuts_dialog.py:42 penfold/ui/sidebar/annotations_view.py:152
+#: penfold/ui/shortcuts_dialog.py:42 penfold/ui/sidebar/annotations_view.py:153
 msgid "Annotations"
 msgstr "Anotaciones"
 
-#: data/ui/preferences_dialog.blp:14
-msgid "If left empty, “Penfold” will be used"
-msgstr "Si se deja vacío, se usará “Penfold”"
-
 #: data/ui/preferences_dialog.blp:17
-msgid "Author Name"
-msgstr "Nombre del autor"
+msgid "Author"
+msgstr "Autor"
 
-#: data/ui/preferences_dialog.blp:22
+#: data/ui/preferences_dialog.blp:35
 msgid "Documents"
 msgstr "Documentos"
 
-#: data/ui/preferences_dialog.blp:25
+#: data/ui/preferences_dialog.blp:38
 msgid "Respect Document Permissions"
 msgstr "Respetar los permisos del documento"
-
-#: data/ui/preferences_dialog.blp:26
-msgid ""
-"The creator of the original document can restrict actions such as copying "
-"text, printing, etc. The ISO 32000-1 standard leaves it to each program to "
-"respect that intention. If turned off, when merging documents or adding "
-"their pages to another, the result will not have those restrictions."
-msgstr ""
-"El creador del documento original puede restringir acciones como copiar "
-"texto, imprimir, etc. La norma ISO 32000-1 deja en manos de cada programa "
-"respetar esa intención. Si se desactiva, al combinar documentos o añadir sus "
-"páginas a otro, el resultado no tendrá esas restricciones."
 
 #: data/ui/sidebar/sidebar.blp:15
 msgid "Find"
@@ -525,7 +509,7 @@ msgid "Color"
 msgstr "Color"
 
 #: penfold/ui/bookmark_editing.py:125
-#: penfold/ui/sidebar/annotations_view.py:160
+#: penfold/ui/sidebar/annotations_view.py:161
 #: penfold/ui/sidebar/search_view.py:106
 #, python-brace-format
 msgid "Page {label}"
@@ -864,6 +848,10 @@ msgstr "Lila"
 msgid "Burgundy"
 msgstr "Granate"
 
+#: penfold/ui/preferences_dialog.py:48
+msgid "Clear"
+msgstr "Borrar"
+
 #: penfold/ui/printing.py:107 penfold/ui/printing.py:112
 #, python-brace-format
 msgid "Could not print “{name}”"
@@ -962,27 +950,27 @@ msgstr "Estilo claro"
 msgid "Dark Style"
 msgstr "Estilo oscuro"
 
-#: penfold/ui/sidebar/annotations_view.py:125
+#: penfold/ui/sidebar/annotations_view.py:126
 msgid "No text"
 msgstr "Sin texto"
 
-#: penfold/ui/sidebar/annotations_view.py:148
+#: penfold/ui/sidebar/annotations_view.py:149
 msgid "Filter"
 msgstr "Filtro"
 
-#: penfold/ui/sidebar/annotations_view.py:249
+#: penfold/ui/sidebar/annotations_view.py:250
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
 
-#: penfold/ui/sidebar/annotations_view.py:249
+#: penfold/ui/sidebar/annotations_view.py:250
 msgid "This PDF has no annotations"
 msgstr "Este PDF no tiene anotaciones"
 
-#: penfold/ui/sidebar/annotations_view.py:327
+#: penfold/ui/sidebar/annotations_view.py:328
 msgid "(External)"
 msgstr "(Externa)"
 
-#: penfold/ui/sidebar/annotations_view.py:426
+#: penfold/ui/sidebar/annotations_view.py:427
 #, python-brace-format
 msgid "{group} ({count})"
 msgstr "{group} ({count})"
@@ -1027,7 +1015,7 @@ msgstr "Desplegar o plegar todo"
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
-#: penfold/ui/sidebar/bookmarks_view.py:367
+#: penfold/ui/sidebar/bookmarks_view.py:376
 #, python-brace-format
 msgctxt "bookmarks"
 msgid "{count} selected"

@@ -11,10 +11,23 @@ template $PenfoldPreferencesDialog: Adw.PreferencesDialog {
   Adw.PreferencesPage {
     Adw.PreferencesGroup {
       title: _("Annotations");
-      description: _("If left empty, “Penfold” will be used");
 
-      Adw.EntryRow author_row {
-        title: _("Author Name");
+      // A plain row with an entry, because an entry row cannot show a hint when empty (07-fase-12, 8).
+      Adw.ActionRow {
+        title: _("Author");
+        activatable-widget: author_entry;
+
+        [suffix]
+        Gtk.Entry author_entry {
+          styles [
+            "author-entry",
+          ]
+
+          valign: center;
+          width-chars: 14;
+          secondary-icon-name: "document-edit-symbolic";
+          secondary-icon-activatable: false;
+        }
       }
     }
 
@@ -23,7 +36,6 @@ template $PenfoldPreferencesDialog: Adw.PreferencesDialog {
 
       Adw.SwitchRow permissions_row {
         title: _("Respect Document Permissions");
-        subtitle: _("The creator of the original document can restrict actions such as copying text, printing, etc. The ISO 32000-1 standard leaves it to each program to respect that intention. If turned off, when merging documents or adding their pages to another, the result will not have those restrictions.");
       }
     }
   }
