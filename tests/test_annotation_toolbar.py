@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from gi.repository import GLib, Gtk
 
+from penfold.document.annotations import Kind
+from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON
 from penfold.ui.annotation_toolbar import ZOOM_BUTTONS_ROOM, Tool, bar_position
 from penfold.ui.palette import ANNOTATION_COLORS
 from tests.gtk_helpers import process_pending_events
@@ -93,3 +95,10 @@ def test_the_bar_is_centred_left_of_the_zoom_buttons() -> None:
     assert bar_position(1000, 400) == 300
     assert bar_position(520, 400) == 520 - ZOOM_BUTTONS_ROOM - 400  # Moved left to leave them free.
     assert bar_position(300, 400) == 0
+
+
+def test_each_tool_has_the_icon_of_its_type_in_the_panel(window: "PenfoldWindow") -> None:
+    for tool, button in window.annotation_toolbar.tool_buttons.items():
+        expected = KIND_ICONS[tool.kind] if tool.kind else SELECT_TEXT_ICON
+        assert button.get_icon_name() == expected
+    assert set(KIND_ICONS) == set(Kind)

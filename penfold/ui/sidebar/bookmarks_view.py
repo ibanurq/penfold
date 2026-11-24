@@ -162,7 +162,6 @@ class BookmarksView(Gtk.Box):
         self.expand_button = Gtk.Button(
             icon_name="penfold-expand-all-symbolic", tooltip_text=_("Expand or Collapse All"), valign=Gtk.Align.CENTER
         )
-        self.expand_button.add_css_class("provisional-icon")
         self.expand_button.connect("clicked", lambda _button: self.toggle_all())
         self.append(
             view_header(

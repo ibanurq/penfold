@@ -76,18 +76,16 @@ into `node_modules/`, which is not part of the repository.
 
 - Project: https://gitlab.gnome.org/Teams/Design/icon-development-kit — the icon collection of the GNOME design team.
 - Licence: CC0 1.0 Universal (public domain dedication); no attribution is required, it is given here anyway.
-- Used, provisionally (D37):
-  - for the Fit Width button, `expand-horizontal`, by Jakub Steiner, with its outline converted to filled shapes, in
-    `data/icons/scalable/actions/penfold-fit-width-symbolic.svg`;
-  - for the Annotations view of the side panel, `comments`, unchanged, in
-    `data/icons/scalable/actions/penfold-annotations-symbolic.svg`;
-  - for Expand or Collapse All in the Bookmarks view, `expand-vertical`, unchanged, in
-    `data/icons/scalable/actions/penfold-expand-all-symbolic.svg`;
-  - for the Filter button of the Annotations view, `filter`, unchanged, in
-    `data/icons/scalable/actions/penfold-filter-symbolic.svg`;
-  - for the annotation types in the Annotations view, unchanged: `draw` (highlights), `comment` (comments), `text-t` (text boxes), `draw-rectangle` (rectangles), `draw-circle` (circles), `draw-line` (arrows), `drawing` (other types),
-    in `data/icons/scalable/actions/penfold-type-*-symbolic.svg`.
-- Used for good (D68): the outline of `comment`, by Jakub Steiner, is the speech bubble drawn on the page for a comment
+- Used in the interface (D75), unchanged, in `data/icons/scalable/actions/`:
+  - `arrows-horizontal` (Fit Width), as `penfold-fit-width-symbolic.svg`;
+  - `notebook` (the Annotations view of the side panel), as `penfold-annotations-symbolic.svg`;
+  - `expand-vertical` (Expand or Collapse All, in the Bookmarks view), as `penfold-expand-all-symbolic.svg`;
+  - `filter` (Filter, in the Annotations view), as `penfold-filter-symbolic.svg`;
+  - for the annotation types, in the annotation bar and the Annotations view, as `penfold-type-*-symbolic.svg`:
+    `pencil` (highlights), `draw-rectangle` (rectangles), `draw-circle` (circles), `top-right-arrow` (arrows),
+    `comment` (comments), `rich-text` (text boxes) and `drawing` (other types).
+  All by Jakub Steiner.
+- Also (D68): the outline of `comment`, by Jakub Steiner, is the speech bubble drawn on the page for a comment
   annotation, and written into the PDFs saved, in `penfold/document/appearance.py` (`BUBBLE`).
 
 ## Liberation Sans (Penfold 1.0)

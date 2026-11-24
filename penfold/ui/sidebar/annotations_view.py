@@ -15,6 +15,7 @@ from penfold.document.annotations import TEXT_MARKUPS, Annotation, AnnotationGro
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
 from penfold.rendering.renderer import Renderer
+from penfold.ui.annotation_icons import KIND_ICONS
 from penfold.ui.sidebar.view_header import RecentUse, empty_label, unselect_all, unselect_on_empty_click, view_header
 
 # Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
@@ -27,18 +28,6 @@ TEXT_TIME_SLICE = 0.008
 FILTER_ACTIONS = "annotations-filter"
 # Shown by default, as in 0.6: the group of comments and text boxes.
 DEFAULT_GROUPS = frozenset({AnnotationGroup.TEXT_ELEMENTS})
-# Icon of each type: Adwaita's when it has one, otherwise a provisional one (D37).
-KIND_ICONS = {
-    Kind.HIGHLIGHT: ("penfold-type-highlight-symbolic", True),
-    Kind.UNDERLINE: ("format-text-underline-symbolic", False),
-    Kind.STRIKE_OUT: ("format-text-strikethrough-symbolic", False),
-    Kind.COMMENT: ("penfold-type-comment-symbolic", True),
-    Kind.TEXT_BOX: ("penfold-type-text-box-symbolic", True),
-    Kind.RECTANGLE: ("penfold-type-rectangle-symbolic", True),
-    Kind.CIRCLE: ("penfold-type-circle-symbolic", True),
-    Kind.ARROW: ("penfold-type-arrow-symbolic", True),
-    Kind.OTHER: ("penfold-type-other-symbolic", True),
-}
 
 
 def group_names() -> dict[AnnotationGroup, str]:
@@ -121,13 +110,8 @@ class AnnotationRow(Gtk.Box):
         self.append(bottom)
 
     def show_kind(self, kind: Kind) -> None:
-        """Show the icon of the annotation's type, in violet when it is provisional (D37, D70)."""
-        icon_name, provisional = KIND_ICONS[kind]
-        self.icon.set_from_icon_name(icon_name)
-        if provisional:
-            self.icon.add_css_class("provisional-icon")
-        else:
-            self.icon.remove_css_class("provisional-icon")
+        """Show the icon of the annotation's type."""
+        self.icon.set_from_icon_name(KIND_ICONS[kind])
 
     def show_text(self, text: str | None) -> None:
         """Show the annotation's text, "No text" if it has none, or nothing while it is being read (None)."""
@@ -162,7 +146,6 @@ class AnnotationsView(Gtk.Box):
         self.filter_button = Gtk.MenuButton(
             icon_name="penfold-filter-symbolic", tooltip_text=_("Filter"), valign=Gtk.Align.CENTER
         )
-        self.filter_button.add_css_class("provisional-icon")
         self.insert_action_group(FILTER_ACTIONS, self._filter_actions())
         self.filter_button.set_popover(self._filter_popover())
         self.append(view_header(_("Annotations"), self.filter_button))

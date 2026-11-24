@@ -10,6 +10,7 @@ from gettext import gettext as _
 from gi.repository import GLib, Gtk
 
 from penfold.document.annotations import Kind
+from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_swatch, show_color
 
 TOOL_ACTION = "win.annotation-tool"
@@ -48,25 +49,18 @@ TOOL_KINDS = {
     Tool.COMMENT: Kind.COMMENT,
     Tool.TEXT_BOX: Kind.TEXT_BOX,
 }
-# The tools by group, in the order of the print dialogue (D64, D65). Icons of Adwaita only; those that do not fit yet
-# are provisional, in violet (D70).
+# The tools by group, in the order of the print dialogue (D64, D65).
 TOOL_GROUPS = (
-    ((Tool.SELECT, "format-text-plaintext-symbolic", True),),
-    (
-        (Tool.HIGHLIGHT, "text-editor-symbolic", True),
-        (Tool.UNDERLINE, "format-text-underline-symbolic", False),
-        (Tool.STRIKE_OUT, "format-text-strikethrough-symbolic", False),
-    ),
-    (
-        (Tool.RECTANGLE, "checkbox-symbolic", True),
-        (Tool.CIRCLE, "radio-symbolic", True),
-        (Tool.ARROW, "mail-forward-symbolic", True),
-    ),
-    (
-        (Tool.COMMENT, "chat-message-new-symbolic", True),
-        (Tool.TEXT_BOX, "insert-text-symbolic", True),
-    ),
+    (Tool.SELECT,),
+    (Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT),
+    (Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW),
+    (Tool.COMMENT, Tool.TEXT_BOX),
 )
+
+
+def tool_icon(tool: Tool) -> str:
+    """The icon of a tool: that of the annotation type it makes (D75)."""
+    return KIND_ICONS[tool.kind] if tool.kind else SELECT_TEXT_ICON
 
 
 def tool_names() -> dict[Tool, str]:
@@ -103,12 +97,10 @@ class AnnotationToolbar(Gtk.Box):
         for index, group in enumerate(TOOL_GROUPS):
             if index:
                 self.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
-            for tool, icon_name, provisional in group:
-                button = Gtk.ToggleButton(icon_name=icon_name, tooltip_text=names[tool], action_name=TOOL_ACTION)
+            for tool in group:
+                button = Gtk.ToggleButton(icon_name=tool_icon(tool), tooltip_text=names[tool], action_name=TOOL_ACTION)
                 button.set_action_target_value(GLib.Variant.new_string(tool.value))
                 button.add_css_class("flat")
-                if provisional:
-                    button.add_css_class("provisional-icon")
                 self.tool_buttons[tool] = button
                 self.append(button)
         self.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
