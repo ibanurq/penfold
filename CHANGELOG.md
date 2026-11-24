@@ -5,6 +5,27 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-alpha.12 — 2026-11-24
+
+Twelfth preview of Penfold 1.0: pages and bookmarks are edited from a menu, a right click away, as annotations are.
+
+### Added
+- A right click on a thumbnail (or a long press, the Menu key or Shift+F10) opens the menu of the pages selected:
+  Rotate Left, Rotate Right, Rotate 180° (new) and Delete. A thumbnail not selected is selected alone first.
+- A right click on a bookmark opens the menu of the bookmarks selected: the eight colours (the bookmarks’ own with a
+  ring), Bold and Italic (ticked when all of them have it), Clear Formatting, Rename… (F2), Point to the Current Page,
+  Increase Indent, Decrease Indent and Delete. What cannot be done is greyed out; a PDF that does not allow changing
+  its pages or bookmarks shows the menus greyed out.
+- While pages or bookmarks are selected, a counter floats at the bottom of the list, with the look of a toast:
+  “3 selected”.
+- F2 renames the bookmark selected, and the Menu key opens the menu of the pages or bookmarks selected, wherever the
+  focus is, while their view is shown.
+
+### Changed
+- The bars at the bottom of Pages and Bookmarks, and the Format panel of the bookmarks, are gone: their menus do what
+  they did.
+- The dialogue to change the text of a bookmark is called Rename.
+
 ## 1.0.0-alpha.11 — 2026-11-23
 
 Eleventh preview of Penfold 1.0: annotations are moved and resized on the page, with handles.
