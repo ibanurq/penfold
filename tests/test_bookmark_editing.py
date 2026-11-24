@@ -286,10 +286,10 @@ def test_a_colour_and_clearing_the_format(window: "PenfoldWindow") -> None:
     document = window.document
     assert document is not None
     select(window, 1, 3)
-    window.activate_action("win.bookmark-color", GLib.Variant.new_string("#606971"))
-    assert state(window, "bookmark-color") == "#606971"
+    window.activate_action("win.bookmark-color", GLib.Variant.new_string("#2c873e"))
+    assert state(window, "bookmark-color") == "#2c873e"
     assert {bookmark.color for bookmark in window.bookmarks_view.selected_bookmarks()} == {
-        (0x60 / 255, 0x69 / 255, 0x71 / 255)
+        (0x2C / 255, 0x87 / 255, 0x3E / 255)
     }
     select(window, 0, 1)
     window.activate_action("win.clear-bookmark-format", None)

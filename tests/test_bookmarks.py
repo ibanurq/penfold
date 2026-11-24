@@ -125,3 +125,13 @@ def test_no_bookmark_before_the_first_one() -> None:
     index = ReadingIndex([Bookmark("Late", page=3)])
     assert index.at(1, 0) is None
     assert index.at(3, 0) is not None
+
+
+def test_the_colour_of_a_title_is_adjusted_to_the_style() -> None:
+    from penfold.document.bookmarks import Bookmark
+    from penfold.ui.palette import hex_to_color
+    from penfold.ui.sidebar.bookmarks_view import title_markup
+
+    bookmark = Bookmark(title="Burgundy", color=hex_to_color("#ad182e"))
+    assert '<span foreground="#ad182e">' in title_markup(bookmark, dark=False)
+    assert '<span foreground="#f7656a">' in title_markup(bookmark, dark=True)

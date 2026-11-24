@@ -7,6 +7,7 @@ install_data(
   'annotation_toolbar.py',
   'autoscroll.py',
   'bookmark_editing.py',
+  'color_contrast.py',
   'comment_popover.py',
   'context_menu.py',
   'document_header.py',

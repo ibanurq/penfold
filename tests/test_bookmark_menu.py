@@ -109,11 +109,11 @@ def test_a_right_click_on_a_bookmark_selected_keeps_the_selection(window: "Penfo
 def test_the_menu_shows_the_style_and_colour_of_the_selection(window: "PenfoldWindow") -> None:
     select(window, 1)
     window.activate_action("win.bookmark-bold", None)
-    window.activate_action("win.bookmark-color", GLib.Variant.new_string("#606971"))
+    window.activate_action("win.bookmark-color", GLib.Variant.new_string("#2c873e"))
     menu = right_click(window, 1)
     # 1. Intro was italic already.
     assert (state(window, "bookmark-bold"), state(window, "bookmark-italic")) == (True, True)
-    assert state(window, "bookmark-color") == "#606971"
+    assert state(window, "bookmark-color") == "#2c873e"
     close(menu)
 
 
@@ -221,3 +221,18 @@ def test_the_menu_key_opens_the_menu_of_the_bookmarks_wherever_the_focus_is(wind
     menu = window.bookmarks_view.menu
     assert menu is not None
     close(menu)
+
+
+def test_the_menu_has_four_colours_and_the_titles_follow_the_style(window: "PenfoldWindow") -> None:
+    from penfold.ui.palette import BOOKMARK_COLORS
+
+    select(window, 1)
+    window.activate_action("win.bookmark-color", GLib.Variant.new_string(BOOKMARK_COLORS[0]))
+    assert '"#ad182e"' in row(window, 1).title.get_label()
+    style = Adw.StyleManager.get_default()
+    style.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+    try:
+        wait_until(lambda: '"#f7656a"' in row(window, 1).title.get_label())
+    finally:
+        style.set_color_scheme(Adw.ColorScheme.DEFAULT)
+    wait_until(lambda: '"#ad182e"' in row(window, 1).title.get_label())

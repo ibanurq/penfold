@@ -1,7 +1,9 @@
-"""The colours of the app (D33): one list for bookmarks and annotations, shown as rows of colour circles.
+"""The colours of the app (D33; 07-fase-12, 6): one palette for annotations and another for bookmarks.
 
-They are those of 0.6 (docs/specification.md, PALETTE and BOOKMARK_PALETTE): six for annotations, and two more,
-grey and burgundy, for bookmarks.
+Annotations take the six light tones of 0.6 (docs/specification.md, PALETTE), soft under the text. A bookmark's colour
+tints its title, so bookmarks take four darker tones that can be read on white, which is what most viewers show
+behind the outline; in the panel, Penfold adjusts any bookmark colour to its background, light or dark, without
+changing the file (color_contrast.readable_on).
 """
 
 import functools
@@ -9,16 +11,21 @@ from gettext import gettext as _
 
 from gi.repository import Gdk, GLib, Gtk
 
-Color = tuple[float, float, float]
+from penfold.ui.color_contrast import Color
 
-COLORS = ("#f9f06b", "#8ff0a4", "#99c1f1", "#ffbe6f", "#f66151", "#dc8add", "#606971", "#ad182e")
-ANNOTATION_COLORS = COLORS[:6]
+ANNOTATION_COLORS = ("#f9f06b", "#8ff0a4", "#99c1f1", "#ffbe6f", "#f66151", "#dc8add")
+# Burgundy, the company's, and the orange, green and blue accent colours of libadwaita (#ed5b00, #3a944a, #3584e4)
+# darkened just enough to be read on white: color_contrast.readable_on(colour, WHITE).
+BOOKMARK_COLORS = ("#ad182e", "#d54400", "#2c873e", "#2676d5")
+COLORS = ANNOTATION_COLORS + BOOKMARK_COLORS
 BYTE = 255
 
 
-def color_names() -> tuple[str, ...]:
-    """The name of each colour, in order (translated when called)."""
-    return (_("Yellow"), _("Green"), _("Blue"), _("Orange"), _("Red"), _("Lilac"), _("Grey"), _("Burgundy"))
+def color_names() -> dict[str, str]:
+    """The name of each colour of the palettes, by its value (translated when called)."""
+    annotation_names = (_("Yellow"), _("Green"), _("Blue"), _("Orange"), _("Red"), _("Lilac"))
+    names = (*annotation_names, _("Burgundy"), _("Orange"), _("Green"), _("Blue"))
+    return dict(zip(COLORS, names, strict=True))
 
 
 def color_to_hex(color: Color) -> str:
@@ -45,11 +52,10 @@ def color_circle(value: str, action_name: str) -> Gtk.ToggleButton:
     display = Gdk.Display.get_default()
     if display is not None:
         _paint_circles(display)
-    index = COLORS.index(value)
-    circle = Gtk.ToggleButton(tooltip_text=color_names()[index], action_name=action_name)
+    circle = Gtk.ToggleButton(tooltip_text=color_names()[value], action_name=action_name)
     circle.set_action_target_value(GLib.Variant.new_string(value))
     circle.add_css_class("color-circle")
-    circle.add_css_class(f"palette-color-{index}")
+    circle.add_css_class(f"palette-color-{COLORS.index(value)}")
     return circle
 
 

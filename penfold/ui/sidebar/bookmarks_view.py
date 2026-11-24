@@ -11,13 +11,14 @@ from gettext import gettext as _
 from gettext import npgettext
 from typing import ClassVar
 
-from gi.repository import Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
 
 from penfold.document.bookmarks import Bookmark, ReadingIndex, topmost
 from penfold.document.commands.bookmarks import Placement, can_move
 from penfold.document.document import OpenDocument
 from penfold.rendering.renderer import Renderer
 from penfold.ui.autoscroll import DragAutoscroll
+from penfold.ui.color_contrast import Color, readable_on
 from penfold.ui.context_menu import (
     COLORS,
     SEPARATOR,
@@ -28,8 +29,7 @@ from penfold.ui.context_menu import (
     separator,
     show_context_menu,
 )
-from penfold.ui.palette import COLORS as PALETTE
-from penfold.ui.palette import color_to_hex
+from penfold.ui.palette import BOOKMARK_COLORS, color_to_hex
 from penfold.ui.sidebar.view_header import (
     EndRoom,
     RecentUse,
@@ -88,11 +88,20 @@ def children_model(bookmarks: list[Bookmark]) -> Gio.ListStore:
     return store
 
 
-def title_markup(bookmark: Bookmark) -> str:
-    """Return the title with its bold, italic and colour, as Pango markup."""
+def panel_background(*, dark: bool) -> Color:
+    """The background of the side panel in libadwaita (--sidebar-bg-color), light or dark."""
+    return (0x2E / 255, 0x2E / 255, 0x32 / 255) if dark else (0xEB / 255, 0xEB / 255, 0xED / 255)
+
+
+def title_markup(bookmark: Bookmark, *, dark: bool) -> str:
+    """Return the title with its bold, italic and colour, as Pango markup.
+
+    The colour is adjusted to the panel, light or dark, to be read (07-fase-12, 6).
+    """
     text = GLib.markup_escape_text(bookmark.title or _("Untitled"))
     if bookmark.color is not None:
-        text = f'<span foreground="{color_to_hex(bookmark.color)}">{text}</span>'
+        color = readable_on(bookmark.color, panel_background(dark=dark))
+        text = f'<span foreground="{color_to_hex(color)}">{text}</span>'
     if bookmark.italic:
         text = f"<i>{text}</i>"
     if bookmark.bold:
@@ -103,7 +112,7 @@ def title_markup(bookmark: Bookmark) -> str:
 def bookmarks_menu_model() -> Gio.Menu:
     """The menu of the bookmarks selected (02-interfaz, 6.2; D74).
 
-    The eight colours, bold and italic (ticked when all the bookmarks selected have them), Clear Formatting, Rename…
+    The four colours, bold and italic (ticked when all the bookmarks selected have them), Clear Formatting, Rename…
     (F2), Point to the Current Page, the two indents and Delete; one section, with separators of its own
     (ui/context_menu.py).
     """
@@ -216,6 +225,26 @@ class BookmarksView(Gtk.Box):
         overlay = Gtk.Overlay(child=self.stack)
         overlay.add_overlay(self.counter)
         self.append(overlay)
+        self._style_handler = 0
+
+    def do_root(self) -> None:
+        """While in a window, the colours of the titles follow the style, light or dark (07-fase-12, 6)."""
+        Gtk.Box.do_root(self)
+        self._style_handler = Adw.StyleManager.get_default().connect(
+            "notify::dark", lambda _manager, _property: self._paint_titles()
+        )
+        self._paint_titles()
+
+    def do_unroot(self) -> None:
+        """Out of a window, the style is no longer followed."""
+        Adw.StyleManager.get_default().disconnect(self._style_handler)
+        Gtk.Box.do_unroot(self)
+
+    def _paint_titles(self) -> None:
+        dark = Adw.StyleManager.get_default().get_dark()
+        for row in self._rows.values():
+            if row.bookmark is not None:
+                row.title.set_markup(title_markup(row.bookmark, dark=dark))
 
     def set_document(self, document: OpenDocument, renderer: Renderer) -> None:
         """Show the bookmarks of a PDF, unfolded as the PDF says; the renderer says where their pages are shown."""
@@ -347,7 +376,7 @@ class BookmarksView(Gtk.Box):
             self.selection.select_item(position, True)
         found, point = row.compute_point(self, Graphene.Point().init(x, y))
         if found:
-            custom = {COLORS: color_row(PALETTE, "win.bookmark-color"), SEPARATOR: separator()}
+            custom = {COLORS: color_row(BOOKMARK_COLORS, "win.bookmark-color"), SEPARATOR: separator()}
             model = bookmarks_menu_model()
             self.menu = show_context_menu(model, self, (point.x, point.y), custom, focus_back=self.list)
             self.menu.connect("closed", self._on_menu_closed)
@@ -520,7 +549,7 @@ class BookmarksView(Gtk.Box):
         assert isinstance(bookmark_item, BookmarkItem)
         bookmark = bookmark_item.bookmark
         row.expander.set_list_row(tree_row)
-        row.title.set_markup(title_markup(bookmark))
+        row.title.set_markup(title_markup(bookmark, dark=Adw.StyleManager.get_default().get_dark()))
         row.title.set_tooltip_text(bookmark.title)
         row.bookmark = bookmark
         self._show_page(row)

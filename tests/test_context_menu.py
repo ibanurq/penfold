@@ -14,7 +14,7 @@ from penfold.ui.context_menu import (
     separator,
     show_context_menu,
 )
-from penfold.ui.palette import COLORS as PALETTE
+from penfold.ui.palette import BOOKMARK_COLORS
 from tests.gtk_helpers import wait_until, wait_until_stable
 
 
@@ -57,12 +57,12 @@ def test_a_custom_item_names_its_widget() -> None:
 
 
 def test_the_colour_row_has_a_circle_for_each_colour_and_a_separator_below() -> None:
-    box = color_row(PALETTE, "win.bookmark-color")
+    box = color_row(BOOKMARK_COLORS, "win.bookmark-color")
     row, line = children(box)
     circles = [circle for circle in children(row) if isinstance(circle, Gtk.ToggleButton)]
     assert len(circles) == len(children(row))
     targets = [circle.get_action_target_value() for circle in circles]
-    assert [target.get_string() if target is not None else None for target in targets] == list(PALETTE)
+    assert [target.get_string() if target is not None else None for target in targets] == list(BOOKMARK_COLORS)
     assert {circle.get_action_name() for circle in circles} == {"win.bookmark-color"}
     assert isinstance(line, Gtk.Separator)
     assert line.has_css_class("context-menu-separator")
@@ -81,7 +81,7 @@ def test_the_menu_opens_from_the_pointer_without_an_arrow(parent: Gtk.Box) -> No
 
 def test_the_menu_with_colours_and_separators_does_not_scroll(parent: Gtk.Box) -> None:
     """GTK measures a menu with custom items in several sections too short (9.4): one section shows it whole."""
-    custom = {COLORS: color_row(PALETTE, "win.bookmark-color"), SEPARATOR: separator()}
+    custom = {COLORS: color_row(BOOKMARK_COLORS, "win.bookmark-color"), SEPARATOR: separator()}
     menu = context_menu(menu_model(), parent, 20, 20, custom)
     menu.popup()
     wait_until(menu.get_mapped)
@@ -117,7 +117,7 @@ def test_the_focus_goes_back_inside_the_widget_given_once_the_menu_closes(parent
 
 
 def test_a_click_on_a_colour_closes_the_menu(parent: Gtk.Box) -> None:
-    custom = {COLORS: color_row(PALETTE, "win.bookmark-color"), SEPARATOR: separator()}
+    custom = {COLORS: color_row(BOOKMARK_COLORS, "win.bookmark-color"), SEPARATOR: separator()}
     menu = show_context_menu(menu_model(), parent, (20, 20), custom)
     wait_until(menu.get_mapped)
     circle = next(widget for widget in all_widgets(menu) if widget.has_css_class("color-circle"))
