@@ -13,7 +13,7 @@ from penfold.document.reshaping import Handle
 from penfold.rendering.text_box import text_box_pdf, text_height, written_frame
 from penfold.ui.annotation_toolbar import Tool
 from tests.gtk_helpers import process_pending_events, wait_until
-from tests.test_annotation_menu import annotated_window, make_annotated_pdf
+from tests.test_annotation_menu import annotated_window, make_annotated_pdf, panel_window
 from tests.test_document_window import open_and_wait, window
 from tests.test_shape_drawing import drag, widget_point
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from penfold.ui.handle_editor import HandleEditor
     from penfold.ui.window import PenfoldWindow
 
-__all__ = ["annotated_window", "window"]
+__all__ = ["annotated_window", "panel_window", "window"]
 RED = (0.965, 0.38, 0.318)
 SQUARE = (100.0, 100.0, 300.0, 200.0)
 
@@ -520,14 +520,9 @@ def test_a_mark_without_text_under_it_cannot_change(mark_window: "PenfoldWindow"
     window.annotation_editing.menu.popdown()
 
 
-def test_move_and_resize_from_the_annotations_panel(annotated_window: "PenfoldWindow") -> None:
+def test_move_and_resize_from_the_annotations_panel(panel_window: "PenfoldWindow") -> None:
     """From a row of the panel, the handles show on the page, and the page has the focus for Enter and Esc."""
-    from penfold.ui.sidebar import sidebar as sidebar_views
-
-    window = annotated_window
-    window.split_view.set_show_sidebar(True)
-    window.sidebar.show_view(sidebar_views.ANNOTATIONS)
-    process_pending_events()
+    window = panel_window
     panel = window.annotations_view
     wait_until(lambda: len(panel.bound_rows()) == 2)
     row = next(row for row in panel.bound_rows() if row.annotation is not None and row.annotation.kind is Kind.TEXT_BOX)

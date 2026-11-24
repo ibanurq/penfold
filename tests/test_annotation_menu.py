@@ -351,6 +351,8 @@ def panel_window(annotated_window: "PenfoldWindow") -> "PenfoldWindow":
 
     annotated_window.split_view.set_show_sidebar(True)
     annotated_window.sidebar.show_view(sidebar_views.ANNOTATIONS)
+    for group in ("text-markups", "shapes", "others"):  # All four are shown by default (D76).
+        annotated_window.annotations_view.activate_action(f"annotations-filter.{group}", None)
     process_pending_events()
     return annotated_window
 

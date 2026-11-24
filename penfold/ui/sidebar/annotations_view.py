@@ -26,8 +26,8 @@ ROW_TEXT_LINES = 4
 TEXT_TIME_SLICE = 0.008
 # The actions of the filter's menu, one for each group: "annotations-filter.shapes".
 FILTER_ACTIONS = "annotations-filter"
-# Shown by default, as in 0.6: the group of comments and text boxes.
-DEFAULT_GROUPS = frozenset({AnnotationGroup.TEXT_ELEMENTS})
+# Shown by default: all four groups (D76).
+DEFAULT_GROUPS = frozenset(AnnotationGroup)
 
 
 def group_names() -> dict[AnnotationGroup, str]:
