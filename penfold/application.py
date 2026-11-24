@@ -9,7 +9,7 @@ from gi.repository import Adw, Gio, GLib, Gtk
 from penfold import config
 from penfold.ui.about import present_about_dialog
 from penfold.ui.file_dialogs import pdf_file_dialog
-from penfold.ui.preferences_dialog import PenfoldPreferencesDialog
+from penfold.ui.preferences_dialog import OPEN_LAST_DOCUMENT_KEY, PenfoldPreferencesDialog
 from penfold.ui.shortcuts_dialog import present_shortcuts_dialog
 from penfold.ui.style_selector import STYLE_KEY, apply_style
 from penfold.ui.window import WINDOW_ACCELERATORS, PenfoldWindow
@@ -68,8 +68,15 @@ class PenfoldApplication(Adw.Application):
         return -1
 
     def do_activate(self) -> None:
-        """Bring the open window to the front, or open the first one (A7)."""
-        window = self.get_active_window() or self.new_window()
+        """Bring the open window to the front, or open the first one (A7), with the last document if wanted.
+
+        Only Penfold started without files gets here: "Open With" and the terminal with files go to do_open.
+        """
+        window = self.get_active_window()
+        if window is None:
+            window = self.new_window()
+            if self._settings.get_boolean(OPEN_LAST_DOCUMENT_KEY):
+                window.open_last_document()
         window.present()
 
     def do_open(self, files: Sequence[Gio.File], _n_files: int, _hint: str) -> None:

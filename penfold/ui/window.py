@@ -44,6 +44,7 @@ from penfold.ui.file_dialogs import pdf_file_dialog
 from penfold.ui.menus import attach_main_menu
 from penfold.ui.preferences_dialog import (
     AUTHOR_NAME_KEY,
+    LAST_DOCUMENT_KEY,
     REMEMBER_POSITION_KEY,
     RESPECT_PERMISSIONS_KEY,
     SHOW_ANNOTATION_BAR_KEY,
@@ -869,6 +870,26 @@ class PenfoldWindow(Adw.ApplicationWindow):
             return False
         return self._show_document(document)
 
+    def open_last_document(self) -> bool:
+        """At start, show the last document shown (07-fase-12, 9) and return True.
+
+        If there is none, or it no longer exists or cannot be opened, the welcome page stays, saying nothing. One
+        that needs a password asks for it, as when opened by hand (False until it is typed).
+        """
+        name = self._settings.get_string(LAST_DOCUMENT_KEY)
+        path = Path(name)
+        if not name or not path.is_file():
+            return False
+        try:
+            document = OpenDocument.open(path)
+        except PasswordRequiredError:
+            self._ask_password(path)
+            return False
+        except DocumentOpenError:
+            logger.info("Could not open the last document, %s", path, exc_info=True)
+            return False
+        return self._show_document(document, quiet=True)
+
     def _ask_password(self, path: Path) -> None:
         """Ask for the password of a PDF until it opens it, or until Cancel (D61, 4)."""
 
@@ -926,17 +947,22 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 )
             )
 
-    def _show_document(self, document: OpenDocument) -> bool:
-        """Show a document in this window, instead of the one shown, and return True; False if it cannot be drawn."""
+    def _show_document(self, document: OpenDocument, *, quiet: bool = False) -> bool:
+        """Show a document in this window, instead of the one shown, and return True; False if it cannot be drawn.
+
+        Then it says so, unless quiet.
+        """
         try:
             renderer = Renderer(document.sources.spans)
         except GLib.Error:
             logger.warning("Poppler could not open %s", document.path)
-            self._show_message(_("Could not open “{name}”").format(name=document.file_name))
+            if not quiet:
+                self._show_message(_("Could not open “{name}”").format(name=document.file_name))
             document.close()
             return False
         self._close_document()
         self.document, self.renderer = document, renderer
+        self._note_last_document()
         document.respect_permissions(self._settings.get_boolean(RESPECT_PERMISSIONS_KEY))
         document.add_listener(self._on_document_changed)
         self._grow_for_document()
@@ -1037,7 +1063,16 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if position is not None:
             self._positions.remember(document.path, position)
 
+    def _note_last_document(self) -> None:
+        """Keep the path of the document shown, for "Start With Last Document"; a new one has none yet.
+
+        It is noted when shown and again when closed, in case it was saved under another name meanwhile.
+        """
+        if self.document is not None and not self.document.is_new:
+            self._settings.set_string(LAST_DOCUMENT_KEY, str(self.document.path.absolute()))
+
     def _close_document(self) -> None:
+        self._note_last_document()
         self._remember_position()
         if self.renderer is not None:
             self.renderer.close()

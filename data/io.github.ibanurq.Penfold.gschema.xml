@@ -50,5 +50,13 @@
       <default>true</default>
       <summary>Whether each document opens where it was left, with the same zoom</summary>
     </key>
+    <key name="open-last-document" type="b">
+      <default>true</default>
+      <summary>Whether Penfold opens the last document when started without files</summary>
+    </key>
+    <key name="last-document" type="s">
+      <default>''</default>
+      <summary>Path of the last document shown, opened again at start if wanted</summary>
+    </key>
   </schema>
 </schemalist>

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from gi.repository import Gio
 
-from penfold import main
+from penfold import config, main
 
 if TYPE_CHECKING:
     from penfold.application import PenfoldApplication
@@ -68,6 +68,9 @@ def application(build_directory: Path, settings_schemas: Path) -> Iterator["Penf
     # Not unique, so that a Penfold already open on the desktop does not receive the tests' windows.
     penfold_application.set_flags(penfold_application.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
     penfold_application.register(None)
+    # The tests' windows show many documents, and the settings are shared: no test window opens the last of them
+    # unless the test asks for it (07-fase-12, 9).
+    Gio.Settings(schema_id=config.APP_ID).set_boolean("open-last-document", False)
     # The app's own icons are installed with it; the tests run it from the source code, so tell GTK where they are.
     from gi.repository import Gdk, Gtk
 

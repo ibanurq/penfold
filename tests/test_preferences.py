@@ -141,3 +141,14 @@ def test_remembering_the_position_is_on_by_default_and_kept_at_once(
     assert dialog.position_row.get_active() is True
     dialog.position_row.set_active(False)
     assert settings.get_boolean("remember-position") is False
+
+
+def test_the_last_document_option_follows_its_setting(
+    dialog: "PenfoldPreferencesDialog",
+    settings: Gio.Settings,  # noqa: ARG001 (puts it back afterwards)
+) -> None:
+    penfold_settings = Gio.Settings(schema_id=config.APP_ID)
+    dialog.last_document_row.set_active(True)
+    assert penfold_settings.get_boolean("open-last-document")
+    dialog.last_document_row.set_active(False)  # Off, as in all tests (conftest).
+    assert not penfold_settings.get_boolean("open-last-document")
