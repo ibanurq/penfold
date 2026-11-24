@@ -31,6 +31,7 @@ from penfold.ui.context_menu import (
 from penfold.ui.palette import COLORS as PALETTE
 from penfold.ui.palette import color_to_hex
 from penfold.ui.sidebar.view_header import (
+    EndRoom,
     RecentUse,
     empty_label,
     header_button,
@@ -143,6 +144,12 @@ class BookmarkRow(Gtk.Box):
         self.append(self.page)
 
 
+def row_position(row: Gtk.Widget) -> int:
+    """Where the row of a bookmark is now in the list of rows shown."""
+    tree_row = row.expander.get_list_row() if isinstance(row, BookmarkRow) else None
+    return tree_row.get_position() if tree_row is not None else 0
+
+
 class BookmarksView(Gtk.Box):
     """The outline tree.
 
@@ -205,6 +212,7 @@ class BookmarksView(Gtk.Box):
         self.stack.add_named(self.scrolled, "list")
         self.stack.add_named(self.empty, "empty")
         self.counter = selection_counter()
+        self._end_room = EndRoom(self.list, row_position)
         overlay = Gtk.Overlay(child=self.stack)
         overlay.add_overlay(self.counter)
         self.append(overlay)
@@ -518,6 +526,7 @@ class BookmarksView(Gtk.Box):
         self._show_page(row)
         self._rows[id(bookmark)] = row
         self._show_mark(row, bookmark)
+        self._end_room.track(row)
 
     def _show_page(self, row: "BookmarkRow") -> None:
         """Show the label of the page a bookmark leads to, where that page is now."""
@@ -527,6 +536,7 @@ class BookmarksView(Gtk.Box):
 
     def _on_unbind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         row = item.get_child()
+        self._end_room.forget(row)
         if isinstance(row, BookmarkRow) and row.bookmark is not None and self._rows.get(id(row.bookmark)) is row:
             del self._rows[id(row.bookmark)]
             row.remove_css_class("reading-position")

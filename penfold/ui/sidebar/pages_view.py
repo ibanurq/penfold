@@ -27,6 +27,7 @@ from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.context_menu import SEPARATOR, custom_item, is_menu_key, menu_gestures, separator, show_context_menu
 from penfold.ui.document_view import append_page_frame
 from penfold.ui.sidebar.view_header import (
+    EndRoom,
     header_button,
     selection_counter,
     show_count,
@@ -297,6 +298,7 @@ class PagesView(Gtk.Box):
         # The menu of the pages selected, while it is open.
         self.menu: Gtk.PopoverMenu | None = None
         self.counter = selection_counter()
+        self._end_room = EndRoom(self.grid, lambda cell: cell.thumbnail.page if isinstance(cell, PageCell) else 0)
         self.append(self._add_drop_target())
         self.selection.connect("selection-changed", lambda *_arguments: self._update_selection())
         self.selection.connect("items-changed", lambda *_arguments: self._update_selection())
@@ -341,6 +343,10 @@ class PagesView(Gtk.Box):
         old_count, new_count = self.pages.get_n_items(), document.page_count
         if new_count < old_count:
             self.pages.splice(new_count, old_count - new_count, [])
+            # GTK may let go of the cells of the pages removed only later (it does when the last row has the room
+            # for the counter): forget them now.
+            for page in [page for page in self._cells if page >= new_count]:
+                del self._cells[page]
         elif new_count > old_count:
             self.pages.splice(old_count, 0, self._items(document)[old_count:])
         for position in range(new_count):
@@ -648,9 +654,11 @@ class PagesView(Gtk.Box):
         cell.label.set_label(page_item.label)
         self._mark_current(cell, page_item.page)
         self._cells[page_item.page] = cell
+        self._end_room.track(cell)
         self._request_thumbnails()
 
     def _on_unbind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        self._end_room.forget(item.get_child())
         page_item = item.get_item()
         if isinstance(page_item, PageItem) and self._cells.get(page_item.page) is item.get_child():
             del self._cells[page_item.page]

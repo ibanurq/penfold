@@ -16,6 +16,8 @@ from tests.test_page_content import make_text_pdf
 
 if TYPE_CHECKING:
     from penfold.application import PenfoldApplication
+    from penfold.ui.sidebar.bookmarks_view import BookmarksView
+    from penfold.ui.sidebar.pages_view import PagesView
     from penfold.ui.window import PenfoldWindow
 
 
@@ -123,6 +125,54 @@ def test_bookmarks_show_the_tree_and_go_to_their_destination(window: "PenfoldWin
     assert bookmarks.tree.get_n_items() == 4
     bookmarks.emit("destination-activated", 4, 342.0)
     assert window.document_view.current_page == 4
+
+
+def _rooms(view: "PagesView | BookmarksView") -> dict[int, int]:
+    """The room below each row shown, by position."""
+    room = view._end_room
+    rooms = {}
+    for child in room._children:
+        row = child.get_parent()
+        assert row is not None
+        rooms[room._position_of(child)] = row.get_margin_bottom()
+    return rooms
+
+
+def _rows_with_room(view: "PagesView | BookmarksView") -> dict[int, int]:
+    """The rows shown with room below them, by position, once the room has been given."""
+    process_pending_events()
+    return {position: height for position, height in _rooms(view).items() if height}
+
+
+def test_there_is_room_for_the_counter_after_the_last_thumbnails(window: "PenfoldWindow", tmp_path: Path) -> None:
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf", page_count=7))
+    window.set_default_size(1800, 800)
+    pages = window.pages_view
+    pages.set_thumbnail_width(120)
+    room = pages._end_room.height
+    assert room > 40  # the counter, taller than a line of text, and its margin
+    for width in (700, 300):  # the last row changes with the columns
+        window.sidebar.emit("resized", width)
+        wait_until_stable(pages.grid.get_max_columns)
+        columns = pages.grid.get_max_columns()
+        last_row = dict.fromkeys(range(7 - (7 % columns or columns), 7), room)
+
+        def room_in_last_row(last_row: dict[int, int] = last_row) -> bool:
+            return _rows_with_room(pages) == last_row
+
+        wait_until(room_in_last_row)
+
+
+def test_there_is_room_for_the_counter_after_the_last_bookmark(window: "PenfoldWindow", tmp_path: Path) -> None:
+    path = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(path)
+    open_and_wait(window, path)
+    bookmarks = window.bookmarks_view
+    window.sidebar.show_view("bookmarks")
+    room = bookmarks._end_room.height
+    wait_until(lambda: _rows_with_room(bookmarks) == {4: room})
+    bookmarks.toggle_all()  # one row fewer: the room goes to the new last one
+    wait_until(lambda: _rows_with_room(bookmarks) == {3: room})
 
 
 def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path: Path) -> None:

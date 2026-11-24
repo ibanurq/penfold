@@ -1,11 +1,13 @@
 """Pieces shared by the views of the side panel.
 
-Their header (02-interfaz, 6), noticing recent use (D40), clearing their selection (D47) and counting it (D74).
+Their header (02-interfaz, 6), noticing recent use (D40), clearing their selection (D47), counting it (D74) and the
+room after the last row that keeps the counter off it.
 """
 
 import time
+from collections.abc import Callable
 
-from gi.repository import Gtk, Pango
+from gi.repository import GLib, Gtk, Pango
 
 HEADER_MARGIN = 12
 
@@ -51,6 +53,77 @@ def show_count(counter: Gtk.Label, count: int, text: str) -> None:
     """Show how many are selected, with this text ("{count} selected"), or hide the counter with none."""
     counter.set_visible(count > 0)
     counter.set_label(text.format(count=count))
+
+
+class EndRoom:
+    """Room after the last row of a list, as tall as its selection counter with its margin.
+
+    The last row can then always be scrolled above the counter, whether it shows or not, so nothing moves when the
+    selection changes. The room is a bottom margin on the widgets of the last row: it scrolls with the list and the
+    highlight of a selected row does not cover it. Each list item's child sits in a row widget of GTK's, its parent,
+    which is the one that takes the margin. The view's bind and unbind handlers call track and forget with that child.
+    The list items themselves are not kept: GTK would not let go of the rows of items removed from the list.
+    """
+
+    def __init__(self, view: Gtk.ListView | Gtk.GridView, position_of: Callable[[Gtk.Widget], int]) -> None:
+        """Keep the room in a list, or in a grid such as that of the thumbnails; position_of tells where a child is."""
+        self._view = view
+        self._position_of = position_of
+        # GTK measures a hidden widget as nothing: the room is measured on a counter of its own, never shown.
+        self._sample_counter = selection_counter()
+        self._sample_counter.set_visible(True)
+        self._sample_counter.set_label("1")
+        self._children: set[Gtk.Widget] = set()
+        # The row widgets that have the room now, to take it away when they show another row or none.
+        self._rows_with_room: set[Gtk.Widget] = set()
+        self._update_pending = False
+        model = view.get_model()
+        assert isinstance(model, Gtk.MultiSelection)
+        self._model = model
+        model.connect("items-changed", lambda *_arguments: self._update_soon())
+        if isinstance(view, Gtk.GridView):
+            view.connect("notify::max-columns", lambda *_arguments: self._update_soon())
+
+    def track(self, child: Gtk.Widget) -> None:
+        """Note the child of a row just bound; the row gets the room if it is in the last row."""
+        self._children.add(child)
+        self._update_soon()
+
+    def forget(self, child: Gtk.Widget | None) -> None:
+        """Note the child of a row being unbound; the row may show another item next."""
+        self._children.discard(child)
+        self._update_soon()
+
+    @property
+    def last_row_start(self) -> int:
+        """Position of the first item in the last row."""
+        count = self._model.get_n_items()
+        columns = self._view.get_max_columns() if isinstance(self._view, Gtk.GridView) else 1
+        return count - (count % columns or columns)
+
+    def _update_soon(self) -> None:
+        """Move the room once the list has laid out its rows: while it binds them, they are not to be resized."""
+        if not self._update_pending:
+            self._update_pending = True
+            GLib.idle_add(self._update)
+
+    def _update(self) -> bool:
+        self._update_pending = False
+        last_row_start = self.last_row_start
+        last_children = [child for child in self._children if self._position_of(child) >= last_row_start]
+        rows = {row for child in last_children if (row := child.get_parent()) is not None}
+        for row in self._rows_with_room - rows:
+            row.set_margin_bottom(0)
+        height = self.height
+        for row in rows:
+            row.set_margin_bottom(height)
+        self._rows_with_room = rows
+        return GLib.SOURCE_REMOVE
+
+    @property
+    def height(self) -> int:
+        """Height of the room: the counter's, with its margin."""
+        return self._sample_counter.measure(Gtk.Orientation.VERTICAL, -1)[1]
 
 
 def empty_label(text: str) -> Gtk.Label:
