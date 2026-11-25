@@ -1,10 +1,8 @@
 <p align="center">
-<img src="assets/penfold.svg" width="128" alt="Penfold icon">
+<img src="data/icons/hicolor/scalable/apps/io.github.ibanurq.Penfold.svg" width="128" alt="Penfold icon">
 </p>
 
 # Penfold
-
-**English** · [Español](README.es.md)
 
 A simple PDF reader that can also add annotations and work with pages.
 
@@ -17,10 +15,10 @@ files on my personal computer over quite a few years.
 
 ## Features
 
-- **Pages**: reorder, extract, delete and rotate.
-- **Add files** and blank pages.
+- **Add pages** from other PDFs, and blank pages.
 - **Merge files** into a single file.
-- **Bookmarks**: add, rename and reorder.
+- **Pages**: reorder, extract, delete and rotate.
+- **Bookmarks**: add, rename, reorder.
 - **Annotations**: highlights, underlines and strikethroughs.
 - **Graphic elements**: comments, text boxes, rectangles, circles and arrows.
 - **Forms**.
@@ -44,75 +42,59 @@ files on my personal computer over quite a few years.
 </p>
 
 <p align="center">
-  <img src="docs/images/merge_dialog.png" width="32%" alt="Merge PDF dialogue">
-  <img src="docs/images/extract_dialog.png" width="32%" alt="Extract pages dialogue">
-  <img src="docs/images/print_dialog.png" width="32%" alt="Dialogue to choose which annotations to print">
+  <img src="docs/images/merge_dialog.png" width="32%" alt="Merge PDF dialog">
+  <img src="docs/images/extract_dialog.png" width="32%" alt="Extract Pages dialog">
+  <img src="docs/images/print_dialog.png" width="32%" alt="Dialog to choose which annotations to print">
 </p>
 
 ## Details
 
-- Drag and drop with the mouse to change the order of the files to merge, and to reorder pages in the thumbnail view
-  and bookmarks.
-- Keyboard shortcuts (listed with `Ctrl + ?`).
+- Drag and drop with the mouse to reorder the files to merge, and to reorder pages in the thumbnail view and bookmarks.
+- Keyboard shortcuts (the list opens with `Ctrl + ?`).
 - Multiple selection (Shift or Ctrl) of pages in the thumbnail view and of bookmarks.
-- Light and dark mode (following the system’s theme).
-- A palette of 6 colours for annotations and 8 for bookmarks.
+- Light and dark mode (the document's pages are not inverted).
 - Resizable left panel.
-- The thumbnail view adapts its size, from 1 to 4 columns, to the width of the panel.
-- Reading in continuous scroll or two pages side by side.
-- Forms can be saved to keep editing them, or flattened to send them to others.
-- When printing you can choose which kinds of annotation are printed.
-- On-screen notice when a file is protected.
+- Whether to respect the document's permissions is up to the user (ISO 32000).
+- The thumbnail view fits as many thumbnails as the panel's width allows, and you can zoom them in or out.
+- Read with continuous scrolling or two pages side by side.
+- Elements are edited with the right mouse button: move, change their shape, format, and more. Editing annotations made
+  in other programs may be limited.
+- Forms can be saved to keep editing them later, or flattened to send them to others.
+- When printing, you can choose which kinds of annotations are printed.
+- Penfold never runs the code (JavaScript) that a PDF may contain.
+- And more!
 
-Important notes:
+## Installation
 
-- Annotations made with other programs are read-only and are kept intact when saving.
-- Annotations of unsupported types are not shown, but they are kept when saving.
+Download [Penfold](https://github.com/ibanurq/penfold/releases/latest/download/penfold.flatpak) and install it with a
+double click (your system needs Flatpak and Flathub: [how to set them up](https://flathub.org/setup)).
+
+Or from the terminal:
+
+    flatpak install --user ~/Downloads/penfold.flatpak
+
+I hope it will soon be available on [Flathub](https://flathub.org), with automatic updates.
 
 ## Languages
 
 - English
 - Spanish
 
-## Installation
-
-### Desktop app
-
-Download the package `penfold_<version>_amd64.deb` from the
-[releases page](https://github.com/ibanurq/penfold/releases/latest) and install it with:
-
-```bash
-sudo apt install ./penfold_<version>_amd64.deb
-```
-
-The app has been built and tested on Debian 13.
-
-### In the browser
-
-Penfold works directly in the browser, without a network connection.
-
-Download the file `penfold_<version>-web.zip` from the [releases page](https://github.com/ibanurq/penfold/releases/latest),
-unzip it and open `index.html`.
-
-Penfold has been developed and tested in Google Chrome and Firefox. In Chromium-based browsers, “Save” overwrites the
-opened file and “Extract pages” can write into a folder you choose. In browsers without those file features, such as
-Firefox, a copy is downloaded instead.
-
-To force a language, add `?lang=en` or `?lang=es` to the address.
+Translations are welcome: open an [issue](https://github.com/ibanurq/penfold/issues) or send a pull request.
 
 ## Notes
 
-- I cannot program, so I relied on AI to develop it. The file [docs/working-with-ai.md](docs/working-with-ai.md)
-  explains the method I followed.
-- Although in its current state it meets my needs for home use, I have tested it with real files from work,
-  reproducing the workflow we use, with good results: merging several files with text, images and plans, into a final
-  file of 50–60 MB and about 800 pages.
+- Its look is inspired by [Papers](https://apps.gnome.org/Papers/) and the
+  [GNOME Human Interface Guidelines](https://developer.gnome.org/hig/).
+- I have tried not to clutter the interface, so the editing tools are mostly reached with the right mouse button, and
+  the annotation tools have to be turned on. This last behavior can be changed.
+- I don't know how to program, so I relied on AI to develop it. In
+  [docs/working-with-ai.md](docs/working-with-ai.md) I explain the method I followed.
+- Although in its current state it meets my needs for home use, I have also tried it with real files from work,
+  following the workflow we use there, and the result was satisfactory: merging several files with text, images and
+  drawings, into a final file of 50–60 MB and about 800 pages.
+- Thanks to the whole free software community. Penfold would not have been possible without it.
 
-## Licence
+## License
 
-Penfold is free software, released under the [GNU General Public Licence v3.0](LICENSE) (GPL-3.0).
-
-It uses [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0), [pdf-lib](https://github.com/Hopding/pdf-lib) (MIT)
-and [Lucide](https://lucide.dev/) icons (ISC); see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
-
-Created by ibanurq, with AI assistance. © 2026 ibanurq.
+Penfold is free software, released under the [GNU General Public License, version 3](LICENSE) (GPL-3.0).
