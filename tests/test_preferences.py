@@ -69,6 +69,26 @@ def test_the_keyboard_shortcuts_list_preferences(application: "PenfoldApplicatio
     ]
 
 
+def test_the_keyboard_shortcuts_have_every_group(application: "PenfoldApplication") -> None:
+    from penfold.ui.shortcuts_dialog import shortcut_groups
+
+    groups = {group.title: group.shortcuts for group in shortcut_groups(application)}
+    # The groups of 0.6 (L2), and the keys of the side panel (07-fase-12, 19).
+    assert list(groups) == ["Annotations", "General", "Find", "View", "Moving around", "Side panel"]
+    assert [shortcut.accelerator for shortcut in groups["Find"]] == [
+        "<Control>f",
+        "<Control>g",
+        "<Shift><Control>g",
+        "Escape",
+    ]
+    assert groups["View"][0].accelerator == "F9"
+    assert [shortcut.accelerator for shortcut in groups["Side panel"]] == ["Delete", "F2", "Menu <Shift>F10", "Escape"]
+    for shortcuts in groups.values():
+        for shortcut in shortcuts:
+            for accelerator in shortcut.accelerator.split():
+                assert Gtk.accelerator_parse(accelerator)[0], accelerator  # Keys GTK can show.
+
+
 def test_by_default_there_is_no_author_and_permissions_are_respected(
     dialog: "PenfoldPreferencesDialog", settings: Gio.Settings
 ) -> None:
