@@ -85,14 +85,12 @@ msgstr ""
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:24
 msgid ""
 "Annotations are saved with their own drawing, so they look the same in other "
-"PDF viewers. Everything happens on your computer: Penfold works without an "
-"internet connection and never runs the code (JavaScript) that a PDF may "
-"contain."
+"PDF viewers. Penfold works without an internet connection and never runs the "
+"code (JavaScript) that a PDF may contain."
 msgstr ""
 "Las anotaciones se guardan con su propio dibujo, para que se vean igual en "
-"otros visores de PDF. Todo ocurre en tu ordenador: Penfold funciona sin "
-"conexión a internet y nunca ejecuta el código (JavaScript) que pueda llevar "
-"un PDF."
+"otros visores de PDF. Penfold funciona sin conexión a internet y nunca "
+"ejecuta el código (JavaScript) que pueda llevar un PDF."
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:33
 msgid "annotate"
@@ -133,6 +131,12 @@ msgstr "Extraer páginas"
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:67
 msgid "Choosing which annotations to print"
 msgstr "Elegir qué anotaciones se imprimen"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:76
+msgid ""
+"First beta of Penfold 1.0: read, annotate, organize and fill in your PDFs."
+msgstr ""
+"Primera beta de Penfold 1.0: lee, anota, organiza y rellena tus PDF."
 
 #: data/ui/dialogs/add_pages_dialog.blp:8
 msgid "Add Pages"

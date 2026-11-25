@@ -21,9 +21,8 @@
       <li>Graphic elements: comments, text boxes, rectangles, circles and arrows</li>
       <li>Forms: fill them in, and save them to keep editing later or flattened to send them</li>
     </ul>
-    <p>Annotations are saved with their own drawing, so they look the same in other PDF viewers. Everything happens on
-      your computer: Penfold works without an internet connection and never runs the code (JavaScript) that a PDF may
-      contain.</p>
+    <p>Annotations are saved with their own drawing, so they look the same in other PDF viewers. Penfold works without an
+      internet connection and never runs the code (JavaScript) that a PDF may contain.</p>
   </description>
   <categories>
     <category>Office</category>
@@ -72,6 +71,10 @@
   <url type="bugtracker">https://github.com/ibanurq/penfold/issues</url>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="1.0.0-alpha.12" date="2026-11-24" type="development"/>
+    <release version="1.0.0-beta.1" date="2026-11-25" type="development">
+      <description>
+        <p>First beta of Penfold 1.0: read, annotate, organize and fill in your PDFs.</p>
+      </description>
+    </release>
   </releases>
 </component>

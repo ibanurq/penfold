@@ -5,6 +5,46 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-beta.1 — 2026-11-25
+
+First beta of Penfold 1.0: the final icons, new preferences to open documents where they were left, the document's
+properties, and the annotations shown in the thumbnails.
+
+### Added
+- Preferences: Show Annotation Bar at Start, Remember Document Position (page and zoom of each document, on by
+  default) and Start With the Last Document.
+- Properties…, the last item of the document menu, to read only: title, author, subject and keywords; file name,
+  folder and size; pages, page size and PDF version; dates, creator and producer; password and permissions.
+- The thumbnails show the annotations of their pages, kept up to date while annotating.
+- The Keyboard Shortcuts window lists every key, with the Find group and a new Side panel group.
+- About lists every library Penfold uses, with its license, and the author of the icons.
+- Screen readers name the rows of Bookmarks, Annotations and Find, the thumbnails, Find's box and the Color button.
+
+### Changed
+- The final icons, for the app and for the tools, fit and annotations.
+- The welcome page says “Penfold”, and Annotations starts with every group shown.
+- Bookmarks have four colours of their own (red, orange, green and blue) that can be read in the light and dark
+  styles. The bookmark of the section being read, and the annotations of the page being read, are marked with a line
+  in the accent colour on their left, instead of a background.
+- Reshape is called Adjust Ends on highlights, underlines and strikethroughs, and their handles are drops off the
+  first and last letters.
+- The edge between the side panel and the document is highlighted while the pointer is on it or it is dragged.
+- When the annotation bar and the zoom buttons do not fit side by side, the zoom buttons go up above the bar.
+- Printing a document without annotations goes straight to the print dialogue.
+- The Menu key opens the menu of Annotations from anywhere, as in Pages and Bookmarks.
+- Preferences: the author is an entry that shows the default name when empty, with fewer explanations.
+- Only comments show their text in a tooltip, cut after 10 lines or 500 characters.
+- The listing in GNOME Software and the README describe Penfold 1.0, with new screenshots.
+- The Flatpak can read and write the home folder, so the last document and each position are remembered after a
+  restart too.
+
+### Fixed
+- The installed Flatpak did not start (a library pikepdf needs was left out).
+- Undoing pages added took away the pages but not the notice.
+- After deleting the last thumbnails with Delete, the focus jumped to the first page.
+- Editing a bookmark in sight scrolled the list back to the top.
+- A match in the middle of a word showed its sentence with spaces around the match in Find.
+
 ## 1.0.0-alpha.12 — 2026-11-24
 
 Twelfth preview of Penfold 1.0: pages and bookmarks are edited from a menu, a right click away, as annotations are.
