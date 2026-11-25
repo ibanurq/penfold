@@ -11,16 +11,19 @@
     <name translate="no">ibanurq</name>
   </developer>
   <description>
-    <p>Penfold is a PDF editor. Everything happens on your computer: your documents never leave it, and it works
-      without an internet connection.</p>
+    <p>Penfold is a simple PDF reader that can also add annotations and work with pages.</p>
     <ul>
-      <li>Bookmarks: edit the document’s outline</li>
+      <li>Add pages from other PDFs, and blank pages</li>
+      <li>Merge files into a single file</li>
+      <li>Pages: reorder, extract, delete and rotate</li>
+      <li>Bookmarks: add, rename and reorder</li>
       <li>Annotations: highlights, underlines and strikethroughs</li>
       <li>Graphic elements: comments, text boxes, rectangles, circles and arrows</li>
-      <li>Pages: merge, extract, delete and rotate</li>
+      <li>Forms: fill them in, and save them to keep editing later or flattened to send them</li>
     </ul>
-    <p>Annotations are saved with their own drawing, so they look the same in any other PDF viewer. Penfold can also
-      fill in forms, find text and print.</p>
+    <p>Annotations are saved with their own drawing, so they look the same in other PDF viewers. Everything happens on
+      your computer: Penfold works without an internet connection and never runs the code (JavaScript) that a PDF may
+      contain.</p>
   </description>
   <categories>
     <category>Office</category>
@@ -35,26 +38,40 @@
     <mediatype>application/pdf</mediatype>
     <binary>penfold</binary>
   </provides>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Bookmarks panel and two-page view</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/bookmarks.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Thumbnail view</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/pages.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Annotations panel</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/annotations.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Filling in a form</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/forms.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Merging PDFs</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/merge_dialog.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Extracting pages</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/extract_dialog.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Choosing which annotations to print</caption>
+      <image>https://raw.githubusercontent.com/ibanurq/penfold/main/docs/images/print_dialog.png</image>
+    </screenshot>
+  </screenshots>
   <url type="homepage">https://github.com/ibanurq/penfold</url>
   <url type="bugtracker">https://github.com/ibanurq/penfold/issues</url>
   <content_rating type="oars-1.1"/>
   <releases>
     <release version="1.0.0-alpha.12" date="2026-11-24" type="development"/>
-    <release version="1.0.0-alpha.11" date="2026-11-23" type="development"/>
-    <release version="1.0.0-alpha.10" date="2026-11-23" type="development"/>
-    <release version="1.0.0-alpha.9" date="2026-11-22" type="development"/>
-    <release version="1.0.0-alpha.8" date="2026-11-22" type="development"/>
-    <release version="1.0.0-alpha.7" date="2026-11-21" type="development"/>
-    <release version="1.0.0-alpha.6" date="2026-11-21" type="development"/>
-    <release version="1.0.0-alpha.5" date="2026-11-21" type="development"/>
-    <release version="1.0.0-alpha.4" date="2026-11-20" type="development"/>
-    <release version="1.0.0-alpha.3" date="2026-11-19" type="development"/>
-    <release version="1.0.0-alpha.2" date="2026-11-18" type="development"/>
-    <release version="1.0.0-alpha.1" date="2026-11-18" type="development"/>
-    <release version="0.6.0" date="2026-11-17"/>
-    <release version="0.5.4" date="2026-11-17"/>
-    <release version="0.5.3" date="2026-11-15"/>
-    <release version="0.5.2" date="2026-11-12"/>
-    <release version="0.5.1" date="2026-11-12"/>
   </releases>
 </component>

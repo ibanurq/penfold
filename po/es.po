@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 05:53+0100\n"
+"POT-Creation-Date: 2026-11-25 07:47+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -42,50 +42,97 @@ msgstr "Lee, anota y organiza tus PDF"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:14
 msgid ""
-"Penfold is a PDF editor. Everything happens on your computer: your documents "
-"never leave it, and it works without an internet connection."
+"Penfold is a simple PDF reader that can also add annotations and work with "
+"pages."
 msgstr ""
-"Penfold es un editor de PDF. Todo se hace en tu equipo: tus documentos no "
-"salen de él, y funciona sin conexión a internet."
+"Penfold es un lector sencillo de archivos PDF con capacidad para añadir "
+"anotaciones y manipular páginas."
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:16
+msgid "Add pages from other PDFs, and blank pages"
+msgstr "Añadir páginas de otros PDF y páginas en blanco"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:17
-msgid "Bookmarks: edit the document’s outline"
-msgstr "Marcadores: edita el índice del documento"
+msgid "Merge files into a single file"
+msgstr "Combinar archivos en un único archivo"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:18
+msgid "Pages: reorder, extract, delete and rotate"
+msgstr "Páginas: reordenar, extraer, eliminar y girar"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:19
+msgid "Bookmarks: add, rename and reorder"
+msgstr "Marcadores: añadir, renombrar y reordenar"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:20
 msgid "Annotations: highlights, underlines and strikethroughs"
 msgstr "Anotaciones: resaltados, subrayados y tachados"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:19
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:21
 msgid "Graphic elements: comments, text boxes, rectangles, circles and arrows"
 msgstr ""
 "Elementos gráficos: comentarios, cuadros de texto, cuadros, círculos y "
 "flechas"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:20
-msgid "Pages: merge, extract, delete and rotate"
-msgstr "Páginas: combinar, extraer, eliminar y girar"
-
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:22
 msgid ""
-"Annotations are saved with their own drawing, so they look the same in any "
-"other PDF viewer. Penfold can also fill in forms, find text and print."
+"Forms: fill them in, and save them to keep editing later or flattened to "
+"send them"
+msgstr ""
+"Formularios: rellenarlos y guardarlos para seguir editándolos o aplanados "
+"para enviarlos"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:24
+msgid ""
+"Annotations are saved with their own drawing, so they look the same in other "
+"PDF viewers. Everything happens on your computer: Penfold works without an "
+"internet connection and never runs the code (JavaScript) that a PDF may "
+"contain."
 msgstr ""
 "Las anotaciones se guardan con su propio dibujo, para que se vean igual en "
-"cualquier otro visor de PDF. Penfold también rellena formularios, busca "
-"texto e imprime."
+"otros visores de PDF. Todo ocurre en tu ordenador: Penfold funciona sin "
+"conexión a internet y nunca ejecuta el código (JavaScript) que pueda llevar "
+"un PDF."
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:30
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:33
 msgid "annotate"
 msgstr "anotar"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:31
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:34
 msgid "highlight"
 msgstr "resaltar"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:32
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:35
 msgid "merge"
 msgstr "combinar"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:43
+msgid "Bookmarks panel and two-page view"
+msgstr "Panel de marcadores y vista de dos páginas"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:47
+msgid "Thumbnail view"
+msgstr "Vista de miniaturas"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:51
+msgid "Annotations panel"
+msgstr "Panel de anotaciones"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:55
+msgid "Filling in a form"
+msgstr "Rellenar un formulario"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:59
+msgid "Merging PDFs"
+msgstr "Combinar PDF"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:63
+msgid "Extracting pages"
+msgstr "Extraer páginas"
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:67
+msgid "Choosing which annotations to print"
+msgstr "Elegir qué anotaciones se imprimen"
 
 #: data/ui/dialogs/add_pages_dialog.blp:8
 msgid "Add Pages"
