@@ -26,4 +26,4 @@ def test_appstream_card_leads_to_the_same_pages_as_about_and_donate(build_direct
 
     card = ElementTree.parse(build_directory / "data" / f"{config.APP_ID}.metainfo.xml")
     urls = {url.get("type"): url.text for url in card.iter("url")}
-    assert urls == {"homepage": WEBSITE, "bugtracker": ISSUE_URL, "donation": DONATION_URL}  # D81
+    assert urls == {"homepage": WEBSITE, "bugtracker": ISSUE_URL, "donation": DONATION_URL}

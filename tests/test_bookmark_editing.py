@@ -1,4 +1,4 @@
-"""Editing bookmarks from the Bookmarks view: its actions, counter, Delete key and notice to undo (fase 5)."""
+"""Editing bookmarks from the Bookmarks view: its actions, counter, Delete key and notice to undo."""
 
 from collections.abc import Iterator
 from pathlib import Path

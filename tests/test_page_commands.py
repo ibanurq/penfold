@@ -1,4 +1,4 @@
-"""Turning, deleting and moving pages, and undoing it (E1, E2, E3, D19)."""
+"""Turning, deleting and moving pages, and undoing it."""
 
 from pathlib import Path
 

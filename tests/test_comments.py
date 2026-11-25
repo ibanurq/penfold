@@ -1,4 +1,4 @@
-"""Placing comments with a click and writing their text in a popover (H2, H5, D68)."""
+"""Placing comments with a click and writing their text in a popover."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -57,7 +57,7 @@ def test_a_click_asks_for_the_text_and_apply_makes_the_comment(comment_window: "
     (comment,) = made(window)
     assert (comment.kind, comment.page, comment.text) == (Kind.COMMENT, 0, "Check\\nthis")
     assert comment.rectangle == pytest.approx((190, 290, 210, 310))  # Centred on the click.
-    assert (popover.get_visible(), window.annotating.tool) == (False, Tool.COMMENT)  # The tool stays (D65).
+    assert (popover.get_visible(), window.annotating.tool) == (False, Tool.COMMENT)  # The tool stays.
     assert window.document_view._preview is None
 
 

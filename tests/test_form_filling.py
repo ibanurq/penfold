@@ -1,4 +1,4 @@
-"""Saving the values filled in, so that the form stays editable in other viewers (I5, I7, I8)."""
+"""Saving the values filled in, so that the form stays editable in other viewers."""
 
 from dataclasses import replace
 from pathlib import Path
@@ -39,7 +39,7 @@ def saved_values(path: Path) -> dict[str, FieldValue]:
 
 
 def poppler_texts(path: Path) -> dict[str, str]:
-    """The text of each text field as Poppler (and so Papers) reads it."""
+    """The text of each text field as Poppler reads it."""
     poppler = Poppler.Document.new_from_gfile(Gio.File.new_for_path(str(path)), None, None)
     texts = {}
     for index in range(poppler.get_n_pages()):

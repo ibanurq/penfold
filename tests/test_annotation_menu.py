@@ -1,4 +1,4 @@
-"""The menu of an annotation of a page: a right click on it, its colours and Delete (D72)."""
+"""The menu of an annotation of a page: a right click on it, its colours and Delete."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -351,7 +351,7 @@ def panel_window(annotated_window: "PenfoldWindow") -> "PenfoldWindow":
 
     annotated_window.split_view.set_show_sidebar(True)
     annotated_window.sidebar.show_view(sidebar_views.ANNOTATIONS)
-    for group in ("text-markups", "shapes", "others"):  # All four are shown by default (D76).
+    for group in ("text-markups", "shapes", "others"):  # All four are shown by default.
         annotated_window.annotations_view.activate_action(f"annotations-filter.{group}", None)
     process_pending_events()
     return annotated_window
@@ -428,7 +428,7 @@ def test_the_menu_key_opens_the_menu_wherever_the_focus_is(panel_window: "Penfol
     window.document_view.grab_focus()
     assert not window._on_menu_key(window, None)  # Nothing selected.
     view.selection.select_item(0, True)
-    assert window._on_menu_key(window, None)  # With the focus on the page (D76).
+    assert window._on_menu_key(window, None)  # With the focus on the page.
     process_pending_events()
     assert editing.menu is not None
     assert editing.annotation is view.selected_annotations()[0]

@@ -1,4 +1,4 @@
-"""The pencil and the floating annotation bar (02-interfaz, 5; D10, D32, D65)."""
+"""The pencil and the floating annotation bar."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -80,7 +80,7 @@ def test_choosing_a_colour_closes_the_palette(window: "PenfoldWindow", tmp_path:
     assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
     window.activate_action("win.annotate", None)
     bar = window.annotation_toolbar
-    # Grey, with its own style, not the zoom buttons' dark one (D82).
+    # Grey, with its own style, not the zoom buttons' dark one.
     assert (bar.has_css_class("annotation-bar"), bar.has_css_class("osd")) == (True, False)
     bar.color_button.popup()
     process_pending_events()

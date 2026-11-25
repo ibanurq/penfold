@@ -1,4 +1,4 @@
-"""Merging PDFs into a new document, and the forms of pages that come from other PDFs (F1, F2, F4, F6, F7, D50)."""
+"""Merging PDFs into a new document, and the forms of pages that come from other PDFs."""
 
 from pathlib import Path
 
@@ -68,7 +68,7 @@ def test_the_files_are_merged_in_order_into_a_new_document(tmp_path: Path) -> No
     assert [page.source_index for page in document.pages] == [0, 1, 2, 3, 4, 5]
     assert (document.file_name, document.title) == ("merged.pdf", None)
     assert document.is_new
-    assert document.is_modified  # unsaved until it is saved (F6)
+    assert document.is_modified  # unsaved until it is saved
     assert not document.can_undo
     with save_and_open(document) as saved:
         assert len(saved.pages) == 6
@@ -92,7 +92,7 @@ def test_the_bookmarks_of_the_files_as_chosen(
     assert [bookmark.title for bookmark in document.bookmarks] == top
     if per_file:
         assert [bookmark.page for bookmark in document.bookmarks] == [0, 5]
-        assert all(bookmark.is_open for bookmark in document.bookmarks)  # unfolded (D50)
+        assert all(bookmark.is_open for bookmark in document.bookmarks)  # unfolded
     first_children = document.bookmarks[1 if not per_file else 0].children if top else []
     assert [bookmark.title for bookmark in first_children] == under_first
 

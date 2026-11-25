@@ -1,4 +1,4 @@
-"""Document properties (07-fase-12, 18): what is read from the PDF and how the Properties dialogue shows it."""
+"""Document properties: what is read from the PDF and how the Properties dialogue shows it."""
 
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path

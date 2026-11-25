@@ -1,4 +1,4 @@
-"""Thumbnails show the annotations as the pages of the document do (07-fase-12, 12)."""
+"""Thumbnails show the annotations as the pages of the document do."""
 
 from collections.abc import Iterator
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""The side panel with a PDF: showing it, its views, thumbnails, bookmarks, annotations and Find (fase 2)."""
+"""The side panel with a PDF: showing it, its views, thumbnails, bookmarks, annotations and Find."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -74,7 +74,7 @@ def test_panel_width_limits(application: "PenfoldApplication") -> None:  # noqa:
 def test_panel_opens_with_a_pdf_and_f9_hides_it(window: "PenfoldWindow", tmp_path: Path) -> None:
     open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
     assert window.split_view.get_show_sidebar()
-    assert not window.document_header.main_menu_button.get_visible()  # the main menu is in the panel (D36)
+    assert not window.document_header.main_menu_button.get_visible()  # the main menu is in the panel
     window.activate_action("win.show-sidebar", None)
     assert not window.split_view.get_show_sidebar()
     assert window.document_header.main_menu_button.get_visible()
@@ -243,7 +243,7 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     open_and_wait(window, path)
     view = window.annotations_view
 
-    # All four groups are shown by default (D76).
+    # All four groups are shown by default.
     assert view.shown_groups == set(AnnotationGroup)
     popover = view.filter_button.get_popover()
     assert popover is not None
@@ -259,7 +259,7 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     assert [annotation.kind for annotation in view.shown_annotations()] == [Kind.COMMENT]
     view.activate_action("annotations-filter.shapes", None)
     view.activate_action("annotations-filter.others", None)
-    # Shapes come first, from the top of the page down; a freehand drawing is a shape too (D64).
+    # Shapes come first, from the top of the page down; a freehand drawing is a shape too.
     assert [annotation.subtype for annotation in view.shown_annotations()] == [
         "Ink",
         "Square",
@@ -314,7 +314,7 @@ def test_dragging_the_panel_edge_fits_the_zoom_once_released(window: "PenfoldWin
     window.sidebar.emit("resize-started")
     window.sidebar.emit("resized", 500)
     wait_until_stable(view.get_width)
-    assert view.zoom == zoom  # not while dragging (B4)
+    assert view.zoom == zoom  # not while dragging
     window.sidebar.emit("resize-finished")
     wait_until_stable(lambda: (view.get_width(), view.zoom))
     assert view.zoom < zoom
@@ -343,7 +343,7 @@ def test_the_panel_leaves_room_for_the_document(window: "PenfoldWindow", tmp_pat
     window.sidebar.emit("resized", 1300)
     window.sidebar.emit("resize-finished")
     widest = window.split_view.get_max_sidebar_width()
-    assert widest < 1300  # never wider than the window minus the document's room, as in 0.6
+    assert widest < 1300  # never wider than the window minus the document's room
     window.set_default_size(900, 800)
     assert window.split_view.get_max_sidebar_width() < widest
     window.set_default_size(1400, 800)
@@ -601,7 +601,7 @@ def test_added_pages_show_in_every_view(window: "PenfoldWindow", tmp_path: Path)
     assert renderer.layout[1].source == 2
     window.sidebar.show_view("bookmarks")
     wait_until(lambda: bool(window.bookmarks_view._rows))
-    assert bookmark_pages(window) == {"text": "2", "Added": "2"}  # named after the file, holding its own (D50)
+    assert bookmark_pages(window) == {"text": "2", "Added": "2"}  # named after the file, holding its own
     document.undo()
     assert window.pages_view.pages.get_n_items() == 2
     assert bookmark_pages(window) == {}

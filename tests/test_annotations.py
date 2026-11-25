@@ -84,7 +84,7 @@ def test_text_author_and_colour(annotations: list[Annotation]) -> None:
     assert highlight.author == "Ana"
     assert rectangle.color == (0.5, 0.5, 0.5)
     assert (ink.text, ink.subtype, ink.author) == ("Scribble", "Ink", "")
-    # Read from the PDF, they are drawn by Poppler, even those Penfold wrote (D66).
+    # Read from the PDF, they are drawn by Poppler, even those Penfold wrote.
     assert not any(item.managed for item in annotations)
 
 
@@ -99,7 +99,7 @@ def test_a_new_annotation_is_managed_and_named() -> None:
     second = new_annotation(Kind.ARROW, 3, (10, 20, 110, 70), (1.0, 0.0, 0.0), "", line=(10, 70, 110, 20))
     assert (first.subtype, first.page, first.author, first.managed) == ("Square", 3, "Iban", True)
     assert first.group is AnnotationGroup.SHAPES
-    assert (second.author, second.line) == ("Penfold", (10, 70, 110, 20))  # no author in the preferences (D60)
+    assert (second.author, second.line) == ("Penfold", (10, 70, 110, 20))  # no author in the preferences
     assert first.name.startswith("penfold-")
     assert first.name != second.name
     assert first.origin is None  # in no PDF yet

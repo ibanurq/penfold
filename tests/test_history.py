@@ -1,4 +1,4 @@
-"""Undo, redo and the unsaved-changes mark (D16, D19)."""
+"""Undo, redo and the unsaved-changes mark."""
 
 from dataclasses import dataclass
 from pathlib import Path

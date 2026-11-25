@@ -1,4 +1,4 @@
-"""The menu of the bookmarks selected in the Bookmarks view: a right click, the Menu key and F2 (D74)."""
+"""The menu of the bookmarks selected in the Bookmarks view: a right click, the Menu key and F2."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING

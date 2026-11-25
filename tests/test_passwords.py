@@ -1,4 +1,4 @@
-"""PDFs with an open password (D61): opened with it, drawn, and saved or extracted keeping passwords and permissions."""
+"""PDFs with an open password: opened with it, drawn, and saved or extracted keeping passwords and permissions."""
 
 from pathlib import Path
 

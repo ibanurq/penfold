@@ -1,4 +1,4 @@
-"""Text boxes: their height follows the text, and the screen shows what is saved, fonts inside (H3, D69)."""
+"""Text boxes: their height follows the text, and the screen shows what is saved, fonts inside."""
 
 from pathlib import Path
 
@@ -67,7 +67,7 @@ def test_the_height_follows_the_text() -> None:
     assert one_line == pytest.approx(2 * (PADDING + BORDER) + 12.6, abs=1.5)  # About 1.15 of 11 points per line.
     assert text_height(TEXT, 200) > 2 * one_line - 2 * (PADDING + BORDER)
     assert text_height(TEXT, 120) > text_height(TEXT, 200)
-    assert text_height("Short", 200, 18) > one_line  # bigger letters (D72)
+    assert text_height("Short", 200, 18) > one_line  # bigger letters
 
 
 def test_it_is_saved_with_its_entries_and_its_fonts_inside(tmp_path: Path) -> None:

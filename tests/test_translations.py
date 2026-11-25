@@ -1,4 +1,4 @@
-"""Every text of the interface can be translated, and the Spanish translation is complete (03-arquitectura, 7)."""
+"""Every text of the interface can be translated, and the Spanish translation is complete."""
 
 import re
 import subprocess

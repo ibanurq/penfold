@@ -1,4 +1,4 @@
-"""The "Merge PDFs" dialogue and merging from the window (F1 to F6, D17, D50)."""
+"""The "Merge PDFs" dialogue and merging from the window."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -82,7 +82,7 @@ def test_files_are_reordered_and_removed(application: "PenfoldApplication", tmp_
     assert names(dialog) == ["one.pdf", "locked.pdf", "two.pdf"]
     dialog.remove_file(2)
     assert names(dialog) == ["one.pdf", "locked.pdf"]
-    assert not dialog.merge_button.get_sensitive()  # merging needs two files that can be merged (F3)
+    assert not dialog.merge_button.get_sensitive()  # merging needs two files that can be merged
 
 
 def test_merging_shows_the_new_document_with_its_bookmarks(
@@ -102,7 +102,7 @@ def test_merging_shows_the_new_document_with_its_bookmarks(
     saved_as: list[bool] = []
     monkeypatch.setattr(window, "save_as", lambda *_arguments: saved_as.append(True))
     window.save()
-    assert saved_as == [True]  # a new document is saved where the user says (F6)
+    assert saved_as == [True]  # a new document is saved where the user says
 
 
 def test_merge_asks_first_about_unsaved_changes(window: "PenfoldWindow", tmp_path: Path) -> None:

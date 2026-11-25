@@ -1,4 +1,4 @@
-"""PDFs with permissions (D58 to D60): the lock, the tools each one allows, Ctrl+P, changes, ignoring them."""
+"""PDFs with permissions: the lock, the tools each one allows, Ctrl+P, changes, ignoring them."""
 
 from collections.abc import Iterator
 from pathlib import Path

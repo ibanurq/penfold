@@ -1,4 +1,4 @@
-"""The "Extract Pages" dialogue and extracting from the window (E7 to E9, D51)."""
+"""The "Extract Pages" dialogue and extracting from the window."""
 
 from collections.abc import Iterator
 from pathlib import Path

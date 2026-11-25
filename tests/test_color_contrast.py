@@ -1,4 +1,4 @@
-"""Bookmark colours that can be read on the panel, light or dark, and on white (07-fase-12, 6)."""
+"""Bookmark colours that can be read on the panel, light or dark, and on white."""
 
 import pytest
 

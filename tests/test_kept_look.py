@@ -1,4 +1,4 @@
-"""Annotations of other programs moved keeping the drawing their program made (D73): saved and shown."""
+"""Annotations of other programs moved keeping the drawing their program made: saved and shown."""
 
 from pathlib import Path
 

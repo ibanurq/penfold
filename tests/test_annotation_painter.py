@@ -1,4 +1,4 @@
-"""Painting the annotations Penfold manages on the screen as they look once saved (03-arquitectura, 4.1)."""
+"""Painting the annotations Penfold manages on the screen as they look once saved."""
 
 from pathlib import Path
 

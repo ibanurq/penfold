@@ -1,4 +1,4 @@
-"""Writing the annotations made in Penfold into the PDF, with their drawing and the standard's entries (H14, D67)."""
+"""Writing the annotations made in Penfold into the PDF, with their drawing and the standard's entries."""
 
 from dataclasses import replace
 from pathlib import Path
@@ -44,7 +44,7 @@ def every_kind(page: int) -> list[Annotation]:
 
 
 def restyled(annotations: list[Annotation]) -> list[Annotation]:
-    """The same annotations as their Format panel can leave them (D72): see-through; thick, dashed, filled shapes."""
+    """The same annotations as their Format panel can leave them: see-through; thick, dashed, filled shapes."""
     shape = Style(opacity=0.5, line_width=4.0, dashed=True, filled=True)
     styles = {
         Kind.RECTANGLE: shape,

@@ -1,4 +1,4 @@
-"""Links and text of the pages (B7, B8, B9)."""
+"""Links and text of the pages."""
 
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from tests.sample_pdfs import make_pdf, source_spans
 
 A4 = (595.0, 842.0)
 LAYOUT = PageLayout([A4] * 3)
-# The text boxes' font (D69), which the tests need anyway; with the system's default font, Poppler may join words.
+# The text boxes' font, which the tests need anyway; with the system's default font, Poppler may join words.
 FONT = "Liberation Sans"
 
 

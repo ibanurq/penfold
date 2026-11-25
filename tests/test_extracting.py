@@ -1,4 +1,4 @@
-"""Extracting pages: reading the list of pages, naming the files and writing them (E7 to E9, D51)."""
+"""Extracting pages: reading the list of pages, naming the files and writing them."""
 
 from pathlib import Path
 
@@ -80,7 +80,7 @@ def test_extracted_pages_keep_what_they_hold_and_their_bookmarks(tmp_path: Path)
     with pikepdf.open(target) as extracted:
         assert widths(extracted) == [102, 103, 104]
         assert extracted.pages[0].obj.Rotate == 90
-        assert extracted.pages[2].obj.Annots[0].Contents == "Hello"  # notes are kept (D51)
+        assert extracted.pages[2].obj.Annots[0].Contents == "Hello"  # notes are kept
         with extracted.open_outline() as outline:
             assert [item.title for item in outline.root] == ["Chapter"]
             assert [item.title for item in outline.root[0].children] == ["Section"]

@@ -1,4 +1,4 @@
-"""Start With Last Document (07-fase-12, 9): the last document shown opens again when Penfold starts without files."""
+"""Start With Last Document: the last document shown opens again when Penfold starts without files."""
 
 from collections.abc import Iterator
 from pathlib import Path

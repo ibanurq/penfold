@@ -1,4 +1,4 @@
-"""Adding the pages of another PDF, with its bookmarks, and undoing it (E4, E6, D19)."""
+"""Adding the pages of another PDF, with its bookmarks, and undoing it."""
 
 from pathlib import Path
 

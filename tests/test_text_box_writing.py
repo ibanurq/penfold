@@ -1,4 +1,4 @@
-"""Writing text boxes on the page (H3, H5, D69)."""
+"""Writing text boxes on the page."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING

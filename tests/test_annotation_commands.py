@@ -1,4 +1,4 @@
-"""Making, changing and deleting annotations, and undoing it (H1 to H4, H9, H11, D19, D65, D72)."""
+"""Making, changing and deleting annotations, and undoing it."""
 
 from dataclasses import replace
 from pathlib import Path

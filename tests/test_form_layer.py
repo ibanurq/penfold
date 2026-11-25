@@ -1,4 +1,4 @@
-"""Filling in text fields on the pages (I1, I2, J2)."""
+"""Filling in text fields on the pages."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -262,6 +262,6 @@ def test_fields_only_answer_the_mouse_with_select_text(form_window: "PenfoldWind
     wait_until(lambda: bool(targets()))
     assert targets() == {True}
     form_window.activate_action("win.annotation-tool", GLib.Variant.new_string("rectangle"))
-    assert targets() == {False}  # The page is annotated over them (I4).
+    assert targets() == {False}  # The page is annotated over them.
     form_window.activate_action("win.annotation-tool", GLib.Variant.new_string("select"))
     assert targets() == {True}

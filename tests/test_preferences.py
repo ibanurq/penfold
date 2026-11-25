@@ -1,4 +1,4 @@
-"""The Preferences dialogue (D60, D61): where it opens from, and every change kept at once."""
+"""The Preferences dialogue: where it opens from, and every change kept at once."""
 
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
@@ -54,7 +54,7 @@ def main_menu_actions() -> list[str]:
         assert items is not None
         for item in range(items.get_n_items()):
             action = items.get_item_attribute_value(item, "action")
-            if action is not None:  # the style circles have none (D62)
+            if action is not None:  # the style circles have none
                 actions.append(action.get_string())
     return actions
 
@@ -65,14 +65,14 @@ def test_preferences_come_before_the_keyboard_shortcuts_in_the_main_menu() -> No
 
 
 def test_donate_comes_just_before_about_which_is_last_in_the_main_menu() -> None:
-    assert main_menu_actions()[-2:] == ["app.donate", "app.about"]  # D81
+    assert main_menu_actions()[-2:] == ["app.donate", "app.about"]  # Donate, then About
 
 
 def test_the_keyboard_shortcuts_list_preferences(application: "PenfoldApplication") -> None:
     from penfold.ui.shortcuts_dialog import shortcut_groups
 
     annotations, general = shortcut_groups(application)[:2]
-    # Annotations first, as in 0.6 (L2): H, U and Esc.
+    # Annotations first: H, U and Esc.
     assert [shortcut.accelerator for shortcut in annotations.shortcuts] == ["h", "u", "Escape"]
     assert ("Open the preferences", "<Control>comma") in [
         (shortcut.description, shortcut.accelerator) for shortcut in general.shortcuts
@@ -83,7 +83,7 @@ def test_the_keyboard_shortcuts_have_every_group(application: "PenfoldApplicatio
     from penfold.ui.shortcuts_dialog import shortcut_groups
 
     groups = {group.title: group.shortcuts for group in shortcut_groups(application)}
-    # The groups of 0.6 (L2), and the keys of the side panel (07-fase-12, 19).
+    # The groups of keys, the side panel's last.
     assert list(groups) == ["Annotations", "General", "Find", "View", "Moving around", "Side panel"]
     assert [shortcut.accelerator for shortcut in groups["Find"]] == [
         "<Control>f",

@@ -1,4 +1,4 @@
-"""Moving annotations and changing their size with handles on the page (D72, D73)."""
+"""Moving annotations and changing their size with handles on the page."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -205,8 +205,8 @@ def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow"
     }
     labels = {item.kind: _reshape_label(item) for item in window.document.annotations}
     assert labels == {
-        Kind.HIGHLIGHT: "_Adjust Ends",  # It follows the text, it does not move (D76).
-        Kind.RECTANGLE: "_Move and Resize",  # By its type, as before; this one only moves (D73).
+        Kind.HIGHLIGHT: "_Adjust Ends",  # It follows the text, it does not move.
+        Kind.RECTANGLE: "_Move and Resize",  # By its type, as before; this one only moves.
         Kind.OTHER: None,
         Kind.COMMENT: "_Move",
         Kind.TEXT_BOX: "_Move and Resize",
@@ -214,7 +214,7 @@ def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow"
     }
     assert resized == {
         Kind.HIGHLIGHT: True,  # The text it covers.
-        Kind.RECTANGLE: False,  # A cloudy border: Penfold would lose it (D73).
+        Kind.RECTANGLE: False,  # A cloudy border: Penfold would lose it.
         Kind.OTHER: False,
         Kind.COMMENT: False,  # Its size is fixed.
         Kind.TEXT_BOX: True,  # Plain, as Penfold draws them.
@@ -473,7 +473,7 @@ def marked_text(window: "PenfoldWindow") -> str:
 
 
 def drop_grip(window: "PenfoldWindow", mark: Annotation, handle: Handle) -> tuple[float, float]:
-    """The middle of a drop handle of a mark on an upright page, in points of the page (D76)."""
+    """The middle of a drop handle of a mark on an upright page, in points of the page."""
     from penfold.document.reshaping import mark_tips
     from penfold.ui.handle_editor import DROP_BODY, DROP_SIZE, DROP_TIPS
 

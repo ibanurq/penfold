@@ -1,4 +1,4 @@
-"""Editing pages from the side panel: the counter, the Delete key and the notice to undo (fase 3)."""
+"""Editing pages from the side panel: the counter, the Delete key and the notice to undo."""
 
 from collections.abc import Iterator
 from pathlib import Path

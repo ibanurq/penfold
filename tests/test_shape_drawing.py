@@ -1,4 +1,4 @@
-"""Drawing rectangles, circles and arrows by dragging (H4)."""
+"""Drawing rectangles, circles and arrows by dragging."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -72,7 +72,7 @@ def test_a_drag_draws_the_shape_from_where_it_starts_to_where_it_ends(shape_wind
     (rectangle,) = made(window)
     assert (rectangle.kind, rectangle.page) == (Kind.RECTANGLE, 1)
     assert rectangle.rectangle == pytest.approx((100, 150, 300, 200), abs=0.5)
-    assert window.annotating.tool is Tool.RECTANGLE  # It stays (D65).
+    assert window.annotating.tool is Tool.RECTANGLE  # It stays.
     window.activate_action("win.undo", None)
     assert made(window) == []
 

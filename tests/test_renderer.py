@@ -1,4 +1,4 @@
-"""Rendering pages in the background (03-arquitectura, 4.2; B10)."""
+"""Rendering pages in the background."""
 
 from collections.abc import Iterator
 from pathlib import Path

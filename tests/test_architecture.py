@@ -1,4 +1,4 @@
-"""The layers only depend on each other in one direction (03-arquitectura, 3.1)."""
+"""The layers only depend on each other in one direction."""
 
 import ast
 from collections.abc import Iterator

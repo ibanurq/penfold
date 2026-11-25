@@ -1,4 +1,4 @@
-"""The "Add Pages" dialogue and adding pages from the window (E4 to E6, D48)."""
+"""The "Add Pages" dialogue and adding pages from the window."""
 
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -44,7 +44,7 @@ def make_dialog(
 def test_without_selection_it_proposes_the_end(application: "PenfoldApplication") -> None:  # noqa: ARG001
     dialog = make_dialog(10, 3, [])
     assert dialog.end_check.get_active()
-    assert dialog.page_spin.get_value_as_int() == 4  # the page being read, as 0.6
+    assert dialog.page_spin.get_value_as_int() == 4  # the page being read
     assert not dialog.add_button.get_sensitive()  # no file chosen yet
     dialog.blank_check.set_active(True)
     assert dialog.add_button.get_sensitive()
@@ -93,7 +93,7 @@ def test_the_window_adds_the_chosen_pages(window: "PenfoldWindow", tmp_path: Pat
     window.activate_action("win.undo", None)
     process_pending_events()
     assert document.page_count == 5
-    assert (window._edit_toast, dismissed) == (None, [True])  # The notice goes away with what it announced (D76).
+    assert (window._edit_toast, dismissed) == (None, [True])  # The notice goes away with what it announced.
 
 
 @pytest.mark.parametrize("name", ["locked.pdf", "missing.pdf"])

@@ -1,4 +1,4 @@
-"""Reading page labels (ISO 32000-1, 12.4.2; D14)."""
+"""Reading page labels (ISO 32000-1, 12.4.2)."""
 
 from pathlib import Path
 

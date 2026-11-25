@@ -1,4 +1,4 @@
-"""A window with a PDF: header, page box, zoom, layouts and protected PDFs (fase 1)."""
+"""A window with a PDF: header, page box, zoom, layouts and protected PDFs."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -44,8 +44,8 @@ def book(tmp_path: Path) -> Path:
 def open_and_wait(window: "PenfoldWindow", path: Path) -> bool:
     opened = window.open_file(path)
     if opened:
-        # The window may grow to its size with a document (D17), or not, without a window manager: wait until the
-        # view has its pages and its width no longer changes.
+        # The window may grow to its size with a document, or not, without a window manager: wait until the view has its
+        # pages and its width no longer changes.
         view = window.document_view
         wait_until(lambda: view.get_width() > 0 and bool(view._boxes))
         wait_until_stable(lambda: (window.get_width(), view.get_width(), view.zoom))
@@ -159,7 +159,7 @@ def test_two_pages_shows_pairs_fitted_whole(window: "PenfoldWindow", book: Path)
 def test_a_pdf_that_denies_something_opens_without_a_notice(window: "PenfoldWindow", tmp_path: Path) -> None:
     path = make_pdf(tmp_path / "locked.pdf", passwords=("owner", ""))
     assert open_and_wait(window, path)
-    assert window.get_visible_dialog() is None  # The red lock says it (D59).
+    assert window.get_visible_dialog() is None  # The red lock says it.
 
 
 def test_a_failed_open_keeps_the_document_shown(window: "PenfoldWindow", book: Path, tmp_path: Path) -> None:

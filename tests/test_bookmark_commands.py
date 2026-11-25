@@ -1,4 +1,4 @@
-"""Adding, deleting, renaming, indenting, pointing, formatting and moving bookmarks, and undoing it (G3 to G7)."""
+"""Adding, deleting, renaming, indenting, pointing, formatting and moving bookmarks, and undoing it."""
 
 from pathlib import Path
 

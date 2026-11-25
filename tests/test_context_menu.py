@@ -1,4 +1,4 @@
-"""The pieces shared by the context menus of annotations, pages and bookmarks (D72, D74)."""
+"""The pieces shared by the context menus of annotations, pages and bookmarks."""
 
 from collections.abc import Iterator
 

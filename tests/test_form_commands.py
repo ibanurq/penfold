@@ -1,4 +1,4 @@
-"""Filling in form fields as edits that can be undone (I1, I2, I5, J2)."""
+"""Filling in form fields as edits that can be undone."""
 
 from pathlib import Path
 

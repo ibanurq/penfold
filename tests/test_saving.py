@@ -1,4 +1,4 @@
-"""Saving: the PDF changed in place, nothing lost, never a damaged file (03-arquitectura 6, D14, D15, J1)."""
+"""Saving: the PDF changed in place, nothing lost, never a damaged file."""
 
 import dataclasses
 import stat

@@ -1,4 +1,4 @@
-"""Where each document was left (07-fase-12, 9): the file that keeps it, and documents opening there again."""
+"""Where each document was left: the file that keeps it, and documents opening there again."""
 
 import json
 import math

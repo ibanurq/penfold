@@ -1,4 +1,4 @@
-"""Smoke tests of the interface: the window opens and the actions are there (03-arquitectura, 8)."""
+"""Smoke tests of the interface: the window opens and the actions are there."""
 
 from typing import TYPE_CHECKING
 
@@ -58,7 +58,7 @@ def test_about_lists_the_libraries_with_their_licenses() -> None:
     from penfold.ui.about import library_licenses
 
     names = [name for name, _license, _text in library_licenses()]
-    # Those the Flatpak brings along (L5), besides those of the GNOME runtime.
+    # Those the Flatpak brings along, besides those of the GNOME runtime.
     assert {"Poppler", "poppler-data", "qpdf", "pikepdf", "pybind11", "Pillow", "Deprecated", "wrapt"} <= set(names)
     for _name, license_type, text in library_licenses():
         assert (license_type is Gtk.License.CUSTOM) == (text is not None)  # A text only for those GTK cannot name.

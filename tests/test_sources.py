@@ -1,4 +1,4 @@
-"""Source PDFs: private copies, and every page of every source numbered by its source index (D44, phase 4)."""
+"""Source PDFs: private copies, and every page of every source numbered by its source index."""
 
 from pathlib import Path
 

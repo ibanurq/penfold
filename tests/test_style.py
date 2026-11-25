@@ -1,4 +1,4 @@
-"""The style of the interface (D62): three circles in the main menu, kept and applied to every window at once."""
+"""The style of the interface: three circles in the main menu, kept and applied to every window at once."""
 
 from collections.abc import Iterator
 from typing import TYPE_CHECKING

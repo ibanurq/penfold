@@ -1,4 +1,4 @@
-"""Printing (D57): the "Print" dialogue, the PDF prepared and its pages drawn for the printer."""
+"""Printing: the "Print" dialogue, the PDF prepared and its pages drawn for the printer."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -54,7 +54,7 @@ def test_without_annotations_ctrl_p_prints_at_once(
     assert open_and_wait(window, build_form(tmp_path / "form.pdf"))  # Form fields are not annotations.
     window.activate_action("win.print", None)
     assert window.get_visible_dialog() is None
-    assert started == [frozenset()]  # Nothing left out (D76).
+    assert started == [frozenset()]  # Nothing left out.
 
 
 def test_the_pdf_printed_leaves_out_the_groups_and_has_every_page(

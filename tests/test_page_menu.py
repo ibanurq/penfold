@@ -1,4 +1,4 @@
-"""The menu of the pages selected in the Pages view: a right click, the Menu key and Rotate 180° (D74)."""
+"""The menu of the pages selected in the Pages view: a right click, the Menu key and Rotate 180°."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING

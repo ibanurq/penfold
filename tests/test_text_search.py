@@ -1,4 +1,4 @@
-"""Finding text (D13; 0.6's rules: no case, accents or line breaks)."""
+"""Finding text, ignoring case, accents and line breaks."""
 
 from pathlib import Path
 

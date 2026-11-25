@@ -1,4 +1,4 @@
-"""What screen readers say for the rows of the side panel, which GTK does not name by itself (fase 12, 19)."""
+"""What screen readers say for the rows of the side panel, which GTK does not name by itself."""
 
 from collections.abc import Iterator
 from pathlib import Path

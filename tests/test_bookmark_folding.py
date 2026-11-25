@@ -1,4 +1,4 @@
-"""Collapse All and Expand All in the Bookmarks view: what they do and when each is greyed out (D82)."""
+"""Collapse All and Expand All in the Bookmarks view: what they do and when each is greyed out."""
 
 import itertools
 from collections.abc import Iterator
@@ -116,7 +116,7 @@ def tree_row(view: "BookmarksView", title: str) -> Gtk.TreeListRow:
 
 
 def open_flags(window: "PenfoldWindow") -> dict[str, bool]:
-    """Whether each bookmark with bookmarks under it is stored as unfolded (G9)."""
+    """Whether each bookmark with bookmarks under it is stored as unfolded."""
     from penfold.document.bookmarks import Bookmark
 
     assert window.document is not None

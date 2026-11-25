@@ -1,4 +1,4 @@
-"""Highlighting, underlining and striking through the text selected (H1, H7, H8)."""
+"""Highlighting, underlining and striking through the text selected."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -60,7 +60,7 @@ def test_releasing_the_mouse_marks_the_text_line_by_line(text_window: "PenfoldWi
     select(window, PagePoint(0, 95, 70), PagePoint(0, 117, 200))  # Both lines of the first page.
     assert made(window) == [(Kind.HIGHLIGHT, 0, 2)]
     assert window.document_view.selection is None
-    assert window.annotating.tool is Tool.HIGHLIGHT  # It stays (D65).
+    assert window.annotating.tool is Tool.HIGHLIGHT  # It stays.
     (highlight,) = window.document.annotations if window.document else []
     first, second = highlight.quads
     assert first[1] < second[1]  # From the top.
@@ -115,7 +115,7 @@ def test_text_that_may_not_be_copied_can_still_be_marked(window: "PenfoldWindow"
     view = window.document_view
     selection = TextSelection(PagePoint(0, 10, 10), PagePoint(0, 20, 20))
     view._set_selection(selection)
-    to_copy = view.selection  # Selecting to copy is not allowed (D59)…
+    to_copy = view.selection  # Selecting to copy is not allowed…
     choose(window, Tool.UNDERLINE)
     view._set_selection(selection)
     assert (to_copy, view.selection) == (None, selection)  # …but selecting to mark is.

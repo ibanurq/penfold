@@ -74,7 +74,7 @@ def build_form(path: Path) -> Path:
         pets = field(first, [300, 600, 400, 700], T=pikepdf.String("pets"), FT=pikepdf.Name.Ch, Ff=1 << 21)
         pets.Opt = pikepdf.Array([pikepdf.String("Cat"), pikepdf.String("Dog")])
         pets.V = pikepdf.Array([pikepdf.String("Cat"), pikepdf.String("Dog")])
-        # Not filled in (I3), hidden, or with no widget on a page.
+        # Not filled in, hidden, or with no widget on a page.
         push = field(first, [300, 500, 400, 520], T=pikepdf.String("send"), FT=pikepdf.Name.Btn, Ff=1 << 16)
         signature = field(first, [300, 400, 400, 420], T=pikepdf.String("sign"), FT=pikepdf.Name.Sig)
         hidden = field(first, [300, 300, 400, 320], T=pikepdf.String("hidden"), FT=pikepdf.Name.Tx, F=2)

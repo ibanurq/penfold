@@ -1,4 +1,4 @@
-"""Opening a PDF with an open password from the window (D61, 4): the dialogue that asks for it."""
+"""Opening a PDF with an open password from the window: the dialogue that asks for it."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
