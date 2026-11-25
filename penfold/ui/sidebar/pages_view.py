@@ -77,7 +77,7 @@ def fit_page(page_size: tuple[float, float], box_width: float, box_height: float
 
 
 def pages_menu_model() -> Gio.Menu:
-    """The menu of the pages selected (02-interfaz, 6.1; D74): the three turns and Delete.
+    """The menu of the pages selected (02-interfaz, 6.1; D74, D83): the three turns, Extract and Delete.
 
     One section, with a separator of its own (ui/context_menu.py).
     """
@@ -85,6 +85,8 @@ def pages_menu_model() -> Gio.Menu:
     items.append(_("Rotate _Left"), "win.rotate-pages-left")
     items.append(_("Rotate _Right"), "win.rotate-pages-right")
     items.append(_("Rotate _180°"), "win.rotate-pages-180")
+    # The Extract Pages dialogue starts with the pages selected.
+    items.append(_("_Extract…"), "win.extract-pages")
     items.append_item(custom_item(SEPARATOR))
     items.append(_("_Delete"), "win.delete-pages")
     menu = Gio.Menu()

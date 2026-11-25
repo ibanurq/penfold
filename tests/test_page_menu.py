@@ -54,10 +54,10 @@ def labels(model: object) -> list[str]:
     return found
 
 
-def test_the_menu_has_the_three_turns_and_delete() -> None:
+def test_the_menu_has_the_three_turns_extract_and_delete() -> None:
     from penfold.ui.sidebar.pages_view import pages_menu_model
 
-    assert labels(pages_menu_model()) == ["Rotate _Left", "Rotate _Right", "Rotate _180°", "_Delete"]
+    assert labels(pages_menu_model()) == ["Rotate _Left", "Rotate _Right", "Rotate _180°", "_Extract…", "_Delete"]
 
 
 def test_a_right_click_on_a_page_not_selected_selects_it_alone(window: "PenfoldWindow") -> None:
@@ -125,7 +125,7 @@ def test_a_pdf_that_denies_assembling_shows_the_menu_greyed_out(
         dialog.force_close()
     close(right_click(new_window, 1))
     assert new_window.pages_view.selected_pages() == [1]
-    for name in ("rotate-pages-left", "rotate-pages-right", "rotate-pages-180", "delete-pages"):
+    for name in ("rotate-pages-left", "rotate-pages-right", "rotate-pages-180", "extract-pages", "delete-pages"):
         assert not enabled(new_window, name)
     new_window.destroy()
     process_pending_events()
