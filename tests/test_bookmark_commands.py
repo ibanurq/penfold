@@ -285,6 +285,7 @@ def test_dropping_bookmarks_where_they_are_changes_nothing(document: OpenDocumen
 def test_topmost_keeps_only_bookmarks_not_under_another_chosen(document: OpenDocument) -> None:
     chosen = bookmarks_of(document, "C", "A2", "A")
     assert [bookmark.title for bookmark in topmost(document.bookmarks, chosen)] == ["A", "C"]
+    assert topmost(document.bookmarks, []) == []
 
 
 @pytest.mark.parametrize(

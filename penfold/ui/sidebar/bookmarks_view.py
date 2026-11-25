@@ -7,6 +7,8 @@ click away from the rows, or Esc, clears the selection. Bookmarks are dragged be
 at once if the one dragged is selected.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from gettext import gettext as _
 from gettext import npgettext
 from typing import ClassVar
@@ -215,6 +217,8 @@ class BookmarksView(Gtk.Box):
         self._rows: dict[int, BookmarkRow] = {}
         # The list item of each row shown, to give it the name screen readers say; kept only while bound.
         self._list_items: dict[BookmarkRow, Gtk.ListItem] = {}
+        # True while Collapse All or Expand All changes the branches one by one; what follows each change waits.
+        self._folding_every_branch = False
         self.empty = empty_label(_("This PDF has no bookmarks"))
         self.stack = Gtk.Stack(vexpand=True)
         self.scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -293,13 +297,17 @@ class BookmarksView(Gtk.Box):
     def _place(self, page: int, top: float | None) -> tuple[int, float | None] | None:
         return self.renderer.layout.place(page, top) if self.renderer is not None else None
 
-    def _on_tree_changed(self, tree: Gtk.TreeListModel, _position: int, _removed: int, _added: int) -> None:
+    def _on_tree_changed(self, _tree: Gtk.TreeListModel, _position: int, _removed: int, _added: int) -> None:
+        if not self._folding_every_branch:
+            self._after_tree_change()
+
+    def _after_tree_change(self) -> None:
         """Remember which branches are unfolded, to save it; it may change which row shows the reading.
 
         It may leave nothing for Collapse All or Expand All to do, too.
         """
-        for index in range(tree.get_n_items()):
-            row = tree.get_row(index)
+        for index in range(self.tree.get_n_items()):
+            row = self.tree.get_row(index)
             item = row.get_item() if row is not None else None
             if row is not None and isinstance(item, BookmarkItem) and row.is_expandable():
                 item.bookmark.is_open = row.get_expanded()
@@ -455,17 +463,46 @@ class BookmarksView(Gtk.Box):
 
     def collapse_all(self) -> None:
         """Fold every branch, the innermost first, so that each one remembers it is folded."""
-        for row in reversed(self._branch_rows()):
-            row.set_expanded(False)
+        with self._every_branch_at_once():
+            for row in reversed(self._branch_rows()):
+                self._unfold(row, unfolded=False)
 
     def expand_all(self) -> None:
         """Unfold every branch, also those that each one unfolded shows."""
-        index = 0
-        while index < self.tree.get_n_items():
-            row = self.tree.get_row(index)
-            if row is not None and row.is_expandable():
-                row.set_expanded(True)
-            index += 1
+        with self._every_branch_at_once():
+            index = 0
+            while index < self.tree.get_n_items():
+                row = self.tree.get_row(index)
+                if row is not None and row.is_expandable():
+                    self._unfold(row, unfolded=True)
+                index += 1
+
+    @staticmethod
+    def _unfold(row: Gtk.TreeListRow, *, unfolded: bool) -> None:
+        """Unfold or fold a branch, and have its bookmark remember it even once a folded branch hides it."""
+        row.set_expanded(unfolded)
+        item = row.get_item()
+        if isinstance(item, BookmarkItem):
+            item.bookmark.is_open = unfolded
+
+    @contextmanager
+    def _every_branch_at_once(self) -> Iterator[None]:
+        """Fold or unfold many branches as a single change, and show the outline again from the beginning.
+
+        Each branch changes the tree on its own. Followed one by one, those changes take seconds with a thousand
+        bookmarks: the list would show each of them, and this view would go through the whole outline after each one.
+        So the list leaves the tree meanwhile, and the outline is looked at once, at the end.
+        """
+        self._folding_every_branch = True
+        self.list.set_model(None)
+        try:
+            yield
+        finally:
+            self.list.set_model(self.selection)
+            if self.tree.get_n_items():
+                self.list.scroll_to(0, Gtk.ListScrollFlags.NONE, None)
+            self._folding_every_branch = False
+            self._after_tree_change()
 
     def _children(self, item: GObject.Object) -> Gio.ListModel | None:
         if isinstance(item, BookmarkItem) and item.bookmark.children:

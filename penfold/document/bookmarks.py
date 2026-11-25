@@ -68,7 +68,9 @@ def topmost(bookmarks: list[Bookmark], chosen: Iterable[Bookmark]) -> list[Bookm
     They are the ones to move, since each takes the bookmarks under it along.
     """
     wanted = {id(bookmark) for bookmark in chosen}
-    found = []
+    found: list[Bookmark] = []
+    if not wanted:
+        return found
 
     def walk(level: list[Bookmark]) -> None:
         for bookmark in level:

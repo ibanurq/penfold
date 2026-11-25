@@ -11,7 +11,7 @@ from gi.repository import Gtk
 
 from tests.gtk_helpers import process_pending_events
 from tests.sample_pdfs import make_pdf
-from tests.test_bookmark_editing import rows, select
+from tests.test_bookmark_editing import rows, select, selected_titles
 from tests.test_bookmarks import add_outline, outline_item
 from tests.test_sidebar import open_and_wait
 
@@ -157,6 +157,32 @@ def test_collapse_all_from_the_stored_state_folds_the_inner_branches_too(
     assert open_flags(window) == dict.fromkeys(["Part 1", "Chapter 1", "Chapter 2", "Part 2"], False)
     view.expand_all()
     assert rows(window) == DEEP_ROWS_ALL
+
+
+def test_folding_every_branch_shows_the_outline_from_the_beginning(window: "PenfoldWindow", tmp_path: Path) -> None:
+    outline: Outline = [
+        (f"Part {part}", False, [(f"Chapter {part}.{n}", False, []) for n in range(40)]) for part in (1, 2)
+    ]
+    view = show_bookmarks(window, write_outline(make_pdf(tmp_path / "long.pdf"), outline))
+    tree_row(view, "Part 2").set_expanded(True)
+    process_pending_events()
+    scrolling = view.scrolled.get_vadjustment()
+    scrolling.set_value(scrolling.get_upper())
+    process_pending_events()
+    assert scrolling.get_value() > 0
+    view.expand_all()
+    process_pending_events()
+    assert scrolling.get_value() == 0
+    assert len(rows(window)) == 82
+
+
+def test_folding_every_branch_keeps_the_selection_shown(window: "PenfoldWindow", tmp_path: Path) -> None:
+    view = show_bookmarks(window, write_outline(make_pdf(tmp_path / "deep.pdf"), DEEP_OUTLINE))
+    select(window, DEEP_ROWS_STORED.index("Part 2"), DEEP_ROWS_STORED.index("End"))
+    view.expand_all()
+    assert selected_titles(window) == ["Part 2", "End"]
+    view.collapse_all()
+    assert selected_titles(window) == ["Part 2", "End"]
 
 
 def test_the_arrow_of_each_branch_updates_the_buttons(window: "PenfoldWindow", tmp_path: Path) -> None:
