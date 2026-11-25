@@ -41,12 +41,14 @@ ICON_AUTHORS = ("Jakub Steiner https://gitlab.gnome.org/Teams/Design/icon-develo
 
 
 def present_about_dialog(parent: Gtk.Window | None) -> None:
-    """Show the About Penfold dialog over a window."""
+    """Show the About Penfold dialog over a window.
+
+    Without comments, so that its first row is the website itself, not a Details page leading to it.
+    """
     dialog = Adw.AboutDialog(
         application_icon=config.APP_ID,
         application_name="Penfold",
         version=config.VERSION,
-        comments=_("Read, annotate and organize your PDFs"),
         developer_name="ibanurq",
         website=WEBSITE,
         issue_url=ISSUE_URL,

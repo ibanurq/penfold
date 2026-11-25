@@ -49,6 +49,8 @@ def test_about_dialog_opens(application: "PenfoldApplication") -> None:
     dialog = window.get_visible_dialog()
     assert isinstance(dialog, Adw.AboutDialog)
     assert (dialog.get_version(), dialog.get_license_type()) == (config.VERSION, Gtk.License.GPL_3_0_ONLY)
+    assert dialog.get_comments() == ""  # with them, the website hides behind a Details row
+    assert dialog.get_website().startswith("https://")
     dialog.force_close()
 
 

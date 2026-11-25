@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 07:47+0100\n"
+"POT-Creation-Date: 2026-11-25 11:02+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -23,7 +23,7 @@ msgstr "Penfold"
 msgid "PDF Editor"
 msgstr "Editor de PDF"
 
-#: data/io.github.ibanurq.Penfold.desktop.in:4 penfold/ui/about.py:49
+#: data/io.github.ibanurq.Penfold.desktop.in:4
 msgid "Read, annotate and organize your PDFs"
 msgstr "Lee, anota y organiza tus PDF"
 
@@ -92,51 +92,50 @@ msgstr ""
 "otros visores de PDF. Penfold funciona sin conexión a internet y nunca "
 "ejecuta el código (JavaScript) que pueda llevar un PDF."
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:33
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:32
 msgid "annotate"
 msgstr "anotar"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:34
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:33
 msgid "highlight"
 msgstr "resaltar"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:35
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:34
 msgid "merge"
 msgstr "combinar"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:43
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:42
 msgid "Bookmarks panel and two-page view"
 msgstr "Panel de marcadores y vista de dos páginas"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:47
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:46
 msgid "Thumbnail view"
 msgstr "Vista de miniaturas"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:51
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:50
 msgid "Annotations panel"
 msgstr "Panel de anotaciones"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:55
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:54
 msgid "Filling in a form"
 msgstr "Rellenar un formulario"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:59
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:58
 msgid "Merging PDFs"
 msgstr "Combinar PDF"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:63
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:62
 msgid "Extracting pages"
 msgstr "Extraer páginas"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:67
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:66
 msgid "Choosing which annotations to print"
 msgstr "Elegir qué anotaciones se imprimen"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:76
 msgid ""
 "First beta of Penfold 1.0: read, annotate, organize and fill in your PDFs."
-msgstr ""
-"Primera beta de Penfold 1.0: lee, anota, organiza y rellena tus PDF."
+msgstr "Primera beta de Penfold 1.0: lee, anota, organiza y rellena tus PDF."
 
 #: data/ui/dialogs/add_pages_dialog.blp:8
 msgid "Add Pages"
@@ -148,7 +147,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:354
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:1221
+#: penfold/ui/window.py:1223
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -368,7 +367,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:86 penfold/ui/bookmark_editing.py:173
-#: penfold/ui/window.py:1223
+#: penfold/ui/window.py:1225
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -498,7 +497,7 @@ msgstr "Licencia MIT-CMU (Historical Permission Notice and Disclaimer)."
 msgid "SIL Open Font License 1.1."
 msgstr "Licencia SIL Open Font 1.1."
 
-#: penfold/ui/about.py:56
+#: penfold/ui/about.py:58
 msgid "Icons"
 msgstr "Iconos"
 
@@ -672,7 +671,7 @@ msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:141 penfold/ui/extraction.py:125
-#: penfold/ui/window.py:1096
+#: penfold/ui/window.py:1098
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -1378,15 +1377,15 @@ msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:1216
+#: penfold/ui/window.py:1218
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:1217
+#: penfold/ui/window.py:1219
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:1222
+#: penfold/ui/window.py:1224
 msgid "_Discard"
 msgstr "_Descartar"
