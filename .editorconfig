@@ -14,3 +14,6 @@ trim_trailing_whitespace = false
 
 [LICENSE]
 insert_final_newline = unset
+
+[{*.py,*.sh,pyproject.toml,penfold/penfold.in}]
+indent_size = 4
