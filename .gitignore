@@ -1,5 +1,5 @@
 # Private notes (internal version of the specification, research, ideas): never saved by git
-notas_privadas/
+private_notes/
 
 # Python development environment and tool caches
 .venv/

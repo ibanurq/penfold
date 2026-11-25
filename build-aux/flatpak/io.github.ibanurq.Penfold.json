@@ -158,7 +158,7 @@
             ".venv",
             "_build",
             "_flatpak",
-            "notas_privadas"
+            "private_notes"
           ]
         }
       ]
