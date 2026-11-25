@@ -72,9 +72,9 @@
   <url type="donation">https://ko-fi.com/ibanurq</url>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="1.0.0-beta.1" date="2026-11-25" type="development">
+    <release version="1.0.0-beta.2" date="2026-11-25" type="development">
       <description>
-        <p>First beta of Penfold 1.0: read, annotate, organize and fill in your PDFs.</p>
+        <p>Second beta of Penfold 1.0: Donate in the main menu, new icons and a lighter annotation bar.</p>
       </description>
     </release>
   </releases>

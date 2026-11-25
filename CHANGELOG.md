@@ -5,6 +5,27 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-beta.2 — 2026-11-25
+
+Second beta of Penfold 1.0: Donate in the main menu, new icons, a lighter annotation bar, and the Flatpak in Spanish
+too.
+
+### Added
+- Donate, in the main menu above About Penfold, opens Penfold's page on Ko-fi; the listing in GNOME Software links to
+  it too, and the README has a Support Penfold section.
+
+### Changed
+- Bookmarks have two buttons, Collapse All and Expand All, instead of one that did either; each is greyed out while
+  there is nothing for it to do.
+- New icons for text boxes (a letter A in a box) and for Collapse All and Expand All.
+- The annotation bar is grey, light or dark as the style, with a thin edge and a soft shadow, instead of dark.
+- A PDF with bookmarks opens with the Bookmarks view in sight, and one without them with Pages.
+- About Penfold shows the website first, without a description.
+- New screenshots in the README.
+
+### Fixed
+- The Flatpak bundle was only in English: it now carries its translations.
+
 ## 1.0.0-beta.1 — 2026-11-25
 
 First beta of Penfold 1.0: the final icons, new preferences to open documents where they were left, the document's

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 12:13+0100\n"
+"POT-Creation-Date: 2026-11-25 12:58+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -134,8 +134,11 @@ msgstr "Elegir qué anotaciones se imprimen"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:77
 msgid ""
-"First beta of Penfold 1.0: read, annotate, organize and fill in your PDFs."
-msgstr "Primera beta de Penfold 1.0: lee, anota, organiza y rellena tus PDF."
+"Second beta of Penfold 1.0: Donate in the main menu, new icons and a lighter "
+"annotation bar."
+msgstr ""
+"Segunda beta de Penfold 1.0: «Donar» en el menú principal, iconos nuevos y una "
+"barra de anotación más clara."
 
 #: data/ui/dialogs/add_pages_dialog.blp:8
 msgid "Add Pages"
@@ -594,7 +597,7 @@ msgid "Select Text"
 msgstr "Seleccionar texto"
 
 #. Without a name of its own, screen readers would read the names of the colours in its open palette.
-#: penfold/ui/annotation_toolbar.py:109 penfold/ui/annotation_toolbar.py:116
+#: penfold/ui/annotation_toolbar.py:108 penfold/ui/annotation_toolbar.py:115
 msgid "Color"
 msgstr "Color"
 
