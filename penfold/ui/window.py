@@ -142,6 +142,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._saving = False
         self._close_confirmed = False
         self._edit_toast: tuple[Adw.Toast, Command] | None = None
+        # Whether Find showed the hidden panel, so that Esc hides it again.
+        self._find_showed_sidebar = False
         self._settings = Gio.Settings(schema_id=config.APP_ID)
         self._positions = ReadingPositions()
         self._settings.connect(f"changed::{RESPECT_PERMISSIONS_KEY}", self._on_respect_permissions_changed)
@@ -749,6 +751,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.search_view.connect("close-requested", lambda _view: self.close_find())
         self.sidebar.add_view(sidebar_views.SEARCH, self.search_view)
         self.sidebar.connect("view-changed", self._on_sidebar_view_changed)
+        self.split_view.connect("notify::show-sidebar", self._on_sidebar_shown_or_hidden)
         escape = Gtk.EventControllerKey()
         escape.connect("key-pressed", self._on_key_pressed)
         self.add_controller(escape)
@@ -776,13 +779,19 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     def open_find(self) -> None:
         """Show the panel with Find and put the cursor in its box (Ctrl+F)."""
+        sidebar_hidden = not self.split_view.get_show_sidebar()
         self.split_view.set_show_sidebar(True)
         self.sidebar.show_view(sidebar_views.SEARCH)
+        if sidebar_hidden:
+            self._find_showed_sidebar = True
         self.search_view.focus()
 
     def close_find(self) -> None:
-        """Go back to the view Find covered (Esc) and to the document."""
+        """Go back to the view Find covered (Esc) and to the document; hide the panel again if Find showed it."""
+        hide_sidebar = self._find_showed_sidebar
         self.sidebar.close_search()
+        if hide_sidebar:
+            self.split_view.set_show_sidebar(False)
         self.document_view.grab_focus()
 
     def _find_step(self, direction: int) -> None:
@@ -805,8 +814,15 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self.sidebar.visible_view == sidebar_views.SEARCH:
             self.document_view.add_matches(view.last_added)
 
+    def _on_sidebar_shown_or_hidden(self, split_view: Adw.OverlaySplitView, _property: GObject.ParamSpec) -> None:
+        """Once the panel is hidden, Find no longer holds it open: if it is shown again by hand, Esc leaves it."""
+        if not split_view.get_show_sidebar():
+            self._find_showed_sidebar = False
+
     def _on_sidebar_view_changed(self, sidebar: PenfoldSidebar) -> None:
-        """Matches are highlighted while Find is shown."""
+        """Matches are highlighted while Find is shown; another view chosen keeps the panel open."""
+        if sidebar.visible_view != sidebar_views.SEARCH:
+            self._find_showed_sidebar = False
         self.document_view.clear_matches()
         if sidebar.visible_view == sidebar_views.SEARCH:
             self.search_view.current_page = self.document_view.current_page

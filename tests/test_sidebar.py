@@ -96,6 +96,36 @@ def test_views_switch_and_find_goes_back_to_the_previous_one(window: "PenfoldWin
     assert panel.bookmarks_button.get_active()
 
 
+def test_esc_hides_the_panel_again_when_find_showed_it(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.ui.sidebar import sidebar
+
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    split_view, panel = window.split_view, window.sidebar
+    wait_until(split_view.get_show_sidebar)
+    split_view.set_show_sidebar(False)
+    window.activate_action("win.find", None)
+    window.activate_action("win.find", None)  # a second Ctrl+F does not forget who showed the panel
+    assert split_view.get_show_sidebar()
+    assert press_escape(window)
+    assert not split_view.get_show_sidebar()
+    assert panel.visible_view == sidebar.PAGES
+    # Another view chosen while finding keeps the panel open.
+    window.activate_action("win.find", None)
+    panel.bookmarks_button.set_active(True)
+    assert not press_escape(window)
+    assert split_view.get_show_sidebar()
+    # A panel hidden while finding and shown again by hand stays when Find is closed.
+    window.activate_action("win.find", None)
+    split_view.set_show_sidebar(False)
+    split_view.set_show_sidebar(True)
+    assert press_escape(window)
+    assert split_view.get_show_sidebar()
+    # Find opened with the panel in sight leaves it in sight.
+    window.activate_action("win.find", None)
+    assert press_escape(window)
+    assert (split_view.get_show_sidebar(), panel.visible_view) == (True, sidebar.BOOKMARKS)
+
+
 def test_thumbnails_list_every_page_with_its_label(window: "PenfoldWindow", tmp_path: Path) -> None:
     path = make_pdf(tmp_path / "book.pdf", page_count=4, label_ranges=[(0, pikepdf.Dictionary(S=pikepdf.Name.r))])
     open_and_wait(window, path)
