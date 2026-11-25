@@ -57,7 +57,7 @@ def bounds(rectangles: Iterable[Rectangle]) -> Rectangle:
 
 
 def merge_lines(rectangles: Iterable[Rectangle]) -> list[Rectangle]:
-    """Join the areas of selected text that are on the same line into one rectangle per line (H1).
+    """Join the areas of selected text that are on the same line into one rectangle per line.
 
     Two areas are on one line when they overlap by at least half the height of the lower one. Lines go from the top.
     """

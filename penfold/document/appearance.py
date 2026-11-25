@@ -1,12 +1,11 @@
 """Writing the annotations made in Penfold into a PDF, with their own drawing (/AP) and the standard's entries.
 
-Every entry ISO 32000-1 (12.5) asks for is written (D67), so that any viewer shows them as Penfold does and any
-editor can change them.
+Every entry ISO 32000-1 (12.5) asks for is written, so that any viewer shows them as Penfold does and any editor can
+change them.
 
-New ones look as in 0.6 (docs/specification.md, "Saving annotations with their own appearance"); the comment is the
-speech bubble of GNOME's icon collection (D68). Their style changes the opacity, the lines, the fill, the arrowheads
-and the text box's letters, background and border (D72). Texts are written in UTF-16, so that no character can
-break the file.
+New ones look as docs/specification.md describes ("Annotation types and how they are saved"); the comment is the speech
+bubble of GNOME's icon collection. Their style changes the opacity, the lines, the fill, the arrowheads and the text
+box's letters, background and border. Texts are written in UTF-16, so that no character can break the file.
 """
 
 import io
@@ -28,10 +27,10 @@ COMMENT_LINE_WIDTH = 1.5
 ARROWHEAD_LENGTH = 10.0
 ARROWHEAD_GROWTH = 2.5
 ARROWHEAD_ANGLE = math.pi / 6
-# Dashed lines (D72): the length of each dash and of each gap, for each point of width.
+# Dashed lines: the length of each dash and of each gap, for each point of width.
 DASH = 4.0
 GAP = 3.0
-# The text box's background strength (H3; its drawing is made with Pango, in the rendering layer).
+# The text box's background strength (its drawing is made with Pango, in the rendering layer).
 TEXT_BOX_BACKGROUND = 0.14
 # A comment is a square of this side, in points.
 COMMENT_SIZE = 20.0
@@ -41,7 +40,7 @@ NO_ROTATE_FLAG = 16
 # A circle drawn with four Bézier curves: how far the control points are from the ends.
 KAPPA = 0.5522848
 DECIMALS = 3
-# The speech bubble of GNOME's icon collection (icon-development-kit, CC0; D68), in its 16-point grid from the top.
+# The speech bubble of GNOME's icon collection (icon-development-kit, CC0), in its 16-point grid from the top.
 BUBBLE_GRID = 16.0
 BUBBLE: tuple[tuple[str, tuple[float, ...]], ...] = (
     ("m", (1, 4)),
@@ -120,7 +119,7 @@ def _drawn(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[
 
 
 def _text_box(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[dict[str, object], pikepdf.Object]:
-    """A text box (FreeText): its entries, and its drawing made with Pango, with the fonts it uses inside (D69).
+    """A text box (FreeText): its entries, and its drawing made with Pango, with the fonts it uses inside.
 
     The drawing is upright in its own box; its matrix turns it as the text reads on the page (12.5.5).
     """

@@ -1,6 +1,6 @@
-"""Annotation edits: making (H1 to H4), changing (H11, D72) and deleting them (H9).
+"""Annotation edits: making, changing and deleting them.
 
-Each is an edit that can be undone like any other (D19).
+Each is an edit that can be undone like any other.
 """
 
 from collections.abc import Iterable
@@ -45,7 +45,7 @@ class AddAnnotations:
 
 
 class DeleteAnnotations:
-    """Delete annotations of the document, those made in Penfold or read from the PDF (H9, D72), as one edit."""
+    """Delete annotations of the document, those made in Penfold or read from the PDF, as one edit."""
 
     changes = Change.ANNOTATIONS
 
@@ -87,11 +87,11 @@ class DeleteAnnotations:
 
 
 class ChangeAnnotation:
-    """Put a changed copy of an annotation in its place: another colour, format, text, place or size (H11, D72, D73).
+    """Put a changed copy of an annotation in its place: another colour, format, text, place or size.
 
     The copy is managed: Penfold draws it and writes it when the document is saved. One read from a PDF keeps its
-    origin, so that saving takes the original out of its page (D60); or else it was only moved, keeping its drawing,
-    and saving moves it in its page (D73).
+    origin, so that saving takes the original out of its page; or else it was only moved, keeping its drawing, and
+    saving moves it in its page.
     """
 
     changes = Change.ANNOTATIONS

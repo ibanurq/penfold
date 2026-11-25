@@ -1,9 +1,9 @@
 """Annotations: the notes, marks and shapes of the pages (ISO 32000-1, 12.5), as the side panel lists them.
 
 The annotations of the PDF are read and shown as they are; Poppler draws them. The ones made in Penfold are managed:
-Penfold draws them and writes them into the PDF when it is saved (03-arquitectura, 4.1). An annotation of the PDF of a
-type Penfold makes becomes managed when it is changed (D60, D72); one deleted or changed is taken out of its page when
-the PDF is saved. Links, form fields and pop-up windows are not annotations to list.
+Penfold draws them and writes them into the PDF when it is saved. An annotation of the PDF of a type Penfold makes
+becomes managed when it is changed; one deleted or changed is taken out of its page when the PDF is saved. Links, form
+fields and pop-up windows are not annotations to list.
 """
 
 import enum
@@ -18,13 +18,13 @@ import pikepdf
 from penfold.document.page_frame import PageFrame
 from penfold.document.pdf_values import date, name, number, numbers, text
 
-# The author of new annotations when none is set in the preferences (D60).
+# The author of new annotations when none is set in the preferences.
 DEFAULT_AUTHOR = "Penfold"
-# How a new annotation looks (H3, H4, D67): lines of 1 point, highlights at 75 %, text boxes in 11 points.
+# How a new annotation looks: lines of 1 point, highlights at 75 %, text boxes in 11 points.
 LINE_WIDTH = 1.0
 HIGHLIGHT_OPACITY = 0.75
 TEXT_BOX_FONT_SIZE = 11.0
-# How much of the colour the soft fill of rectangles and circles has, over white (D72).
+# How much of the colour the soft fill of rectangles and circles has, over white.
 FILL_STRENGTH = 0.25
 # Colours read from a PDF closer than this to Penfold's, in each component, are taken as Penfold's.
 COLOR_TOLERANCE = 0.02
@@ -36,7 +36,7 @@ NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
 
 
 class Kind(enum.Enum):
-    """The types the panel groups annotations by, in the order of 0.6's filter, and the rest."""
+    """The types the panel groups annotations by, in the order of its filter, and the rest."""
 
     HIGHLIGHT = "Highlight"
     UNDERLINE = "Underline"
@@ -50,7 +50,7 @@ class Kind(enum.Enum):
 
 
 class AnnotationGroup(enum.Enum):
-    """The four groups of annotations, the same in the panel's filter and lists and when printing (D57, D64)."""
+    """The four groups of annotations, the same in the panel's filter and lists and when printing."""
 
     TEXT_MARKUPS = "text-markups"
     """Highlights, underlines (also squiggly), strikethroughs."""
@@ -77,7 +77,7 @@ def group_of(subtype: str) -> AnnotationGroup | None:
 
 
 class LineEnds(enum.Enum):
-    """Where an arrow has arrowheads (D72): at its end, at both ends, or none (a straight line)."""
+    """Where an arrow has arrowheads: at its end, at both ends, or none (a straight line)."""
 
     END = "end"
     BOTH = "both"
@@ -86,7 +86,7 @@ class LineEnds(enum.Enum):
 
 @dataclass(frozen=True)
 class Style:
-    """How an annotation looks, as its Format panel changes it (D72), and as the standard keeps it (D67).
+    """How an annotation looks, as its Format panel changes it, and as the standard keeps it.
 
     Each type uses only some of it: the opacity (/CA) all but comments; the line width, the dashes (/BS) and the fill
     (/IC, a soft tint of the colour) rectangles, circles and arrows, which also have their arrowheads (/LE); the font
@@ -104,7 +104,7 @@ class Style:
 
 
 def default_style(kind: Kind) -> Style:
-    """How a new annotation of a type looks (as in 0.6, D67)."""
+    """How a new annotation of a type looks."""
     return Style(opacity=HIGHLIGHT_OPACITY) if kind is Kind.HIGHLIGHT else Style()
 
 
@@ -118,24 +118,22 @@ class Annotation:
     """One annotation of a page.
 
     The rectangle is in PDF points from the top left corner of the page as shown (page_frame.py): left, top, right,
-    bottom. The quads are the
-    areas of the text it marks, in the same units, for highlights, underlines and strikethroughs; the line goes from
-    its start to its end (x, y, x, y) for arrows.
+    bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines and
+    strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows.
 
-    A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once
-    changed, the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from
-    a PDF Penfold cannot draw again (a cloudy border, a closed arrowhead, another font…): changing it would lose that,
-    so the interface warns first (D72). One read
-    from a PDF knows its origin, its place in the /Annots of its page there, so that saving can take it out of the
-    page when it is deleted or changed (written again), and its drawn place, its place among the annotations of its
-    type on the page, so that Poppler can find it (with its name, if it has one) and leave it out when Penfold draws it
-    instead (Poppler skips those it cannot read, so the place among all of them would not do); those made in Penfold
-    have neither. A text box
-    reads turned clockwise by text_turn degrees from the page as shown (the turn Penfold gave the page when it was
-    written, so that it was upright), and keeps its saved drawing: a one-page PDF with the fonts it uses inside.
+    A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once changed,
+    the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from a PDF
+    Penfold cannot draw again (a cloudy border, a closed arrowhead, another font…): changing it would lose that, so the
+    interface warns first. One read from a PDF knows its origin, its place in the /Annots of its page there, so that
+    saving can take it out of the page when it is deleted or changed (written again), and its drawn place, its place
+    among the annotations of its type on the page, so that Poppler can find it (with its name, if it has one) and leave
+    it out when Penfold draws it instead (Poppler skips those it cannot read, so the place among all of them would not
+    do); those made in Penfold have neither. A text box reads turned clockwise by text_turn degrees from the page as
+    shown (the turn Penfold gave the page when it was written, so that it was upright), and keeps its saved drawing: a
+    one-page PDF with the fonts it uses inside.
 
-    One read from a PDF that was only moved is not drawn again (D73): it keeps the drawing its program made, moved by
-    moved_by on its page (as its rectangle is), and saving moves it in its page instead of writing it again.
+    One read from a PDF that was only moved is not drawn again: it keeps the drawing its program made, moved by moved_by
+    on its page (as its rectangle is), and saving moves it in its page instead of writing it again.
     """
 
     page: int
@@ -161,7 +159,7 @@ class Annotation:
 
     @property
     def moved_as_is(self) -> bool:
-        """Whether it is one of a PDF that was moved keeping the drawing its program made (D73)."""
+        """Whether it is one of a PDF that was moved keeping the drawing its program made."""
         return not self.managed and self.moved_by != (0.0, 0.0)
 
     @property
@@ -214,7 +212,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
 
 
 def managed_copy(annotation: Annotation) -> Annotation:
-    """The annotation as Penfold draws and writes it, to change it: one read from a PDF becomes managed (D60, D72).
+    """The annotation as Penfold draws and writes it, to change it: one read from a PDF becomes managed.
 
     It keeps its name, author and creation date (with a name and a date if it had none), and is changed now. One
     moved as it was is drawn again where it is now.
@@ -243,7 +241,7 @@ def _new_name() -> str:
 
 
 class Hit(enum.IntEnum):
-    """How much a point is on an annotation, to choose among several under the pointer (D72)."""
+    """How much a point is on an annotation, to choose among several under the pointer."""
 
     NONE = 0
     INSIDE = 1
@@ -368,7 +366,7 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
 
 
 class _Look:
-    """How an annotation of a PDF looks (D72): its style, and what of it Penfold cannot draw again."""
+    """How an annotation of a PDF looks: its style, and what of it Penfold cannot draw again."""
 
     def __init__(self, annotation: pikepdf.Dictionary, kind: Kind, color: tuple[float, float, float] | None) -> None:
         self._annotation = annotation

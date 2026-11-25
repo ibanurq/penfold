@@ -1,4 +1,4 @@
-"""Page edits: turn, delete, move and add pages (E1 to E6)."""
+"""Page edits: turn, delete, move and add pages."""
 
 from collections.abc import Iterable
 
@@ -57,7 +57,7 @@ class RotatePages:
 
 
 class DeletePages:
-    """Delete some pages, and the bookmarks that lead to them (as 0.6 does), keeping what undo needs."""
+    """Delete some pages, and the bookmarks that lead to them, keeping what undo needs."""
 
     changes = Change.PAGES | Change.BOOKMARKS
 
@@ -65,7 +65,7 @@ class DeletePages:
         """Prepare the deletion of the pages at these positions.
 
         Raises:
-            ValueError: no pages, pages outside the document, or every page (a PDF needs at least one, E3).
+            ValueError: no pages, pages outside the document, or every page (a PDF needs at least one).
         """
         self._document = document
         self._positions = _sorted_positions(document, positions)
@@ -98,7 +98,7 @@ class DeletePages:
 
 
 class MovePages:
-    """Move some pages, together and in their order, to another place (dragging thumbnails, E1)."""
+    """Move some pages, together and in their order, to another place (dragging thumbnails)."""
 
     changes = Change.PAGES
 
@@ -144,7 +144,7 @@ class MovePages:
 
 
 class AddPages:
-    """Add the pages of another PDF at a position, with its bookmarks put in their place (E4, E6)."""
+    """Add the pages of another PDF at a position, with its bookmarks put in their place."""
 
     changes = Change.PAGES | Change.BOOKMARKS
 

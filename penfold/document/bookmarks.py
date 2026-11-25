@@ -1,8 +1,8 @@
 """Bookmarks: the outline of a PDF (ISO 32000-1, 12.3.3), read as a tree.
 
-Each bookmark keeps its title, its style (bold, italic, colour), whether it starts open, and where it leads: a page
-and, if the destination gives one, the height to show, in points from the top of the page. Bookmarks of a PDF whose
-pages are added come with them (E4).
+Each bookmark keeps its title, its style (bold, italic, colour), whether it starts open, and where it leads: a page and,
+if the destination gives one, the height to show, in points from the top of the page. Bookmarks of a PDF whose pages are
+added come with them.
 """
 
 import bisect
@@ -27,7 +27,7 @@ View = tuple[str, tuple[float | None, ...]]
 Color = tuple[float, float, float]
 # Gives each bookmark read or made its key.
 _keys = itertools.count()
-# A title taken from text selected in the document is cut at this length, as in 0.6 (G3).
+# A title taken from text selected in the document is cut at this length.
 MAX_TITLE_FROM_TEXT = 150
 
 
@@ -36,8 +36,8 @@ class Bookmark:
     """One bookmark and the ones under it.
 
     Its page is the source index of the page it leads to (sources.py), and its origin the object number of the outline
-    item it was read from in the opened PDF, whose destination or action is kept on saving (G8). A bookmark of a PDF
-    added has no origin: its view keeps how its destination shows the page, to write it again on saving.
+    item it was read from in the opened PDF, whose destination or action is kept on saving. A bookmark of a PDF added
+    has no origin: its view keeps how its destination shows the page, to write it again on saving.
 
     Its key stays the same in its copies, which edits make (commands/bookmarks.py), so the view can select it again
     after an edit, an undo or a redo; it is not part of the bookmark, and leaves equality alone.
@@ -57,7 +57,7 @@ class Bookmark:
 
 
 def title_from_text(text: str) -> str:
-    """Return a bookmark title from text selected in the document: on one line, and cut if it is long (G3)."""
+    """Return a bookmark title from text selected in the document: on one line, and cut if it is long."""
     title = re.sub(r"\s+", " ", text).strip()
     return title if len(title) <= MAX_TITLE_FROM_TEXT else title[:MAX_TITLE_FROM_TEXT] + "…"
 
@@ -82,7 +82,7 @@ def topmost(bookmarks: list[Bookmark], chosen: Iterable[Bookmark]) -> list[Bookm
 
 
 def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
-    """Return the outline without the bookmarks that lead to these pages of the PDF, as 0.6 does on deleting pages.
+    """Return the outline without the bookmarks that lead to these pages of the PDF, when they are deleted.
 
     The bookmarks under a removed one move up to its place. The outline given is left as it was: the bookmarks kept
     are new copies, so it can be put back on undo.
@@ -98,7 +98,7 @@ def without_pages(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[B
 
 
 def leading_to(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Bookmark]:
-    """Return only the bookmarks that lead to these pages, as 0.6 does for the pages extracted.
+    """Return only the bookmarks that lead to these pages, when they are extracted.
 
     The bookmarks under a bookmark left out move up to its place. The outline given is left as it was.
     """
@@ -115,8 +115,8 @@ def leading_to(bookmarks: list[Bookmark], source_indexes: Set[int]) -> list[Book
 def for_added_pages(bookmarks: list[Bookmark], first_page: int) -> list[Bookmark]:
     """Return the bookmarks of a PDF read to be added to another, whose pages are numbered from first_page.
 
-    Only those that lead to a page are kept, as 0.6 does; the bookmarks under a removed one move up to its place. They
-    lose their origin, which belongs to their own PDF.
+    Only those that lead to a page are kept; the bookmarks under a removed one move up to its place. They lose their
+    origin, which belongs to their own PDF.
     """
     kept = []
     for bookmark in bookmarks:
@@ -131,7 +131,7 @@ def for_added_pages(bookmarks: list[Bookmark], first_page: int) -> list[Bookmark
 def with_inserted(
     bookmarks: list[Bookmark], inserted: list[Bookmark], first: int, position: Callable[[int], int | None]
 ) -> list[Bookmark]:
-    """Return the outline with some bookmarks put where pages were inserted, as 0.6 does (E4).
+    """Return the outline with some bookmarks put where pages were inserted.
 
     They go after the last bookmark of the level that leads before the first page inserted, or inside it (unfolding
     it) if some bookmark under it leads to that page or after; first is the position of that page and position says

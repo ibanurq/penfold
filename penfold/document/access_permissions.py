@@ -1,4 +1,4 @@
-"""What a PDF allows (D59, D60): the user access permissions of an encrypted PDF opened without a password.
+"""What a PDF allows: the user access permissions of an encrypted PDF opened without a password.
 
 Each tool of Penfold depends on one permission, and is off without it. Saving keeps the encryption and the
 permissions as they are (saving.py), so Penfold never lifts a permission.

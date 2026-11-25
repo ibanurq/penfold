@@ -1,7 +1,7 @@
 """The pages of the open document: which page of the PDF each one is, how it is turned and what it is called.
 
-Penfold does not change the PDF while it is open. Its pages are a list that the edits reorder, turn and shorten; the
-PDF is rewritten from that list only when it is saved (03-arquitectura, 6).
+Penfold does not change the PDF while it is open. Its pages are a list that the edits reorder, turn and shorten; the PDF
+is rewritten from that list only when it is saved.
 """
 
 import enum
@@ -25,7 +25,7 @@ class Page:
         source_index: the page's number among the pages of all the source PDFs (sources.py): its index in the
             opened PDF, or after those for the pages of a PDF added.
         rotation: clockwise turn that Penfold adds to the page's own, in degrees: 0, 90, 180 or 270.
-        label: the page's own label (D14), which it keeps wherever it goes; None if it has none, and then it is named
+        label: the page's own label, which it keeps wherever it goes; None if it has none, and then it is named
             by its position.
     """
 
@@ -53,7 +53,7 @@ def initial_pages(page_count: int, labels: list[PageLabel] | None) -> list[Page]
 
 
 class PaperSize(enum.Enum):
-    """The sizes of a blank page, upright, in points (E5; as 0.6, which keeps the choice short on purpose)."""
+    """The sizes of a blank page, upright, in points (a short choice, on purpose)."""
 
     A4 = (595.28, 841.89)
     LETTER = (612.0, 792.0)
@@ -62,7 +62,7 @@ class PaperSize(enum.Enum):
 
 
 def write_empty_pdf(path: Path) -> None:
-    """Write a PDF without pages, on which a merged document is built (F6)."""
+    """Write a PDF without pages, on which a merged document is built."""
     with pikepdf.new() as pdf:
         pdf.save(path)
 

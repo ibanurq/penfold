@@ -1,9 +1,9 @@
-"""Bookmark edits: add, delete, rename, indent, outdent, point, format and move bookmarks (G3 to G7).
+"""Bookmark edits: add, delete, rename, indent, outdent, point, format and move bookmarks.
 
-Each edit works on a copy of the outline, made when the edit is created, and keeps both: applying puts the copy in
-the document, reverting puts the outline it had back. Nothing is changed in the outline the document had, so undo
-does not depend on anyone else leaving it alone; the view only unfolds and folds bookmarks, which is not an edit (J2)
-and is copied as it is.
+Each edit works on a copy of the outline, made when the edit is created, and keeps both: applying puts the copy in the
+document, reverting puts the outline it had back. Nothing is changed in the outline the document had, so undo does not
+depend on anyone else leaving it alone; the view only unfolds and folds bookmarks, which is not an edit and is copied as
+it is.
 
 An edit is made for the outline the document has when it is created, and executed at once. The bookmarks it is given
 are bookmarks of that outline; its `bookmarks` are their copies, for the view to select them again.
@@ -19,7 +19,7 @@ from penfold.document.history import Change
 
 
 class Placement(enum.Enum):
-    """Where moved bookmarks go next to the bookmark they are dropped on (G6)."""
+    """Where moved bookmarks go next to the bookmark they are dropped on."""
 
     BEFORE = enum.auto()
     AFTER = enum.auto()
@@ -82,14 +82,14 @@ class BookmarkEdit:
 
 
 class AddBookmark(BookmarkEdit):
-    """Add a bookmark to the start of a page, placed in page order as 0.6 does (G3)."""
+    """Add a bookmark to the start of a page, placed in page order."""
 
     def __init__(self, document: OpenDocument, title: str, position: int) -> None:
         """Prepare a bookmark with this title leading to the page at a position.
 
-        It goes after the last bookmark, in reading order of the outline, that leads to that page or before it, or
-        as the first under it if it has bookmarks under it; bookmarks that lead nowhere do not count (D54). The
-        bookmarks above it are unfolded, so it can be seen.
+        It goes after the last bookmark, in reading order of the outline, that leads to that page or before it, or as
+        the first under it if it has bookmarks under it; bookmarks that lead nowhere do not count. The bookmarks above
+        it are unfolded, so it can be seen.
 
         Raises:
             ValueError: the title is blank, or the position is outside the document.
@@ -121,7 +121,7 @@ class AddBookmark(BookmarkEdit):
 
 
 class DeleteBookmarks(BookmarkEdit):
-    """Delete some bookmarks, with the bookmarks under them (G4)."""
+    """Delete some bookmarks, with the bookmarks under them."""
 
     def __init__(self, document: OpenDocument, chosen: Iterable[Bookmark]) -> None:
         """Prepare the deletion of these bookmarks.
@@ -139,7 +139,7 @@ class DeleteBookmarks(BookmarkEdit):
 
 
 class RenameBookmark(BookmarkEdit):
-    """Change the title of a bookmark (G5)."""
+    """Change the title of a bookmark."""
 
     def __init__(self, document: OpenDocument, bookmark: Bookmark, title: str) -> None:
         """Prepare the new title of a bookmark.
@@ -152,7 +152,7 @@ class RenameBookmark(BookmarkEdit):
 
 
 class PointBookmark(BookmarkEdit):
-    """Make a bookmark lead to the start of the page at a position (G5); it loses its original destination (G8)."""
+    """Make a bookmark lead to the start of the page at a position; it loses its original destination."""
 
     def __init__(self, document: OpenDocument, bookmark: Bookmark, position: int) -> None:
         """Prepare the new destination of a bookmark.
@@ -169,7 +169,7 @@ class PointBookmark(BookmarkEdit):
 
 
 class IndentBookmarks(BookmarkEdit):
-    """Put each bookmark under the one before it, as its last child, as 0.6 does (G5).
+    """Put each bookmark under the one before it, as its last child.
 
     Of the bookmarks chosen, those under another chosen one move with it, and those first in their level stay.
     """
@@ -195,7 +195,7 @@ class IndentBookmarks(BookmarkEdit):
 
 
 class OutdentBookmarks(BookmarkEdit):
-    """Put each bookmark just after the one it is under, as 0.6 does (G5).
+    """Put each bookmark just after the one it is under.
 
     Of the bookmarks chosen, those under another chosen one move with it, and those at the top level stay.
     """
@@ -221,7 +221,7 @@ class OutdentBookmarks(BookmarkEdit):
 
 
 class FormatBookmarks(BookmarkEdit):
-    """Make some bookmarks bold or not, italic or not, or of a colour or none (G7)."""
+    """Make some bookmarks bold or not, italic or not, or of a colour or none."""
 
     def __init__(
         self,
@@ -253,7 +253,7 @@ class FormatBookmarks(BookmarkEdit):
 
 
 class MoveBookmarks(BookmarkEdit):
-    """Move some bookmarks, together and in their order, next to another or inside it (dragging them, G6)."""
+    """Move some bookmarks, together and in their order, next to another or inside it (dragging them)."""
 
     def __init__(
         self, document: OpenDocument, chosen: Iterable[Bookmark], target: Bookmark | None, placement: Placement

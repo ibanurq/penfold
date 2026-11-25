@@ -1,8 +1,8 @@
 """Page labels: the page names a PDF shows instead of its numbers (i, ii, 1, 2, A-1…).
 
-They are stored in the /PageLabels number tree of the catalog (ISO 32000-1, 12.4.2). Each entry starts a range at a
-page index and gives a numbering style, a prefix and the first number of the range. Penfold reads the label of every
-page and, on saving, writes the ranges again for the pages in their new order (D14).
+They are stored in the /PageLabels number tree of the catalog (ISO 32000-1, 12.4.2). Each entry starts a range at a page
+index and gives a numbering style, a prefix and the first number of the range. Penfold reads the label of every page
+and, on saving, writes the ranges again for the pages in their new order.
 """
 
 from dataclasses import dataclass
@@ -125,7 +125,7 @@ def _positive_integer(value: object) -> int:
 def read_page_labels(pdf: pikepdf.Pdf) -> list[PageLabel] | None:
     """Return the label of every page, or None if the PDF has no page labels.
 
-    Pages before the first range have no label of their own: they are named by their number, as Papers does.
+    Pages before the first range have no label of their own: they are named by their number.
     """
     ranges = read_label_ranges(pdf)
     if not ranges:

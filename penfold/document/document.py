@@ -25,7 +25,7 @@ from penfold.errors import AssemblyNotAllowedError, PenfoldError
 
 @dataclass(frozen=True)
 class AddedPdf:
-    """A PDF ready to have its pages added to the document (E4): its pages, with their labels, and its bookmarks."""
+    """A PDF ready to have its pages added to the document: its pages, with their labels, and its bookmarks."""
 
     pages: list[Page]
     bookmarks: list[Bookmark]
@@ -33,7 +33,7 @@ class AddedPdf:
 
 @dataclass(frozen=True)
 class PdfToMerge:
-    """A PDF to merge, with its open password if it has one (D61); the password is kept out of any log."""
+    """A PDF to merge, with its open password if it has one; the password is kept out of any log."""
 
     path: Path
     password: str = field(default="", repr=False)
@@ -42,8 +42,8 @@ class PdfToMerge:
 class OpenDocument:
     """A PDF opened in a window.
 
-    Its pages are a list of Page that the edits change; the PDF itself is left as it is until it is saved. Every edit
-    is a command run through execute, so it can be undone (D19), and every change is announced to the listeners.
+    Its pages are a list of Page that the edits change; the PDF itself is left as it is until it is saved. Every edit is
+    a command run through execute, so it can be undone, and every change is announced to the listeners.
     """
 
     def __init__(self, path: Path, source: SourceFile, *, is_new: bool = False) -> None:
@@ -61,7 +61,7 @@ class OpenDocument:
         # Without a title, only the file name is shown.
         self.title = info_text(pdf.docinfo, "/Title")
         self.access_permissions = AccessPermissions.of(pdf)
-        # Opened with the owner password: the PDF's permissions do not bind its owner (D61, 7).
+        # Opened with the owner password: the PDF's permissions do not bind its owner.
         self.opened_by_owner = pdf.is_encrypted and pdf.owner_password_matched
         self._respects_permissions = True
         self.bookmarks: list[Bookmark] = read_bookmarks(pdf)
@@ -69,7 +69,7 @@ class OpenDocument:
         # The annotations of the source PDFs as they were read, by page and origin, to know which were removed.
         self._read_annotations = _by_origin(self.annotations)
         self.form_fields: list[FormField] = read_form_fields(pdf)
-        # The values filled in that differ from the PDF's, by field key; a field set back to its value is not here (I5).
+        # The values filled in that differ from the PDF's, by field key; a field set back to its value is not here.
         self._form_values: dict[tuple[int, str], FieldValue] = {}
         self._positions = self._index_positions()
         self._history = History(saved=not is_new)
@@ -77,7 +77,7 @@ class OpenDocument:
 
     @classmethod
     def open(cls, path: Path, password: str = "") -> Self:
-        """Open a PDF file, with its password if it needs one (D61).
+        """Open a PDF file, with its password if it needs one.
 
         Raises:
             PasswordRequiredError: the PDF needs a password to be opened, and this one is missing or wrong.
@@ -95,16 +95,16 @@ class OpenDocument:
         keep_bookmarks: bool,
         respect_permissions: bool,
     ) -> Self:
-        """Merge PDFs, in order, into a new document that is not saved yet (F1, F2, F6); proposed is its file.
+        """Merge PDFs, in order, into a new document that is not saved yet; proposed is its file.
 
-        It is built on a PDF of its own, as 0.6 does, so it takes nothing from the first file but its pages. With
-        bookmark_per_file, each file has an unfolded bookmark named after it (D50), holding the file's own bookmarks if
-        keep_bookmarks; without it, the files' own bookmarks, if kept, go one after another. With respect_permissions
-        off, a PDF that does not allow assembling it is merged too, and the result has no permissions (D61). A PDF
-        with an open password comes with it; the result has none.
+        It is built on a PDF of its own, so it takes nothing from the first file but its pages. With bookmark_per_file,
+        each file has an unfolded bookmark named after it, holding the file's own bookmarks if keep_bookmarks; without
+        it, the files' own bookmarks, if kept, go one after another. With respect_permissions off, a PDF that does not
+        allow assembling it is merged too, and the result has no permissions. A PDF with an open password comes with it;
+        the result has none.
 
         Raises:
-            AssemblyNotAllowedError: a PDF's permissions, respected, do not let it be merged (F4, D59, D61).
+            AssemblyNotAllowedError: a PDF's permissions, respected, do not let it be merged.
             PasswordRequiredError: a PDF needs a password to be opened, and its one is missing or wrong.
             DocumentOpenError: a file is missing, unreadable or not a PDF.
         """
@@ -136,24 +136,24 @@ class OpenDocument:
 
     @property
     def permissions(self) -> AccessPermissions:
-        """What Penfold lets the user do with the document: every tool asks this (D59, D60).
+        """What Penfold lets the user do with the document: every tool asks this.
 
         The PDF's user access permissions while they are respected; everything once they are not, or if the PDF was
-        opened with its owner password (D61).
+        opened with its owner password.
         """
         if self.opened_by_owner or not self._respects_permissions:
             return AccessPermissions()
         return self.access_permissions
 
     def respect_permissions(self, respect: bool) -> None:
-        """Follow the PDF's user access permissions, or ignore them ("Respect Document Permissions", D60)."""
+        """Follow the PDF's user access permissions, or ignore them ("Respect Document Permissions")."""
         if respect != self._respects_permissions:
             self._respects_permissions = respect
             self._notify(Change.PERMISSIONS)
 
     @property
     def denies_anything(self) -> bool:
-        """Whether Penfold denies something with the document (D59, D60); an encrypted PDF may allow everything."""
+        """Whether Penfold denies something with the document; an encrypted PDF may allow everything."""
         return self.permissions.denies_anything
 
     @property
@@ -168,7 +168,7 @@ class OpenDocument:
 
     @property
     def has_page_labels(self) -> bool:
-        """Whether some page has a label of its own (D14), so the page box shows labels and positions."""
+        """Whether some page has a label of its own, so the page box shows labels and positions."""
         return any(page.label is not None for page in self.pages)
 
     def page_label(self, page_index: int) -> str:
@@ -189,12 +189,12 @@ class OpenDocument:
     def add_source(self, path: Path, password: str = "") -> AddedPdf:
         """Copy and open a PDF whose pages will be added (by the AddPages command).
 
-        A PDF with an open password needs it (D61). Its pages come with a new bookmark, unfolded and named after the
-        file, that leads to the first of them and holds the PDF's own bookmarks (D50). Its annotations are listed from
-        now on, while their pages are in the document.
+        A PDF with an open password needs it. Its pages come with a new bookmark, unfolded and named after the file,
+        that leads to the first of them and holds the PDF's own bookmarks. Its annotations are listed from now on, while
+        their pages are in the document.
 
         Raises:
-            AssemblyNotAllowedError: the PDF's permissions, respected, do not let its pages be added (2.7, D59, D61).
+            AssemblyNotAllowedError: the PDF's permissions, respected, do not let its pages be added.
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
@@ -203,7 +203,7 @@ class OpenDocument:
         return AddedPdf(_pages_of(pdf, start), [Bookmark(path.stem, page=start, is_open=True, children=own_bookmarks)])
 
     def add_blank_page(self, size: PaperSize) -> AddedPdf:
-        """Make a blank page of a size, ready to be added (by the AddPages command) like the pages of a PDF (E5)."""
+        """Make a blank page of a size, ready to be added (by the AddPages command) like the pages of a PDF."""
         with tempfile.TemporaryDirectory(prefix="penfold-") as folder:
             path = Path(folder) / "blank.pdf"
             write_blank_pdf(path, size)
@@ -214,7 +214,7 @@ class OpenDocument:
         """Copy and open a PDF as a new source, listing its annotations and fields; return its first index and the PDF.
 
         Raises:
-            AssemblyNotAllowedError: the PDF's permissions, respected, do not allow it (2.7, D59, D61).
+            AssemblyNotAllowedError: the PDF's permissions, respected, do not allow it.
             PasswordRequiredError: the PDF needs a password to be opened.
             DocumentOpenError: the file is missing, unreadable or not a PDF.
         """
@@ -232,7 +232,7 @@ class OpenDocument:
         return start, source.pdf
 
     def properties(self) -> DocumentProperties:
-        """What the Properties dialogue shows (07-fase-12, 18): the PDF as it was opened, its pages as they are now."""
+        """What the Properties dialogue shows: the PDF as it was opened, its pages as they are now."""
         opened = self.sources.pdf(0)
         return DocumentProperties(
             information=PdfInformation() if self._merged else PdfInformation.of(opened),
@@ -282,7 +282,7 @@ class OpenDocument:
 
     @property
     def is_modified(self) -> bool:
-        """Whether the document has changes that are not saved (D16)."""
+        """Whether the document has changes that are not saved."""
         return self._history.is_modified
 
     @property
@@ -327,19 +327,19 @@ class OpenDocument:
 
     @property
     def filled_fields(self) -> dict[tuple[int, str], FieldValue]:
-        """The values filled in that differ from the PDF's, by field key (I5)."""
+        """The values filled in that differ from the PDF's, by field key."""
         return dict(self._form_values)
 
     def save_plan(self, target: Path | None = None, *, flatten: bool = False) -> SavePlan:
         """Take what saving needs, to write it in another thread with saving.save; by default, over the file.
 
-        With flatten, the form fields become fixed page content (I6): the file is an exported copy, and the document
-        keeps its own file and its changes (do not mark it saved).
+        With flatten, the form fields become fixed page content: the file is an exported copy, and the document keeps
+        its own file and its changes (do not mark it saved).
 
-        A PDF with permissions is saved too, keeping them (D59): its tools only make the changes it allows.
+        A PDF with permissions is saved too, keeping them: its tools only make the changes it allows.
 
         Raises:
-            ValueError: flattening was asked of a PDF that does not allow changing its content (D59).
+            ValueError: flattening was asked of a PDF that does not allow changing its content.
         """
         if flatten and not self.permissions.modify:
             message = "this PDF does not allow flattening its form"
@@ -350,12 +350,12 @@ class OpenDocument:
         return replace(self._with_annotation_edits(plan), form_values=self._filled_in(), flatten=flatten)
 
     def print_plan(self, target: Path, left_out: frozenset[AnnotationGroup]) -> SavePlan:
-        """Take what writing the PDF to print needs (D57), to write it with saving.save.
+        """Take what writing the PDF to print needs, to write it with saving.save.
 
         It has every page, with the form values, but no bookmarks and none of the groups of annotations left out.
 
         Raises:
-            ValueError: the PDF does not allow printing (D59).
+            ValueError: the PDF does not allow printing.
         """
         if not self.permissions.print:
             message = "this PDF does not allow printing"
@@ -364,12 +364,12 @@ class OpenDocument:
         return replace(self._with_annotation_edits(plan), form_values=self._filled_in(), left_out=left_out)
 
     def extract_plan(self, positions: list[int], target: Path) -> SavePlan:
-        """Take what writing some pages to another file needs (E8), to write it with saving.save.
+        """Take what writing some pages to another file needs, to write it with saving.save.
 
         The file gets those pages as they are now, in that order, with the bookmarks that lead to them.
 
         Raises:
-            ValueError: the PDF does not allow assembling it, so neither extracting its pages (D59).
+            ValueError: the PDF does not allow assembling it, so neither extracting its pages.
         """
         if not self.permissions.assemble:
             message = "this PDF does not allow extracting its pages"
@@ -383,8 +383,7 @@ class OpenDocument:
         """Add to a plan what saving changes in the annotations of the pages.
 
         Saving writes the managed annotations (made or changed in Penfold), takes out of their pages those of the PDFs
-        that were deleted or changed, and moves in their pages those only moved (D73); the rest are in their pages
-        already.
+        that were deleted or changed, and moves in their pages those only moved; the rest are in their pages already.
         """
         managed = tuple(annotation for annotation in self.annotations if annotation.managed)
         moved = tuple(annotation for annotation in self.annotations if annotation.moved_as_is)
@@ -400,8 +399,8 @@ class OpenDocument:
     def replaced_annotations(self) -> list[Annotation]:
         """The annotations of the source PDFs, as they were read, that were deleted, changed or moved since.
 
-        Poppler leaves them out when it draws the pages (03-arquitectura 4.1); saving takes those deleted or changed out
-        of their pages, and moves those only moved (D73).
+        Poppler leaves them out when it draws the pages; saving takes those deleted or changed out of their pages, and
+        moves those only moved.
         """
         unchanged = _by_origin(
             annotation for annotation in self.annotations if not annotation.managed and not annotation.moved_as_is
@@ -409,7 +408,7 @@ class OpenDocument:
         return [annotation for key, annotation in self._read_annotations.items() if key not in unchanged]
 
     def _filled_in(self) -> tuple[tuple[FormField, FieldValue], ...]:
-        """The fields whose values differ from the PDF's, with those values, to write them (I5, I7)."""
+        """The fields whose values differ from the PDF's, with those values, to write them."""
         return tuple(
             (field, self._form_values[field.key]) for field in self.form_fields if field.key in self._form_values
         )

@@ -1,4 +1,4 @@
-"""Moving annotations and changing their size with handles (D72, D73).
+"""Moving annotations and changing their size with handles.
 
 Rectangles and circles have a handle at each corner, arrows one at each end; text boxes have one at each side, which
 change only their width (rendering/text_box.py: their height follows the text). Comments are only moved. Marks on text
@@ -55,7 +55,7 @@ def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
     """The annotation moved by an offset, as far as it stays inside its page (it is not pushed in if already out).
 
     Everything moves with it: its rectangle, the areas of its text, its line. Nothing else changes: one of a PDF that
-    Penfold does not manage keeps the drawing its program made, moved as far (moved_by, D73).
+    Penfold does not manage keeps the drawing its program made, moved as far (moved_by).
     """
     dx, dy = _shift_inside(annotation.rectangle, offset, page_size)
     moved_x, moved_y = annotation.moved_by
@@ -101,7 +101,7 @@ def mark_handles(annotation: Annotation) -> dict[Handle, Point]:
 
 
 def mark_tips(annotation: Annotation) -> dict[Handle, Point]:
-    """Where the tips of a mark's drops go (D76): the top left of its first line, the bottom right of its last."""
+    """Where the tips of a mark's drops go: the top left of its first line, the bottom right of its last."""
     if not annotation.quads:
         return {}
     lines = sorted(annotation.quads, key=lambda line: (line[1], line[0]))

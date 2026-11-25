@@ -1,4 +1,4 @@
-"""The properties of a document (07-fase-12, 18): what the Properties dialogue shows, read only.
+"""The properties of a document: what the Properties dialogue shows, read only.
 
 They describe the PDF as it was opened (its document information, version and security) and the document as it is
 now (its pages and their sizes, after the edits). Nothing here changes the document.
@@ -70,7 +70,7 @@ class DocumentProperties:
     pdf_version: str | None
     """The version of the PDF, such as "1.7"; None for a new document."""
     has_password: bool
-    """Whether it needs a password to be opened (D61)."""
+    """Whether it needs a password to be opened."""
     denied: list[str]
     """The names of the user access permissions it denies (access_permissions.py), whether respected or not."""
 

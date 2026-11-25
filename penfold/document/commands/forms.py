@@ -1,4 +1,4 @@
-"""Form edits: filling in a field (I1, I2), an edit that can be undone like any other (J2, D19)."""
+"""Form edits: filling in a field, an edit that can be undone like any other."""
 
 from penfold.document.document import OpenDocument
 from penfold.document.forms import FieldKind, FieldValue, FormField
@@ -6,7 +6,7 @@ from penfold.document.history import Change
 
 
 class SetFieldValue:
-    """Give a form field a new value; all its widgets show it, since they are one field (I2)."""
+    """Give a form field a new value; all its widgets show it, since they are one field."""
 
     changes = Change.FORM
 

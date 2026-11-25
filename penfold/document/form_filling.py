@@ -1,8 +1,8 @@
-"""Writing the values filled in into the form of a PDF, so that it stays editable (I5, I7), or flattening it (I6).
+"""Writing the values filled in into the form of a PDF, so that it stays editable, or flattening it.
 
-Only the fields that were changed are written. Each gets its value and, where qpdf can draw it, a new appearance,
-so every viewer shows it; the other fields keep their appearance as it was. Where qpdf cannot draw a value well
-(several lines, lists, letters its fonts lack), the form asks viewers to draw it (/NeedAppearances), as 0.6 did.
+Only the fields that were changed are written. Each gets its value and, where qpdf can draw it, a new appearance, so
+every viewer shows it; the other fields keep their appearance as it was. Where qpdf cannot draw a value well (several
+lines, lists, letters its fonts lack), the form asks viewers to draw it (/NeedAppearances).
 """
 
 from typing import TypeGuard
@@ -30,7 +30,7 @@ DRAWN_KINDS = frozenset({FieldKind.TEXT, FieldKind.DROPDOWN})
 def fill_in(pdf: pikepdf.Pdf, values: list[tuple[FormField, FieldValue]]) -> int:
     """Write values into the fields of a PDF (the source PDF of those fields); return how many could not be written.
 
-    A field that fails does not stop the others (I5).
+    A field that fails does not stop the others.
     """
     dictionaries = field_dictionaries(pdf)
     failed = 0
@@ -158,11 +158,11 @@ def _restore(widget: pikepdf.Dictionary, key: str, value: pikepdf.Object | None)
 
 
 def flatten_form(pdf: pikepdf.Pdf) -> None:
-    """Draw every form field as fixed page content and remove the form (I6); the other annotations stay as they are.
+    """Draw every form field as fixed page content and remove the form; the other annotations stay as they are.
 
     qpdf flattens every annotation with an appearance, so the others are set aside while it works. Hidden fields are
-    dropped, as viewers do not show them, and so are fields with no appearance, as in 0.6. qpdf leaves the fields
-    alone while the form asks viewers to draw them (/NeedAppearances), so their appearances are drawn first.
+    dropped, as viewers do not show them, and so are fields with no appearance. qpdf leaves the fields alone while the
+    form asks viewers to draw them (/NeedAppearances), so their appearances are drawn first.
 
     Raises:
         pikepdf.PdfError: a visible field could not be flattened; saving fails rather than lose its value.

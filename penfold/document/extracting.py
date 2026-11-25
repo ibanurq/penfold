@@ -1,10 +1,10 @@
-"""Extracting pages to new PDFs (E7 to E9): which pages, as one file or one per page, and with what names.
+"""Extracting pages to new PDFs: which pages, as one file or one per page, and with what names.
 
-Pages are given as 0.6 takes them: numbers and ranges separated by commas, such as "1, 5, 10-12, 56-", where "56-"
-runs to the last page. The numbers are positions in the document, from 1.
+Pages are given as numbers and ranges separated by commas, such as "1, 5, 10-12, 56-", where "56-" runs to the last
+page. The numbers are positions in the document, from 1.
 
-Each file extracted is written as saving writes the document: its pages as they are now, in order and turned, with
-their labels, annotations and form fields, and the bookmarks that lead to them (D51).
+Each file extracted is written as saving writes the document: its pages as they are now, in order and turned, with their
+labels, annotations and form fields, and the bookmarks that lead to them.
 """
 
 import re

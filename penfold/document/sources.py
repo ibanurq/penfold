@@ -28,9 +28,9 @@ COPY_NAME = "source.pdf"
 class SourceFile:
     """A private copy of a PDF as it was opened, and the PDF read from it with pikepdf.
 
-    The copy lives in a temporary folder that only the user can read, removed when the source is closed (or, if
-    Penfold stops before, when Python exits). The copy is as encrypted as the file; the password that opens it is kept
-    only in memory, never written anywhere (D61).
+    The copy lives in a temporary folder that only the user can read, removed when the source is closed (or, if Penfold
+    stops before, when Python exits). The copy is as encrypted as the file; the password that opens it is kept only in
+    memory, never written anywhere.
     """
 
     def __init__(self, path: Path, password: str = "") -> None:
@@ -79,7 +79,7 @@ def open_source(path: Path, password: str = "") -> pikepdf.Pdf:
 class SourceSpan:
     """Where the pages of one source are numbered: its file, the source index of its first page and how many.
 
-    A PDF with an open password carries it, to be read again by Poppler, saving and printing (D61).
+    A PDF with an open password carries it, to be read again by Poppler, saving and printing.
     """
 
     path: Path
@@ -135,10 +135,10 @@ class Sources:
 
 
 def count_pages(path: Path, *, respect_permissions: bool, password: str = "") -> int:
-    """Return how many pages a PDF has, to list it before merging it (F1); a PDF may need its password (D61).
+    """Return how many pages a PDF has, to list it before merging it; a PDF may need its password.
 
     Raises:
-        AssemblyNotAllowedError: the PDF's permissions, if respected, do not let it be merged (F4, D59, D61).
+        AssemblyNotAllowedError: the PDF's permissions, if respected, do not let it be merged.
         PasswordRequiredError: the PDF needs a password to be opened, and this one is missing or wrong.
         DocumentOpenError: the file is missing, unreadable or not a PDF.
     """
@@ -150,8 +150,8 @@ def count_pages(path: Path, *, respect_permissions: bool, password: str = "") ->
 def check_assembly(pdf: pikepdf.Pdf, path: Path, *, respect_permissions: bool) -> None:
     """Make sure the pages of a PDF may go into another file: merged, or added to another document.
 
-    Only its permissions stop it, while they are respected and it was not opened with its owner password; the result
-    has neither its permissions nor its passwords (D61, 3, 6 and 7).
+    Only its permissions stop it, while they are respected and it was not opened with its owner password; the result has
+    neither its permissions nor its passwords.
 
     Raises:
         AssemblyNotAllowedError: they may not.
@@ -162,7 +162,7 @@ def check_assembly(pdf: pikepdf.Pdf, path: Path, *, respect_permissions: bool) -
 
 
 def needs_password(path: Path) -> bool:
-    """Whether a PDF asks for a password to be opened (D61)."""
+    """Whether a PDF asks for a password to be opened."""
     return not opens_with(path, "")
 
 

@@ -1,9 +1,9 @@
-"""Saving: writing the document to a PDF file (03-arquitectura, 6).
+"""Saving: writing the document to a PDF file.
 
-The PDF as it was opened is changed, not rebuilt (D15): its pages are put in their new order and turn, the pages added
-from other PDFs copied in, their labels written again (D14), the outline written from the bookmarks, and everything
-else is left as it was. The result is written to a temporary file next to the target, checked, and only then put in
-the target's place, so a failure never damages the file that was there.
+The PDF as it was opened is changed, not rebuilt: its pages are put in their new order and turn, the pages added from
+other PDFs copied in, their labels written again, the outline written from the bookmarks, and everything else is left as
+it was. The result is written to a temporary file next to the target, checked, and only then put in the target's place,
+so a failure never damages the file that was there.
 
 Saving runs in a worker thread: the main thread takes a SavePlan, a copy of all it needs, and keeps working.
 """
@@ -38,7 +38,7 @@ NEW_FILE_MODE = 0o666  # Narrowed by the user's umask, as for any new file.
 RANDOM_NAME_BYTES = 6
 # The entries of an annotation that are points of its page (x, y, x, y…), moved with it (12.5).
 POINT_LISTS = ("/Rect", "/QuadPoints", "/L", "/Vertices", "/CL")
-# The owner of a field name given on renaming, which no PDF owns (F7).
+# The owner of a field name given on renaming, which no PDF owns.
 RENAMED = -1
 
 
@@ -52,13 +52,13 @@ class SavePlan:
         pages: the pages in their order, with their turn and label.
         bookmarks: the outline, copied so that later edits do not reach it.
         checkpoint: the last edit included, so the document knows what was saved even if it changes meanwhile.
-        form_values: the values filled in that differ from the PDF's, with their fields (I5).
-        flatten: draw the form fields as fixed page content and remove the form: an exported copy (I6).
-        left_out: the groups of annotations to leave out, for printing (D57).
+        form_values: the values filled in that differ from the PDF's, with their fields.
+        flatten: draw the form fields as fixed page content and remove the form: an exported copy.
+        left_out: the groups of annotations to leave out, for printing.
         annotations: the annotations made in Penfold, written on their pages if the pages are saved.
         removed: the annotations of the source PDFs taken out of their pages, deleted or changed (then written again
             with the others): the source index of their page and their origin (annotations.py).
-        moved: the annotations of the source PDFs only moved, moved in their pages keeping their drawing (D73).
+        moved: the annotations of the source PDFs only moved, moved in their pages keeping their drawing.
     """
 
     sources: Spans
@@ -92,7 +92,7 @@ class SavePlan:
 def save(plan: SavePlan) -> int:
     """Write the document to its target file (in any thread); return how many form fields could not be written.
 
-    A field that fails does not stop the save (I5).
+    A field that fails does not stop the save.
 
     Raises:
         SaveError: the PDF could not be written or the result is not valid; the target is left as it was.
@@ -196,7 +196,7 @@ def _remove_annotations(pdf: pikepdf.Pdf, removed: frozenset[tuple[int, int]], p
 
 
 def _move_annotations(moved: tuple[Annotation, ...], pages: tuple[Page, ...], placed: dict[int, pikepdf.Page]) -> None:
-    """Move in their pages the annotations only moved (D73): their places, not their drawing (/AP), which follows.
+    """Move in their pages the annotations only moved: their places, not their drawing (/AP), which follows.
 
     It runs right after the pages are placed, while their /Annots are still in the order they were read in.
     """
@@ -254,7 +254,7 @@ def _write_annotations(
 
 
 def _write_labels(pdf: pikepdf.Pdf, pages: tuple[Page, ...]) -> None:
-    """Write the labels in the new order (D14); pages without a label of their own are named by their number."""
+    """Write the labels in the new order; pages without a label of their own are named by their number."""
     if all(page.label is None for page in pages):
         if "/PageLabels" in pdf.Root:
             del pdf.Root.PageLabels
@@ -263,7 +263,7 @@ def _write_labels(pdf: pikepdf.Pdf, pages: tuple[Page, ...]) -> None:
 
 
 def _remove_fields_of_pages(pdf: pikepdf.Pdf, pages: list[pikepdf.Page]) -> None:
-    """Take out of the form the fields whose widgets were all on deleted pages (I8)."""
+    """Take out of the form the fields whose widgets were all on deleted pages."""
     form = pdf.Root.get("/AcroForm")
     if not pages or not isinstance(form, pikepdf.Dictionary):
         return
@@ -275,7 +275,7 @@ def _remove_fields_of_pages(pdf: pikepdf.Pdf, pages: list[pikepdf.Page]) -> None
 
 
 def _bring_in_forms(pdf: pikepdf.Pdf, pages: tuple[Page, ...], others: _OtherSources) -> None:
-    """Add to the form the fields of the pages copied from other PDFs, as 0.6 does when merging (F7).
+    """Add to the form the fields of the pages copied from other PDFs.
 
     A field whose name a field of another PDF already has gets a number: "name_2", "name_3"… The form takes the
     default appearance, alignment and resources (fonts) of the forms it receives, without replacing its own.
@@ -319,8 +319,8 @@ def _form_of(pdf: pikepdf.Pdf) -> pikepdf.Dictionary:
 def _name_uniquely(field: pikepdf.Object, source: int, owners: dict[str, int]) -> None:
     """Rename a field whose name a field of another PDF has, adding the first free number from 2.
 
-    A name given this way belongs to no PDF, so no field takes it afterwards: 0.6 could end with two fields "name_2"
-    when a PDF had both "name" and "name_2".
+    A name given this way belongs to no PDF, so no field takes it afterwards: otherwise, a PDF with both "name" and
+    "name_2" could end with two fields "name_2".
     """
     if not isinstance(field, pikepdf.Dictionary) or "/T" not in field:
         return
@@ -427,7 +427,7 @@ def _popup_of(annotation: pikepdf.Object, dropped: set[tuple[int, int]]) -> bool
 
 
 def _write_outline(pdf: pikepdf.Pdf, bookmarks: list[Bookmark], placed: dict[int, pikepdf.Page]) -> None:
-    """Write the outline from the bookmarks, opening the PDF on it as 0.6 does (G9); remove it if there are none."""
+    """Write the outline from the bookmarks, opening the PDF on it; remove it if there are none."""
     if not bookmarks:
         if "/Outlines" in pdf.Root:
             del pdf.Root.Outlines
@@ -502,11 +502,11 @@ def _visible_count(bookmarks: list[Bookmark]) -> int:
 def _write_safely(pdf: pikepdf.Pdf, target: Path, page_count: int, password: str) -> None:
     """Write to a new file next to the target, check it, and put it in the target's place.
 
-    The password opens the written file, which keeps the passwords of the opened PDF (D61).
+    The password opens the written file, which keeps the passwords of the opened PDF.
     """
     temporary = _new_file_next_to(target)
     try:
-        # A PDF with permissions or passwords keeps its encryption, its passwords and its permissions (D59, D61).
+        # A PDF with permissions or passwords keeps its encryption, its passwords and its permissions.
         pdf.save(temporary, encryption=pdf.is_encrypted)
         _check(temporary, page_count, password)
         if target.exists():

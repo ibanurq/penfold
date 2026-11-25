@@ -1,8 +1,8 @@
 """Form fields (AcroForm, ISO 32000-1, 12.7): what can be filled in, where it is drawn and what it holds.
 
-Penfold fills in text fields, checkboxes, radio buttons, dropdowns and lists (I1). Push buttons and signatures are
-not filled in (I3), so they are not read. A field is identified by its source PDF and its full name, because PDFs
-added to the document may use the same names.
+Penfold fills in text fields, checkboxes, radio buttons, dropdowns and lists. Push buttons and signatures are not filled
+in, so they are not read. A field is identified by its source PDF and its full name, because PDFs added to the document
+may use the same names.
 """
 
 import enum

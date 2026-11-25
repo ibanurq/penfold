@@ -1,8 +1,8 @@
-"""Undo and redo (D19, 03-arquitectura 5).
+"""Undo and redo.
 
-Every change to the document is a command that knows how to apply itself and how to revert itself. The history keeps
-the commands applied and the commands undone, and remembers where the document was last saved, so that undoing back
-to that point leaves nothing to save (D16).
+Every change to the document is a command that knows how to apply itself and how to revert itself. The history keeps the
+commands applied and the commands undone, and remembers where the document was last saved, so that undoing back to that
+point leaves nothing to save.
 """
 
 import enum
@@ -20,7 +20,7 @@ class Change(enum.Flag):
     FILE = enum.auto()
     """Where the document is saved, or whether it has changes to save."""
     PERMISSIONS = enum.auto()
-    """What the document allows: whether its user access permissions are respected (D60)."""
+    """What the document allows: whether its user access permissions are respected."""
 
 
 class Command(Protocol):
@@ -50,7 +50,7 @@ class History:
     def __init__(self, *, saved: bool = True) -> None:
         """Start an empty history for a document just opened, which has nothing to save.
 
-        A document that was never saved (merged, F6) has changes to save until it is, even with nothing to undo.
+        A document that was never saved (merged) has changes to save until it is, even with nothing to undo.
         """
         self._applied: list[Command] = []
         self._undone: list[Command] = []
