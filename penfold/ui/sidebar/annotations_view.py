@@ -15,9 +15,16 @@ from penfold.document.annotations import TEXT_MARKUPS, Annotation, AnnotationGro
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
 from penfold.rendering.renderer import Renderer
-from penfold.ui.annotation_icons import KIND_ICONS
+from penfold.ui.annotation_icons import KIND_ICONS, kind_names
 from penfold.ui.context_menu import is_menu_key
-from penfold.ui.sidebar.view_header import RecentUse, empty_label, unselect_all, unselect_on_empty_click, view_header
+from penfold.ui.sidebar.view_header import (
+    RecentUse,
+    empty_label,
+    name_row,
+    unselect_all,
+    unselect_on_empty_click,
+    view_header,
+)
 
 # Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
 FALLBACK_COLOR = (0xC6 / 255, 0x46 / 255, 0)
@@ -159,6 +166,7 @@ class AnnotationsView(Gtk.Box):
         self._positions: dict[int, int] = {}
         self._group_names = group_names()
         self._page_format = _("Page {label}")
+        self._kind_names = kind_names()
         self._counts: dict[AnnotationGroup, int] = {}
         # Every annotation, in the order of the groups; a filter keeps the groups shown and a sorter makes the sections.
         self.store = Gio.ListStore.new(AnnotationItem)
@@ -180,7 +188,8 @@ class AnnotationsView(Gtk.Box):
         self.reading_page = -1
         self._rows: dict[int, AnnotationRow] = {}
         self._texts: dict[int, str] = {}
-        self._pending_texts: dict[AnnotationRow, Annotation] = {}
+        # The rows whose text is still to be read, with their annotation and list item.
+        self._pending_texts: dict[AnnotationRow, tuple[Annotation, Gtk.ListItem]] = {}
         self._filling = False
         self.empty = empty_label("")
         self.stack = Gtk.Stack(vexpand=True)
@@ -333,10 +342,16 @@ class AnnotationsView(Gtk.Box):
             row.show_text(self._texts.get(id(annotation), annotation.text))
         else:
             row.show_text(None)
-            self._pending_texts[row] = annotation
+            self._pending_texts[row] = (annotation, item)
             if not self._filling:
                 self._filling = True
                 GLib.idle_add(self._fill_texts)
+        self._name_row(item, row)
+
+    def _name_row(self, item: Gtk.ListItem, row: AnnotationRow) -> None:
+        """What screen readers say for a row: the type, which the row shows only as an icon, and what it reads."""
+        kind = self._kind_names[row.annotation.kind] if row.annotation is not None else ""
+        name_row(item, kind, row.page.get_text(), row.author.get_text(), row.body.get_text())
 
     def _on_unbind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         row = item.get_child()
@@ -353,7 +368,7 @@ class AnnotationsView(Gtk.Box):
         """Read the text marked by the highlights shown, for a short time; go on later if some are left."""
         deadline = time.monotonic() + TEXT_TIME_SLICE
         while self._pending_texts and time.monotonic() < deadline and self.content is not None:
-            row, annotation = next(iter(self._pending_texts.items()))
+            row, (annotation, item) = next(iter(self._pending_texts.items()))
             del self._pending_texts[row]
             if id(annotation) not in self._texts:
                 areas = list(annotation.quads) or [annotation.rectangle]
@@ -361,6 +376,7 @@ class AnnotationsView(Gtk.Box):
                 self._texts[id(annotation)] = f"“{marked}”" if marked else ""
             if row.annotation is annotation:
                 row.show_text(self._texts[id(annotation)])
+                self._name_row(item, row)
         if self._pending_texts and self.content is not None:
             return GLib.SOURCE_CONTINUE
         self._filling = False

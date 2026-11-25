@@ -253,6 +253,11 @@ class PageCell(Gtk.Box):
         self.append(self.thumbnail)
         self.append(self.label)
 
+    def show_label(self, label: str) -> None:
+        """Show the page label under the thumbnail; screen readers say "Page" before it."""
+        self.label.set_label(label)
+        self.label.update_property([Gtk.AccessibleProperty.LABEL], [_("Page {label}").format(label=label)])
+
 
 class PagesView(Gtk.Box):
     """Thumbnails of every page, in as many columns as fit, following the page being read.
@@ -368,7 +373,7 @@ class PagesView(Gtk.Box):
             assert isinstance(item, PageItem)
             item.label = document.page_label(position)
         for position, cell in self._cells.items():
-            cell.label.set_label(document.page_label(position))
+            cell.show_label(document.page_label(position))
             cell.thumbnail.queue_draw()
         self._select_sources(selected_sources)
         self.current_page = min(self.current_page, new_count - 1)
@@ -690,7 +695,7 @@ class PagesView(Gtk.Box):
         assert isinstance(cell, PageCell)
         cell.thumbnail.page = page_item.page
         cell.thumbnail.queue_resize()
-        cell.label.set_label(page_item.label)
+        cell.show_label(page_item.label)
         self._mark_current(cell, page_item.page)
         self._cells[page_item.page] = cell
         self._end_room.track(cell)

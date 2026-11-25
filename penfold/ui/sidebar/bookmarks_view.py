@@ -35,6 +35,7 @@ from penfold.ui.sidebar.view_header import (
     RecentUse,
     empty_label,
     header_button,
+    name_row,
     selection_counter,
     show_count,
     unselect_all,
@@ -207,6 +208,8 @@ class BookmarksView(Gtk.Box):
         self._reading: Bookmark | None = None
         self._marked: Bookmark | None = None
         self._rows: dict[int, BookmarkRow] = {}
+        # The list item of each row shown, to give it the name screen readers say; kept only while bound.
+        self._list_items: dict[BookmarkRow, Gtk.ListItem] = {}
         self.empty = empty_label(_("This PDF has no bookmarks"))
         self.stack = Gtk.Stack(vexpand=True)
         self.scrolled = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -561,6 +564,7 @@ class BookmarksView(Gtk.Box):
         row.title.set_markup(title_markup(bookmark, dark=Adw.StyleManager.get_default().get_dark()))
         row.title.set_tooltip_text(bookmark.title)
         row.bookmark = bookmark
+        self._list_items[row] = item
         self._show_page(row)
         self._rows[id(bookmark)] = row
         self._show_mark(row, bookmark)
@@ -570,12 +574,18 @@ class BookmarksView(Gtk.Box):
         """Show the label of the page a bookmark leads to, where that page is now."""
         page = row.bookmark.page if row.bookmark is not None else None
         place = self._place(page, None) if page is not None else None
-        row.page.set_label("" if place is None or self.document is None else self.document.page_label(place[0]))
+        label = "" if place is None or self.document is None else self.document.page_label(place[0])
+        row.page.set_label(label)
+        if row in self._list_items and row.bookmark is not None:
+            name_row(self._list_items[row], row.bookmark.title, _("Page {label}").format(label=label) if label else "")
 
     def _on_unbind(self, _factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         row = item.get_child()
         self._end_room.forget(row)
-        if isinstance(row, BookmarkRow) and row.bookmark is not None and self._rows.get(id(row.bookmark)) is row:
+        if not isinstance(row, BookmarkRow):
+            return
+        self._list_items.pop(row, None)
+        if row.bookmark is not None and self._rows.get(id(row.bookmark)) is row:
             del self._rows[id(row.bookmark)]
             row.remove_css_class("reading-section")
 

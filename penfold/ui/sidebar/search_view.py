@@ -16,7 +16,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from penfold.document.sources import Spans
 from penfold.rendering.layout import PageLayout
 from penfold.rendering.text_search import MatchContext, SearchResult, TextSearch
-from penfold.ui.sidebar.view_header import HEADER_MARGIN
+from penfold.ui.sidebar.view_header import HEADER_MARGIN, name_row
 
 ROW_TEXT_LINES = 2
 # Sentences are read a few at a time, for at most this long (seconds) each time, so the window never waits.
@@ -73,6 +73,8 @@ class SearchView(Gtk.Box):
             margin_top=6,
             margin_bottom=6,
         )
+        # The placeholder goes away when typing: screen readers need a name that stays.
+        self.entry.update_property([Gtk.AccessibleProperty.LABEL], [_("Find in Document")])
         self.entry.connect("search-changed", lambda _entry: self.search())
         self.entry.connect("activate", lambda _entry: self.next_result())
         self.entry.connect("stop-search", lambda _entry: self.emit("close-requested"))
@@ -105,7 +107,8 @@ class SearchView(Gtk.Box):
         self._contexts: dict[SearchResult, MatchContext] = {}
         self._page_format = _("Page {label}")
         # Rows waiting for their sentence: the label to fill and the match it must show.
-        self._pending_contexts: dict[Gtk.Label, SearchResult] = {}
+        # The rows whose sentence is still to be read: their label for it, with the result and the list item.
+        self._pending_contexts: dict[Gtk.Label, tuple[SearchResult, Gtk.ListItem]] = {}
         self._filling = False
         self.current_page = 0
         self.current = -1
@@ -278,20 +281,24 @@ class SearchView(Gtk.Box):
             self._pending_contexts.pop(text, None)
         else:
             text.set_label("")
-            self._pending_contexts[text] = result
+            self._pending_contexts[text] = (result, item)
             if not self._filling:
                 self._filling = True
                 GLib.idle_add(self._fill_contexts)
+        name_row(item, page.get_text(), text.get_text())
 
     def _fill_contexts(self) -> bool:
         """Read the sentences of the rows waiting for one, for a short time; go on later if some are left."""
         deadline = time.monotonic() + CONTEXT_TIME_SLICE
         while self._pending_contexts and time.monotonic() < deadline and self._context is not None:
-            label, result = next(iter(self._pending_contexts.items()))
+            label, (result, item) = next(iter(self._pending_contexts.items()))
             del self._pending_contexts[label]
             if result not in self._contexts:
                 self._contexts[result] = self._context(result)
             label.set_markup(result_markup(self._contexts[result]))
+            page = label.get_prev_sibling()
+            assert isinstance(page, Gtk.Label)
+            name_row(item, page.get_text(), label.get_text())
         if self._pending_contexts and self._context is not None:
             return GLib.SOURCE_CONTINUE
         self._filling = False

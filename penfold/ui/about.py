@@ -47,7 +47,7 @@ def present_about_dialog(parent: Gtk.Window | None) -> None:
         application_name="Penfold",
         version=config.VERSION,
         comments=_("Read, annotate and organize your PDFs"),
-        developer_name=_("ibanurq, with AI assistance"),
+        developer_name="ibanurq",
         website=WEBSITE,
         issue_url=ISSUE_URL,
         copyright=COPYRIGHT,

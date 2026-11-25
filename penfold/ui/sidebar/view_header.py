@@ -1,7 +1,7 @@
 """Pieces shared by the views of the side panel.
 
-Their header (02-interfaz, 6), noticing recent use (D40), clearing their selection (D47), counting it (D74) and the
-room after the last row that keeps the counter off it.
+Their header (02-interfaz, 6), noticing recent use (D40), clearing their selection (D47), counting it (D74), the
+room after the last row that keeps the counter off it, and the names screen readers say for the rows.
 """
 
 import time
@@ -30,6 +30,15 @@ def header_button(label: str, icon_name: str, action_name: str) -> Gtk.Button:
     content.append(Gtk.Image(icon_name=icon_name))
     content.append(Gtk.Label(label=label, use_underline=True))
     return Gtk.Button(child=content, action_name=action_name, valign=Gtk.Align.CENTER)
+
+
+def name_row(item: Gtk.ListItem, *parts: str) -> None:
+    """Give a row the name screen readers say: its parts that are not empty, separated by commas.
+
+    GTK does not make one from the row's labels, as it does for buttons, and some rows show part of what they say
+    only as an icon.
+    """
+    item.set_accessible_label(", ".join(part for part in parts if part))
 
 
 def selection_counter() -> Gtk.Label:

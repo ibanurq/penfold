@@ -1,7 +1,9 @@
-"""The icon of each annotation type, the same in the annotation bar and in the Annotations view (D75).
+"""The icon and the name of each annotation type, the same in the annotation bar and in the Annotations view (D75).
 
 They come from Adwaita or, when it has none, from GNOME's icon collection (data/icons, prefixed "penfold-").
 """
+
+from gettext import gettext as _
 
 from penfold.document.annotations import Kind
 
@@ -17,3 +19,18 @@ KIND_ICONS = {
     Kind.ARROW: "penfold-type-arrow-symbolic",
     Kind.OTHER: "penfold-type-other-symbolic",
 }
+
+
+def kind_names() -> dict[Kind, str]:
+    """The name of each annotation type, for tooltips and screen readers (translated when called)."""
+    return {
+        Kind.HIGHLIGHT: _("Highlight"),
+        Kind.UNDERLINE: _("Underline"),
+        Kind.STRIKE_OUT: _("Strike Through"),
+        Kind.COMMENT: _("Comment"),
+        Kind.TEXT_BOX: _("Text Box"),
+        Kind.RECTANGLE: _("Rectangle"),
+        Kind.CIRCLE: _("Circle"),
+        Kind.ARROW: _("Arrow"),
+        Kind.OTHER: _("Other Annotation"),
+    }

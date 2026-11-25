@@ -10,7 +10,7 @@ from gettext import gettext as _
 from gi.repository import GLib, Gtk
 
 from penfold.document.annotations import Kind
-from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON
+from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON, kind_names
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_swatch, show_color
 
 TOOL_ACTION = "win.annotation-tool"
@@ -67,17 +67,8 @@ def tool_icon(tool: Tool) -> str:
 
 def tool_names() -> dict[Tool, str]:
     """The name of each tool, for its tooltip (translated when called)."""
-    return {
-        Tool.SELECT: _("Select Text"),
-        Tool.HIGHLIGHT: _("Highlight"),
-        Tool.UNDERLINE: _("Underline"),
-        Tool.STRIKE_OUT: _("Strike Through"),
-        Tool.RECTANGLE: _("Rectangle"),
-        Tool.CIRCLE: _("Circle"),
-        Tool.ARROW: _("Arrow"),
-        Tool.COMMENT: _("Comment"),
-        Tool.TEXT_BOX: _("Text Box"),
-    }
+    kinds = kind_names()
+    return {tool: kinds[tool.kind] if tool.kind else _("Select Text") for tool in Tool}
 
 
 class AnnotationToolbar(Gtk.Box):
@@ -121,6 +112,8 @@ class AnnotationToolbar(Gtk.Box):
             always_show_arrow=True,
         )
         self.color_button.add_css_class("flat")
+        # Without a name of its own, screen readers would read the names of the colours in its open palette.
+        self.color_button.update_property([Gtk.AccessibleProperty.LABEL], [_("Color")])
         self.append(self.color_button)
 
     def show_color(self, value: str) -> None:
