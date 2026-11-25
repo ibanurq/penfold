@@ -80,7 +80,8 @@ def test_choosing_a_colour_closes_the_palette(window: "PenfoldWindow", tmp_path:
     assert open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
     window.activate_action("win.annotate", None)
     bar = window.annotation_toolbar
-    assert bar.has_css_class("osd")  # The zoom buttons' look, to stand out on a white page (D71).
+    # Grey, with its own style, not the zoom buttons' dark one (D82).
+    assert (bar.has_css_class("annotation-bar"), bar.has_css_class("osd")) == (True, False)
     bar.color_button.popup()
     process_pending_events()
     popover = bar.color_button.get_popover()

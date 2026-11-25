@@ -144,10 +144,15 @@ textview.form-field > text {
   background: none;
 }
 
-/* The floating annotation bar (02-interfaz, 5; D32, D71): the look of the zoom buttons (osd), rounded. */
+/* The floating annotation bar (02-interfaz, 5; D32, D82): the grey of the side panel, light or dark, with a thin edge
+   and a soft shadow to stand out on a white page. */
 .annotation-bar {
   padding: 6px;
   border-radius: 14px;
+  background-color: var(--sidebar-bg-color);
+  color: var(--sidebar-fg-color);
+  /* libadwaita's shade, light or dark (7% or 25% black), for the edge; a little darker (18% or 34%) for the shadow. */
+  box-shadow: 0 0 0 1px var(--shade-color), 0 2px 6px color-mix(in srgb, var(--shade-color), black 12%);
 }
 
 .annotation-bar separator {

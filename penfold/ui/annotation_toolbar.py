@@ -74,7 +74,7 @@ def tool_names() -> dict[Tool, str]:
 class AnnotationToolbar(Gtk.Box):
     """A card with the tool buttons, separated by group, and the colour button that opens the palette above.
 
-    It has the zoom buttons' look (osd), so that it stands out on a white page (D71).
+    It is grey, with a thin edge and a soft shadow, so that it stands out on a white page (D82; style.css).
     """
 
     __gtype_name__ = "PenfoldAnnotationToolbar"
@@ -83,7 +83,6 @@ class AnnotationToolbar(Gtk.Box):
         """Create the bar, hidden until the pencil shows it."""
         super().__init__(spacing=4, halign=Gtk.Align.START, valign=Gtk.Align.END, visible=False)
         self.set_margin_bottom(BAR_MARGIN)
-        self.add_css_class("osd")
         self.add_css_class("annotation-bar")
         names = tool_names()
         self.tool_buttons: dict[Tool, Gtk.ToggleButton] = {}
