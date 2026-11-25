@@ -57,8 +57,8 @@ files on my personal computer over quite a few years.
 - Whether to respect the document's permissions is up to the user (ISO 32000).
 - The thumbnail view fits as many thumbnails as the panel's width allows, and you can zoom them in or out.
 - Read with continuous scrolling or two pages side by side.
-- Elements are edited with the right mouse button: move, change their shape, format, and more. Editing annotations made
-  in other programs may be limited.
+- The various elements (thumbnails, bookmarks and annotations) are edited with the right mouse button. Editing
+  annotations made in other programs may be limited.
 - Forms can be saved to keep editing them later, or flattened to send them to others.
 - When printing, you can choose which kinds of annotations are printed.
 - Penfold never runs the code (JavaScript) that a PDF may contain.
