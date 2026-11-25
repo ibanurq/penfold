@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="penfold">
   <schema id="io.github.ibanurq.Penfold" path="/io/github/ibanurq/Penfold/">
-    <!-- A window without a document is always small; these keys hold the size it had with a document (D17). -->
+    <!-- A window without a document is always small; these keys hold the size it had with a document. -->
     <key name="window-width" type="i">
       <default>1280</default>
       <summary>Window width with a document</summary>
@@ -20,9 +20,9 @@
     </key>
     <key name="thumbnail-size" type="i">
       <default>160</default>
-      <summary>Width of the thumbnails in the Pages view, in pixels (D39)</summary>
+      <summary>Width of the thumbnails in the Pages view, in pixels</summary>
     </key>
-    <!-- The style chosen in the main menu (D62). -->
+    <!-- The style chosen in the main menu. -->
     <key name="style" type="s">
       <choices>
         <choice value="system"/>
@@ -32,7 +32,7 @@
       <default>'system'</default>
       <summary>Style of the interface: follow the system, light or dark</summary>
     </key>
-    <!-- Preferences (D60, D61). -->
+    <!-- Preferences. -->
     <key name="author-name" type="s">
       <default>''</default>
       <summary>Author of new annotations</summary>

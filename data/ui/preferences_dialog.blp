@@ -3,7 +3,7 @@ using Adw 1;
 
 translation-domain "penfold";
 
-// Preferences (02-interfaz, 3.3; D61): one page, and every change applies and is kept at once.
+// Preferences: one page, and every change applies and is kept at once.
 template $PenfoldPreferencesDialog: Adw.PreferencesDialog {
   // Narrower than the default, so that two options do not look wide; the height follows the content.
   content-width: 460;
@@ -12,8 +12,8 @@ template $PenfoldPreferencesDialog: Adw.PreferencesDialog {
     Adw.PreferencesGroup {
       title: _("Annotations");
 
-      // An entry row of its own, because Adw.EntryRow cannot show a hint when empty (07-fase-12, 8): the title is always
-      // small on top, and the entry, without a frame, takes the width of the row under it (D84).
+      // An entry row of its own, because Adw.EntryRow cannot show a hint when empty: the title is always small on top,
+      // and the entry, without a frame, takes the width of the row under it.
       Adw.PreferencesRow author_row {
         styles [
           "author-row",

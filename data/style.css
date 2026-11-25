@@ -7,8 +7,8 @@
   opacity: 1;
 }
 
-/* The bookmark of the section being read, and the annotations of the page being read (D40): a line at their left,
-   not a background, unlike the selection (D77). */
+/* The bookmark of the section being read, and the annotations of the page being read: a line at their left,
+   not a background, unlike the selection. */
 .reading-section {
   box-shadow: inset 3px 0 var(--accent-bg-color);
 }
@@ -23,13 +23,13 @@
   background-color: color-mix(in srgb, var(--window-fg-color) 8%, var(--window-bg-color));
 }
 
-/* Where dragged thumbnails would go: a line in the accent colour in the gap between two thumbnails (E1). */
+/* Where dragged thumbnails would go: a line in the accent colour in the gap between two thumbnails. */
 .drop-line {
   background-color: var(--accent-bg-color);
   border-radius: 2px;
 }
 
-/* Where a dragged file goes in the list of Merge PDFs: a line in the accent colour above or below a row (F1). */
+/* Where a dragged file goes in the list of Merge PDFs: a line in the accent colour above or below a row. */
 .drop-above {
   box-shadow: inset 0 2px var(--accent-bg-color);
 }
@@ -38,7 +38,7 @@
   box-shadow: inset 0 -2px var(--accent-bg-color);
 }
 
-/* The colour circles of the Format panel of the bookmarks (D33): a ring around the colour the selection has. */
+/* The colour circles of the Format panel of the bookmarks: a ring around the colour the selection has. */
 .color-circle {
   min-width: 32px;
   min-height: 32px;
@@ -52,7 +52,7 @@
 }
 
 
-/* The style circles of the main menu (D62): half light and half dark for the system's, and a ring around the chosen. */
+/* The style circles of the main menu: half light and half dark for the system's, and a ring around the chosen. */
 .style-selector {
   margin: 6px 0;
 }
@@ -81,13 +81,13 @@
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%), 0 0 0 2px var(--popover-bg-color), 0 0 0 4px var(--accent-bg-color);
 }
 
-/* Where dragged bookmarks go inside another (G6): the row in the accent colour (above and below: drop-above/below). */
+/* Where dragged bookmarks go inside another: the row in the accent colour (above and below: drop-above/below). */
 .drop-inside {
   background-color: color-mix(in srgb, var(--accent-bg-color) 25%, transparent);
   border-radius: 6px;
 }
 
-/* Form fields on the pages (I1): a faint blue over the field, as in 0.6; black text, since pages are white. */
+/* Form fields on the pages: a faint blue over the field; black text, since pages are white. */
 .form-field {
   min-width: 0;
   min-height: 0;
@@ -144,7 +144,7 @@ textview.form-field > text {
   background: none;
 }
 
-/* The floating annotation bar (02-interfaz, 5; D32, D82): the grey of the side panel, light or dark, with a thin edge
+/* The floating annotation bar: the grey of the side panel, light or dark, with a thin edge
    and a soft shadow to stand out on a white page. */
 .annotation-bar {
   padding: 6px;
@@ -167,7 +167,7 @@ textview.form-field > text {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
 }
 
-/* How many pages or bookmarks are selected (D74): floating at the bottom of the list, with the look of a toast. */
+/* How many pages or bookmarks are selected: floating at the bottom of the list, with the look of a toast. */
 .selection-counter {
   margin: 12px;
   padding: 9px 18px;
@@ -175,12 +175,12 @@ textview.form-field > text {
   border-radius: 150px;
 }
 
-/* While the annotation bar is shown, the toasts rise above it (D32). */
+/* While the annotation bar is shown, the toasts rise above it. */
 .annotation-bar-shown > toast {
   margin-bottom: 78px;
 }
 
-/* The box where the text of a comment is written (H5). */
+/* The box where the text of a comment is written. */
 .comment-text {
   padding: 8px;
   background: none;
@@ -207,8 +207,7 @@ textview.form-field > text {
   box-shadow: inset 3px 0 var(--accent-bg-color);
 }
 
-/* The colours at the top of a context menu (D72, D74), and the separators between its groups, like those between
-   sections. */
+/* The colours at the top of a context menu, and the separators between its groups, like those between sections. */
 .context-menu-colors {
   margin: 6px 6px 3px;
 }
@@ -217,7 +216,7 @@ textview.form-field > text {
   margin: 6px 0;
 }
 
-/* The Author row in Preferences (D84): the title small on top, the entry flat under it, and the row marked while the
+/* The Author row in Preferences: the title small on top, the entry flat under it, and the row marked while the
    entry has the focus, like an entry row of libadwaita (the row itself takes the focus when the dialogue opens). */
 row.author-row {
   padding: 6px 12px 4px;
@@ -240,7 +239,7 @@ row.author-row:focus-within:not(:focus) {
   padding: 0;
 }
 
-/* The hint of the empty author entry: the name annotations will get (07-fase-12, 8). */
+/* The hint of the empty author entry: the name annotations will get. */
 .author-entry > text > placeholder {
   font-style: italic;
 }

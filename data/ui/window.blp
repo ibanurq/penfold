@@ -9,7 +9,7 @@ template $PenfoldWindow: Adw.ApplicationWindow {
 
   content: Stack stack {
     transition-type: crossfade;
-    // Only the page shown counts for the size of the window: the welcome page is small (D17).
+    // Only the page shown counts for the size of the window: the welcome page is small.
     hhomogeneous: false;
     vhomogeneous: false;
 
@@ -34,7 +34,7 @@ template $PenfoldWindow: Adw.ApplicationWindow {
     StackPage {
       name: "document";
 
-      // Brief messages, such as "Page deleted · Undo", at the bottom of the window (D18, D19).
+      // Brief messages, such as "Page deleted · Undo", at the bottom of the window.
       child: Adw.ToastOverlay toast_overlay {
         child: Adw.OverlaySplitView split_view {
           sidebar-width-fraction: 1;
@@ -63,7 +63,7 @@ template $PenfoldWindow: Adw.ApplicationWindow {
     }
   };
 
-  // In narrow windows the side panel goes over the document, as in Papers (02-interfaz, 2).
+  // In narrow windows the side panel goes over the document.
   Adw.Breakpoint {
     condition ("max-width: 720sp")
 

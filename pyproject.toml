@@ -57,7 +57,7 @@ warn_unreachable = true
 strict_equality = true
 extra_checks = true
 
-# The document layer has no GTK and carries the risk of losing data: strict mode (03-arquitectura, 1.1).
+# The document layer has no GTK and carries the risk of losing data: strict mode.
 [[tool.mypy.overrides]]
 module = "penfold.document.*"
 disallow_any_generics = true

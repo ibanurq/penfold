@@ -3,8 +3,7 @@ using Adw 1;
 
 translation-domain "penfold";
 
-// "Extract Pages" (02-interfaz, 6.1 and 8; E7 and E8; D51): which pages, as one file or one per page, and whether to
-// delete them afterwards.
+// "Extract Pages": which pages, as one file or one per page, and whether to delete them afterwards.
 template $PenfoldExtractPagesDialog: Adw.Dialog {
   title: _("Extract Pages");
   content-width: 440;
@@ -60,7 +59,7 @@ template $PenfoldExtractPagesDialog: Adw.Dialog {
           ]
         }
 
-        // Only for a PDF with page labels (D53).
+        // Only for a PDF with page labels.
         Label positions_note {
           label: _("The numbers are the position of each page, not its label.");
           visible: false;

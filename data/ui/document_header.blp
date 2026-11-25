@@ -3,7 +3,7 @@ using Adw 1;
 
 translation-domain "penfold";
 
-// Header of the document (02-interfaz, 3.2). Buttons whose action does not exist yet are greyed out (D21).
+// Header of the document. Buttons whose action is disabled are greyed out.
 template $PenfoldDocumentHeader: Adw.Bin {
   child: Adw.HeaderBar {
     [start]
@@ -34,7 +34,7 @@ template $PenfoldDocumentHeader: Adw.Bin {
       tooltip-text: _("Redo");
     }
 
-    // In a PDF that denies something, a red closed lock in front of the title, saying what is not allowed (D58, D59).
+    // In a PDF that denies something, a red closed lock in front of the title, saying what is not allowed.
     title-widget: Box {
       spacing: 8;
       halign: center;
@@ -51,7 +51,7 @@ template $PenfoldDocumentHeader: Adw.Bin {
       Adw.WindowTitle title_widget {}
     };
 
-    // Packed from the right: the main menu ☰ (while there is no side panel, D36), the document menu ⋮, the page box.
+    // Packed from the right: the main menu ☰ (while there is no side panel), the document menu ⋮, the page box.
     [end]
     MenuButton main_menu_button {
       icon-name: "open-menu-symbolic";
@@ -76,7 +76,7 @@ menu document_menu {
     item {
       label: _("_Print…");
       action: "win.print";
-      // The keys belong to win.print-shortcut, which also answers in protected PDFs (K3).
+      // The keys belong to win.print-shortcut, which also answers in protected PDFs.
       accel: "<Control>p";
     }
   }

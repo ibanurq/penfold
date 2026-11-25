@@ -1,5 +1,5 @@
-# Checks on every push and pull request (03-arquitectura, 1.2 and 9): code quality and tests on Debian 13, the
-# minimum platform, and the Flatpak build on the current GNOME runtime.
+# Checks on every push and pull request: code quality and tests on Debian 13, the minimum platform, and the Flatpak
+# build on the current GNOME runtime.
 name: CI
 
 on:
