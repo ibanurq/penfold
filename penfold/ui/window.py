@@ -991,6 +991,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ContextReader(renderer.poppler).context,
         )
         self.sidebar.close_search()
+        # As in 0.6, a PDF with bookmarks opens with them in sight; any other, with its pages.
+        self.sidebar.show_view(sidebar_views.BOOKMARKS if document.bookmarks else sidebar_views.PAGES)
         self._set_document_actions_enabled(True)
         # "Show Annotation Bar at Start" (07-fase-12, 10): each document opens with the bar, if it may be annotated.
         if self._settings.get_boolean(SHOW_ANNOTATION_BAR_KEY):

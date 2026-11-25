@@ -127,6 +127,23 @@ def test_bookmarks_show_the_tree_and_go_to_their_destination(window: "PenfoldWin
     assert window.document_view.current_page == 4
 
 
+def test_a_pdf_opens_with_its_bookmarks_in_sight_and_one_without_them_with_its_pages(
+    window: "PenfoldWindow", tmp_path: Path
+) -> None:
+    from penfold.ui.sidebar import sidebar
+
+    with_outline = make_pdf(tmp_path / "outline.pdf", page_count=5)
+    add_outline(with_outline)
+    open_and_wait(window, with_outline)
+    assert window.sidebar.visible_view == sidebar.BOOKMARKS
+    assert window.sidebar.bookmarks_button.get_active()
+    window.sidebar.show_view(sidebar.ANNOTATIONS)
+    open_and_wait(window, with_outline)
+    assert window.sidebar.visible_view == sidebar.BOOKMARKS  # always, whatever view was shown before
+    open_and_wait(window, make_pdf(tmp_path / "plain.pdf"))
+    assert window.sidebar.visible_view == sidebar.PAGES
+
+
 def _rooms(view: "PagesView | BookmarksView") -> dict[int, int]:
     """The room below each row shown, by position."""
     room = view._end_room
@@ -485,6 +502,7 @@ def test_a_click_clears_the_selection_only_away_from_the_rows(window: "PenfoldWi
     path = make_pdf(tmp_path / "outline.pdf", page_count=5)
     add_outline(path)
     open_and_wait(window, path)
+    window.sidebar.show_view("pages")
     pages = window.pages_view
     wait_until(lambda: 0 in pages._cells)
     wait_until_stable(lambda: sorted(pages._cells))
@@ -516,6 +534,7 @@ def test_escape_clears_the_selection_of_the_panel_view(window: "PenfoldWindow", 
     path = make_pdf(tmp_path / "outline.pdf", page_count=5)
     add_outline(path)
     open_and_wait(window, path)
+    window.sidebar.show_view("pages")
     pages, bookmarks = window.pages_view, window.bookmarks_view
     pages.selection.select_range(1, 2, True)
     window.activate_action("win.find", None)
