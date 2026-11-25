@@ -53,7 +53,8 @@ class SearchResult:
 class MatchContext:
     """The sentence around a match: the words before it, the match as written in the PDF and the words after it.
 
-    The flags say whether the line goes on beyond the words shown (so the row shows "…").
+    The flags say whether the line goes on beyond the words shown (so the row shows "…") and whether a space
+    separates the match from the words before and after it (none when it is part of a word, or before a full stop).
     """
 
     before: str
@@ -61,6 +62,8 @@ class MatchContext:
     after: str
     more_before: bool = False
     more_after: bool = False
+    space_before: bool = True
+    space_after: bool = True
 
 
 def normalize_query(query: str) -> str:
@@ -107,7 +110,10 @@ class ContextReader:
         line_end = len(text) if line_end < 0 else line_end
         before, more_before = _last_words(" ".join(text[line_start:first].split()))
         after, more_after = _first_words(" ".join(text[last + 1 : line_end].split()))
-        return MatchContext(before, " ".join(text[first : last + 1].split()), after, more_before, more_after)
+        match = " ".join(text[first : last + 1].split())
+        space_before = first > line_start and text[first - 1].isspace()
+        space_after = last + 1 < line_end and text[last + 1].isspace()
+        return MatchContext(before, match, after, more_before, more_after, space_before, space_after)
 
     def _page_text(self, page: int) -> tuple[str, list[Rectangle]]:
         if page not in self._pages:

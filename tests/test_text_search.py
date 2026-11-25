@@ -75,7 +75,22 @@ def test_the_sentence_around_a_match(sources: PopplerSources) -> None:
     assert context.after.split()[-1] in LINES[2].split()
     # A match at the end of a line takes nothing from the next one.
     end_of_line = reader.context(find_in_page(sources.page(0), 0, PAGE, "dos años")[0])
-    assert end_of_line == MatchContext("El plazo de Garantía será de", "dos años", "", False, False)
+    assert end_of_line == MatchContext("El plazo de Garantía será de", "dos años", "", False, False, True, False)
+
+
+def test_a_match_inside_a_word_keeps_the_word_whole(sources: PopplerSources) -> None:
+    from penfold.ui.sidebar.search_view import result_markup
+
+    reader = ContextReader(sources)
+    inside = reader.context(find_in_page(sources.page(0), 0, PAGE, "aranti")[0])
+    assert (inside.before, inside.match, inside.after) == ("El plazo de G", "arantí", "a será de dos años")
+    assert (inside.space_before, inside.space_after) == (False, False)
+    assert result_markup(inside).startswith("El plazo de G<span")
+    assert result_markup(inside).endswith("</span>a será de dos años")
+    # Before a full stop there is no space either; between words, one.
+    before_stop = reader.context(find_in_page(sources.page(0), 0, PAGE, "entrega")[0])
+    assert (before_stop.space_before, before_stop.space_after, before_stop.after[0]) == (True, False, ".")
+    assert result_markup(before_stop).startswith("desde la <span")
 
 
 def test_searches_a_pdf_in_the_background_from_a_page_on(tmp_path: Path) -> None:
