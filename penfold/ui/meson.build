@@ -4,6 +4,7 @@ install_data(
   'annotating.py',
   'annotation_editing.py',
   'annotation_icons.py',
+  'annotation_layer.py',
   'annotation_toolbar.py',
   'autoscroll.py',
   'bookmark_editing.py',

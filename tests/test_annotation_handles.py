@@ -157,7 +157,7 @@ def test_one_of_another_program_moves_keeping_its_own_drawing(window: "PenfoldWi
     assert moved.rectangle == pytest.approx((left + 10, top + 20, right + 10, bottom + 20))
     assert window.document is not None
     assert original in window.document.replaced_annotations  # Poppler leaves it out: Penfold paints it moved.
-    assert window.document_view._managed[0].count(moved) == 1
+    assert window.document_view.annotation_layer.painted[0].count(moved) == 1
     window.activate_action("win.undo", None)
     assert the_square(window) is original
 

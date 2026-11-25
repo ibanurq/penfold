@@ -980,7 +980,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
         self._show_sidebar_when_it_fits()
         self.document_view.set_document(document, renderer, self._remembered_position(document))
-        self.pages_view.set_document(document, renderer)
+        self.pages_view.set_document(document, renderer, self.document_view.annotation_layer.kept_looks)
         self.bookmarks_view.set_document(document, renderer)
         assert self.document_view.content is not None
         self.annotations_view.set_document(document, self.document_view.content, renderer)
@@ -1017,6 +1017,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.renderer.hide_annotations(self.document.replaced_annotations)
             self.annotations_view.annotations_changed()
             self.document_view.annotations_changed()
+            self.pages_view.annotations_changed()
         if Change.BOOKMARKS in changes:
             self.bookmarks_view.bookmarks_changed()
             self.bookmark_editing.update_actions()

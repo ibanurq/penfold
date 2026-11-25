@@ -17,13 +17,13 @@ from gi.repository import Adw, Gdk, GLib, GObject, Graphene, Gsk, Gtk, Poppler
 from penfold.document.annotations import Annotation, Hit, Kind, Style, hit, topmost
 from penfold.document.document import OpenDocument
 from penfold.document.geometry import Rectangle, merge_lines
-from penfold.rendering.annotation_painter import highlight_areas, highlight_tint, paint_annotations
-from penfold.rendering.kept_look import KeptLooks, paint_look
+from penfold.rendering.kept_look import KeptLooks
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
 from penfold.rendering.renderer import Renderer, TileKey, grid, round_scale
 from penfold.rendering.text_box import Color
 from penfold.rendering.text_search import SearchResult
+from penfold.ui.annotation_layer import AnnotationLayer
 from penfold.ui.form_layer import FormLayer, ShownBox
 from penfold.ui.handle_editor import HandleEditor
 from penfold.ui.text_box_editor import TextBoxEditor
@@ -191,10 +191,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._vadjustment: Gtk.Adjustment | None = None
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
-        # The annotations Penfold paints, by the source index of their page: those it manages, and those of the PDFs
-        # moved as they are, with the drawings their programs made (D73).
-        self._managed: dict[int, list[Annotation]] = {}
-        self._kept_looks: KeptLooks | None = None
+        # The annotations Penfold paints over the pages (the thumbnails share the drawings of those moved as they are).
+        self.annotation_layer = AnnotationLayer()
         self._rendered_handler = 0
         self.zoom = 1.0
         self.fit = Fit.WIDTH
@@ -292,7 +290,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.renderer = renderer
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
         self.content = PageContent(renderer.poppler)
-        self._kept_looks = KeptLooks(lambda: renderer.sources)
+        self.annotation_layer.kept_looks = KeptLooks(lambda: renderer.sources)
         self._form_layer.set_document(document, renderer.layout)
         self.annotations_changed()
         self.selection = None
@@ -342,11 +340,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     def annotations_changed(self) -> None:
         """Paint the annotations Penfold manages again, after one was made or the change undone."""
-        self._managed = {}
-        if self.document is not None:
-            for annotation in self.document.annotations:
-                if (annotation.managed or annotation.moved_as_is) and annotation is not self._hidden:
-                    self._managed.setdefault(annotation.page, []).append(annotation)
+        self.annotation_layer.update([] if self.document is None else self.document.annotations, self._hidden)
         editor = self.handle_editor
         annotations = [] if self.document is None else self.document.annotations
         if editor is not None and not any(item is editor.original for item in annotations):
@@ -893,39 +887,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _draw_annotations(
         self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox, draw_tiles: Callable[[Gtk.Snapshot], None]
     ) -> None:
-        """Paint the annotations Penfold manages of a page over it, as they will be saved.
-
-        A highlight multiplies the page under it by its colour: GTK paints a node apart from what is under it, so the
-        page is drawn again in each area, tinted.
-        """
+        """Paint the annotations Penfold paints of a page over it, and the one being made."""
         assert self.renderer is not None
         page = self.renderer.layout[box.page]
-        annotations = self._managed.get(page.source, [])
-        if self._preview is not None and self._preview.page == page.source:
-            annotations = [*annotations, self._preview]
-        no_offset = Graphene.Vec4().init(0, 0, 0, 0)
-        for annotation in annotations:
-            if annotation.kind is not Kind.HIGHLIGHT or not annotation.managed:
-                continue
-            tint = Graphene.Matrix().init_scale(*highlight_tint(annotation))
-            for left, top, right, bottom in highlight_areas(page, annotation):
-                zoom = self.zoom
-                snapshot.push_clip(
-                    Graphene.Rect().init(x + left * zoom, y + top * zoom, (right - left) * zoom, (bottom - top) * zoom)
-                )
-                snapshot.push_color_matrix(tint, no_offset)
-                draw_tiles(snapshot)
-                snapshot.pop()
-                snapshot.pop()
-        if any(annotation.kind is not Kind.HIGHLIGHT or not annotation.managed for annotation in annotations):
-            context = snapshot.append_cairo(Graphene.Rect().init(x, y, box.width, box.height))
-            context.translate(x, y)
-            context.scale(self.zoom, self.zoom)
-            for annotation in annotations:
-                look = None if annotation.managed or self._kept_looks is None else self._kept_looks.look(annotation)
-                if look is not None:
-                    paint_look(context, page, annotation, look)
-            paint_annotations(context, page, [item for item in annotations if item.managed], highlights=False)
+        self.annotation_layer.snapshot(snapshot, page, (x, y, self.zoom), draw_tiles, also=self._preview)
 
     def _draw_mark(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Outline the marked annotation, if it is on this page, in the accent colour."""

@@ -21,8 +21,10 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk
 
 from penfold import config
 from penfold.document.document import OpenDocument
+from penfold.rendering.kept_look import KeptLooks
 from penfold.rendering.page_content import Rectangle
 from penfold.rendering.renderer import Renderer, TileKey, round_scale
+from penfold.ui.annotation_layer import AnnotationLayer
 from penfold.ui.autoscroll import DragAutoscroll
 from penfold.ui.context_menu import SEPARATOR, custom_item, is_menu_key, menu_gestures, separator, show_context_menu
 from penfold.ui.document_view import append_page_frame
@@ -181,15 +183,23 @@ class Thumbnail(Gtk.Widget):
         return height, height, -1, -1
 
     def do_snapshot(self, snapshot: Gtk.Snapshot) -> None:
-        """Draw the page edge, white paper, the drawn page and the box of the part shown."""
+        """Draw the page edge, white paper, the drawn page with the annotations Penfold paints, and the part shown."""
         renderer = self._view.renderer
         if renderer is None or not 0 <= self.page < len(renderer.page_sizes):
             return
+        page_width, _page_height = renderer.page_sizes[self.page]
         x, y, width, height = fit_page(renderer.page_sizes[self.page], self.get_width(), self.get_height())
         append_page_frame(snapshot, x, y, width, height)
         texture = self._view.texture(self.page)
         if texture is not None:
-            snapshot.append_texture(texture, Graphene.Rect().init(x, y, width, height))
+            bounds = Graphene.Rect().init(x, y, width, height)
+
+            def draw_page(snapshot: Gtk.Snapshot) -> None:
+                snapshot.append_texture(texture, bounds)
+
+            draw_page(snapshot)
+            placement = (x, y, width / page_width)
+            self._view.annotation_layer.snapshot(snapshot, renderer.layout[self.page], placement, draw_page)
         area = self._view.visible_areas.get(self.page)
         if area is not None:
             self._draw_visible_area(snapshot, area, (x, y, width, height))
@@ -269,6 +279,8 @@ class PagesView(Gtk.Box):
         )
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
+        # The annotations painted over the thumbnails, as over the pages of the document (07-fase-12, 12).
+        self.annotation_layer = AnnotationLayer()
         self._rendered_handler = 0
         self._settings = Gio.Settings(schema_id=config.APP_ID)
         # The size the user chose, and the one shown (smaller if the panel is too narrow for it).
@@ -319,11 +331,13 @@ class PagesView(Gtk.Box):
 
     # Document.
 
-    def set_document(self, document: OpenDocument, renderer: Renderer) -> None:
-        """Show the thumbnails of a PDF."""
+    def set_document(self, document: OpenDocument, renderer: Renderer, kept_looks: KeptLooks | None) -> None:
+        """Show the thumbnails of a PDF, with the drawings of its annotations moved as they are (kept_looks)."""
         if self.renderer is not None:
             self.renderer.disconnect(self._rendered_handler)
         self.document, self.renderer = document, renderer
+        self.annotation_layer.kept_looks = kept_looks
+        self.annotation_layer.update(document.annotations)
         self._rendered_handler = renderer.connect("tile-rendered", self._on_tile_rendered)
         self._cells.clear()
         self.visible_areas = {}
@@ -359,6 +373,15 @@ class PagesView(Gtk.Box):
         self._select_sources(selected_sources)
         self.current_page = min(self.current_page, new_count - 1)
         self._request_thumbnails()
+
+    def annotations_changed(self) -> None:
+        """Draw again the thumbnails of the pages whose annotations changed (made, changed, deleted, undone…)."""
+        if self.document is None or self.renderer is None:
+            return
+        changed = self.annotation_layer.update(self.document.annotations)
+        for position, cell in self._cells.items():
+            if self.renderer.layout[position].source in changed:
+                cell.thumbnail.queue_draw()
 
     def _select_sources(self, sources: set[int]) -> None:
         """Select the thumbnails of these pages (by source index), wherever they are now."""
@@ -548,6 +571,10 @@ class PagesView(Gtk.Box):
         cell = self._cells.get(position) if position is not None else None
         if cell is not None:
             cell.thumbnail.queue_draw()
+            # Its drawing goes stale when Poppler is to leave out other annotations of the page: draw it again.
+            key = self._key(cell.thumbnail.page)
+            if key is not None and renderer.texture(key) is None:
+                self._request_thumbnails()
 
     def _on_tick(self, _widget: Gtk.Widget, _clock: Gdk.FrameClock) -> bool:
         width = self.get_width()
