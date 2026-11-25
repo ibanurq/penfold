@@ -10,7 +10,7 @@ I made it because I wanted a single, simple, free-licensed tool that lets me do 
 files on my personal computer over quite a few years.
 
 <p align="center">
-  <img src="docs/images/start_screen.png" width="90%" alt="Penfold's start screen">
+  <img src="docs/images/start_screen.png" width="50%" alt="Penfold's start screen">
 </p>
 
 ## Features
@@ -94,6 +94,17 @@ Translations are welcome: open an [issue](https://github.com/ibanurq/penfold/iss
   following the workflow we use there, and the result was satisfactory: merging several files with text, images and
   drawings, into a final file of 50–60 MB and about 800 pages.
 - Thanks to the whole free software community. Penfold would not have been possible without it.
+
+## Support Penfold
+
+Penfold is free of charge and will stay that way. If you find it useful and would like to support its development, you
+can buy me a coffee:
+
+<p align="center">
+  <a href="https://ko-fi.com/ibanurq"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support Penfold on Ko-fi"></a>
+</p>
+
+You can also help by reporting bugs, suggesting improvements or translating the app into your language.
 
 ## License
 
