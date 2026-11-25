@@ -1,6 +1,6 @@
 """Painting the annotations Penfold manages on the pages shown, with cairo, as they look once saved.
 
-They are painted over the page (03-arquitectura, 4.1).
+They are painted over the page.
 
 The measurements are those of their drawing in the PDF (document/appearance.py). Poppler paints the PDF's own
 annotations with the page; these are painted on top of it.

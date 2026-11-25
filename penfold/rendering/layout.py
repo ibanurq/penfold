@@ -34,7 +34,7 @@ class ShownPage:
         return turn_rectangle(rectangle, self.source_size, self.rotation)
 
     def shown_top(self, top: float | None) -> float | None:
-        """The height to show for a destination at a height of the unturned page (B8).
+        """The height to show for a destination at a height of the unturned page.
 
         Turned a quarter, the height of the page runs across: the destination is the start of the page.
         """

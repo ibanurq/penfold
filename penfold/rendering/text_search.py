@@ -1,9 +1,9 @@
-"""Finding text in a document, in the background (D13; as 0.6's Find).
+"""Finding text in a document, in the background.
 
-Poppler finds the text itself, ignoring case and accents and across line breaks (0.6's rules); runs of spaces in
-what is searched count as one. The search runs in a thread with its own Poppler documents and sends the matches to the
-main thread in batches, so the list fills while it searches. The sentence around a match is read only when its row is
-shown, from the text of its page in Poppler's main-thread copies of the source PDFs.
+Poppler finds the text itself, ignoring case and accents and across line breaks; runs of spaces in what is searched
+count as one. The search runs in a thread with its own Poppler documents and sends the matches to the main thread in
+batches, so the list fills while it searches. The sentence around a match is read only when its row is shown, from the
+text of its page in Poppler's main-thread copies of the source PDFs.
 
 The pages are searched in the order of the document, as laid out when the search starts; a match is placed on its
 page as shown (turned) and keeps where it is on the page of the PDF, to read its sentence.

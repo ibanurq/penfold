@@ -1,17 +1,17 @@
-"""Page rendering with Poppler in worker threads, with a texture cache (03-arquitectura, 4.2).
+"""Page rendering with Poppler in worker threads, with a texture cache.
 
 The interface never waits for Poppler: it says which pieces of which pages it wants, and the renderer draws them in the
 background, nearest first, and announces each one with the "tile-rendered" signal. Each worker thread opens its own
 copy of the source PDFs, because a Poppler document must not be shared between threads.
 
-A page is drawn whole while it is small enough; at high zoom it is drawn in square tiles, so that it stays sharp
-without using too much memory (B10).
+A page is drawn whole while it is small enough; at high zoom it is drawn in square tiles, so that it stays sharp without
+using too much memory.
 
 The interface asks for pages by their position in the document; the layout says which source page that is (its
 source index) and its turn. Drawn tiles are kept by source index and turn, so moving pages does not draw them again.
 
-Poppler leaves out the annotations of the PDFs that Penfold draws instead (changed) or that were deleted
-(03-arquitectura 4.1); when they change, the pages they are on are drawn again.
+Poppler leaves out the annotations of the PDFs that Penfold draws instead (changed) or that were deleted; when they
+change, the pages they are on are drawn again.
 """
 
 import math
@@ -31,7 +31,7 @@ from penfold.document.sources import Spans
 from penfold.rendering.layout import PageLayout
 from penfold.rendering.poppler_sources import PopplerSources
 
-# Every annotation but form fields, which the view shows as widgets to fill in (I1), as 0.6 did.
+# Every annotation but form fields, which the view shows as widgets to fill in.
 SHOWN_ANNOTATIONS = Poppler.RenderAnnotsFlags.ALL ^ Poppler.RenderAnnotsFlags.WIDGET  # type: ignore[attr-defined]
 # A page larger than this, in pixels, is drawn in tiles.
 MAX_WHOLE_PAGE_PIXELS = 16 * 1024 * 1024

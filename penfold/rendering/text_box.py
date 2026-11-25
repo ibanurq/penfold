@@ -1,7 +1,7 @@
-"""The drawing of a text box (H3, D69): a faint background and a border in its colour, and black Liberation Sans.
+"""The drawing of a text box: a faint background and a border in its colour, and black Liberation Sans.
 
-New ones have both and 11-point letters; its Format panel can take away the background or the border and change the
-size of the letters (D72).
+New ones have both and 11-point letters; its Format panel can take away the background or the border and change the size
+of the letters.
 
 The same drawing is shown on the screen and saved in the PDF: Pango lays out the text in both, with the same font and
 the same measures, so the lines break in the same places. Characters Liberation Sans lacks are drawn with other fonts
@@ -22,7 +22,7 @@ from penfold.rendering.layout import ShownPage
 
 FONT_FAMILY = "Liberation Sans"
 FONT_SIZE = TEXT_BOX_FONT_SIZE
-# Measures in points: inner space, border, and how much of the colour the background has (as in 0.6).
+# Measures in points: inner space, border, and how much of the colour the background has.
 PADDING = 6.0
 BORDER = 1.0
 BACKGROUND_STRENGTH = TEXT_BOX_BACKGROUND
@@ -40,7 +40,7 @@ def background(color: Color) -> Color:
 
 
 def text_height(text: str, width: float, font_size: float = FONT_SIZE) -> float:
-    """The height of a text box of this width with this text, in points: it grows with the text (H3)."""
+    """The height of a text box of this width with this text, in points: it grows with the text."""
     layout = _layout(cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1)), text, width, font_size)
     _ink, logical = layout.get_extents()
     return 2 * (PADDING + BORDER) + logical.height / Pango.SCALE
@@ -112,7 +112,7 @@ def with_text(annotation: Annotation, text: str, source_size: Size) -> Annotatio
 
 
 def side_handles(annotation: Annotation, source_size: Size) -> dict[Handle, Point]:
-    """Where the handles of a text box are (D73): in the middle of the sides where its lines start and end."""
+    """Where the handles of a text box are: in the middle of the sides where its lines start and end."""
     (left, top), width = written_frame(annotation, source_size)
     height = written_height(annotation)
     written = ShownPage(annotation.page, source_size, annotation.text_turn)
@@ -121,7 +121,7 @@ def side_handles(annotation: Annotation, source_size: Size) -> dict[Handle, Poin
 
 
 def with_side(annotation: Annotation, side: Handle, point: Point, source_size: Size) -> Annotation:
-    """A text box with a side taken to a point of its page (D73): only its width changes, and its height follows.
+    """A text box with a side taken to a point of its page: only its width changes, and its height follows.
 
     The other side stays where it was; the box is never narrower than NARROWEST nor wider than its page (draw it with
     redrawn).

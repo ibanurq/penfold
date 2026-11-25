@@ -53,7 +53,7 @@ class PenfoldApplication(Adw.Application):
         )
 
     def do_startup(self) -> None:
-        """Show the style chosen in the main menu, and follow its changes (D62)."""
+        """Show the style chosen in the main menu, and follow its changes."""
         Adw.Application.do_startup(self)
         self._settings = Gio.Settings(schema_id=config.APP_ID)
         self.add_action(self._settings.create_action(STYLE_KEY))
@@ -61,7 +61,7 @@ class PenfoldApplication(Adw.Application):
         apply_style(self._settings.get_string(STYLE_KEY))
 
     def do_handle_local_options(self, options: GLib.VariantDict) -> int:
-        """Open an empty window with --new-window (New Window in the dock's menu, A6), even from a second launch."""
+        """Open an empty window with --new-window (New Window in the dock's menu), even from a second launch."""
         if options.contains("new-window"):
             self.register(None)
             self.activate_action("new-window", None)
@@ -69,7 +69,7 @@ class PenfoldApplication(Adw.Application):
         return -1
 
     def do_activate(self) -> None:
-        """Bring the open window to the front, or open the first one (A7), with the last document if wanted.
+        """Bring the open window to the front, or open the first one, with the last document if wanted.
 
         Only Penfold started without files gets here: "Open With" and the terminal with files go to do_open.
         """
@@ -81,9 +81,9 @@ class PenfoldApplication(Adw.Application):
         window.present()
 
     def do_open(self, files: Sequence[Gio.File], _n_files: int, _hint: str) -> None:
-        """Open a PDF from the desktop in an empty window, the active one first, or else in a new window (A4).
+        """Open a PDF from the desktop in an empty window, the active one first, or else in a new window.
 
-        Several at once open Merge PDFs with them in the list, in such a window (D17).
+        Several at once open Merge PDFs with them in the list, in such a window.
         """
         paths = [Path(path) for file in files if (path := file.get_path()) is not None]
         if len(paths) > 1:
@@ -114,7 +114,7 @@ class PenfoldApplication(Adw.Application):
         present_about_dialog(self.get_active_window())
 
     def _on_donate(self) -> None:
-        """Open the donation page in the browser (D81)."""
+        """Open the donation page in the browser."""
         Gtk.UriLauncher(uri=DONATION_URL).launch(self.get_active_window(), None, None)
 
     def _on_preferences(self) -> None:
@@ -124,7 +124,7 @@ class PenfoldApplication(Adw.Application):
         present_shortcuts_dialog(self.get_active_window(), self)
 
     def _on_open(self) -> None:
-        """Choose a PDF and open it in the active window (Ctrl+O, A1), asking first about unsaved changes (J4)."""
+        """Choose a PDF and open it in the active window (Ctrl+O), asking first about unsaved changes."""
         window = self.get_active_window()
 
         def choose(proceed: bool) -> None:
@@ -137,7 +137,7 @@ class PenfoldApplication(Adw.Application):
             choose(True)
 
     def _on_merge(self) -> None:
-        """Open Merge PDFs in the active window, asking first about unsaved changes (F5, J4)."""
+        """Open Merge PDFs in the active window, asking first about unsaved changes."""
         window = self.get_active_window()
         target = window if isinstance(window, PenfoldWindow) else self._empty_window()
         target.merge_files([])
@@ -154,7 +154,7 @@ class PenfoldApplication(Adw.Application):
         target.open_file(Path(path))
 
     def _on_quit(self) -> None:
-        """Close every window in turn (Ctrl+Q), asking in each with unsaved changes; Cancel stops quitting (A8)."""
+        """Close every window in turn (Ctrl+Q), asking in each with unsaved changes; Cancel stops quitting."""
         windows = [window for window in self.get_windows() if isinstance(window, PenfoldWindow)]
 
         def close_next(proceed: bool = True) -> None:

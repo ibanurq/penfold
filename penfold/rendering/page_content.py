@@ -21,7 +21,7 @@ CHARACTER_PRECISION = 8.0
 
 @dataclass(frozen=True)
 class InternalTarget:
-    """A place in the same PDF: a page (its source index) and, if the link gives one, the height to show (B8)."""
+    """A place in the same PDF: a page (its source index) and, if the link gives one, the height to show."""
 
     page: int
     top: float | None = None
@@ -29,7 +29,7 @@ class InternalTarget:
 
 @dataclass(frozen=True)
 class ExternalTarget:
-    """A web address, opened in the system's browser (B7, A12)."""
+    """A web address, opened in the system's browser."""
 
     uri: str
 
@@ -114,7 +114,7 @@ class PageContent:
         return rectangles
 
     def selected_characters(self, page: int, selection: Rectangle, style: Poppler.SelectionStyle) -> list[Rectangle]:
-        """Return the boxes of the characters a selection covers on a page, in points: what a mark covers (H1).
+        """Return the boxes of the characters a selection covers on a page, in points: what a mark covers.
 
         The selected area Poppler gives runs over the spaces between lines; the characters' own boxes fit the text.
         """

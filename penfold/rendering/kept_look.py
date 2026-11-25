@@ -1,4 +1,4 @@
-"""The drawing an annotation of a PDF has, as its program made it, to show it moved without drawing it again (D73).
+"""The drawing an annotation of a PDF has, as its program made it, to show it moved without drawing it again.
 
 Poppler draws the annotation alone: on a copy of its page with nothing else, neither the page's content nor its other
 annotations. The drawing is recorded once, as vectors, and painted at any zoom wherever the annotation is moved.
@@ -59,7 +59,7 @@ def annotation_alone(spans: Spans, annotation: Annotation) -> bytes | None:
 
 
 def record_look(pdf: bytes) -> cairo.RecordingSurface:
-    """Record what Poppler draws of the first page of a PDF, in its points (holding POPPLER_DRAWING: D45)."""
+    """Record what Poppler draws of the first page of a PDF, in its points (holding POPPLER_DRAWING)."""
     page = Poppler.Document.new_from_bytes(GLib.Bytes.new(pdf), None).get_page(0)
     surface = cairo.RecordingSurface(cairo.CONTENT_COLOR_ALPHA, None)  # type: ignore[arg-type]  # None: unbounded
     page.render_full(cairo.Context(surface), False, SHOWN_ANNOTATIONS)  # type: ignore[attr-defined]  # not printing
