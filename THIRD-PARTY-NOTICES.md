@@ -83,7 +83,7 @@ into `node_modules/`, which is not part of the repository.
   - `filter` (Filter, in the Annotations view), as `penfold-filter-symbolic.svg`;
   - for the annotation types, in the annotation bar and the Annotations view, as `penfold-type-*-symbolic.svg`:
     `pencil` (highlights), `draw-rectangle` (rectangles), `draw-circle` (circles), `top-right-arrow` (arrows),
-    `comment` (comments), `rich-text` (text boxes) and `drawing` (other types).
+    `comment` (comments) and `drawing` (other types).
   All by Jakub Steiner.
 - Also (D68): the outline of `comment`, by Jakub Steiner, is the speech bubble drawn on the page for a comment
   annotation, and written into the PDFs saved, in `penfold/document/appearance.py` (`BUBBLE`).
