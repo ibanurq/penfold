@@ -32,7 +32,7 @@ def test_activating_again_reuses_the_window(application: "PenfoldApplication") -
 
 
 def test_menu_actions_are_enabled(application: "PenfoldApplication") -> None:
-    for action in ("about", "shortcuts", "open", "new-window", "quit"):
+    for action in ("about", "donate", "shortcuts", "open", "new-window", "quit"):
         assert application.get_action_enabled(action), action
 
 

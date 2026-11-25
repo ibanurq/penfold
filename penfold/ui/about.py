@@ -8,6 +8,7 @@ from penfold import config
 
 WEBSITE = "https://github.com/ibanurq/penfold"
 ISSUE_URL = f"{WEBSITE}/issues"
+DONATION_URL = "https://ko-fi.com/ibanurq"
 COPYRIGHT = "© 2026 ibanurq"
 
 

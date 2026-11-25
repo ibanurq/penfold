@@ -43,7 +43,8 @@ def test_preferences_open_with_ctrl_comma(application: "PenfoldApplication") -> 
     assert application.get_accels_for_action("app.preferences") == ["<Control>comma"]
 
 
-def test_preferences_come_before_the_keyboard_shortcuts_in_the_main_menu() -> None:
+def main_menu_actions() -> list[str]:
+    """The actions of the main menu ☰, in order."""
     from penfold.ui.menus import main_menu
 
     menu = main_menu()
@@ -55,7 +56,16 @@ def test_preferences_come_before_the_keyboard_shortcuts_in_the_main_menu() -> No
             action = items.get_item_attribute_value(item, "action")
             if action is not None:  # the style circles have none (D62)
                 actions.append(action.get_string())
+    return actions
+
+
+def test_preferences_come_before_the_keyboard_shortcuts_in_the_main_menu() -> None:
+    actions = main_menu_actions()
     assert actions[actions.index("app.preferences") + 1] == "app.shortcuts"
+
+
+def test_donate_comes_just_before_about_which_is_last_in_the_main_menu() -> None:
+    assert main_menu_actions()[-2:] == ["app.donate", "app.about"]  # D81
 
 
 def test_the_keyboard_shortcuts_list_preferences(application: "PenfoldApplication") -> None:

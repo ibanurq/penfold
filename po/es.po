@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 11:02+0100\n"
+"POT-Creation-Date: 2026-11-25 11:09+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -407,7 +407,11 @@ msgstr "_Preferencias"
 msgid "_Keyboard Shortcuts"
 msgstr "A_tajos de teclado"
 
-#: data/ui/main_menu.blp:43
+#: data/ui/main_menu.blp:44
+msgid "_Donate"
+msgstr "_Donar"
+
+#: data/ui/main_menu.blp:49
 msgid "_About Penfold"
 msgstr "Acerca _de Penfold"
 
@@ -477,27 +481,27 @@ msgstr "Acercar"
 msgid "Zoom Out"
 msgstr "Alejar"
 
-#: penfold/application.py:50
+#: penfold/application.py:51
 msgid "Open a new window"
 msgstr "Abrir una ventana nueva"
 
-#: penfold/application.py:127 penfold/ui/shortcuts_dialog.py:57
+#: penfold/application.py:132 penfold/ui/shortcuts_dialog.py:57
 msgid "Open a PDF"
 msgstr "Abrir un PDF"
 
-#: penfold/ui/about.py:28
+#: penfold/ui/about.py:29
 msgid "Adobe’s BSD-style license and GPL-2.0 or later."
 msgstr "Licencia de Adobe de tipo BSD y GPL-2.0 o posterior."
 
-#: penfold/ui/about.py:32
+#: penfold/ui/about.py:33
 msgid "MIT-CMU license (Historical Permission Notice and Disclaimer)."
 msgstr "Licencia MIT-CMU (Historical Permission Notice and Disclaimer)."
 
-#: penfold/ui/about.py:35
+#: penfold/ui/about.py:36
 msgid "SIL Open Font License 1.1."
 msgstr "Licencia SIL Open Font 1.1."
 
-#: penfold/ui/about.py:58
+#: penfold/ui/about.py:59
 msgid "Icons"
 msgstr "Iconos"
 
