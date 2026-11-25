@@ -2,8 +2,9 @@
 
 from typing import TYPE_CHECKING
 
-from gi.repository import Adw
+from gi.repository import Adw, Gtk
 
+from penfold import config
 from tests.gtk_helpers import process_pending_events
 
 if TYPE_CHECKING:
@@ -47,4 +48,15 @@ def test_about_dialog_opens(application: "PenfoldApplication") -> None:
     assert isinstance(window, Adw.ApplicationWindow)
     dialog = window.get_visible_dialog()
     assert isinstance(dialog, Adw.AboutDialog)
+    assert (dialog.get_version(), dialog.get_license_type()) == (config.VERSION, Gtk.License.GPL_3_0_ONLY)
     dialog.force_close()
+
+
+def test_about_lists_the_libraries_with_their_licenses() -> None:
+    from penfold.ui.about import library_licenses
+
+    names = [name for name, _license, _text in library_licenses()]
+    # Those the Flatpak brings along (L5), besides those of the GNOME runtime.
+    assert {"Poppler", "poppler-data", "qpdf", "pikepdf", "pybind11", "Pillow", "Deprecated", "wrapt"} <= set(names)
+    for _name, license_type, text in library_licenses():
+        assert (license_type is Gtk.License.CUSTOM) == (text is not None)  # A text only for those GTK cannot name.
