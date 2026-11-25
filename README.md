@@ -80,8 +80,6 @@ I hope it will soon be available on [Flathub](https://flathub.org), with automat
 - English
 - Spanish
 
-Translations are welcome: open an [issue](https://github.com/ibanurq/penfold/issues) or send a pull request.
-
 ## Notes
 
 - Its look is inspired by [Papers](https://apps.gnome.org/Papers/) and the
