@@ -1,8 +1,8 @@
 """The PDF viewer: pages one under the other (Continuous) or in pairs (Two pages), with zoom.
 
 It is a scrollable widget: the scrolled window around it moves the view, and the view draws only the pages that can be
-seen, with the tiles the renderer has ready (03-arquitectura, 4.2). Measures are in logical pixels unless they say
-"points" (PDF units) or "device pixels".
+seen, with the tiles the renderer has ready. Measures are in logical pixels unless they say "points" (PDF units) or
+"device pixels".
 """
 
 import enum
@@ -29,11 +29,11 @@ from penfold.ui.handle_editor import HandleEditor
 from penfold.ui.text_box_editor import TextBoxEditor
 from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
-# Zoom limits and step, as in 0.6: from 30 % to 400 %, 20 points at a time.
+# Zoom limits and step: from 30 % to 400 %, 20 points at a time.
 MIN_ZOOM = 0.3
 MAX_ZOOM = 4.0
 ZOOM_STEP = 0.2
-# Space around and between pages, as in 0.6.
+# Space around and between pages.
 SIDE_MARGIN = 20
 TOP_MARGIN = 15
 PAGE_GAP = 12
@@ -57,17 +57,17 @@ DRAG_THRESHOLD = 3
 # Makes the annotation of a shape from its page and its two ends on the page as shown; None for one too small to keep
 # (a click).
 ShapeMaker = Callable[[ShownPage, tuple[float, float], tuple[float, float]], Annotation | None]
-# How far from a line a click still reaches it, in pixels of the screen (D72).
+# How far from a line a click still reaches it, in pixels of the screen.
 HIT_REACH = 4.0
 # The outline of the annotation whose menu is open: its margin, width and corner radius, in pixels.
 MARK_MARGIN = 3.0
 MARK_WIDTH = 2.0
 MARK_RADIUS = 4.0
-# A comment's tooltip shows at most this many lines and characters, then "…" (D76).
+# A comment's tooltip shows at most this many lines and characters, then "…".
 TOOLTIP_LINES = 10
 TOOLTIP_CHARACTERS = 500
 # How long a remembered manual zoom is kept while the window settles after opening (the panel appears, the window
-# grows), instead of fitting the zoom to each new width (07-fase-12, 9).
+# grows), instead of fitting the zoom to each new width.
 START_HOLD_MILLISECONDS = 1500
 SELECTION_STYLES = {1: Poppler.SelectionStyle.GLYPH, 2: Poppler.SelectionStyle.WORD, 3: Poppler.SelectionStyle.LINE}
 
@@ -82,7 +82,7 @@ class Fit(enum.Enum):
 
 @dataclass(frozen=True)
 class ReadingPosition:
-    """Where a document was being read (07-fase-12, 9).
+    """Where a document was being read.
 
     The page on the top third of the viewer, how far down it is (0 at its top, 1 at its bottom), and the zoom.
     """
@@ -177,7 +177,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         "shape-drawn": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
         # A click on a page with a tool that places things (comments): a PageClick.
         "page-clicked": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
-        # A right click (or a long press) on an annotation, for its menu (D72): an AnnotationClick.
+        # A right click (or a long press) on an annotation, for its menu: an AnnotationClick.
         "annotation-menu-requested": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
     }
 
@@ -215,11 +215,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._pixel = 1.0
         self._scale = 1.0
         self._pointer: tuple[float, float] | None = None
-        # The cursor over the pages while a tool that draws is chosen (02-interfaz, 5).
+        # The cursor over the pages while a tool that draws is chosen.
         self._drawing_cursor: str | None = None
         # While a tool marks text (highlight…), text is selected even if the PDF does not let it be copied.
         self.marking = False
-        # While a tool draws shapes, a drag draws one instead of selecting text (H4).
+        # While a tool draws shapes, a drag draws one instead of selecting text.
         self._shape_maker: ShapeMaker | None = None
         self._shape_start: PagePoint | None = None
         # While a tool places things, a click on a page is told (page-clicked) instead of selecting text.
@@ -227,13 +227,13 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._click: PagePoint | None = None
         # An annotation being made (a shape being dragged, a comment being written), shown over its page.
         self._preview: Annotation | None = None
-        # The annotation whose menu is open, outlined so that it is clear which one it is (D72).
+        # The annotation whose menu is open, outlined so that it is clear which one it is.
         self._marked: Annotation | None = None
         # The annotation whose text is being edited on the page, not painted under its editor.
         self._hidden: Annotation | None = None
-        # A text box being written on a page (H3).
+        # A text box being written on a page.
         self.text_editor: TextBoxEditor | None = None
-        # An annotation being moved or resized with handles (D73).
+        # An annotation being moved or resized with handles.
         self.handle_editor: HandleEditor | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
@@ -242,7 +242,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._allocated_height = 0
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
-        # The text of a comment, when the pointer is over it (H2).
+        # The text of a comment, when the pointer is over it.
         self.set_has_tooltip(True)
         self.connect("query-tooltip", self._on_query_tooltip)
         self._add_controllers()
@@ -280,9 +280,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     # Document.
 
     def set_document(self, document: OpenDocument, renderer: Renderer, position: ReadingPosition | None = None) -> None:
-        """Show a PDF where it was left, if a position is given (07-fase-12, 9).
+        """Show a PDF where it was left, if a position is given.
 
-        Otherwise it starts on its first page, fitted to the width (Two pages: the whole page), as in 0.6.
+        Otherwise it starts on its first page, fitted to the width (Two pages: the whole page).
         """
         if self.renderer is not None:
             self.renderer.disconnect(self._rendered_handler)
@@ -317,7 +317,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return Fit.PAGE if self.two_pages else Fit.WIDTH
 
     def _release_start(self, start: ReadingPosition) -> bool:
-        """From now on, a new width fits the zoom again, even a remembered manual one (B4)."""
+        """From now on, a new width fits the zoom again, even a remembered manual one."""
         if self._start_position is start:
             self._start_position = None
         return GLib.SOURCE_REMOVE
@@ -352,7 +352,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._form_layer.form_changed()
 
     def permissions_changed(self) -> None:
-        """Follow what the document allows now (D60): the fields to fill in, and selecting text."""
+        """Follow what the document allows now: the fields to fill in, and selecting text."""
         if self.renderer is not None:
             self._form_layer.permissions_changed(self.renderer.layout)
         if not self._can_copy:
@@ -431,7 +431,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return [page for page in (first, first + 1) if page < self.page_count]
 
     def _fitting_zoom(self, fit: Fit) -> float:
-        """Zoom that fits the current page or pair to the width, or whole, in the viewer (as 0.6's setFit)."""
+        """Zoom that fits the current page or pair to the width, or whole, in the viewer."""
         if self.renderer is None:
             return self.zoom
         sizes = [self.renderer.page_sizes[page] for page in self._shown_pages()]
@@ -448,7 +448,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     # Moving around.
 
     def set_two_pages(self, two_pages: bool) -> None:
-        """Switch between Continuous and Two pages; the whole page (or the width) is fitted again, as in 0.6."""
+        """Switch between Continuous and Two pages; the whole page (or the width) is fitted again."""
         if two_pages == self.two_pages:
             return
         self.two_pages = two_pages
@@ -461,7 +461,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.emit("zoom-changed")
 
     def go_to(self, page: int, y_points: float | None = None) -> None:
-        """Show a page, with the height y_points (from its top) on the top third of the viewer (B8).
+        """Show a page, with the height y_points (from its top) on the top third of the viewer.
 
         Without a height it goes to the start of the page, and it never scrolls above the start of the page.
         """
@@ -493,7 +493,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.go_to(max(0, self.current_page - step))
 
     def page_down(self) -> None:
-        """Page Down: the next page; in Two pages with zoom, first down inside the pair, then the next pair (B2)."""
+        """Page Down: the next page; in Two pages with zoom, first down inside the pair, then the next pair."""
         if not self._scroll_inside_pair(1):
             self.next_page()
 
@@ -607,14 +607,14 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._hadjustment.set_value(max(0, (self._content_width - width) / 2))
 
     def defer_fit(self, deferred: bool) -> None:
-        """While the panel border is dragged, keep the zoom; when it is released, fit it once to the new width (B4)."""
+        """While the panel border is dragged, keep the zoom; when it is released, fit it once to the new width."""
         self._fit_deferred = deferred
         if not deferred:
             self._allocated_width = -1
             self.queue_allocate()
 
     def do_size_allocate(self, width: int, height: int, _baseline: int) -> None:
-        """Fit the zoom again when the width of the viewer changes (B4), then place the pages and the form fields."""
+        """Fit the zoom again when the width of the viewer changes, then place the pages and the form fields."""
         fields_moved, self._fields_moved = self._fields_moved, False
         if fields_moved and (width, height) == (self._allocated_width, self._allocated_height):
             self._allocate_fields()
@@ -698,7 +698,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return box.page, max(0.0, (line - box.y) / self.zoom)
 
     def _update_current_page(self, force: int | None = None) -> None:
-        """The current page is the one crossing the top third of the viewer (B1)."""
+        """The current page is the one crossing the top third of the viewer."""
         if self.two_pages or self._vadjustment is None or not self._boxes:
             page = self.current_page if force is None else force
         elif force is not None:
@@ -715,7 +715,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.emit("current-page-changed")
 
     def _on_scroll(self, controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:
-        """Ctrl + wheel zooms around the pointer; in Two pages, the wheel changes pair at its edges (B2)."""
+        """Ctrl + wheel zooms around the pointer; in Two pages, the wheel changes pair at its edges."""
         if dy == 0 or self._vadjustment is None:
             return False
         if controller.get_current_event_state() & Gdk.ModifierType.CONTROL_MASK:
@@ -977,7 +977,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         resizable: bool,
         shown: Annotation | None = None,
     ) -> HandleEditor:
-        """Start moving an annotation, and resizing it with handles if it is resizable (D73); shown as it changes.
+        """Start moving an annotation, and resizing it with handles if it is resizable; shown as it changes.
 
         on_done receives the annotation changed, or None if the change was cancelled or nothing changed. Until it
         changes, it shows as shown (by default, as it is).
@@ -993,7 +993,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return self.handle_editor
 
     def has_text_under(self, annotation: Annotation) -> bool:
-        """Whether there is text under a mark on text, to cover more or less of it (D73)."""
+        """Whether there is text under a mark on text, to cover more or less of it."""
         if self.content is None or self.renderer is None or self.renderer.layout.position(annotation.page) is None:
             return False
         return bool(self.content.text_in_areas(annotation.page, list(annotation.quads)))
@@ -1136,7 +1136,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return corner_x, corner_y, corner_x + right - left, corner_y + bottom - top
 
     def _ask_for_menu(self, x: float, y: float) -> None:
-        """Ask for the menu of the annotation under a point, if there is one; elsewhere, nothing happens (D72)."""
+        """Ask for the menu of the annotation under a point, if there is one; elsewhere, nothing happens."""
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
         if self.handle_editor is not None:
@@ -1174,7 +1174,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return self.content.link_at(page.source, *page.to_source(point.x, point.y))
 
     def set_fields_active(self, active: bool) -> None:
-        """Let the form fields answer the mouse (Select Text), or annotate over them (the other tools, I4)."""
+        """Let the form fields answer the mouse (Select Text), or annotate over them (the other tools)."""
         self._form_layer.set_active(active)
 
     def set_shape_maker(self, maker: "ShapeMaker | None") -> None:
@@ -1196,7 +1196,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     ) -> TextBoxEditor:
         """Start writing a text box on a page (by position), from a corner (points as shown); set its on_done.
 
-        To edit one (D72), it has its format and starts with its text.
+        To edit one, it has its format and starts with its text.
         """
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
@@ -1221,7 +1221,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _on_pressed(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
         """A press starts a selection (or a shape); a double click selects a word and a triple click a line.
 
-        While a text box is being written, a press outside it only applies it (H3).
+        While a text box is being written, a press outside it only applies it.
         """
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
@@ -1312,7 +1312,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.follow_link(link)
 
     def follow_link(self, link: Link) -> None:
-        """Go to an internal destination, or open a web address in the browser (B7)."""
+        """Go to an internal destination, or open a web address in the browser."""
         target = link.target
         if isinstance(target, InternalTarget):
             place = self.renderer.layout.place(target.page, target.top) if self.renderer is not None else None
@@ -1335,7 +1335,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _show_cursor(self, x: float, y: float) -> None:
         """The drawing tool's cursor over pages; without one, a hand over links and the text cursor over pages.
 
-        The text cursor only if the PDF lets its text be copied (D59).
+        The text cursor only if the PDF lets its text be copied.
         """
         on_page = self.page_point(x, y) is not None
         if self.handle_editor is not None:
@@ -1373,7 +1373,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return areas
 
     def _set_selection(self, selection: TextSelection | None) -> None:
-        """Select text; a PDF that does not let its text be copied has none selected (D59), unless to mark it."""
+        """Select text; a PDF that does not let its text be copied has none selected, unless to mark it."""
         if selection is not None and not (self._can_copy or self.marking):
             return
         self.selection = selection
@@ -1387,7 +1387,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return (text, min(self.selection.anchor, self.selection.focus).page) if text else None
 
     def copy_selection(self) -> bool:
-        """Copy the selected text to the clipboard, if the PDF allows it (D59); return whether there was any."""
+        """Copy the selected text to the clipboard, if the PDF allows it; return whether there was any."""
         selected = self.selected_text() if self._can_copy else None
         if selected is None:
             return False
@@ -1397,7 +1397,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
-        """Ctrl+C copies; the arrows scroll, and in Two pages left and right change pair (B2)."""
+        """Ctrl+C copies; the arrows scroll, and in Two pages left and right change pair."""
         # Keys a form field leaves (the arrows at the ends of its text…) are not for the view.
         if self.renderer is None or self._vadjustment is None or self._hadjustment is None or self.get_focus_child():
             return False

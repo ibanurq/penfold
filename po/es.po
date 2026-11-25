@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 16:23+0100\n"
+"POT-Creation-Date: 2026-11-25 17:57+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -145,23 +145,23 @@ msgid "Add Pages"
 msgstr "Añadir páginas"
 
 #: data/ui/dialogs/add_pages_dialog.blp:20
-#: data/ui/dialogs/extract_pages_dialog.blp:22
+#: data/ui/dialogs/extract_pages_dialog.blp:21
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:354
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:353
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:1239
+#: penfold/ui/window.py:1238
 msgid "_Cancel"
 msgstr "_Cancelar"
 
 #: data/ui/dialogs/add_pages_dialog.blp:27 penfold/ui/bookmark_editing.py:126
-#: penfold/ui/sidebar/bookmarks_view.py:191
+#: penfold/ui/sidebar/bookmarks_view.py:190
 #: penfold/ui/sidebar/pages_view.py:283
 msgid "_Add"
 msgstr "_Añadir"
 
 #: data/ui/dialogs/add_pages_dialog.blp:39
-#: data/ui/dialogs/extract_pages_dialog.blp:44 data/ui/sidebar/sidebar.blp:47
+#: data/ui/dialogs/extract_pages_dialog.blp:43 data/ui/sidebar/sidebar.blp:47
 #: penfold/ui/dialogs/properties_dialog.py:65
 #: penfold/ui/sidebar/pages_view.py:282
 msgid "Pages"
@@ -208,22 +208,22 @@ msgstr "Después de la página"
 msgid "Page"
 msgstr "Página"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:9
+#: data/ui/dialogs/extract_pages_dialog.blp:8
 msgid "Extract Pages"
 msgstr "Extraer páginas"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:29
+#: data/ui/dialogs/extract_pages_dialog.blp:28
 #: penfold/ui/sidebar/pages_view.py:284
 msgid "_Extract"
 msgstr "_Extraer"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:41
+#: data/ui/dialogs/extract_pages_dialog.blp:40
 msgid "Pages to Extract"
 msgstr "Páginas que extraer"
 
 #. Hyphens and spaces that do not break, so that a range never splits at the end of a line and the example stays
 #. whole.
-#: data/ui/dialogs/extract_pages_dialog.blp:52
+#: data/ui/dialogs/extract_pages_dialog.blp:51
 msgid ""
 "Separate single pages with commas and group ranges with a dash (with no last "
 "number, it runs to the last page). Example: 1, 4, 7‑10, 15, 22‑"
@@ -232,20 +232,20 @@ msgstr ""
 "guion (sin número final asume hasta la última página). "
 "Ejemplo: 1, 4, 7‑10, 15, 22‑"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:65
+#: data/ui/dialogs/extract_pages_dialog.blp:64
 msgid "The numbers are the position of each page, not its label."
 msgstr "Los números son la posición de cada página, no su etiqueta."
 
-#: data/ui/dialogs/extract_pages_dialog.blp:91
+#: data/ui/dialogs/extract_pages_dialog.blp:90
 #: data/ui/dialogs/save_as_dialog.blp:41
 msgid "Options"
 msgstr "Opciones"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:94
+#: data/ui/dialogs/extract_pages_dialog.blp:93
 msgid "Extract as Separate Pages"
 msgstr "Extraer como páginas sueltas"
 
-#: data/ui/dialogs/extract_pages_dialog.blp:98
+#: data/ui/dialogs/extract_pages_dialog.blp:97
 msgid "Delete Pages After Extraction"
 msgstr "Eliminar las páginas después"
 
@@ -266,7 +266,7 @@ msgid "_Add PDFs…"
 msgstr "_Añadir PDF…"
 
 #: data/ui/dialogs/merge_dialog.blp:96 data/ui/sidebar/sidebar.blp:58
-#: penfold/ui/sidebar/bookmarks_view.py:190
+#: penfold/ui/sidebar/bookmarks_view.py:189
 msgid "Bookmarks"
 msgstr "Marcadores"
 
@@ -278,7 +278,7 @@ msgstr "Crear un marcador para cada archivo"
 msgid "Keep the Files’ Bookmarks"
 msgstr "Conservar los marcadores de los archivos"
 
-#: data/ui/dialogs/print_dialog.blp:8 penfold/ui/shortcuts_dialog.py:60
+#: data/ui/dialogs/print_dialog.blp:8 penfold/ui/shortcuts_dialog.py:59
 msgid "Print"
 msgstr "Imprimir"
 
@@ -350,11 +350,11 @@ msgstr "Panel lateral"
 msgid "Annotate"
 msgstr "Anotar"
 
-#: data/ui/document_header.blp:27 penfold/ui/shortcuts_dialog.py:61
+#: data/ui/document_header.blp:27 penfold/ui/shortcuts_dialog.py:60
 msgid "Undo"
 msgstr "Deshacer"
 
-#: data/ui/document_header.blp:34 penfold/ui/shortcuts_dialog.py:62
+#: data/ui/document_header.blp:34 penfold/ui/shortcuts_dialog.py:61
 msgid "Redo"
 msgstr "Rehacer"
 
@@ -372,7 +372,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:86 penfold/ui/bookmark_editing.py:173
-#: penfold/ui/window.py:1241
+#: penfold/ui/window.py:1240
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -425,36 +425,36 @@ msgid "Go to Page"
 msgstr "Ir a la página"
 
 #: data/ui/preferences_dialog.blp:13 data/ui/sidebar/sidebar.blp:69
-#: penfold/ui/shortcuts_dialog.py:47 penfold/ui/sidebar/annotations_view.py:160
+#: penfold/ui/shortcuts_dialog.py:46 penfold/ui/sidebar/annotations_view.py:160
 msgid "Annotations"
 msgstr "Anotaciones"
 
-#: data/ui/preferences_dialog.blp:17 penfold/ui/dialogs/properties_dialog.py:49
+#: data/ui/preferences_dialog.blp:26 penfold/ui/dialogs/properties_dialog.py:49
 msgid "Author"
 msgstr "Autor"
 
-#: data/ui/preferences_dialog.blp:34
+#: data/ui/preferences_dialog.blp:53
 msgid "Show Annotation Bar at Start"
 msgstr "Activar barra de anotaciones al inicio"
 
-#: data/ui/preferences_dialog.blp:39
+#: data/ui/preferences_dialog.blp:58
 msgid "Documents"
 msgstr "Documentos"
 
-#: data/ui/preferences_dialog.blp:42
+#: data/ui/preferences_dialog.blp:61
 msgid "Respect Document Permissions"
 msgstr "Respetar los permisos del documento"
 
-#: data/ui/preferences_dialog.blp:46
+#: data/ui/preferences_dialog.blp:65
 msgid "Remember Document Position"
 msgstr "Recordar posición del documento"
 
-#: data/ui/preferences_dialog.blp:50
+#: data/ui/preferences_dialog.blp:69
 msgid "Start With Last Document"
 msgstr "Iniciar con el último documento"
 
-#: data/ui/sidebar/sidebar.blp:15 penfold/ui/shortcuts_dialog.py:70
-#: penfold/ui/shortcuts_dialog.py:73
+#: data/ui/sidebar/sidebar.blp:15 penfold/ui/shortcuts_dialog.py:69
+#: penfold/ui/shortcuts_dialog.py:72
 msgid "Find"
 msgstr "Buscar"
 
@@ -490,7 +490,7 @@ msgstr "Alejar"
 msgid "Open a new window"
 msgstr "Abrir una ventana nueva"
 
-#: penfold/application.py:132 penfold/ui/shortcuts_dialog.py:57
+#: penfold/application.py:132 penfold/ui/shortcuts_dialog.py:56
 msgid "Open a PDF"
 msgstr "Abrir un PDF"
 
@@ -510,18 +510,18 @@ msgstr "Licencia SIL Open Font 1.1."
 msgid "Icons"
 msgstr "Iconos"
 
-#: penfold/ui/annotation_editing.py:322
+#: penfold/ui/annotation_editing.py:321
 #, python-brace-format
 msgid "Annotation deleted"
 msgid_plural "{count} annotations deleted"
 msgstr[0] "Anotación eliminada"
 msgstr[1] "{count} anotaciones eliminadas"
 
-#: penfold/ui/annotation_editing.py:348
+#: penfold/ui/annotation_editing.py:347
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:350
+#: penfold/ui/annotation_editing.py:349
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -529,40 +529,40 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:355
+#: penfold/ui/annotation_editing.py:354
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:384
+#: penfold/ui/annotation_editing.py:383
 msgid "_Adjust Ends"
 msgstr "_Ajustar extremos"
 
-#: penfold/ui/annotation_editing.py:384
+#: penfold/ui/annotation_editing.py:383
 msgid "_Move and Resize"
 msgstr "_Mover y cambiar tamaño"
 
-#: penfold/ui/annotation_editing.py:385
+#: penfold/ui/annotation_editing.py:384
 msgid "_Move"
 msgstr "_Mover"
 
-#: penfold/ui/annotation_editing.py:397
+#: penfold/ui/annotation_editing.py:396
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:399
+#: penfold/ui/annotation_editing.py:398
 msgid "_Format…"
 msgstr "_Formato…"
 
-#: penfold/ui/annotation_editing.py:404
-#: penfold/ui/sidebar/bookmarks_view.py:132 penfold/ui/sidebar/pages_view.py:91
+#: penfold/ui/annotation_editing.py:403
+#: penfold/ui/sidebar/bookmarks_view.py:131 penfold/ui/sidebar/pages_view.py:91
 msgid "_Delete"
 msgstr "_Eliminar"
 
-#: penfold/ui/annotation_icons.py:27 penfold/ui/shortcuts_dialog.py:49
+#: penfold/ui/annotation_icons.py:27 penfold/ui/shortcuts_dialog.py:48
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: penfold/ui/annotation_icons.py:28 penfold/ui/shortcuts_dialog.py:50
+#: penfold/ui/annotation_icons.py:28 penfold/ui/shortcuts_dialog.py:49
 msgid "Underline"
 msgstr "Subrayar"
 
@@ -605,7 +605,7 @@ msgstr "Color"
 
 #: penfold/ui/bookmark_editing.py:125
 #: penfold/ui/sidebar/annotations_view.py:168
-#: penfold/ui/sidebar/bookmarks_view.py:615
+#: penfold/ui/sidebar/bookmarks_view.py:614
 #: penfold/ui/sidebar/pages_view.py:261 penfold/ui/sidebar/search_view.py:108
 #, python-brace-format
 msgid "Page {label}"
@@ -643,26 +643,26 @@ msgstr "Elegir PDF"
 msgid "Page {label} ({number} of {count})"
 msgstr "Página {label} ({number} de {count})"
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:38
+#: penfold/ui/dialogs/extract_pages_dialog.py:37
 #, python-brace-format
 msgid "Invalid format: “{part}”."
 msgstr "Formato no válido: «{part}»."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:40
+#: penfold/ui/dialogs/extract_pages_dialog.py:39
 #, python-brace-format
 msgid "Invalid range: “{part}”."
 msgstr "Intervalo no válido: «{part}»."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:42
+#: penfold/ui/dialogs/extract_pages_dialog.py:41
 #, python-brace-format
 msgid "Page {page} does not exist (the document has {count})."
 msgstr "La página {page} no existe (el documento tiene {count})."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:44
+#: penfold/ui/dialogs/extract_pages_dialog.py:43
 msgid "Enter at least one page."
 msgstr "Indica al menos una página."
 
-#: penfold/ui/dialogs/extract_pages_dialog.py:101
+#: penfold/ui/dialogs/extract_pages_dialog.py:100
 msgid ""
 "You can’t delete all the pages: turn off “Delete Pages After Extraction”."
 msgstr ""
@@ -674,13 +674,13 @@ msgid "Drag PDFs here or click “Add PDFs…”"
 msgstr "Arrastra aquí los PDF o pulsa «Añadir PDF…»"
 
 #: penfold/ui/dialogs/merge_dialog.py:138 penfold/ui/window.py:414
-#: penfold/ui/window.py:936 penfold/ui/window.py:985
+#: penfold/ui/window.py:935 penfold/ui/window.py:984
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:141 penfold/ui/extraction.py:125
-#: penfold/ui/window.py:1114
+#: penfold/ui/window.py:1113
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -847,7 +847,7 @@ msgstr "%-d de %B de %Y, %H:%M"
 msgid "User access permissions of this PDF:"
 msgstr "Permisos de acceso del usuario de este PDF:"
 
-#. An empty line on each side of the list; the last line says that the option exists (D61, 9).
+#. An empty line on each side of the list; the last line says that the option exists.
 #: penfold/ui/document_header.py:57
 msgid "They can be ignored in Preferences."
 msgstr "Se pueden ignorar desde Preferencias."
@@ -1021,35 +1021,35 @@ msgstr "({number} de {count})"
 msgid "of {count}"
 msgstr "de {count}"
 
-#: penfold/ui/palette.py:26
+#: penfold/ui/palette.py:25
 msgid "Yellow"
 msgstr "Amarillo"
 
-#: penfold/ui/palette.py:26 penfold/ui/palette.py:27
+#: penfold/ui/palette.py:25 penfold/ui/palette.py:26
 msgid "Green"
 msgstr "Verde"
 
-#: penfold/ui/palette.py:26 penfold/ui/palette.py:27
+#: penfold/ui/palette.py:25 penfold/ui/palette.py:26
 msgid "Blue"
 msgstr "Azul"
 
-#: penfold/ui/palette.py:26 penfold/ui/palette.py:27
+#: penfold/ui/palette.py:25 penfold/ui/palette.py:26
 msgid "Orange"
 msgstr "Naranja"
 
-#: penfold/ui/palette.py:26
+#: penfold/ui/palette.py:25
 msgid "Red"
 msgstr "Rojo"
 
-#: penfold/ui/palette.py:26
+#: penfold/ui/palette.py:25
 msgid "Lilac"
 msgstr "Lila"
 
-#: penfold/ui/palette.py:27
+#: penfold/ui/palette.py:26
 msgid "Burgundy"
 msgstr "Granate"
 
-#: penfold/ui/preferences_dialog.py:59
+#: penfold/ui/preferences_dialog.py:65
 msgid "Clear"
 msgstr "Borrar"
 
@@ -1058,120 +1058,120 @@ msgstr "Borrar"
 msgid "Could not print “{name}”"
 msgstr "No se pudo imprimir «{name}»"
 
-#: penfold/ui/shortcuts_dialog.py:51
+#: penfold/ui/shortcuts_dialog.py:50
 msgid "Back to the text selection tool"
 msgstr "Volver a la herramienta de seleccionar texto"
 
-#: penfold/ui/shortcuts_dialog.py:55
+#: penfold/ui/shortcuts_dialog.py:54
 msgid "General"
 msgstr "General"
 
-#: penfold/ui/shortcuts_dialog.py:58
+#: penfold/ui/shortcuts_dialog.py:57
 msgid "Save"
 msgstr "Guardar"
 
-#: penfold/ui/shortcuts_dialog.py:59
+#: penfold/ui/shortcuts_dialog.py:58
 msgid "Save as"
 msgstr "Guardar como"
 
-#: penfold/ui/shortcuts_dialog.py:63
+#: penfold/ui/shortcuts_dialog.py:62
 msgid "Open the preferences"
 msgstr "Abrir las preferencias"
 
-#: penfold/ui/shortcuts_dialog.py:64
+#: penfold/ui/shortcuts_dialog.py:63
 msgid "Show the keyboard shortcuts"
 msgstr "Mostrar los atajos de teclado"
 
-#: penfold/ui/shortcuts_dialog.py:65
+#: penfold/ui/shortcuts_dialog.py:64
 msgid "Close the window"
 msgstr "Cerrar la ventana"
 
-#: penfold/ui/shortcuts_dialog.py:66
+#: penfold/ui/shortcuts_dialog.py:65
 msgid "Quit"
 msgstr "Salir"
 
-#: penfold/ui/shortcuts_dialog.py:74
+#: penfold/ui/shortcuts_dialog.py:73
 msgid "Next result"
 msgstr "Resultado siguiente"
 
-#: penfold/ui/shortcuts_dialog.py:75
+#: penfold/ui/shortcuts_dialog.py:74
 msgid "Previous result"
 msgstr "Resultado anterior"
 
-#: penfold/ui/shortcuts_dialog.py:77
+#: penfold/ui/shortcuts_dialog.py:76
 msgid "Close the search"
 msgstr "Cerrar la búsqueda"
 
-#: penfold/ui/shortcuts_dialog.py:81
+#: penfold/ui/shortcuts_dialog.py:80
 msgid "View"
 msgstr "Ver"
 
-#: penfold/ui/shortcuts_dialog.py:83
+#: penfold/ui/shortcuts_dialog.py:82
 msgid "Show or hide the side panel"
 msgstr "Mostrar u ocultar el panel lateral"
 
-#: penfold/ui/shortcuts_dialog.py:84
+#: penfold/ui/shortcuts_dialog.py:83
 msgid "Zoom in"
 msgstr "Acercar"
 
-#: penfold/ui/shortcuts_dialog.py:85
+#: penfold/ui/shortcuts_dialog.py:84
 msgid "Zoom out"
 msgstr "Alejar"
 
-#: penfold/ui/shortcuts_dialog.py:86
+#: penfold/ui/shortcuts_dialog.py:85
 msgid "Fit to page width"
 msgstr "Ajustar al ancho de página"
 
-#. The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel (D39).
-#: penfold/ui/shortcuts_dialog.py:88
+#. The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel.
+#: penfold/ui/shortcuts_dialog.py:87
 msgid "Larger thumbnails (with the focus on them)"
 msgstr "Miniaturas más grandes (con el foco en ellas)"
 
-#: penfold/ui/shortcuts_dialog.py:89
+#: penfold/ui/shortcuts_dialog.py:88
 msgid "Smaller thumbnails (with the focus on them)"
 msgstr "Miniaturas más pequeñas (con el foco en ellas)"
 
-#: penfold/ui/shortcuts_dialog.py:93
+#: penfold/ui/shortcuts_dialog.py:92
 msgid "Moving around"
 msgstr "Desplazarse"
 
-#: penfold/ui/shortcuts_dialog.py:95
+#: penfold/ui/shortcuts_dialog.py:94
 msgid "Next page"
 msgstr "Página siguiente"
 
-#: penfold/ui/shortcuts_dialog.py:96
+#: penfold/ui/shortcuts_dialog.py:95
 msgid "Previous page"
 msgstr "Página anterior"
 
-#: penfold/ui/shortcuts_dialog.py:97
+#: penfold/ui/shortcuts_dialog.py:96
 msgid "First page"
 msgstr "Primera página"
 
-#: penfold/ui/shortcuts_dialog.py:98
+#: penfold/ui/shortcuts_dialog.py:97
 msgid "Last page"
 msgstr "Última página"
 
-#: penfold/ui/shortcuts_dialog.py:99
+#: penfold/ui/shortcuts_dialog.py:98
 msgid "Go to page"
 msgstr "Ir a la página"
 
-#: penfold/ui/shortcuts_dialog.py:104
+#: penfold/ui/shortcuts_dialog.py:103
 msgid "Side panel"
 msgstr "Panel lateral"
 
-#: penfold/ui/shortcuts_dialog.py:106
+#: penfold/ui/shortcuts_dialog.py:105
 msgid "Delete the selected pages, bookmarks or annotations"
 msgstr "Eliminar las páginas, marcadores o anotaciones seleccionados"
 
-#: penfold/ui/shortcuts_dialog.py:107
+#: penfold/ui/shortcuts_dialog.py:106
 msgid "Rename the selected bookmark"
 msgstr "Cambiar el nombre del marcador seleccionado"
 
-#: penfold/ui/shortcuts_dialog.py:108
+#: penfold/ui/shortcuts_dialog.py:107
 msgid "Open the menu of the selection"
 msgstr "Abrir el menú de lo seleccionado"
 
-#: penfold/ui/shortcuts_dialog.py:109
+#: penfold/ui/shortcuts_dialog.py:108
 msgid "Clear the selection"
 msgstr "Quitar la selección"
 
@@ -1212,51 +1212,51 @@ msgstr "(Externa)"
 msgid "{group} ({count})"
 msgstr "{group} ({count})"
 
-#: penfold/ui/sidebar/bookmarks_view.py:102
+#: penfold/ui/sidebar/bookmarks_view.py:101
 msgid "Untitled"
 msgstr "Sin título"
 
-#: penfold/ui/sidebar/bookmarks_view.py:122
+#: penfold/ui/sidebar/bookmarks_view.py:121
 msgid "_Bold"
 msgstr "_Negrita"
 
-#: penfold/ui/sidebar/bookmarks_view.py:123
+#: penfold/ui/sidebar/bookmarks_view.py:122
 msgid "_Italic"
 msgstr "_Cursiva"
 
-#: penfold/ui/sidebar/bookmarks_view.py:124
+#: penfold/ui/sidebar/bookmarks_view.py:123
 msgid "_Clear Formatting"
 msgstr "_Quitar formato"
 
-#: penfold/ui/sidebar/bookmarks_view.py:125
+#: penfold/ui/sidebar/bookmarks_view.py:124
 msgid "_Rename…"
 msgstr "Ca_mbiar nombre…"
 
-#: penfold/ui/sidebar/bookmarks_view.py:128
+#: penfold/ui/sidebar/bookmarks_view.py:127
 msgid "_Point to the Current Page"
 msgstr "_Apuntar a la página actual"
 
-#: penfold/ui/sidebar/bookmarks_view.py:129
+#: penfold/ui/sidebar/bookmarks_view.py:128
 msgid "Increase Inden_t"
 msgstr "_Sangrar"
 
-#: penfold/ui/sidebar/bookmarks_view.py:130
+#: penfold/ui/sidebar/bookmarks_view.py:129
 msgid "Decrea_se Indent"
 msgstr "_Desangrar"
 
-#: penfold/ui/sidebar/bookmarks_view.py:181
+#: penfold/ui/sidebar/bookmarks_view.py:180
 msgid "Collapse All"
 msgstr "Plegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:185
+#: penfold/ui/sidebar/bookmarks_view.py:184
 msgid "Expand All"
 msgstr "Desplegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:219
+#: penfold/ui/sidebar/bookmarks_view.py:218
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
-#: penfold/ui/sidebar/bookmarks_view.py:390
+#: penfold/ui/sidebar/bookmarks_view.py:389
 #, python-brace-format
 msgctxt "bookmarks"
 msgid "{count} selected"
@@ -1369,7 +1369,7 @@ msgid_plural "The values of {count} form fields could not be saved"
 msgstr[0] "No se pudo guardar el valor de {count} campo del formulario"
 msgstr[1] "No se pudieron guardar los valores de {count} campos del formulario"
 
-#. An exported copy: the document keeps its file and its changes (I6).
+#. An exported copy: the document keeps its file and its changes.
 #: penfold/ui/window.py:611
 #, python-brace-format
 msgid "Flattened copy saved as “{name}”"
@@ -1380,30 +1380,30 @@ msgstr "Copia aplanada guardada como «{name}»"
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:953
+#: penfold/ui/window.py:952
 msgid "merged.pdf"
 msgstr "combinado.pdf"
 
-#: penfold/ui/window.py:964
+#: penfold/ui/window.py:963
 msgid "Could not merge the PDFs"
 msgstr "No se pudieron combinar los PDF"
 
-#: penfold/ui/window.py:971
+#: penfold/ui/window.py:970
 #, python-brace-format
 msgid "PDFs merged: {count} page"
 msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:1234
+#: penfold/ui/window.py:1233
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:1235
+#: penfold/ui/window.py:1234
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:1240
+#: penfold/ui/window.py:1239
 msgid "_Discard"
 msgstr "_Descartar"

@@ -66,12 +66,12 @@ logger = logging.getLogger(__name__)
 WELCOME_SIZE = (620, 600)
 LAYOUT_CONTINUOUS = "continuous"
 LAYOUT_TWO_PAGES = "two-pages"
-# Room the document keeps beside the panel, besides what its header needs (0.6 kept 160 pixels).
+# Room the document keeps beside the panel, besides what its header needs.
 DOCUMENT_ROOM = 160
 # How long the panel waits, at most, for a growing window to make room for it.
 SIDEBAR_WAIT_MICROSECONDS = 500_000
 
-# Window actions and their shortcuts (0.6, apartado 2.8). They need a document, so they are off without one (A2).
+# Window actions and their shortcuts. They need a document, so they are off without one.
 DOCUMENT_ACTIONS = {
     "zoom-in": ["<Control>plus", "<Control>equal", "<Control>KP_Add"],
     "zoom-out": ["<Control>minus", "<Control>KP_Subtract"],
@@ -85,23 +85,23 @@ DOCUMENT_ACTIONS = {
     "find": ["<Control>f"],
     "find-next": ["<Control>g"],
     "find-previous": ["<Shift><Control>g"],
-    # Ctrl+P: prints, or in a PDF that does not allow it says so (K3, D59); the menu item is win.print.
+    # Ctrl+P: prints, or in a PDF that does not allow it says so; the menu item is win.print.
     "print-shortcut": ["<Control>p"],
-    # The last item of the document menu (07-fase-12, 18).
+    # The last item of the document menu.
     "properties": [],
 }
-# Edits of the document; each is on only while there is something for it to do (D19, D21).
+# Edits of the document; each is on only while there is something for it to do.
 EDIT_ACTIONS = {
     "undo": ["<Control>z"],
     "redo": ["<Shift><Control>z"],
 }
-# Saving (J1) and printing (D57): on while not saving; printing, also if the PDF allows it (D59).
+# Saving and printing: on while not saving; printing, also if the PDF allows it.
 SAVE_ACTIONS = {
     "save": ["<Control>s"],
     "save-as": ["<Shift><Control>s"],
     "print": [],
 }
-# Answers to the question about unsaved changes (J5).
+# Answers to the question about unsaved changes.
 RESPONSE_CANCEL = "cancel"
 RESPONSE_DISCARD = "discard"
 RESPONSE_SAVE = "save"
@@ -114,7 +114,7 @@ WINDOW_ACCELERATORS = {
     "win.show-sidebar": ["F9"],
     **{f"win.{name}": keys for name, keys in DOCUMENT_ACTIONS.items()},
 }
-# Keys without Ctrl do nothing while typing in a field (L4).
+# Keys without Ctrl do nothing while typing in a field.
 KEYS_WITHOUT_CONTROL = frozenset({"next-page", "previous-page"})
 
 
@@ -161,7 +161,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
     @property
     def is_empty(self) -> bool:
-        """Whether the window shows no document (a PDF from the desktop opens in an empty window, A4)."""
+        """Whether the window shows no document (a PDF from the desktop opens in an empty window)."""
         return self.document is None
 
     # Actions.
@@ -229,7 +229,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _on_document_action(self, _action: Gio.SimpleAction, _parameter: None, name: str, handler: object) -> None:
         if name in KEYS_WITHOUT_CONTROL and isinstance(self.get_focus(), Gtk.Editable | Gtk.Text):
             return
-        # With the focus on the thumbnails, Ctrl++ and Ctrl+- zoom them instead of the document (D39).
+        # With the focus on the thumbnails, Ctrl++ and Ctrl+- zoom them instead of the document.
         if name in {"zoom-in", "zoom-out"} and self.pages_view.has_focus_inside():
             (self.pages_view.zoom_in if name == "zoom-in" else self.pages_view.zoom_out)()
             return
@@ -244,7 +244,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _undo_or_redo(self, *, redo: bool) -> None:
         """Undo or redo the last edit of the document; while typing in a field, its own text instead.
 
-        Form fields on the pages are part of the document: what is typed in them is undone as an edit (J2).
+        Form fields on the pages are part of the document: what is typed in them is undone as an edit.
         """
         focus = self.get_focus()
         if isinstance(focus, Gtk.Text) and not focus.is_ancestor(self.document_view):
@@ -253,7 +253,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             (self.document.redo if redo else self.document.undo)()
 
     def _update_edit_actions(self) -> None:
-        """Undo and Redo are on while there is something to undo or redo (D21)."""
+        """Undo and Redo are on while there is something to undo or redo."""
         document = self.document
         for name, enabled in (
             ("undo", document is not None and document.can_undo),
@@ -264,9 +264,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def _add_delete_key(self) -> None:
         """Add the keys without Control: Delete, F2, the Menu key (or Shift+F10), and H and U.
 
-        Delete deletes what is selected in the panel (E3); F2 renames a bookmark and the Menu key opens the menu of the
-        pages or bookmarks selected (D74); H and U mark text (H7). They are handled after the focused widget, so that
-        they still delete or type while typing in a field (L4).
+        Delete deletes what is selected in the panel; F2 renames a bookmark and the Menu key opens the menu of the pages
+        or bookmarks selected; H and U mark text. They are handled after the focused widget, so that they still delete
+        or type while typing in a field.
         """
         controller = Gtk.ShortcutController(propagation_phase=Gtk.PropagationPhase.BUBBLE)
         for trigger, callback in (
@@ -307,7 +307,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return True
 
     def _on_menu_key(self, _widget: Gtk.Widget, _arguments: GLib.Variant | None) -> bool:
-        """The Menu key, or Shift+F10, opens the menu of what is selected in the view of the panel shown (D74, D76).
+        """The Menu key, or Shift+F10, opens the menu of what is selected in the view of the panel shown.
 
         As Delete, wherever the focus is: a click on a thumbnail or a bookmark leaves it in the document.
         """
@@ -336,9 +336,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return True
 
     def _update_page_actions(self) -> None:
-        """Turning needs pages selected; deleting, too, and never all of them (E3, D21).
+        """Turning needs pages selected; deleting, too, and never all of them.
 
-        A PDF that does not allow assembling it has all of them off (D59).
+        A PDF that does not allow assembling it has all of them off.
         """
         document = self.document
         assemble = document is not None and document.permissions.assemble
@@ -359,7 +359,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.document.execute(RotatePages(self.document, self.pages_view.selected_pages(), degrees))
 
     def _on_move_requested(self, _view: PagesView, positions: list[int], before: int) -> None:
-        """Move dragged thumbnails (E1); dropping them where they already are changes nothing."""
+        """Move dragged thumbnails; dropping them where they already are changes nothing."""
         if self.document is None or not self.document.permissions.assemble:
             return
         command = MovePages(self.document, positions, before)
@@ -367,7 +367,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.document.execute(command)
 
     def _delete_selected_pages(self) -> None:
-        """Delete the selected pages at once, with a notice to undo it (D19)."""
+        """Delete the selected pages at once, with a notice to undo it."""
         document = self.document
         if document is None:
             return
@@ -381,7 +381,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_undo_toast(ngettext("Page deleted", "{count} pages deleted", count).format(count=count), command)
 
     def _open_add_pages_dialog(self) -> None:
-        """Ask what pages to add and where (E4 to E6, D48)."""
+        """Ask what pages to add and where."""
         if self.document is None:
             return
         document = self.document
@@ -424,7 +424,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_edit_toast(Adw.Toast(title=message.format(count=count)), command)
 
     def _open_extract_pages_dialog(self) -> None:
-        """Ask which pages to extract and how, starting with the selected ones (E7, E8)."""
+        """Ask which pages to extract and how, starting with the selected ones."""
         if self.document is None:
             return
         dialog = PenfoldExtractPagesDialog(
@@ -436,7 +436,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         dialog.present(self)
 
     def extract_pages(self, request: PagesToExtract) -> None:
-        """Extract the pages chosen into a folder; then say so, and delete them if asked, with Undo (E8, E9)."""
+        """Extract the pages chosen into a folder; then say so, and delete them if asked, with Undo."""
         document = self.document
         if document is None:
             return
@@ -478,7 +478,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_edit_toast(toast, command)
 
     def _show_edit_toast(self, toast: Adw.Toast, command: Command) -> None:
-        """Show a notice about an edit; it goes away as soon as the edit is no longer the last one (D76)."""
+        """Show a notice about an edit; it goes away as soon as the edit is no longer the last one."""
 
         def forget(dismissed: Adw.Toast) -> None:
             if self._edit_toast is not None and self._edit_toast[0] is dismissed:
@@ -497,12 +497,12 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._edit_toast = None
             toast.dismiss()
 
-    # Saving (J1).
+    # Saving.
 
     def save(self, then: Callable[[bool], object] | None = None) -> None:
         """Save over the document's file, in the background; then says whether it was saved.
 
-        A new document (merged) has no file yet: it is saved as Save As does (F6).
+        A new document (merged) has no file yet: it is saved as Save As does.
         """
         if self.document is not None and self.document.is_new:
             self.save_as(then)
@@ -510,10 +510,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._write(self.document.save_plan(), then)
 
     def save_as(self, then: Callable[[bool], object] | None = None) -> None:
-        """Choose a file and save the document there; it becomes the document's file (J1).
+        """Choose a file and save the document there; it becomes the document's file.
 
-        Asked by the user (without then) for a document with a form, it first asks whether to flatten it (I6), if the
-        PDF allows changing its content (D59).
+        Asked by the user (without then) for a document with a form, it first asks whether to flatten it, if the PDF
+        allows changing its content.
         """
         if self.document is None:
             return
@@ -525,7 +525,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self._choose_target(then, flatten=False)
 
     def _choose_target(self, then: Callable[[bool], object] | None, *, flatten: bool) -> None:
-        """Choose where to save; a flattened copy is proposed as "name_flattened.pdf", as in 0.6."""
+        """Choose where to save; a flattened copy is proposed as "name_flattened.pdf"."""
         if self.document is None:
             return
         path = self.document.path
@@ -553,21 +553,21 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._write(self.document.save_plan(Path(path), flatten=flatten), then)
 
     def _print_shortcut(self) -> None:
-        """Ctrl+P prints; in a PDF that does not allow it, where Print is greyed out, it says so (K3, D59)."""
+        """Ctrl+P prints; in a PDF that does not allow it, where Print is greyed out, it says so."""
         if self.document is not None and not self.document.permissions.print:
             self.toast_overlay.add_toast(Adw.Toast(title=_("This PDF does not allow printing")))
         else:
             self.activate_action("win.print", None)
 
     def _show_properties(self) -> None:
-        """Show what is known about the document, to read only (07-fase-12, 18)."""
+        """Show what is known about the document, to read only."""
         if self.document is not None:
             PenfoldPropertiesDialog(self.document.properties()).present(self)
 
     def _open_print_dialog(self) -> None:
-        """Ask which annotations to print, then print with the system's dialogue (D57).
+        """Ask which annotations to print, then print with the system's dialogue.
 
-        Without any annotation there is nothing to ask: the system's dialogue opens at once (D76).
+        Without any annotation there is nothing to ask: the system's dialogue opens at once.
         """
         document = self.document
         if document is None:
@@ -598,7 +598,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         def finish(saved: bool, failed_fields: int) -> bool:
             self._saving = False
             if failed_fields:
-                # A field that fails does not stop the save, but the reader must know (I5).
+                # A field that fails does not stop the save, but the reader must know.
                 message = ngettext(
                     "The value of {count} form field could not be saved",
                     "The values of {count} form fields could not be saved",
@@ -607,7 +607,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
                 self.toast_overlay.add_toast(Adw.Toast(title=message.format(count=failed_fields)))
             if document is not None and document is self.document:
                 if saved and plan.flatten:
-                    # An exported copy: the document keeps its file and its changes (I6).
+                    # An exported copy: the document keeps its file and its changes.
                     message = _("Flattened copy saved as “{name}”").format(name=plan.target.name)
                     self.toast_overlay.add_toast(Adw.Toast(title=message))
                 elif saved:
@@ -622,7 +622,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         threading.Thread(target=work, name="penfold-save", daemon=True).start()
 
     def _update_save_actions(self) -> None:
-        """Save while not saving; a PDF with permissions too, keeping them. Print only if the PDF allows it (D59)."""
+        """Save while not saving; a PDF with permissions too, keeping them. Print only if the PDF allows it."""
         document = self.document
         enabled = document is not None and not self._saving
         for name in SAVE_ACTIONS:
@@ -654,16 +654,16 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._update_save_actions()
 
     def _on_annotation_toolbar_shown(self, toolbar: AnnotationToolbar, _property: GObject.ParamSpec) -> None:
-        """While the annotation bar is shown, the toasts rise above it (D32)."""
+        """While the annotation bar is shown, the toasts rise above it."""
         if toolbar.get_visible():
             self.toast_overlay.add_css_class("annotation-bar-shown")
         else:
             self.toast_overlay.remove_css_class("annotation-bar-shown")
 
     def _place_overlay_child(self, overlay: Gtk.Overlay, child: Gtk.Widget, area: Gdk.Rectangle) -> bool:
-        """Put the annotation bar at the bottom of the document, centred, left of the zoom buttons (D32).
+        """Put the annotation bar at the bottom of the document, centred, left of the zoom buttons.
 
-        When the window is too narrow for both, the zoom buttons rise above the bar (07-fase-12, 11).
+        When the window is too narrow for both, the zoom buttons rise above the bar.
         """
         if child is self.annotation_toolbar:
             natural = child.get_preferred_size()[1]
@@ -697,7 +697,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     # Side panel.
 
     def _set_up_sidebar(self) -> None:
-        """F9 shows or hides the panel; its width is remembered; the main menu ☰ follows it (D36)."""
+        """F9 shows or hides the panel; its width is remembered; the main menu ☰ follows it."""
         self.add_action(Gio.PropertyAction.new("show-sidebar", self.split_view, "show-sidebar"))
         self.split_view.bind_property(
             "show-sidebar",
@@ -761,7 +761,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._fit_sidebar_width()
 
     def _widest_sidebar(self) -> int:
-        """The widest the panel can be in this window: the document keeps the room its header needs (as in 0.6)."""
+        """The widest the panel can be in this window: the document keeps the room its header needs."""
         content = self.split_view.get_content()
         document_minimum = content.measure(Gtk.Orientation.HORIZONTAL, -1)[0] if content is not None else 0
         free = not (self.is_maximized() or self.is_fullscreen())
@@ -775,7 +775,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.split_view.set_max_sidebar_width(width)
         return GLib.SOURCE_REMOVE
 
-    # Find (D13).
+    # Find.
 
     def open_find(self) -> None:
         """Show the panel with Find and put the cursor in its box (Ctrl+F)."""
@@ -837,8 +837,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     ) -> bool:
         """Esc, when nothing in the window used the key before (a menu, a dialogue…), does the first that applies.
 
-        It closes Find, or else clears the selection of the panel view shown (D47), or else goes back to the tool
-        Select Text (02-interfaz, 5; H8).
+        It closes Find, or else clears the selection of the panel view shown, or else goes back to the tool Select Text.
         """
         if keyval != Gdk.KEY_Escape:
             return False
@@ -874,7 +873,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return view is not None and view.unselect_all()
 
     def _on_sidebar_resize_finished(self, _sidebar: PenfoldSidebar) -> None:
-        """The zoom is fitted once, when the border is released, not while dragging (B4)."""
+        """The zoom is fitted once, when the border is released, not while dragging."""
         self.document_view.defer_fit(False)
         self._settings.set_int("sidebar-width", self._chosen_sidebar_width)
 
@@ -883,7 +882,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
     def open_file(self, path: Path) -> bool:
         """Show a PDF in this window and return True; if it cannot be opened, say so and keep what was shown.
 
-        A PDF that needs a password is shown once it is typed (D61): False until then.
+        A PDF that needs a password is shown once it is typed: False until then.
         """
         try:
             document = OpenDocument.open(path)
@@ -896,7 +895,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return self._show_document(document)
 
     def open_last_document(self) -> bool:
-        """At start, show the last document shown (07-fase-12, 9) and return True.
+        """At start, show the last document shown and return True.
 
         If there is none, or it no longer exists or cannot be opened, the welcome page stays, saying nothing. One
         that needs a password asks for it, as when opened by hand (False until it is typed).
@@ -916,7 +915,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         return self._show_document(document, quiet=True)
 
     def _ask_password(self, path: Path) -> None:
-        """Ask for the password of a PDF until it opens it, or until Cancel (D61, 4)."""
+        """Ask for the password of a PDF until it opens it, or until Cancel."""
 
         def try_password(password: str) -> bool:
             try:
@@ -936,7 +935,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._show_message(_("Could not open “{name}”").format(name=path.name))
 
     def merge_files(self, paths: list[Path]) -> None:
-        """Open Merge PDFs, with these files in the list, asking first about unsaved changes (F5, J4, D17)."""
+        """Open Merge PDFs, with these files in the list, asking first about unsaved changes."""
 
         def open_dialog(proceed: bool) -> None:
             if not proceed:
@@ -949,7 +948,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.confirm_discard(open_dialog)
 
     def merge(self, request: PdfsToMerge) -> None:
-        """Show the merged PDFs, unsaved, with its bookmarks in sight (F2, F6); say so, or why they cannot be merged."""
+        """Show the merged PDFs, unsaved, with its bookmarks in sight; say so, or why they cannot be merged."""
         proposed = request.paths[0].parent / _("merged.pdf")
         try:
             document = OpenDocument.merge(
@@ -993,7 +992,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._grow_for_document()
         self._show_title()
         self.stack.set_visible_child_name("document")
-        # The panel opens by itself when a PDF is loaded, as in 0.6, once the window has grown to make room for it.
+        # The panel opens by itself when a PDF is loaded, once the window has grown to make room for it.
         self._show_sidebar_when_it_fits()
         self.document_view.set_document(document, renderer, self._remembered_position(document))
         self.pages_view.set_document(document, renderer, self.document_view.annotation_layer.kept_looks)
@@ -1007,10 +1006,10 @@ class PenfoldWindow(Adw.ApplicationWindow):
             ContextReader(renderer.poppler).context,
         )
         self.sidebar.close_search()
-        # As in 0.6, a PDF with bookmarks opens with them in sight; any other, with its pages.
+        # A PDF with bookmarks opens with them in sight; any other, with its pages.
         self.sidebar.show_view(sidebar_views.BOOKMARKS if document.bookmarks else sidebar_views.PAGES)
         self._set_document_actions_enabled(True)
-        # "Show Annotation Bar at Start" (07-fase-12, 10): each document opens with the bar, if it may be annotated.
+        # "Show Annotation Bar at Start": each document opens with the bar, if it may be annotated.
         if self._settings.get_boolean(SHOW_ANNOTATION_BAR_KEY):
             self.annotating.show_bar()
         self.document_view.grab_focus()
@@ -1049,7 +1048,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.document_view.permissions_changed()
 
     def _on_respect_permissions_changed(self, settings: Gio.Settings, key: str) -> None:
-        """Turning "Respect Document Permissions" on or off applies at once (D60): the lock and the tools follow."""
+        """Turning "Respect Document Permissions" on or off applies at once: the lock and the tools follow."""
         if self.document is not None:
             self.document.respect_permissions(settings.get_boolean(key))
 
@@ -1077,7 +1076,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self.add_tick_callback(check)
 
     def _remembered_position(self, document: OpenDocument) -> ReadingPosition | None:
-        """Where the document was left, if positions are remembered (07-fase-12, 9); never for a new one."""
+        """Where the document was left, if positions are remembered; never for a new one."""
         if document.is_new or not self._settings.get_boolean(REMEMBER_POSITION_KEY):
             return None
         return self._positions.get(document.path)
@@ -1115,9 +1114,9 @@ class PenfoldWindow(Adw.ApplicationWindow):
         dialog.present(self)
 
     def _on_drop(self, _target: Gtk.DropTarget, value: Gdk.FileList, _x: float, _y: float) -> bool:
-        """A PDF dropped on the window opens in it, asking first about unsaved changes (A5, J4).
+        """A PDF dropped on the window opens in it, asking first about unsaved changes.
 
-        Several at once open Merge PDFs with them in the list (D17).
+        Several at once open Merge PDFs with them in the list.
         """
         paths = [Path(path) for file in value.get_files() if (path := file.get_path()) is not None]
         if len(paths) > 1:
@@ -1126,13 +1125,13 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.confirm_discard(lambda proceed: proceed and self.open_file(paths[0]))
         return bool(paths)
 
-    # Unsaved changes (J4, J5).
+    # Unsaved changes.
 
     def confirm_discard(self, then: Callable[[bool], object]) -> None:
         """Before the document is replaced or closed, ask what to do with unsaved changes; then says whether to go on.
 
         Without unsaved changes nothing is asked. Save saves (asking where if it has to) and goes on only if it was
-        saved; Discard goes on; Cancel, or closing the question, does not (D16, 0.6).
+        saved; Discard goes on; Cancel, or closing the question, does not.
         """
         document = self.document
         if document is None or not document.is_modified:
@@ -1152,7 +1151,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             then(response == RESPONSE_DISCARD)
 
     def close_after_asking(self, then: Callable[[bool], object] | None = None) -> None:
-        """Close the window, asking first about unsaved changes; then says whether it closed (Ctrl+Q, A8)."""
+        """Close the window, asking first about unsaved changes; then says whether it closed (Ctrl+Q)."""
 
         def close(proceed: bool) -> None:
             if proceed:
@@ -1168,7 +1167,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
         self.confirm_discard(close)
 
-    # Window size (D17): small without a document; with one, the size it had the last time.
+    # Window size: small without a document; with one, the size it had the last time.
 
     def _grow_for_document(self) -> None:
         if self.document is not None and self.stack.get_visible_child_name() == "document":
@@ -1190,7 +1189,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             settings.set_int("window-height", height)
 
     def _on_close_request(self, _window: Gtk.Window) -> bool:
-        """Closing the window (Ctrl+W, its button) asks first about unsaved changes (A8).
+        """Closing the window (Ctrl+W, its button) asks first about unsaved changes.
 
         What is being edited on a page counts: it is accepted first.
         """
@@ -1215,11 +1214,11 @@ class PenfoldWindow(Adw.ApplicationWindow):
         self._update_zoom_actions()
 
     def _on_destination_activated(self, _view: Gtk.Widget, page: int, top: float) -> None:
-        """Go to a destination from the panel, with its height on the top third (B8); -1 means no height."""
+        """Go to a destination from the panel, with its height on the top third; -1 means no height."""
         self.document_view.go_to(page, None if top < 0 else top)
 
     def _on_viewport_changed(self, view: DocumentView) -> None:
-        """The panel follows the reading: the part shown on the thumbnails (D41)."""
+        """The panel follows the reading: the part shown on the thumbnails."""
         self.pages_view.show_visible_areas(view.visible_areas())
         self.bookmarks_view.follow(*view.reading_point())
 
@@ -1229,7 +1228,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
 
 
 def _save_question(name: str) -> Adw.AlertDialog:
-    """Save, discard or keep the unsaved changes of a document (J5)."""
+    """Save, discard or keep the unsaved changes of a document."""
     dialog = Adw.AlertDialog(
         heading=_("Save changes to “{name}”?").format(name=name),
         body=_("If you don’t save, your changes will be lost."),
