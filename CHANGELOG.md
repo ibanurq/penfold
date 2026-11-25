@@ -5,6 +5,26 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0-rc.1 — 2026-11-25
+
+Release candidate of Penfold 1.0: Extract in the thumbnail menu, faster bookmarks and small fixes.
+
+### Added
+- Extract…, in the right-click menu of the selected pages in the thumbnail view.
+
+### Changed
+- The Author row of Preferences is the entry itself, with its title always small on top.
+- Extract Pages explains which pages to write with an example.
+- The tooltip of the lock leaves an empty line between its heading and the list of permissions.
+- The README says which elements are edited with the right mouse button.
+- The specification and the document on working with AI describe Penfold as it is now.
+- The web and Electron app of 0.6 is no longer in the repository; it stays in its history and in the `v0.6.0` tag.
+
+### Fixed
+- Collapse All and Expand All take a fraction of a second with thousands of bookmarks, instead of seconds, and show
+  the list from its beginning.
+- Esc closes Find and, if Find showed the hidden side panel, hides it again.
+
 ## 1.0.0-beta.2 — 2026-11-25
 
 Second beta of Penfold 1.0: Donate in the main menu, new icons, a lighter annotation bar, and the Flatpak in Spanish

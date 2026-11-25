@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 17:57+0100\n"
+"POT-Creation-Date: 2026-11-25 19:01+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -134,11 +134,11 @@ msgstr "Elegir qué anotaciones se imprimen"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:77
 msgid ""
-"Second beta of Penfold 1.0: Donate in the main menu, new icons and a lighter "
-"annotation bar."
+"Release candidate of Penfold 1.0: Extract in the thumbnail menu, faster "
+"bookmarks and small fixes."
 msgstr ""
-"Segunda beta de Penfold 1.0: «Donar» en el menú principal, iconos nuevos y "
-"una barra de anotación más clara."
+"Versión candidata de Penfold 1.0: «Extraer» en el menú de las miniaturas, "
+"marcadores más rápidos y pequeños arreglos."
 
 #: data/ui/dialogs/add_pages_dialog.blp:8
 msgid "Add Pages"
@@ -155,7 +155,7 @@ msgid "_Cancel"
 msgstr "_Cancelar"
 
 #: data/ui/dialogs/add_pages_dialog.blp:27 penfold/ui/bookmark_editing.py:126
-#: penfold/ui/sidebar/bookmarks_view.py:190
+#: penfold/ui/sidebar/bookmarks_view.py:192
 #: penfold/ui/sidebar/pages_view.py:283
 msgid "_Add"
 msgstr "_Añadir"
@@ -266,7 +266,7 @@ msgid "_Add PDFs…"
 msgstr "_Añadir PDF…"
 
 #: data/ui/dialogs/merge_dialog.blp:96 data/ui/sidebar/sidebar.blp:58
-#: penfold/ui/sidebar/bookmarks_view.py:189
+#: penfold/ui/sidebar/bookmarks_view.py:191
 msgid "Bookmarks"
 msgstr "Marcadores"
 
@@ -554,7 +554,7 @@ msgid "_Format…"
 msgstr "_Formato…"
 
 #: penfold/ui/annotation_editing.py:403
-#: penfold/ui/sidebar/bookmarks_view.py:131 penfold/ui/sidebar/pages_view.py:91
+#: penfold/ui/sidebar/bookmarks_view.py:133 penfold/ui/sidebar/pages_view.py:91
 msgid "_Delete"
 msgstr "_Eliminar"
 
@@ -605,7 +605,7 @@ msgstr "Color"
 
 #: penfold/ui/bookmark_editing.py:125
 #: penfold/ui/sidebar/annotations_view.py:168
-#: penfold/ui/sidebar/bookmarks_view.py:614
+#: penfold/ui/sidebar/bookmarks_view.py:651
 #: penfold/ui/sidebar/pages_view.py:261 penfold/ui/sidebar/search_view.py:108
 #, python-brace-format
 msgid "Page {label}"
@@ -1212,51 +1212,51 @@ msgstr "(Externa)"
 msgid "{group} ({count})"
 msgstr "{group} ({count})"
 
-#: penfold/ui/sidebar/bookmarks_view.py:101
+#: penfold/ui/sidebar/bookmarks_view.py:103
 msgid "Untitled"
 msgstr "Sin título"
 
-#: penfold/ui/sidebar/bookmarks_view.py:121
+#: penfold/ui/sidebar/bookmarks_view.py:123
 msgid "_Bold"
 msgstr "_Negrita"
 
-#: penfold/ui/sidebar/bookmarks_view.py:122
+#: penfold/ui/sidebar/bookmarks_view.py:124
 msgid "_Italic"
 msgstr "_Cursiva"
 
-#: penfold/ui/sidebar/bookmarks_view.py:123
+#: penfold/ui/sidebar/bookmarks_view.py:125
 msgid "_Clear Formatting"
 msgstr "_Quitar formato"
 
-#: penfold/ui/sidebar/bookmarks_view.py:124
+#: penfold/ui/sidebar/bookmarks_view.py:126
 msgid "_Rename…"
 msgstr "Ca_mbiar nombre…"
 
-#: penfold/ui/sidebar/bookmarks_view.py:127
+#: penfold/ui/sidebar/bookmarks_view.py:129
 msgid "_Point to the Current Page"
 msgstr "_Apuntar a la página actual"
 
-#: penfold/ui/sidebar/bookmarks_view.py:128
+#: penfold/ui/sidebar/bookmarks_view.py:130
 msgid "Increase Inden_t"
 msgstr "_Sangrar"
 
-#: penfold/ui/sidebar/bookmarks_view.py:129
+#: penfold/ui/sidebar/bookmarks_view.py:131
 msgid "Decrea_se Indent"
 msgstr "_Desangrar"
 
-#: penfold/ui/sidebar/bookmarks_view.py:180
+#: penfold/ui/sidebar/bookmarks_view.py:182
 msgid "Collapse All"
 msgstr "Plegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:184
+#: penfold/ui/sidebar/bookmarks_view.py:186
 msgid "Expand All"
 msgstr "Desplegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:218
+#: penfold/ui/sidebar/bookmarks_view.py:222
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
-#: penfold/ui/sidebar/bookmarks_view.py:389
+#: penfold/ui/sidebar/bookmarks_view.py:397
 #, python-brace-format
 msgctxt "bookmarks"
 msgid "{count} selected"
