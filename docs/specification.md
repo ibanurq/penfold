@@ -11,7 +11,7 @@ How the app is developed with an AI assistant is described in [working-with-ai.m
 
 Penfold is a simple PDF reader for GNOME that can also annotate PDFs and work with their pages. It is a native GTK 4
 and libadwaita app, written in Python, distributed as a Flatpak. It can read PDFs and find text in them, annotate them
-and edit those annotations, reorganise their pages, edit their bookmarks, merge several PDFs, extract pages, fill in
+and edit those annotations, reorganize their pages, edit their bookmarks, merge several PDFs, extract pages, fill in
 forms and print.
 
 Two principles guide what it does:
@@ -24,16 +24,16 @@ Two principles guide what it does:
   does. Text written into the PDF is UTF-16, so emoji and any other character are kept.
 
 Penfold never uses the network. It does not create new annotation types beyond the eight listed below, insert images,
-set passwords or permissions on a PDF, or recognise text in scanned pages.
+set passwords or permissions on a PDF, or recognize text in scanned pages.
 
-## Name, version and licence
+## Name, version and license
 
-- **Name: Penfold.** *Pen* + *fold* (a folded sheet of pages): the two halves of the app, annotating and organising
+- **Name: Penfold.** *Pen* + *fold* (a folded sheet of pages): the two halves of the app, annotating and organizing
   pages.
 - **App ID:** `io.github.ibanurq.Penfold`. **Repository:** `https://github.com/ibanurq/penfold`.
 - **Version:** in `meson.build` and `penfold/config.py` (a test checks that they match), following semantic
   versioning, with `-alpha.N`, `-beta.N` and `-rc.N` for pre-releases.
-- **Licence: GPL-3.0-only.** Compatible with every library used (see “Platform and libraries”). Third-party works
+- **License: GPL-3.0-only.** Compatible with every library used (see “Platform and libraries”). Third-party works
   included in the app are listed in `THIRD-PARTY-NOTICES.md`.
 
 ## Platform and libraries
@@ -61,7 +61,7 @@ part), qpdf and pikepdf with its Python dependencies. Permissions: no network; a
 and the last document and reading positions could not be remembered. Files outside the home folder arrive through
 GNOME’s portals (file chooser, “Open With”, drag and drop).
 
-## Code organisation
+## Code organization
 
 ```
 penfold/
@@ -94,7 +94,7 @@ build-aux/                    The Flatpak manifest and scripts to set up the too
   and bound to Python classes with `@Gtk.Template`.
 - **Actions.** Every command (open, save, undo, turn pages, delete…) is a `Gio.SimpleAction` (`app.open`, `win.undo`),
   with its shortcut and its enabled state. Buttons, menu items and shortcuts use the same action, so they cannot
-  behave differently, and greying out a control means disabling its action.
+  behave differently, and graying out a control means disabling its action.
 - **Source index and position.** Each page of each source PDF has a **source index** that never changes: the pages of
   the opened PDF are 0 to n−1, those of each PDF added come after them. Bookmarks, annotations, links, selected
   thumbnails and search results name their page by its source index; the interface works with **positions** in the
@@ -107,12 +107,12 @@ build-aux/                    The Flatpak manifest and scripts to set up the too
 
 ## Interface
 
-The interface follows the GNOME Human Interface Guidelines and uses libadwaita’s widgets as they are: sizes, colours
+The interface follows the GNOME Human Interface Guidelines and uses libadwaita’s widgets as they are: sizes, colors
 and type come from libadwaita, not from Penfold. Principles:
 
 - **A clean window.** While reading, only the document and its headers are visible. Tools appear when asked for (the
   pencil, the right-click menus).
-- **What cannot be used is greyed out**, never hidden or silent: every button, menu item or control that cannot act
+- **What cannot be used is grayed out**, never hidden or silent: every button, menu item or control that cannot act
   at that moment is shown disabled.
 - **Undo rather than ask.** What can be undone is not confirmed: a toast says what was done, with “Undo”. A toast for
   an edit disappears as soon as that edit is undone, with its button or with Ctrl+Z. Only actions that cannot be
@@ -126,17 +126,17 @@ and type come from libadwaita, not from Penfold. Principles:
 - Two areas, in an `AdwOverlaySplitView`: the **side panel** on the left, with its own header, and the **document** on
   the right, with its header. In narrow windows the panel overlays the document.
 - The side panel is shown or hidden with its button or F9, and opens by itself when a PDF is loaded. Its width is set
-  by dragging its edge (the edge line grows from 1 to 3 pixels in the accent colour on hover and while dragging) and
+  by dragging its edge (the edge line grows from 1 to 3 pixels in the accent color on hover and while dragging) and
   remembered.
 - **Size.** Without a document the window is small. When a PDF is opened it grows to the size it had the last time it
-  showed a document, or is maximised if it was. The size and the maximised state are remembered (GSettings), not the
+  showed a document, or is maximized if it was. The size and the maximized state are remembered (GSettings), not the
   position: on GNOME, apps do not choose where their windows go.
 - **Window title** (Alt+Tab, Activities): “file.pdf — Penfold”, with “• ” in front while there are unsaved changes;
   “Penfold” without a document.
 
 ### Welcome page
 
-An `AdwStatusPage` with a grey drawing of a sheet with a marker pen, the title “Welcome to Penfold”, the line “Drag a
+An `AdwStatusPage` with a gray drawing of a sheet with a marker pen, the title “Welcome to Penfold”, the line “Drag a
 PDF here to open it, or several to merge them”, and two rounded blue buttons, **Open…** and **Merge…**. The header
 holds only “Penfold”, the main menu and the window buttons. There is no list of recent documents.
 
@@ -145,13 +145,13 @@ With → Penfold” in the file manager, and also with a document already open.
 
 ### Headers
 
-**Side panel header:** Find (magnifier) on the left, “Penfold” in the centre, the main menu ☰ on the right.
+**Side panel header:** Find (magnifier) on the left, “Penfold” in the center, the main menu ☰ on the right.
 
 **Document header**, from left to right:
 
-- show or hide the side panel (F9); the pencil, which shows or hides the annotation bar (greyed out when the PDF does
-  not allow annotating); Undo and Redo (greyed out when there is nothing to undo or redo);
-- in the centre, the document’s title and, under it, the file name; with only the file name when the PDF has no
+- show or hide the side panel (F9); the pencil, which shows or hides the annotation bar (grayed out when the PDF does
+  not allow annotating); Undo and Redo (grayed out when there is nothing to undo or redo);
+- in the center, the document’s title and, under it, the file name; with only the file name when the PDF has no
   title. A “• ” in front of the title marks unsaved changes. For a PDF with user access permissions, a red closed
   padlock goes in front (see “Passwords and user access permissions”);
 - the page box and, next to it, “of N” or “(n of N)”; the document menu ⋮; the window buttons.
@@ -165,7 +165,7 @@ be typed; Enter goes to that page; Ctrl+L puts the focus in the box.
 ### Menus
 
 **Document menu ⋮:** Print… (Ctrl+P) · Save (Ctrl+S), Save As… (Shift+Ctrl+S) · Continuous / Two Pages (a radio
-choice) · Properties. Save, Save As… and Print are greyed out when they cannot be used, for example Print for a PDF
+choice) · Properties. Save, Save As… and Print are grayed out when they cannot be used, for example Print for a PDF
 that does not allow printing.
 
 **Main menu ☰:** three circles to choose the style (follow the system, light or dark) · Open… (Ctrl+O), Merge PDFs…,
@@ -187,20 +187,20 @@ New Window · Preferences (Ctrl+,), Keyboard Shortcuts (Ctrl+?), Donate (opens t
 
 ### Annotation bar
 
-The pencil shows a bar **floating at the bottom centre of the document**, to the left of the zoom buttons, without
+The pencil shows a bar **floating at the bottom center of the document**, to the left of the zoom buttons, without
 pushing the document. In a narrow window it moves aside so as not to touch them; if both still do not fit, the zoom
-buttons rise just above the bar. It looks like GNOME’s side panel: light grey (dark grey in dark style), with a thin
+buttons rise just above the bar. It looks like GNOME’s side panel: light gray (dark gray in dark style), with a thin
 border and a soft shadow, so it stands out from white paper. While it is shown, toasts appear just above it.
 
 ```
-[Select Text] | [Highlight] [Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] | [Comment] [Text Box] | [Colour]
+[Select Text] | [Highlight] [Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] | [Comment] [Text Box] | [Color]
 ```
 
 - The separators mark the four groups of annotations (see “Annotation groups”).
-- One tool at a time; Select Text is the default; the initial colour is yellow. **The tool stays active** after an
+- One tool at a time; Select Text is the default; the initial color is yellow. **The tool stays active** after an
   annotation is made, and the cursor shows which one it is. Each annotation made can be undone and redone.
-- **Colour:** a button with the current colour opens upwards a row of six colour circles, with a ring around the one
-  chosen; choosing a colour closes it. Every palette in the app looks like this.
+- **Color:** a button with the current color opens upwards a row of six color circles, with a ring around the one
+  chosen; choosing a color closes it. Every palette in the app looks like this.
 - **H and U:** with text selected, they highlight or underline it without changing the tool; with nothing selected,
   they choose the Highlight or Underline tool.
 - **Drawing and selecting are separate.** A left click never selects an annotation, so selecting highlighted text is
@@ -223,7 +223,7 @@ What the three list views share:
 - **Right-click menu:** on a selected item, it acts on the whole selection; on an unselected one, it selects only that
   one first. It opens without an arrow, to the right of the pointer; also with the Menu key or Shift+F10 on the
   selection (whatever has the focus, as long as the panel is shown), and with a long press on touch screens. What cannot
-  be applied is greyed out; when the PDF does not allow the change, everything is. Delete (also the Delete key) does
+  be applied is grayed out; when the PDF does not allow the change, everything is. Delete (also the Delete key) does
   not ask: a toast offers “Undo”.
 - **Counter** (Pages and Bookmarks): while something is selected, “N selected” floats at the bottom with the look of a
   toast. The lists always leave room for it after the last row, so nothing moves when selecting.
@@ -231,7 +231,7 @@ What the three list views share:
 **Pages**
 
 - Header: “Pages” · **Add** · **Extract**.
-- Thumbnails of a fixed size, in as many columns as fit, centred; each page fitted into the same cell without
+- Thumbnails of a fixed size, in as many columns as fit, centered; each page fitted into the same cell without
   distortion, with its page label underneath. Ctrl + wheel (or Ctrl++ and Ctrl+− with the focus on them) changes their
   size, which is remembered. Each thumbnail shows the page with its annotations, and is updated when an annotation is
   made, changed, moved or deleted, and on undo and redo.
@@ -239,23 +239,23 @@ What the three list views share:
 - **Drag to reorder:** pages can be dropped anywhere in the list and go next to the nearest thumbnail (before it on its
   left half, after it on its right half); a blue line shows where, and the list scrolls by itself near its edges.
 - Right-click menu: Rotate Left, Rotate Right, Rotate 180°, Extract… · Delete. Not every page can be deleted: with all
-  of them selected, Delete is greyed out.
+  of them selected, Delete is grayed out.
 
 **Bookmarks**
 
 - Header: “Bookmarks” · **Add** (takes the selected text as title, or “Page N”) · **Collapse All** · **Expand All**
-  (each greyed out when there is nothing to do).
-- A tree with an arrow to expand each branch, the page number on the right, and bold, italic and colour visible. The
-  bookmark of the section being read is marked with a vertical bar in the accent colour on the left of its row (not a
+  (each grayed out when there is nothing to do).
+- A tree with an arrow to expand each branch, the page number on the right, and bold, italic and color visible. The
+  bookmark of the section being read is marked with a vertical bar in the accent color on the left of its row (not a
   background, so it is not mistaken for the selection), and kept in view.
 - **Drag** before, after or inside another bookmark (top 30 % of a row: before; bottom 30 %: after; the middle:
   inside; below the list: at the end); a blue line or the row in blue shows where.
-- Right-click menu: four colour circles · Bold ✓, Italic ✓, Clear Formatting · Rename… (F2) · Point to the Current
-  Page · Increase Indent, Decrease Indent · Delete. Rename and Point are greyed out with several selected; the indent
+- Right-click menu: four color circles · Bold ✓, Italic ✓, Clear Formatting · Rename… (F2) · Point to the Current
+  Page · Increase Indent, Decrease Indent · Delete. Rename and Point are grayed out with several selected; the indent
   items when they cannot apply.
-- **Bookmark colours.** A colour tints the title, so bookmarks have their own palette, readable on white: burgundy
-  `#ad182e`, orange `#d54400`, green `#2c873e` and blue `#2676d5` (libadwaita’s accent colours darkened just enough to
-  reach a contrast of 4.5:1 on white). That is what is saved in the PDF. In the panel, **any** bookmark colour, also
+- **Bookmark colors.** A color tints the title, so bookmarks have their own palette, readable on white: burgundy
+  `#ad182e`, orange `#d54400`, green `#2c873e` and blue `#2676d5` (libadwaita’s accent colors darkened just enough to
+  reach a contrast of 4.5:1 on white). That is what is saved in the PDF. In the panel, **any** bookmark color, also
   those from other programs, is darkened in light style or lightened in dark style just enough to reach 4.5:1 on the
   panel’s background, without changing the file.
 
@@ -265,9 +265,9 @@ What the three list views share:
   click outside close it). All four are ticked by default.
 - The list has the four sections of the groups, each with a count (“Text Elements (2)”), sorted by page and position.
   Every annotation type the PDF has falls into one of them.
-- **Each row:** a small icon of the type on the left; “Page N” in bold and the author on the right in grey (or
+- **Each row:** a small icon of the type on the left; “Page N” in bold and the author on the right in gray (or
   “(External)” without one); under it, up to about four lines of its text, with a vertical bar in the annotation’s
-  colour. White or colourless annotations from other programs use orange `#c64600` for the bar, so it can be seen.
+  color. White or colorless annotations from other programs use orange `#c64600` for the bar, so it can be seen.
   Text markups without text of their own show the marked text in quotation marks; shapes without text, “No text”.
 - The annotations of the page being read are marked, and the list scrolls to the first one.
 - Click goes to the annotation. Right click opens the same menu as on the page (see “Editing annotations”); it acts
@@ -309,7 +309,7 @@ Right-click menus have text, no icons.
 By default the app follows the system, like every libadwaita app. The three circles at the top of the main menu choose
 System, Light or Dark; the choice is saved and applied at once to every window. PDF pages are never inverted.
 
-## Behaviour
+## Behavior
 
 ### Opening
 
@@ -344,19 +344,19 @@ System, Light or Dark; the choice is saved and applied at once to every window. 
 ### Annotation types and how they are saved
 
 Penfold makes eight types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`), the entries the standard asks
-for (`/NM`, dates, `/F` with the print flag, colour, border style…) and the author of Preferences as `/T` (`Penfold` if
+for (`/NM`, dates, `/F` with the print flag, color, border style…) and the author of Preferences as `/T` (`Penfold` if
 it is empty). Text in `/Contents` is UTF-16.
 
 | Type | Subtype | Made by | Default look |
 |---|---|---|---|
-| Highlight | `/Highlight` | Selecting text | The colour with `Multiply` blending, opacity 0.75 |
+| Highlight | `/Highlight` | Selecting text | The color with `Multiply` blending, opacity 0.75 |
 | Underline | `/Underline` | Selecting text | A 1 pt line under the text |
 | Strikethrough | `/StrikeOut` | Selecting text | A 1 pt line through the middle of the text |
 | Rectangle | `/Square` | Dragging | A 1 pt line, hollow |
 | Circle | `/Circle` | Dragging (four Bézier curves) | A 1 pt line, hollow |
 | Arrow | `/Line` | Dragging from its start to its end | A 1 pt line with an open arrowhead at the end (`/LE`) |
-| Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the colour |
-| Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the colour; black Liberation Sans 11 pt |
+| Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
+| Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
 
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
 - **Shapes** are drawn while dragging, so their shape is seen before releasing.
@@ -380,10 +380,10 @@ it is empty). Text in `/Contents` is UTF-16.
 A **right click on an annotation** (on the page or on its row in the Annotations view; a long press on touch screens)
 opens a menu, also while an annotation tool is active (it stays active). The annotation is outlined while the menu is
 open; when several are under the pointer, a line wins over the empty inside of a shape, and otherwise the topmost wins.
-A right click elsewhere does nothing. When the PDF does not allow annotating, everything in the menu is greyed out.
+A right click elsewhere does nothing. When the PDF does not allow annotating, everything in the menu is grayed out.
 
 ```
-( ● ) ( ● ) ( ● ) ( ● ) ( ● ) ( ● )     the six colours; one click changes and closes
+( ● ) ( ● ) ( ● ) ( ● ) ( ● ) ( ● )     the six colors; one click changes and closes
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments
 Move and Resize                         “Move” for comments; “Adjust Ends” for text markups
@@ -391,30 +391,30 @@ Delete
 ```
 
 - **Edit Text…:** a comment in its popover; a text box by writing on the page, as when it was made.
-- **Format…:** a popover beside the annotation, without covering it: the six colours and rows for its type. Changes
+- **Format…:** a popover beside the annotation, without covering it: the six colors and rows for its type. Changes
   apply at once, without an Apply button; Esc or a click outside close it; everything changed is one undo step.
 
   | Type | Rows |
   |---|---|
   | Highlight, underline, strikethrough | Opacity |
-  | Rectangle, circle | Line Width (Thin 1 pt · Medium 2 pt · Thick 4 pt) · Line (Solid · Dashed) · Fill (a soft tint of the colour) · Opacity (10–100 %) |
+  | Rectangle, circle | Line Width (Thin 1 pt · Medium 2 pt · Thick 4 pt) · Line (Solid · Dashed) · Fill (a soft tint of the color) · Opacity (10–100 %) |
   | Arrow | Line Width · Line · Arrowheads (At the End · At Both Ends · None) · Opacity |
-  | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the colour is the background’s and the border’s, the text is always black |
+  | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the color is the background’s and the border’s, the text is always black |
 
 - **Move and Resize:** handles on the annotation: corners for rectangles and circles; for a text box, one on each side,
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
-  handles at the start and the end, which follow the text letter by letter within the page (greyed out where there is
+  handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
 - **Annotations from other programs** of the eight types are edited like Penfold’s. What is not touched does not
-  change: a colour outside the palette has no circle marked; a value outside the options appears as one more option.
+  change: a color outside the palette has no circle marked; a value outside the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns
   before changing it. Annotations of other types can be seen and listed, but not edited.
 
 ### Bookmarks
 
-- Bookmarks are read as a tree with their title, destination, colour, bold, italic and open state.
+- Bookmarks are read as a tree with their title, destination, color, bold, italic and open state.
 - **Destinations are kept as they were.** An untouched bookmark is written back with its original destination
   (`/XYZ`, `/FitH`, `/Fit`…). A new bookmark, or one pointed at the current page, leads to the start of its page.
 - A new bookmark takes the selected text as title (or asks for one, “Page N” by default) and is placed in page order.
@@ -454,7 +454,7 @@ Delete
   file, which becomes the document’s file.
 - **The PDF is changed, not rebuilt.** pikepdf takes the private copy and applies the changes: pages in their new order
   and rotation, pages added from other PDFs, pages deleted (with their form fields), annotations made, changed, moved
-  or deleted, bookmarks (`/Outlines`, with their colour and bold and italic flags), page labels and form values.
+  or deleted, bookmarks (`/Outlines`, with their color and bold and italic flags), page labels and form values.
   Everything else stays as it was. Unused objects are dropped and streams compressed, as qpdf does.
 - **Page labels:** `/PageLabels` is written again for the final order: each page keeps its label, pages without one
   (blank, or from a PDF without labels) get their number, and runs are grouped so the tree stays compact.
@@ -472,7 +472,7 @@ Delete
   to save. A merged document is unsaved until it is saved.
 - **Before the document is replaced** (opening another one, merging) **or the window is closed** (also when quitting),
   Penfold asks, first, “Save changes to “name”?” with Cancel, Discard (destructive) and Save. Save saves (or asks where)
-  and then goes ahead; if saving fails or is cancelled, nothing is replaced. Without unsaved changes nothing is asked.
+  and then goes ahead; if saving fails or is canceled, nothing is replaced. Without unsaved changes nothing is asked.
 - Quitting (Ctrl+Q) asks in every window with changes, in turn; Cancel in any of them stops quitting.
 
 ### Printing
@@ -488,11 +488,11 @@ The standard calls what an encrypted PDF allows its **user access permissions**:
 annotating, assembling (changing pages), copying text, modifying.
 
 - **A PDF with permissions** (encrypted without an open password) opens without a notice. With “Respect Document
-  Permissions” on (the default), whatever it allows can be used and the rest is greyed out. A **red closed padlock** in
+  Permissions” on (the default), whatever it allows can be used and the rest is grayed out. A **red closed padlock** in
   front of the title shows it; its tooltip says “User access permissions of this PDF:”, what is not allowed, and that
   they can be ignored from Preferences. With the option off, there is no padlock and everything is allowed.
 - **A PDF with an open password:** an alert “Protected Document” asks for it (“Opening “file.pdf” requires its
-  password.”), with a password box that can show the text, and Cancel · Open (greyed out while the box is empty). A
+  password.”), with a password box that can show the text, and Cancel · Open (grayed out while the box is empty). A
   wrong password says “Incorrect password” in red and empties the box. The password is never remembered: it lives only
   in memory, never in a log. Opened with the owner password, everything is allowed.
 - **Saving and extracting** keep the encryption, the passwords and the permissions.
@@ -522,7 +522,7 @@ Main menu → Preferences (Ctrl+,): an `AdwPreferencesDialog`, one page, no OK o
   the 200 most recently opened, written when the document is closed or replaced; a new unsaved document is not
   remembered. **Start With Last Document** (on).
 
-Settings are kept with **GSettings** (`data/io.github.ibanurq.Penfold.gschema.xml`): window size and maximised state,
+Settings are kept with **GSettings** (`data/io.github.ibanurq.Penfold.gschema.xml`): window size and maximized state,
 side panel width, thumbnail size, style, author name and the switches above.
 
 ### Keyboard shortcuts
@@ -544,8 +544,8 @@ The keys without Ctrl (H, U, Delete, Esc, Page Down / Page Up) do nothing while 
 
 ### About
 
-`AdwAboutDialog` with the app’s icon, name and version, the website and issue tracker, the developer, the licence,
-the credits for the icons, and the libraries and font used with their licences.
+`AdwAboutDialog` with the app’s icon, name and version, the website and issue tracker, the developer, the license,
+the credits for the icons, and the libraries and font used with their licenses.
 
 ## Languages
 
@@ -596,7 +596,7 @@ the credits for the icons, and the libraries and font used with their licences.
 - **Undo instead of confirmations:** deleting asks nothing, because it can be undone.
 - **Right-click menus instead of buttons that appear on hover:** the left click selects text or draws, the right click
   edits; the three list views of the panel work alike.
-- **Bookmark colours readable on white**, adjusted on screen to the panel’s background without changing the file.
+- **Bookmark colors readable on white**, adjusted on screen to the panel’s background without changing the file.
 - **Fixed blank page sizes:** A4, Letter, A5 and A3, portrait only, to keep the dialog simple.
 - **Passwords are never remembered**, and permissions can be ignored only by the user’s choice in Preferences.
 - **No network, ever.**

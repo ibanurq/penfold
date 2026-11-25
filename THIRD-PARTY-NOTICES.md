@@ -1,12 +1,12 @@
 # Third-party notices
 
-Penfold is licensed under the GNU General Public Licence v3.0 (see `LICENSE`). It includes or derives from the
-following third-party works, each under its own licence, which is compatible with the GPL-3.0.
+Penfold is licensed under the GNU General Public License v3.0 (see `LICENSE`). It includes or derives from the
+following third-party works, each under its own license, which is compatible with the GPL-3.0.
 
 ## GNOME icon-development-kit
 
 - Project: https://gitlab.gnome.org/Teams/Design/icon-development-kit — the icon collection of the GNOME design team.
-- Licence: CC0 1.0 Universal (public domain dedication); no attribution is required, it is given here anyway.
+- License: CC0 1.0 Universal (public domain dedication); no attribution is required, it is given here anyway.
 - Used in the interface, unchanged, in `data/icons/scalable/actions/`:
   - `arrows-horizontal` (Fit Width), as `penfold-fit-width-symbolic.svg`;
   - `notebook` (the Annotations view of the side panel), as `penfold-annotations-symbolic.svg`;
@@ -22,7 +22,7 @@ following third-party works, each under its own licence, which is compatible wit
 ## Liberation Sans
 
 - Project: https://github.com/liberationfonts/liberation-fonts — Copyright Red Hat, Inc.
-- Licence: SIL Open Font License 1.1, which allows embedding the font in documents.
+- License: SIL Open Font License 1.1, which allows embedding the font in documents.
 - Not included in Penfold: it comes with the system (Debian's `fonts-liberation`) or with the GNOME runtime of the
   Flatpak. Text boxes are drawn with it, and the characters they use are embedded in the PDFs saved; characters
   it lacks are drawn, and embedded, with other fonts of the system.
