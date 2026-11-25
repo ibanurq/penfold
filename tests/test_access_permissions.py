@@ -39,6 +39,7 @@ def test_a_pdf_that_denies_something_has_a_red_lock_that_says_what_it_does_not_a
     assert (icon.get_visible(), icon.has_css_class("error")) == (True, True)
     assert icon.get_tooltip_text() == (
         "User access permissions of this PDF:\n"
+        "\n"
         "• Its forms cannot be filled in\n"
         "• It cannot be annotated\n"
         "• Its pages and bookmarks cannot be changed\n"

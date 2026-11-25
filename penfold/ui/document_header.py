@@ -52,8 +52,9 @@ class PenfoldDocumentHeader(Adw.Bin):
 def describe_denied_permissions(permissions: AccessPermissions) -> str:
     """Say what the user access permissions of a PDF do not allow, one line each (the tooltip of the lock, D59, D61)."""
     lines = [f"• {sentence}" for sentence in denied_sentences(permissions.denied)]
-    # The last line says that the option exists (D61, 9).
-    return "\n".join([_("User access permissions of this PDF:"), *lines, "", _("They can be ignored in Preferences.")])
+    heading = _("User access permissions of this PDF:")
+    # An empty line on each side of the list; the last line says that the option exists (D61, 9).
+    return "\n".join([heading, "", *lines, "", _("They can be ignored in Preferences.")])
 
 
 def denied_sentences(denied: list[str]) -> list[str]:
