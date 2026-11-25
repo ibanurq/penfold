@@ -121,7 +121,7 @@ def test_bookmarks_show_the_tree_and_go_to_their_destination(window: "PenfoldWin
         assert isinstance(item, BookmarkItem)
         titles.append(item.bookmark.title)
     assert titles == ["Cover", "1. Intro", "1.1 Scope", "Broken", "Action"]  # "1. Intro" is stored open
-    bookmarks.toggle_all()
+    bookmarks.collapse_all()
     assert bookmarks.tree.get_n_items() == 4
     bookmarks.emit("destination-activated", 4, 342.0)
     assert window.document_view.current_page == 4
@@ -188,7 +188,7 @@ def test_there_is_room_for_the_counter_after_the_last_bookmark(window: "PenfoldW
     window.sidebar.show_view("bookmarks")
     room = bookmarks._end_room.height
     wait_until(lambda: _rows_with_room(bookmarks) == {4: room})
-    bookmarks.toggle_all()  # one row fewer: the room goes to the new last one
+    bookmarks.collapse_all()  # one row fewer: the room goes to the new last one
     wait_until(lambda: _rows_with_room(bookmarks) == {3: room})
 
 
@@ -402,7 +402,7 @@ def test_bookmarks_follow_the_reading(window: "PenfoldWindow", tmp_path: Path) -
     view.go_to(2)
     process_pending_events()
     assert bookmarks.marked_bookmark.title == "1.1 Scope"
-    bookmarks.toggle_all()  # fold "1. Intro": its row shows the section being read
+    bookmarks.collapse_all()  # fold "1. Intro": its row shows the section being read
     process_pending_events()
     assert bookmarks.marked_bookmark.title == "1. Intro"
 

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-25 11:09+0100\n"
+"POT-Creation-Date: 2026-11-25 12:13+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -132,7 +132,7 @@ msgstr "Extraer páginas"
 msgid "Choosing which annotations to print"
 msgstr "Elegir qué anotaciones se imprimen"
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:76
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:77
 msgid ""
 "First beta of Penfold 1.0: read, annotate, organize and fill in your PDFs."
 msgstr "Primera beta de Penfold 1.0: lee, anota, organiza y rellena tus PDF."
@@ -152,7 +152,7 @@ msgid "_Cancel"
 msgstr "_Cancelar"
 
 #: data/ui/dialogs/add_pages_dialog.blp:27 penfold/ui/bookmark_editing.py:126
-#: penfold/ui/sidebar/bookmarks_view.py:186
+#: penfold/ui/sidebar/bookmarks_view.py:191
 #: penfold/ui/sidebar/pages_view.py:281
 msgid "_Add"
 msgstr "_Añadir"
@@ -261,7 +261,7 @@ msgid "_Add PDFs…"
 msgstr "_Añadir PDF…"
 
 #: data/ui/dialogs/merge_dialog.blp:96 data/ui/sidebar/sidebar.blp:58
-#: penfold/ui/sidebar/bookmarks_view.py:185
+#: penfold/ui/sidebar/bookmarks_view.py:190
 msgid "Bookmarks"
 msgstr "Marcadores"
 
@@ -600,7 +600,7 @@ msgstr "Color"
 
 #: penfold/ui/bookmark_editing.py:125
 #: penfold/ui/sidebar/annotations_view.py:168
-#: penfold/ui/sidebar/bookmarks_view.py:580
+#: penfold/ui/sidebar/bookmarks_view.py:615
 #: penfold/ui/sidebar/pages_view.py:259 penfold/ui/sidebar/search_view.py:108
 #, python-brace-format
 msgid "Page {label}"
@@ -1239,15 +1239,19 @@ msgstr "_Sangrar"
 msgid "Decrea_se Indent"
 msgstr "_Desangrar"
 
-#: penfold/ui/sidebar/bookmarks_view.py:180
-msgid "Expand or Collapse All"
-msgstr "Desplegar o plegar todo"
+#: penfold/ui/sidebar/bookmarks_view.py:181
+msgid "Collapse All"
+msgstr "Plegar todo"
 
-#: penfold/ui/sidebar/bookmarks_view.py:213
+#: penfold/ui/sidebar/bookmarks_view.py:185
+msgid "Expand All"
+msgstr "Desplegar todo"
+
+#: penfold/ui/sidebar/bookmarks_view.py:219
 msgid "This PDF has no bookmarks"
 msgstr "Este PDF no tiene marcadores"
 
-#: penfold/ui/sidebar/bookmarks_view.py:379
+#: penfold/ui/sidebar/bookmarks_view.py:390
 #, python-brace-format
 msgctxt "bookmarks"
 msgid "{count} selected"

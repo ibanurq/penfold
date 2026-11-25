@@ -176,14 +176,20 @@ class BookmarksView(Gtk.Box):
     def __init__(self) -> None:
         """Create the view, empty until set_document."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        self.expand_button = Gtk.Button(
-            icon_name="penfold-expand-all-symbolic", tooltip_text=_("Expand or Collapse All"), valign=Gtk.Align.CENTER
+        # Fold or unfold every branch (D82); each is greyed out while there is nothing for it to do.
+        self.collapse_button = Gtk.Button(
+            icon_name="penfold-collapse-all-symbolic", tooltip_text=_("Collapse All"), valign=Gtk.Align.CENTER
         )
-        self.expand_button.connect("clicked", lambda _button: self.toggle_all())
+        self.collapse_button.connect("clicked", self._on_fold_button_clicked)
+        self.expand_button = Gtk.Button(
+            icon_name="penfold-expand-all-symbolic", tooltip_text=_("Expand All"), valign=Gtk.Align.CENTER
+        )
+        self.expand_button.connect("clicked", self._on_fold_button_clicked)
         self.append(
             view_header(
                 _("Bookmarks"),
                 header_button(_("_Add"), "bookmark-new-symbolic", "win.add-bookmark"),
+                self.collapse_button,
                 self.expand_button,
             )
         )
@@ -229,6 +235,7 @@ class BookmarksView(Gtk.Box):
         overlay.add_overlay(self.counter)
         self.append(overlay)
         self._style_handler = 0
+        self._update_fold_buttons()
 
     def do_root(self) -> None:
         """While in a window, the colours of the titles follow the style, light or dark (07-fase-12, 6)."""
@@ -272,7 +279,7 @@ class BookmarksView(Gtk.Box):
         self._open_as_stored()
         self.tree.connect("items-changed", self._on_tree_changed)
         self.stack.set_visible_child_name("list" if bookmarks else "empty")
-        self.expand_button.set_sensitive(any(bookmark.children for bookmark in bookmarks))
+        self._update_fold_buttons()
         self.select(selected, scroll=False)
 
     def pages_changed(self) -> None:
@@ -288,13 +295,17 @@ class BookmarksView(Gtk.Box):
         return self.renderer.layout.place(page, top) if self.renderer is not None else None
 
     def _on_tree_changed(self, tree: Gtk.TreeListModel, _position: int, _removed: int, _added: int) -> None:
-        """Remember which branches are unfolded, to save it (G9); it may change which row shows the reading."""
+        """Remember which branches are unfolded, to save it (G9); it may change which row shows the reading.
+
+        It may leave nothing for Collapse All or Expand All to do, too.
+        """
         for index in range(tree.get_n_items()):
             row = tree.get_row(index)
             item = row.get_item() if row is not None else None
             if row is not None and isinstance(item, BookmarkItem) and row.is_expandable():
                 item.bookmark.is_open = row.get_expanded()
         self._mark_reading(scroll=False)
+        self._update_fold_buttons()
 
     def follow(self, page: int, top: float) -> None:
         """Mark the bookmark of the section being read, and bring it into sight unless the list is in use (D40)."""
@@ -417,21 +428,45 @@ class BookmarksView(Gtk.Box):
         self._ask_for_menu(row, position, row.get_width() / 2, row.get_height() / 2)
         return True
 
-    def toggle_all(self) -> None:
-        """Unfold every branch, or fold them all if they are all unfolded."""
+    def _branch_rows(self) -> list[Gtk.TreeListRow]:
+        """The rows shown that can be unfolded: those of the bookmarks with bookmarks under them."""
         rows = [self.tree.get_row(index) for index in range(self.tree.get_n_items())]
-        expandable = [row for row in rows if row is not None and row.is_expandable()]
-        expand = not all(row.get_expanded() for row in expandable)
-        if expand:
-            index = 0
-            while index < self.tree.get_n_items():
-                row = self.tree.get_row(index)
-                if row is not None and row.is_expandable():
-                    row.set_expanded(True)
-                index += 1
+        return [row for row in rows if row is not None and row.is_expandable()]
+
+    def _update_fold_buttons(self) -> None:
+        """Grey out Collapse All while no branch is unfolded, and Expand All while every branch is (D82).
+
+        The rows shown are enough: a branch under a folded one is not shown, and the one that folds it has something
+        to unfold.
+        """
+        branches = self._branch_rows()
+        self.collapse_button.set_sensitive(any(row.get_expanded() for row in branches))
+        self.expand_button.set_sensitive(not all(row.get_expanded() for row in branches))
+
+    def _on_fold_button_clicked(self, button: Gtk.Button) -> None:
+        """Fold or unfold every branch; if the button is left greyed out, its focus goes to the other one."""
+        other = self.expand_button if button is self.collapse_button else self.collapse_button
+        had_focus = button.has_focus()
+        if button is self.collapse_button:
+            self.collapse_all()
         else:
-            for row in reversed(expandable):
-                row.set_expanded(False)
+            self.expand_all()
+        if had_focus and not button.get_sensitive() and other.get_sensitive():
+            other.grab_focus()
+
+    def collapse_all(self) -> None:
+        """Fold every branch, the innermost first, so that each one remembers it is folded (G9)."""
+        for row in reversed(self._branch_rows()):
+            row.set_expanded(False)
+
+    def expand_all(self) -> None:
+        """Unfold every branch, also those that each one unfolded shows."""
+        index = 0
+        while index < self.tree.get_n_items():
+            row = self.tree.get_row(index)
+            if row is not None and row.is_expandable():
+                row.set_expanded(True)
+            index += 1
 
     def _children(self, item: GObject.Object) -> Gio.ListModel | None:
         if isinstance(item, BookmarkItem) and item.bookmark.children:

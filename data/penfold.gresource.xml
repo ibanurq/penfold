@@ -3,6 +3,7 @@
   <gresource prefix="/io/github/ibanurq/Penfold">
     <file>style.css</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-annotations-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-collapse-all-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-expand-all-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-filter-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-fit-width-symbolic.svg</file>

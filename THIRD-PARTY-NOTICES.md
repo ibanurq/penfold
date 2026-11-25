@@ -79,7 +79,6 @@ into `node_modules/`, which is not part of the repository.
 - Used in the interface (D75), unchanged, in `data/icons/scalable/actions/`:
   - `arrows-horizontal` (Fit Width), as `penfold-fit-width-symbolic.svg`;
   - `notebook` (the Annotations view of the side panel), as `penfold-annotations-symbolic.svg`;
-  - `expand-vertical` (Expand or Collapse All, in the Bookmarks view), as `penfold-expand-all-symbolic.svg`;
   - `filter` (Filter, in the Annotations view), as `penfold-filter-symbolic.svg`;
   - for the annotation types, in the annotation bar and the Annotations view, as `penfold-type-*-symbolic.svg`:
     `pencil` (highlights), `draw-rectangle` (rectangles), `draw-circle` (circles), `top-right-arrow` (arrows),
