@@ -1,4 +1,4 @@
-"""The Pages view of the side panel (02-interfaz, 6.1; D39, D41): thumbnails with their page labels.
+"""The Pages view of the side panel: thumbnails with their page labels.
 
 Thumbnails have a size of their own, which the user changes with Ctrl and the wheel (or Ctrl++ and Ctrl+- while they
 have the focus); the panel shows as many columns as fit, centred. Every page sits in the same cell, with the
@@ -6,10 +6,10 @@ proportions of an upright A4, fitted inside without being distorted, so an A3 lo
 centred vertically. The thumbnail of the page being read is marked, with a soft box over the part shown in the
 document.
 
-With pages selected, a counter at the bottom says how many (D74); a click away from the thumbnails, or Esc, clears
-the selection (D47). A right click on a thumbnail, a long press, or the Menu key (or Shift+F10) opens the
-menu of the pages selected; a thumbnail not selected is selected alone first (D74). Thumbnails are dragged to reorder
-the pages, several at once if the one dragged is selected (E1). Adding and extracting come with phase 4.
+With pages selected, a counter at the bottom says how many; a click away from the thumbnails, or Esc, clears the
+selection. A right click on a thumbnail, a long press, or the Menu key (or Shift+F10) opens the menu of the pages
+selected; a thumbnail not selected is selected alone first. Thumbnails are dragged to reorder the pages, several at once
+if the one dragged is selected.
 """
 
 import math
@@ -77,7 +77,7 @@ def fit_page(page_size: tuple[float, float], box_width: float, box_height: float
 
 
 def pages_menu_model() -> Gio.Menu:
-    """The menu of the pages selected (02-interfaz, 6.1; D74, D83): the three turns, Extract and Delete.
+    """The menu of the pages selected: the three turns, Extract and Delete.
 
     One section, with a separator of its own (ui/context_menu.py).
     """
@@ -209,7 +209,7 @@ class Thumbnail(Gtk.Widget):
     def _draw_visible_area(
         self, snapshot: Gtk.Snapshot, area: Rectangle, page_box: tuple[float, float, float, float]
     ) -> None:
-        """A soft box in the accent colour over the part of the page shown in the document (D41)."""
+        """A soft box in the accent colour over the part of the page shown in the document."""
         renderer = self._view.renderer
         assert renderer is not None
         x, y, width, height = page_box
@@ -286,7 +286,7 @@ class PagesView(Gtk.Box):
         )
         self.document: OpenDocument | None = None
         self.renderer: Renderer | None = None
-        # The annotations painted over the thumbnails, as over the pages of the document (07-fase-12, 12).
+        # The annotations painted over the thumbnails, as over the pages of the document.
         self.annotation_layer = AnnotationLayer()
         self._rendered_handler = 0
         self._settings = Gio.Settings(schema_id=config.APP_ID)
@@ -426,7 +426,7 @@ class PagesView(Gtk.Box):
             self.grid.scroll_to(page, Gtk.ListScrollFlags.FOCUS, None)
 
     def show_visible_areas(self, areas: dict[int, Rectangle]) -> None:
-        """Show which part of each page is shown in the document, in points from the page's top left corner (D41)."""
+        """Show which part of each page is shown in the document, in points from the page's top left corner."""
         changed = set(self.visible_areas) | set(areas)
         self.visible_areas = areas
         for page in changed:
@@ -440,7 +440,7 @@ class PagesView(Gtk.Box):
         return [bitset.get_nth(index) for index in range(bitset.get_size())]
 
     def unselect_all(self) -> bool:
-        """Clear the selection (Esc, D47); return whether any page was selected."""
+        """Clear the selection (Esc); return whether any page was selected."""
         return unselect_all(self.selection)
 
     # Selection.
@@ -453,7 +453,7 @@ class PagesView(Gtk.Box):
         pages = self.document.pages if self.document is not None else []
         self._selected_sources = {pages[position].source_index for position in selected if position < len(pages)}
 
-    # Menu of the pages selected (D74).
+    # Menu of the pages selected.
 
     def _ask_for_menu(self, cell: PageCell, x: float, y: float) -> None:
         """Open the menu at a point of a thumbnail; a thumbnail not selected is selected alone first."""
@@ -488,7 +488,7 @@ class PagesView(Gtk.Box):
         self._ask_for_menu(cell, cell.get_width() / 2, cell.get_height() / 2)
         return True
 
-    # Zoom of the thumbnails (D39).
+    # Zoom of the thumbnails.
 
     @property
     def available_width(self) -> float:
@@ -621,14 +621,14 @@ class PagesView(Gtk.Box):
         cell.add_controller(drag)
         item.set_child(cell)
 
-    # Dragging thumbnails (E1).
+    # Dragging thumbnails.
 
     def _on_drag_prepare(
         self, _source: Gtk.DragSource, _x: float, _y: float, cell: PageCell
     ) -> Gdk.ContentProvider | None:
         """Drag the selected pages if the thumbnail is one of them; otherwise only its page.
 
-        A PDF that does not allow assembling it does not let its pages move (D59).
+        A PDF that does not allow assembling it does not let its pages move.
         """
         if self.document is None or not self.document.permissions.assemble:
             return None

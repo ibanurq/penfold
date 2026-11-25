@@ -1,4 +1,4 @@
-"""Asking for a short text, such as the title of a bookmark (02-interfaz, 8): an alert dialogue with a text box."""
+"""Asking for a short text, such as the title of a bookmark: an alert dialogue with a text box."""
 
 from collections.abc import Callable
 from gettext import gettext as _
@@ -27,7 +27,7 @@ def text_question(heading: str, text: str, confirm_label: str, on_answer: Callab
         dialog.set_response_enabled(RESPONSE_CONFIRM, bool(entry.get_text().strip()))
 
     def on_response(_dialog: Adw.AlertDialog, response: str) -> None:
-        # Closing the dialogue answers again, with the close response (lessons of phase 4): only the first counts.
+        # Closing the dialogue answers again, with the close response: only the first counts.
         dialog.disconnect_by_func(on_response)
         if response == RESPONSE_CONFIRM:
             on_answer(entry.get_text().strip())

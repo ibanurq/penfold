@@ -13,7 +13,7 @@ COPYRIGHT = "© 2026 ibanurq"
 
 
 def library_licenses() -> tuple[tuple[str, Gtk.License, str | None], ...]:
-    """The libraries Penfold uses (03-arquitectura, 2.1), and those the Flatpak brings along with them (L5).
+    """The libraries Penfold uses, and those the Flatpak brings along with them.
 
     Each with its license, and the name of those GTK has no name for. GTK's "or later" licenses also stand for "or
     later" ones of an earlier version (Pango is LGPL-2.0 or later), and the first of two to choose from (cairo:
@@ -37,7 +37,7 @@ def library_licenses() -> tuple[tuple[str, Gtk.License, str | None], ...]:
     )
 
 
-# The icons of GNOME's design team that Penfold uses (D75; THIRD-PARTY-NOTICES.md).
+# The icons of GNOME's design team that Penfold uses (THIRD-PARTY-NOTICES.md).
 ICON_AUTHORS = ("Jakub Steiner https://gitlab.gnome.org/Teams/Design/icon-development-kit",)
 
 

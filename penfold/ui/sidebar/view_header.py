@@ -1,7 +1,7 @@
 """Pieces shared by the views of the side panel.
 
-Their header (02-interfaz, 6), noticing recent use (D40), clearing their selection (D47), counting it (D74), the
-room after the last row that keeps the counter off it, and the names screen readers say for the rows.
+Their header, noticing recent use, clearing their selection, counting it, the room after the last row that keeps the
+counter off it, and the names screen readers say for the rows.
 """
 
 import time
@@ -25,7 +25,7 @@ def view_header(title: str, *buttons: Gtk.Widget) -> Gtk.Box:
 
 
 def header_button(label: str, icon_name: str, action_name: str) -> Gtk.Button:
-    """Return a button with an icon and a text; it is greyed out while its action does not exist (D21)."""
+    """Return a button with an icon and a text; it is greyed out while its action does not exist."""
     content = Gtk.Box(spacing=6)
     content.append(Gtk.Image(icon_name=icon_name))
     content.append(Gtk.Label(label=label, use_underline=True))
@@ -42,7 +42,7 @@ def name_row(item: Gtk.ListItem, *parts: str) -> None:
 
 
 def selection_counter() -> Gtk.Label:
-    """The counter of what is selected, floating at the bottom of a list with the look of a toast (D74).
+    """The counter of what is selected, floating at the bottom of a list with the look of a toast.
 
     It is hidden until show_count gives it a number, and clicks go through it to the list.
     """
@@ -145,7 +145,7 @@ def empty_label(text: str) -> Gtk.Label:
 class RecentUse:
     """Notices when the user is using a list (pointer over it, scrolling it).
 
-    Following the reading then leaves the list where it is, so it does not move under the user (D40).
+    Following the reading then leaves the list where it is, so it does not move under the user.
     """
 
     QUIET_SECONDS = 2.0
@@ -174,7 +174,7 @@ class RecentUse:
 
 
 def unselect_all(selection: Gtk.SelectionModel) -> bool:
-    """Clear a list's selection (Esc, D47); return whether anything was selected."""
+    """Clear a list's selection (Esc); return whether anything was selected."""
     if selection.get_selection().is_empty():
         return False
     selection.unselect_all()
@@ -182,7 +182,7 @@ def unselect_all(selection: Gtk.SelectionModel) -> bool:
 
 
 def unselect_on_empty_click(scrolled: Gtk.ScrolledWindow, selection: Gtk.SelectionModel) -> None:
-    """Clear the selection when the list is clicked away from its rows, in its gaps or below them (D47)."""
+    """Clear the selection when the list is clicked away from its rows, in its gaps or below them."""
     click = Gtk.GestureClick()
 
     def on_pressed(_gesture: Gtk.GestureClick, _presses: int, x: float, y: float) -> None:

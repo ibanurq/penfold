@@ -1,7 +1,7 @@
-"""The "Save As" dialogue of a document with a form (I6): whether to flatten it, before choosing the file.
+"""The "Save As" dialogue of a document with a form: whether to flatten it, before choosing the file.
 
-Flattening is off by default, as in 0.6. Continue closes it and emits "continue-requested" with the choice; Cancel or
-Esc save nothing.
+Flattening is off by default. Continue closes it and emits "continue-requested" with the choice; Cancel or Esc save
+nothing.
 """
 
 from typing import ClassVar

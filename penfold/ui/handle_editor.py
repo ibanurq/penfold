@@ -1,15 +1,15 @@
-"""Moving an annotation and changing its size on its page, with handles (D72, D73).
+"""Moving an annotation and changing its size on its page, with handles.
 
 While it is edited, the annotation shows as it is being changed, over a thin frame in the accent colour and with its
 handles. Dragging a handle changes its size; dragging it from anywhere else on it moves it. Enter or a click
 outside it accept the change; Esc cancels it. The document view owns the editor and passes it the mouse and the keys.
 
 Rectangles and circles have a handle at each corner (document/reshaping.py); text boxes one at each side, which change
-only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py);
-arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments
-have no handles: they keep their size, and are only moved. Marks on text have a handle where they start and one where
-they end: each covers the text up to the other, letter by letter, as a selection does; they do not move. Theirs are
-drops, as the touch selection handles of GNOME (D76): the start one above the first letter, the end one below the last.
+only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py); arrows
+one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments have no
+handles: they keep their size, and are only moved. Marks on text have a handle where they start and one where they end:
+each covers the text up to the other, letter by letter, as a selection does; they do not move. Theirs are drops, as the
+touch selection handles of GNOME: the start one above the first letter, the end one below the last.
 """
 
 import math
@@ -50,8 +50,8 @@ SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
 # The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.
 UNFRAMED_KINDS = END_KINDS | TEXT_MARKUPS
-# The drop handles of marks on text (D76): Adwaita's icons, drawn this big in pixels; where their tip is, and the part
-# of them that a press takes (left, top, right, bottom), as fractions of their size. Their tip is on the text.
+# The drop handles of marks on text: Adwaita's icons, drawn this big in pixels; where their tip is, and the part of them
+# that a press takes (left, top, right, bottom), as fractions of their size. Their tip is on the text.
 DROP_SIZE = 32
 DROP_ICONS = {Handle.START: "selection-start-symbolic", Handle.END: "selection-end-symbolic"}
 DROP_TIPS = {Handle.START: (11 / 16, 13.6 / 16), Handle.END: (5 / 16, 2.4 / 16)}
@@ -75,8 +75,8 @@ class HandleEditor:
         """Edit an annotation of the document on its page; without handles if it is not resizable (it only moves).
 
         on_done receives the annotation changed when the change is accepted, or None if it is cancelled or nothing
-        changed. One of a PDF that Penfold does not manage is moved as it is, keeping its drawing (D73); a handle makes
-        it managed, drawn again by Penfold. It shows as shown (by default, as it is) until it changes.
+        changed. One of a PDF that Penfold does not manage is moved as it is, keeping its drawing; a handle makes it
+        managed, drawn again by Penfold. It shows as shown (by default, as it is) until it changes.
         """
         self._view = view
         self.original = annotation

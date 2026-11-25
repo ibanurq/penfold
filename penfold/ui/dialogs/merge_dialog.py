@@ -1,7 +1,7 @@
-"""The "Merge PDFs" dialogue (02-interfaz, 8; F1 to F4; D50): the files to merge, in order, and their bookmarks.
+"""The "Merge PDFs" dialogue: the files to merge, in order, and their bookmarks.
 
 Files are added with the button or dropped on the dialogue; only PDFs are listed. Encrypted PDFs stay in the list, in
-red, so it is clear that they will be left out (F4). At least two files that can be merged are needed (F3).
+red, so it is clear that they will be left out. At least two files that can be merged are needed.
 """
 
 from dataclasses import dataclass, field
@@ -29,9 +29,9 @@ DROP_BELOW = "drop-below"
 
 @dataclass(frozen=True)
 class FileToMerge:
-    """A file in the list: its path and how many pages it has; None for a PDF that cannot be merged (F4, D61).
+    """A file in the list: its path and how many pages it has; None for a PDF that cannot be merged.
 
-    A PDF with an open password keeps the one typed for it (D61, 6).
+    A PDF with an open password keeps the one typed for it.
     """
 
     path: Path
@@ -84,7 +84,7 @@ class PenfoldMergeDialog(Adw.Dialog):
         """Prepare an empty list."""
         super().__init__()
         self.files: list[FileToMerge] = []
-        # The files given but not added yet: one with a password waits for it (D61), and those after it.
+        # The files given but not added yet: one with a password waits for it, and those after it.
         self._to_add: list[Path] = []
         self._unreadable: list[str] = []
         self._respect_permissions = True
@@ -117,8 +117,8 @@ class PenfoldMergeDialog(Adw.Dialog):
     def add_files(self, paths: list[Path]) -> None:
         """Add PDFs at the end of the list; files that are not PDFs are left out, and unreadable ones explained.
 
-        A PDF whose permissions do not let it be merged is listed as such, unless they are ignored (D61). A PDF with an
-        open password is added once it is typed, one at a time; Cancel leaves it out (D61, 6).
+        A PDF whose permissions do not let it be merged is listed as such, unless they are ignored. A PDF with an open
+        password is added once it is typed, one at a time; Cancel leaves it out.
         """
         self._respect_permissions = Gio.Settings(schema_id=config.APP_ID).get_boolean(RESPECT_PERMISSIONS_KEY)
         self._to_add += [path for path in paths if path.suffix.lower() == PDF_SUFFIX]
@@ -183,7 +183,7 @@ class PenfoldMergeDialog(Adw.Dialog):
         pages = ngettext("{count} page in total", "{count} pages in total", sum(mergeable)).format(count=sum(mergeable))
         self.total_label.set_label(f"{files} · {pages}" if mergeable else "")
         self.total_label.set_visible(bool(mergeable))
-        self.merge_button.set_sensitive(len(mergeable) >= 2)  # noqa: PLR2004 (merging needs two files, F3)
+        self.merge_button.set_sensitive(len(mergeable) >= 2)  # noqa: PLR2004 (merging needs two files)
 
     def _row(self, position: int, file: FileToMerge) -> Adw.ActionRow:
         """A row with the handle to drag it, the file's name and pages, and a button to remove it."""

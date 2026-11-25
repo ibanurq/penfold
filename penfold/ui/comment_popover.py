@@ -1,7 +1,7 @@
-"""Writing the text of a comment (02-interfaz, 5; H5, D68): a popover pointing at its place on the page.
+"""Writing the text of a comment: a popover pointing at its place on the page.
 
 Enter starts a new line, Ctrl+Enter applies, Esc (or a click outside) cancels. Apply is greyed out while the text is
-blank: an empty comment is not made. Editing the text of a comment (D72), it starts with that text.
+blank: an empty comment is not made. Editing the text of a comment, it starts with that text.
 """
 
 from collections.abc import Callable

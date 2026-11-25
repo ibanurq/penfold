@@ -1,14 +1,12 @@
-"""Annotating from the window (02-interfaz, 5; D65): the pencil, the annotation bar, and the tool and colour chosen.
+"""Annotating from the window: the pencil, the annotation bar, and the tool and colour chosen.
 
-The pencil shows and hides the bar; hiding it goes back to Select Text. A tool stays chosen after an annotation is
-made, until another is chosen (D65). A PDF is only annotated if it allows it (D59, D61): otherwise the pencil is
-greyed out.
+The pencil shows and hides the bar; hiding it goes back to Select Text. A tool stays chosen after an annotation is made,
+until another is chosen. A PDF is only annotated if it allows it: otherwise the pencil is greyed out.
 
-The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released
-(H1). H and U mark the text selected without changing the tool, or else choose their tool (H7). Rectangles, circles
-and arrows are drawn by dragging, from where the drag starts to where it ends (H4). A click places a comment, whose
-text is written in a popover (H2, H5, D68). A drag sets the width of a text box (a click gives it a usual width),
-whose text is written on the page (H3, D69).
+The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released. H and
+U mark the text selected without changing the tool, or else choose their tool. Rectangles, circles and arrows are drawn
+by dragging, from where the drag starts to where it ends. A click places a comment, whose text is written in a popover.
+A drag sets the width of a text box (a click gives it a usual width), whose text is written on the page.
 """
 
 from collections.abc import Callable
@@ -116,7 +114,7 @@ class Annotating:
         self._tool.change_state(GLib.Variant.new_string(tool.value))
 
     def mark_or_choose(self, tool: Tool) -> bool:
-        """H and U (H7): mark the text selected with this tool's mark, or else choose it; return whether done."""
+        """H and U: mark the text selected with this tool's mark, or else choose it; return whether done."""
         if not self.allowed or tool not in MARKING_TOOLS:
             return False
         if not self.mark_selection(tool):
@@ -259,7 +257,7 @@ class Annotating:
         GLib.idle_add(popover.unparent)
 
     def _on_text_selected(self, _view: DocumentView) -> None:
-        """With a tool that marks text, the text just selected is marked (H1)."""
+        """With a tool that marks text, the text just selected is marked."""
         if self.tool in MARKING_TOOLS:
             self.mark_selection(self.tool)
 

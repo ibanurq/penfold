@@ -1,4 +1,4 @@
-"""Where each document was left (07-fase-12, 9), to show it there when it is opened again.
+"""Where each document was left, to show it there when it is opened again.
 
 The positions are kept on the user's computer, in a small file of Penfold's own (never in the PDFs), for the
 documents opened most recently. Each change reads the file again before writing it, so that several windows do not

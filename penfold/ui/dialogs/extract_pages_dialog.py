@@ -1,8 +1,7 @@
-"""The "Extract Pages" dialogue (02-interfaz, 6.1 and 8; E7 and E8; D51): which pages, and how.
+"""The "Extract Pages" dialogue: which pages, and how.
 
-It starts with the selected pages written as a list. A list that cannot be read is explained under it, and the
-dialogue stays open until the list is right. The numbers are positions; in a PDF with page labels, a line says so
-(D53).
+It starts with the selected pages written as a list. A list that cannot be read is explained under it, and the dialogue
+stays open until the list is right. The numbers are positions; in a PDF with page labels, a line says so.
 """
 
 from dataclasses import dataclass
@@ -32,7 +31,7 @@ class PagesToExtract:
 
 
 def describe(error: PageRangeError) -> str:
-    """Say what is wrong with a list of pages, as 0.6 does."""
+    """Say what is wrong with a list of pages."""
     match error:
         case InvalidFormatError(part=part):
             return _("Invalid format: “{part}”.").format(part=part)

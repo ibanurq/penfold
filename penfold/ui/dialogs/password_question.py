@@ -1,4 +1,4 @@
-"""Asking for the password of a PDF that needs one to be opened (D61, 4): an alert dialogue with a password box.
+"""Asking for the password of a PDF that needs one to be opened: an alert dialogue with a password box.
 
 The dialogue stays open while the password is wrong: it says so in red, empties the box and waits for another. Penfold
 never keeps the password beyond the open document.

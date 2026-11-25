@@ -1,4 +1,4 @@
-"""Checkboxes and radio buttons of a form on the pages (I1): a box that shows a black tick or dot, as in 0.6.
+"""Checkboxes and radio buttons of a form on the pages: a box that shows a black tick or dot.
 
 They are drawn here instead of with Gtk.CheckButton so they take exactly the size of the field, however small, at
 any zoom.

@@ -1,7 +1,7 @@
-"""The Format panel of an annotation (D72): a popover beside it, with its colours and the rows of its type.
+"""The Format panel of an annotation: a popover beside it, with its colours and the rows of its type.
 
-Every change shows at once, without an Apply button; Esc or a click outside closes it. Only the rows that suit the
-type are shown (02-interfaz, 5b):
+Every change shows at once, without an Apply button; Esc or a click outside closes it. Only the rows that suit the type
+are shown:
 
 - highlights, underlines and strikethroughs: opacity;
 - rectangles and circles: line width, line style, fill and opacity;
@@ -21,7 +21,7 @@ from gi.repository import Adw, Gio, GLib, Gtk
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind, LineEnds, Style
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_to_hex, hex_to_color
 
-# The options of the rows (D72): line widths and letter sizes in points.
+# The options of the rows: line widths and letter sizes in points.
 LINE_WIDTHS = (1.0, 2.0, 4.0)
 FONT_SIZES = (9.0, 11.0, 14.0, 18.0)
 LINE_ENDS = (LineEnds.END, LineEnds.BOTH, LineEnds.NONE)
@@ -36,7 +36,7 @@ NO_COLOR = ""
 
 
 def has_format(kind: Kind) -> bool:
-    """Whether annotations of a type have a Format panel (comments only have their colours, D72)."""
+    """Whether annotations of a type have a Format panel (comments only have their colours)."""
     return kind in FORMATTED
 
 

@@ -1,4 +1,4 @@
-"""Header of the document (02-interfaz, 3.2)."""
+"""Header of the document."""
 
 from gettext import gettext as _
 
@@ -12,7 +12,7 @@ from penfold.ui.menus import attach_main_menu
 # The template uses this widget by name: importing it also registers its type with GTK.
 from penfold.ui.page_entry import PenfoldPageEntry
 
-# In front of the title while the document has unsaved changes (D16).
+# In front of the title while the document has unsaved changes.
 UNSAVED_MARK = "• "
 
 
@@ -35,8 +35,8 @@ class PenfoldDocumentHeader(Adw.Bin):
     def show_document(self, document: OpenDocument) -> None:
         """Show the title of the PDF and, under it, the file name; without a title, only the file name.
 
-        With unsaved changes, the title starts with "• " (D16); a PDF with permissions that deny something has a red
-        lock in front, whose tooltip says what they do not allow (D58, D59).
+        With unsaved changes, the title starts with "• "; a PDF with permissions that deny something has a red lock in
+        front, whose tooltip says what they do not allow.
         """
         self.protected_icon.set_visible(document.denies_anything)
         self.protected_icon.set_tooltip_text(describe_denied_permissions(document.permissions))
@@ -50,10 +50,10 @@ class PenfoldDocumentHeader(Adw.Bin):
 
 
 def describe_denied_permissions(permissions: AccessPermissions) -> str:
-    """Say what the user access permissions of a PDF do not allow, one line each (the tooltip of the lock, D59, D61)."""
+    """Say what the user access permissions of a PDF do not allow, one line each (the tooltip of the lock)."""
     lines = [f"• {sentence}" for sentence in denied_sentences(permissions.denied)]
     heading = _("User access permissions of this PDF:")
-    # An empty line on each side of the list; the last line says that the option exists (D61, 9).
+    # An empty line on each side of the list; the last line says that the option exists.
     return "\n".join([heading, "", *lines, "", _("They can be ignored in Preferences.")])
 
 

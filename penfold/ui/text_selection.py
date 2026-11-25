@@ -1,4 +1,4 @@
-"""Text selected with the mouse, possibly across several pages (B9).
+"""Text selected with the mouse, possibly across several pages.
 
 A selection is made on the pages as they are shown; Poppler reads the text from the unturned pages of the PDF.
 """

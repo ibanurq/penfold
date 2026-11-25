@@ -1,4 +1,4 @@
-"""Printing (D57): the PDF prepared as saving does, then the system's print dialogue.
+"""Printing: the PDF prepared as saving does, then the system's print dialogue.
 
 The PDF to print has the form values and only the groups of annotations chosen; it is written in a worker thread to a
 private temporary folder, drawn page by page with Poppler and removed when the printing is over.
@@ -65,7 +65,7 @@ class DocumentPrinting:
     def make_operation(self, path: Path) -> Gtk.PrintOperation | None:
         """Prepare the printing of the PDF written to path; None if it cannot be read."""
         try:
-            # The PDF to print keeps the passwords of the opened one (D61).
+            # The PDF to print keeps the passwords of the opened one.
             password = self._document.sources.spans[0].password or None
             self._poppler = Poppler.Document.new_from_gfile(Gio.File.new_for_path(str(path)), password, None)
         except GLib.Error:

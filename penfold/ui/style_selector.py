@@ -1,4 +1,4 @@
-"""The style of the interface (D62): follow the system, light or dark, chosen with three circles in the main menu.
+"""The style of the interface: follow the system, light or dark, chosen with three circles in the main menu.
 
 The choice is the "style" setting; the application turns it into the stateful action app.style, so every menu shows
 the same choice and a change applies at once to every window. The pages of the PDF keep their own colours.

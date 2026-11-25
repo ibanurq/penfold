@@ -1,4 +1,4 @@
-"""Form fields on the pages: a widget over each field, where the reader fills it in (I1, I2).
+"""Form fields on the pages: a widget over each field, where the reader fills it in.
 
 The fields are child widgets of the document view, placed over their pages for the current zoom and scroll. Only
 the pages that can be seen get their widgets, so a long form costs nothing while it is off screen. Every change is an
@@ -59,7 +59,7 @@ class FormLayer:
         self._places: dict[int, list[tuple[FormField, Widget]]] = {}
         self._editors: dict[tuple[tuple[int, str], int], FieldWidget] = {}
         self._typing: SetFieldValue | None = None
-        # The fields only answer the mouse with the tool Select Text (I4): with the others, the page is annotated.
+        # The fields only answer the mouse with the tool Select Text: with the others, the page is annotated.
         self._active = True
 
     def set_document(self, document: OpenDocument, layout: PageLayout) -> None:
@@ -74,7 +74,7 @@ class FormLayer:
         self._places = {}
         if self._document is None:
             return
-        # A PDF that does not allow filling in its form shows the fields as they are, to read (D59).
+        # A PDF that does not allow filling in its form shows the fields as they are, to read.
         locked = not self._document.permissions.fill_forms
         for form_field in self._document.form_fields:
             field = replace(form_field, read_only=True) if locked else form_field
@@ -82,7 +82,7 @@ class FormLayer:
                 self._places.setdefault(widget.page, []).append((field, widget))
 
     def permissions_changed(self, layout: PageLayout) -> None:
-        """Make the fields again, since filling them in may be allowed or denied now (D60)."""
+        """Make the fields again, since filling them in may be allowed or denied now."""
         self.clear()
         self.pages_changed(layout)
 

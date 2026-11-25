@@ -1,4 +1,4 @@
-"""The floating annotation bar (02-interfaz, 5; D10, D32, D65): the tools, by group, and the colour.
+"""The floating annotation bar: the tools, by group, and the colour.
 
 It floats at the bottom of the document, centred, left of the zoom buttons. The pencil of the header shows and hides
 it. The tools and the colour are the window's actions "annotation-tool" and "annotation-color", whose states it shows.
@@ -15,7 +15,7 @@ from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_swatch, sh
 
 TOOL_ACTION = "win.annotation-tool"
 COLOR_ACTION = "win.annotation-color"
-# The room the zoom buttons take at the right of the document, which the bar leaves free (D32).
+# The room the zoom buttons take at the right of the document, which the bar leaves free.
 ZOOM_BUTTONS_ROOM = 72
 BAR_MARGIN = 18
 # The space left between the bar and the zoom buttons when they rise above it.
@@ -23,7 +23,7 @@ ZOOM_LIFT_GAP = 12
 
 
 class Tool(enum.Enum):
-    """The tools of the bar; one is chosen at a time (02-interfaz, 5)."""
+    """The tools of the bar; one is chosen at a time."""
 
     SELECT = "select"
     HIGHLIGHT = "highlight"
@@ -51,7 +51,7 @@ TOOL_KINDS = {
     Tool.COMMENT: Kind.COMMENT,
     Tool.TEXT_BOX: Kind.TEXT_BOX,
 }
-# The tools by group, in the order of the print dialogue (D64, D65).
+# The tools by group, in the order of the print dialogue.
 TOOL_GROUPS = (
     (Tool.SELECT,),
     (Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT),
@@ -61,7 +61,7 @@ TOOL_GROUPS = (
 
 
 def tool_icon(tool: Tool) -> str:
-    """The icon of a tool: that of the annotation type it makes (D75)."""
+    """The icon of a tool: that of the annotation type it makes."""
     return KIND_ICONS[tool.kind] if tool.kind else SELECT_TEXT_ICON
 
 
@@ -74,7 +74,7 @@ def tool_names() -> dict[Tool, str]:
 class AnnotationToolbar(Gtk.Box):
     """A card with the tool buttons, separated by group, and the colour button that opens the palette above.
 
-    It is grey, with a thin edge and a soft shadow, so that it stands out on a white page (D82; style.css).
+    It is grey, with a thin edge and a soft shadow, so that it stands out on a white page (style.css).
     """
 
     __gtype_name__ = "PenfoldAnnotationToolbar"
@@ -100,7 +100,7 @@ class AnnotationToolbar(Gtk.Box):
         circles = Gtk.Box(spacing=9, margin_top=6, margin_bottom=6, margin_start=3, margin_end=3)
         for value in ANNOTATION_COLORS:
             circle = color_circle(value, COLOR_ACTION)
-            # Choosing a colour closes the palette, so the page can be annotated at once (D71).
+            # Choosing a colour closes the palette, so the page can be annotated at once.
             circle.connect("clicked", lambda _circle: self.color_button.popdown())
             circles.append(circle)
         self.color_button = Gtk.MenuButton(
@@ -121,7 +121,7 @@ class AnnotationToolbar(Gtk.Box):
 
 
 def bar_position(document_width: int, bar_width: int) -> int:
-    """Where the bar starts: centred on the document, or further left to leave the zoom buttons free (D32)."""
+    """Where the bar starts: centred on the document, or further left to leave the zoom buttons free."""
     centred = (document_width - bar_width) // 2
     widest = document_width - ZOOM_BUTTONS_ROOM - bar_width
     return max(0, min(centred, widest))

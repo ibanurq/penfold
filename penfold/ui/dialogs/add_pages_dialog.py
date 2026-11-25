@@ -1,8 +1,8 @@
-"""The "Add Pages" dialogue (02-interfaz, 6.1 and 8; E4 to E6): the pages of a PDF or a blank page, and where.
+"""The "Add Pages" dialogue: the pages of a PDF or a blank page, and where.
 
-As in 0.6, choosing a file, a size or a page number also chooses the option it belongs to. With pages selected, it
-proposes to add the new ones after the last of them; otherwise at the end (D48). The page number is a position; in a
-PDF with page labels, the label of that page is shown under it (D49).
+Choosing a file, a size or a page number also chooses the option it belongs to. With pages selected, it proposes to add
+the new ones after the last of them; otherwise at the end. The page number is a position; in a PDF with page labels, the
+label of that page is shown under it.
 """
 
 from collections.abc import Callable
@@ -25,7 +25,7 @@ from penfold.ui.file_dialogs import pdf_file_dialog
 class PagesToAdd:
     """What the user chose: a PDF or a blank page of a size, and the position of the page they go before.
 
-    A PDF with an open password comes with it (D61, 6).
+    A PDF with an open password comes with it.
     """
 
     source: Path | PaperSize
@@ -112,7 +112,7 @@ class PenfoldAddPagesDialog(Adw.Dialog):
             self._take_file(path, "")
 
     def _take_file_with(self, path: Path, password: str) -> bool:
-        """Take a PDF if its password opens it; False to ask again (D61, 6)."""
+        """Take a PDF if its password opens it; False to ask again."""
         if not opens_with(path, password):
             return False
         self._take_file(path, password)
@@ -168,7 +168,7 @@ class PenfoldAddPagesDialog(Adw.Dialog):
             self._show_page_label()
 
     def _show_page_label(self) -> None:
-        """Under the page number, the label of that page and its position, as the page box shows them (D49)."""
+        """Under the page number, the label of that page and its position, as the page box shows them."""
         if self._page_label is None:
             return
         number = self.page_spin.get_value_as_int()

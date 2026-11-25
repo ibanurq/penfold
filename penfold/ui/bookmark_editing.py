@@ -1,7 +1,7 @@
-"""Editing bookmarks from the window (G3 to G7): the actions of the Bookmarks view (02-interfaz, 6.2; D23, D74).
+"""Editing bookmarks from the window: the actions of the Bookmarks view.
 
-Each action runs a bookmark edit on the document, so it can be undone, and selects again the bookmarks it edited.
-What cannot be done with the bookmarks selected is greyed out (D21).
+Each action runs a bookmark edit on the document, so it can be undone, and selects again the bookmarks it edited. What
+cannot be done with the bookmarks selected is greyed out.
 """
 
 from collections.abc import Callable
@@ -67,7 +67,7 @@ class BookmarkEditing:
         for signal in ("selection-changed", "items-changed"):
             view.selection.connect(signal, lambda *_arguments: self.update_actions())
         view.connect("move-requested", self._on_move_requested)
-        # The style the bookmarks selected share, shown by their menu (G7, D74).
+        # The style the bookmarks selected share, shown by their menu.
         for name, state in (
             ("bookmark-bold", GLib.Variant.new_boolean(False)),
             ("bookmark-italic", GLib.Variant.new_boolean(False)),
@@ -82,9 +82,9 @@ class BookmarkEditing:
         self._actions["bookmark-color"] = color
 
     def update_actions(self) -> None:
-        """Turn on what can be done with the bookmarks selected, and off the rest (D21).
+        """Turn on what can be done with the bookmarks selected, and off the rest.
 
-        A PDF that does not allow assembling it does not let its bookmarks change (D59).
+        A PDF that does not allow assembling it does not let its bookmarks change.
         """
         document = self._document()
         editable = document is not None and document.permissions.assemble
@@ -109,7 +109,7 @@ class BookmarkEditing:
         self._actions["bookmark-color"].set_state(GLib.Variant.new_string(colors.pop() if len(colors) == 1 else ""))
 
     def _add(self) -> None:
-        """Add a bookmark titled with the text selected in the document, at its page (G3).
+        """Add a bookmark titled with the text selected in the document, at its page.
 
         With no text selected, ask for the title of a bookmark at the current page, proposing "Page N".
         """
@@ -138,7 +138,7 @@ class BookmarkEditing:
         return self._actions["delete-bookmarks"].get_enabled()
 
     def delete_selected(self) -> None:
-        """Delete the bookmarks selected at once, with a notice to undo it (G4, D19)."""
+        """Delete the bookmarks selected at once, with a notice to undo it."""
         document = self._document()
         if document is None:
             return
@@ -160,7 +160,7 @@ class BookmarkEditing:
             self._execute(document, OutdentBookmarks(document, self._view.selected_bookmarks()))
 
     def _rename_selected(self) -> None:
-        """Ask for a new title for the bookmark selected (G5)."""
+        """Ask for a new title for the bookmark selected."""
         document = self._document()
         if document is None:
             return
@@ -173,14 +173,14 @@ class BookmarkEditing:
         text_question(_("Rename"), bookmark.title, _("_Save"), rename).present(self._window)
 
     def _point_selected(self) -> None:
-        """Make the bookmark selected lead to the start of the current page (G5)."""
+        """Make the bookmark selected lead to the start of the current page."""
         document = self._document()
         if document is not None:
             [bookmark] = self._view.selected_bookmarks()
             self._execute(document, PointBookmark(document, bookmark, self._document_view.current_page))
 
     def _toggle_style(self, name: str) -> None:
-        """Make the bookmarks selected bold (or italic), or not if they all are, as 0.6 does (G7)."""
+        """Make the bookmarks selected bold (or italic), or not if they all are."""
         document = self._document()
         if document is None:
             return
@@ -192,14 +192,14 @@ class BookmarkEditing:
         self._execute(document, command)
 
     def _color(self, value: str) -> None:
-        """Give the bookmarks selected a colour of their menu (G7)."""
+        """Give the bookmarks selected a colour of their menu."""
         document = self._document()
         if document is not None:
             selected = self._view.selected_bookmarks()
             self._execute(document, FormatBookmarks(document, selected, color=hex_to_color(value)))
 
     def _clear_format(self) -> None:
-        """Take bold, italic and colour away from the bookmarks selected (G7)."""
+        """Take bold, italic and colour away from the bookmarks selected."""
         document = self._document()
         if document is not None:
             selected = self._view.selected_bookmarks()
@@ -208,7 +208,7 @@ class BookmarkEditing:
     def _on_move_requested(
         self, _view: BookmarksView, dragged: list[Bookmark], target: Bookmark | None, placement: Placement
     ) -> None:
-        """Move dragged bookmarks (G6); dropping them where they already are changes nothing."""
+        """Move dragged bookmarks; dropping them where they already are changes nothing."""
         document = self._document()
         if document is not None:
             self._execute(document, MoveBookmarks(document, dragged, target, placement))

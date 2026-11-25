@@ -1,7 +1,7 @@
-"""Extracting pages from the window (E8, E9): choosing the folder, asking about names taken and writing the files.
+"""Extracting pages from the window: choosing the folder, asking about names taken and writing the files.
 
-The files are written in a worker thread, as saving is, so the window keeps responding. If a file name is already in
-the folder, the user chooses to overwrite it, to give the new file a free name, or to stop (as 0.6 does).
+The files are written in a worker thread, as saving is, so the window keeps responding. If a file name is already in the
+folder, the user chooses to overwrite it, to give the new file a free name, or to stop.
 """
 
 import logging

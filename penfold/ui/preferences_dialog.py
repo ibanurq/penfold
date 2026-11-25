@@ -1,4 +1,4 @@
-"""The Preferences dialogue (D60, D61; 07-fase-12, 8 to 10): annotations, permissions and opening documents.
+"""The Preferences dialogue: annotations, permissions and opening documents.
 
 Each row is bound to its setting, so a change is kept as soon as it is made; there is nothing to accept or cancel.
 """
@@ -18,7 +18,7 @@ OPEN_LAST_DOCUMENT_KEY = "open-last-document"
 # Not shown: the path of the last document, which "Start With Last Document" opens.
 LAST_DOCUMENT_KEY = "last-document"
 
-# The author entry's icon: a pencil while it is empty, and a button that empties it once it has text (07-fase-12, 8).
+# The author entry's icon: a pencil while it is empty, and a button that empties it once it has text.
 EMPTY_AUTHOR_ICON = "document-edit-symbolic"
 CLEAR_AUTHOR_ICON = "edit-clear-symbolic"
 

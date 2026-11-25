@@ -1,9 +1,8 @@
-"""The colours of the app (D33; 07-fase-12, 6): one palette for annotations and another for bookmarks.
+"""The colours of the app: one palette for annotations and another for bookmarks.
 
-Annotations take the six light tones of 0.6 (docs/specification.md, PALETTE), soft under the text. A bookmark's colour
-tints its title, so bookmarks take four darker tones that can be read on white, which is what most viewers show
-behind the outline; in the panel, Penfold adjusts any bookmark colour to its background, light or dark, without
-changing the file (color_contrast.readable_on).
+Annotations take six light tones, soft under the text. A bookmark's colour tints its title, so bookmarks take four
+darker tones that can be read on white, which is what most viewers show behind the outline; in the panel, Penfold
+adjusts any bookmark colour to its background, light or dark, without changing the file (color_contrast.readable_on).
 """
 
 import functools
@@ -14,8 +13,8 @@ from gi.repository import Gdk, GLib, Gtk
 from penfold.ui.color_contrast import Color
 
 ANNOTATION_COLORS = ("#f9f06b", "#8ff0a4", "#99c1f1", "#ffbe6f", "#f66151", "#dc8add")
-# Burgundy, the company's, and the orange, green and blue accent colours of libadwaita (#ed5b00, #3a944a, #3584e4)
-# darkened just enough to be read on white: color_contrast.readable_on(colour, WHITE).
+# Burgundy and the orange, green and blue accent colours of libadwaita (#ed5b00, #3a944a, #3584e4) darkened just enough
+# to be read on white: color_contrast.readable_on(colour, WHITE).
 BOOKMARK_COLORS = ("#ad182e", "#d54400", "#2c873e", "#2676d5")
 COLORS = ANNOTATION_COLORS + BOOKMARK_COLORS
 BYTE = 255

@@ -1,4 +1,4 @@
-"""Floating zoom buttons at the bottom right of the document (02-interfaz, 4)."""
+"""Floating zoom buttons at the bottom right of the document."""
 
 from gi.repository import Gtk
 

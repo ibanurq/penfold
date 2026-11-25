@@ -1,10 +1,10 @@
-"""The Bookmarks view of the side panel (02-interfaz, 6.2; D23): the outline as a tree.
+"""The Bookmarks view of the side panel: the outline as a tree.
 
-It shows each bookmark's style and page, lets the user unfold it and go to a bookmark, and follows the reading (D40).
-With bookmarks selected, a counter at the bottom says how many, and the menu that a right click on a row, a long
-press, or the Menu key (or Shift+F10) opens edits them through the window's actions, after selecting alone a row not
-selected (D74). A click away from the rows, or Esc, clears the selection (D47). Bookmarks are dragged before, after
-or inside another (G6), several at once if the one dragged is selected.
+It shows each bookmark's style and page, lets the user unfold it and go to a bookmark, and follows the reading. With
+bookmarks selected, a counter at the bottom says how many, and the menu that a right click on a row, a long press, or
+the Menu key (or Shift+F10) opens edits them through the window's actions, after selecting alone a row not selected. A
+click away from the rows, or Esc, clears the selection. Bookmarks are dragged before, after or inside another, several
+at once if the one dragged is selected.
 """
 
 from gettext import gettext as _
@@ -43,8 +43,7 @@ from penfold.ui.sidebar.view_header import (
     view_header,
 )
 
-# Dropping on the top part of a row puts the bookmarks before it, on the bottom part after it, and otherwise inside it,
-# as in 0.6 (G6).
+# Dropping on the top part of a row puts the bookmarks before it, on the bottom part after it, and otherwise inside it.
 DROP_EDGE = 0.3
 # The style class that marks where dropped bookmarks go, for each placement.
 DROP_MARKS = {Placement.BEFORE: "drop-above", Placement.AFTER: "drop-below", Placement.INSIDE: "drop-inside"}
@@ -97,7 +96,7 @@ def panel_background(*, dark: bool) -> Color:
 def title_markup(bookmark: Bookmark, *, dark: bool) -> str:
     """Return the title with its bold, italic and colour, as Pango markup.
 
-    The colour is adjusted to the panel, light or dark, to be read (07-fase-12, 6).
+    The colour is adjusted to the panel, light or dark, to be read.
     """
     text = GLib.markup_escape_text(bookmark.title or _("Untitled"))
     if bookmark.color is not None:
@@ -111,7 +110,7 @@ def title_markup(bookmark: Bookmark, *, dark: bool) -> str:
 
 
 def bookmarks_menu_model() -> Gio.Menu:
-    """The menu of the bookmarks selected (02-interfaz, 6.2; D74).
+    """The menu of the bookmarks selected.
 
     The four colours, bold and italic (ticked when all the bookmarks selected have them), Clear Formatting, Rename…
     (F2), Point to the Current Page, the two indents and Delete; one section, with separators of its own
@@ -176,7 +175,7 @@ class BookmarksView(Gtk.Box):
     def __init__(self) -> None:
         """Create the view, empty until set_document."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        # Fold or unfold every branch (D82); each is greyed out while there is nothing for it to do.
+        # Fold or unfold every branch; each is greyed out while there is nothing for it to do.
         self.collapse_button = Gtk.Button(
             icon_name="penfold-collapse-all-symbolic", tooltip_text=_("Collapse All"), valign=Gtk.Align.CENTER
         )
@@ -208,8 +207,8 @@ class BookmarksView(Gtk.Box):
         for signal in ("selection-changed", "items-changed"):
             self.selection.connect(signal, lambda *_arguments: self._remember_selection())
         self._recent_use = RecentUse(self.list)
-        # Following the reading (D40): the bookmark of the section read, and the row that shows it (the bookmark
-        # itself, or the folded branch that holds it).
+        # Following the reading: the bookmark of the section read, and the row that shows it (the bookmark itself, or
+        # the folded branch that holds it).
         self._index = ReadingIndex([])
         self._reading: Bookmark | None = None
         self._marked: Bookmark | None = None
@@ -238,7 +237,7 @@ class BookmarksView(Gtk.Box):
         self._update_fold_buttons()
 
     def do_root(self) -> None:
-        """While in a window, the colours of the titles follow the style, light or dark (07-fase-12, 6)."""
+        """While in a window, the colours of the titles follow the style, light or dark."""
         Gtk.Box.do_root(self)
         self._style_handler = Adw.StyleManager.get_default().connect(
             "notify::dark", lambda _manager, _property: self._paint_titles()
@@ -295,7 +294,7 @@ class BookmarksView(Gtk.Box):
         return self.renderer.layout.place(page, top) if self.renderer is not None else None
 
     def _on_tree_changed(self, tree: Gtk.TreeListModel, _position: int, _removed: int, _added: int) -> None:
-        """Remember which branches are unfolded, to save it (G9); it may change which row shows the reading.
+        """Remember which branches are unfolded, to save it; it may change which row shows the reading.
 
         It may leave nothing for Collapse All or Expand All to do, too.
         """
@@ -308,7 +307,7 @@ class BookmarksView(Gtk.Box):
         self._update_fold_buttons()
 
     def follow(self, page: int, top: float) -> None:
-        """Mark the bookmark of the section being read, and bring it into sight unless the list is in use (D40)."""
+        """Mark the bookmark of the section being read, and bring it into sight unless the list is in use."""
         reading = self._index.at(page, top)
         if reading is not self._reading:
             self._reading = reading
@@ -348,7 +347,7 @@ class BookmarksView(Gtk.Box):
             row.remove_css_class("reading-section")
 
     def unselect_all(self) -> bool:
-        """Clear the selection (Esc, D47); return whether any bookmark was selected."""
+        """Clear the selection (Esc); return whether any bookmark was selected."""
         return unselect_all(self.selection)
 
     def selected_bookmarks(self) -> list[Bookmark]:
@@ -389,7 +388,7 @@ class BookmarksView(Gtk.Box):
         count = len(self._selected)
         show_count(self.counter, count, npgettext("bookmarks", "{count} selected", "{count} selected", count))
 
-    # Menu of the bookmarks selected (D74).
+    # Menu of the bookmarks selected.
 
     def _ask_for_menu(self, row: BookmarkRow, position: int, x: float, y: float) -> None:
         """Open the menu at a point of the row at a position of the list; a row not selected is selected alone."""
@@ -434,7 +433,7 @@ class BookmarksView(Gtk.Box):
         return [row for row in rows if row is not None and row.is_expandable()]
 
     def _update_fold_buttons(self) -> None:
-        """Grey out Collapse All while no branch is unfolded, and Expand All while every branch is (D82).
+        """Grey out Collapse All while no branch is unfolded, and Expand All while every branch is.
 
         The rows shown are enough: a branch under a folded one is not shown, and the one that folds it has something
         to unfold.
@@ -455,7 +454,7 @@ class BookmarksView(Gtk.Box):
             other.grab_focus()
 
     def collapse_all(self) -> None:
-        """Fold every branch, the innermost first, so that each one remembers it is folded (G9)."""
+        """Fold every branch, the innermost first, so that each one remembers it is folded."""
         for row in reversed(self._branch_rows()):
             row.set_expanded(False)
 
@@ -496,14 +495,14 @@ class BookmarksView(Gtk.Box):
         row.add_controller(drag)
         item.set_child(row)
 
-    # Dragging bookmarks (G6).
+    # Dragging bookmarks.
 
     def _on_drag_prepare(
         self, _source: Gtk.DragSource, _x: float, _y: float, row: BookmarkRow
     ) -> Gdk.ContentProvider | None:
         """Drag the bookmarks selected if the row is one of them (without those under another); otherwise its own.
 
-        A PDF that does not allow assembling it does not let its bookmarks move (D59).
+        A PDF that does not allow assembling it does not let its bookmarks move.
         """
         if row.bookmark is None or self.document is None or not self.document.permissions.assemble:
             return None

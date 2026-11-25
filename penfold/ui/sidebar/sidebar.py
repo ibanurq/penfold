@@ -1,4 +1,4 @@
-"""The side panel (02-interfaz, 2, 3.1 and 6): header, views and view switcher."""
+"""The side panel: header, views and view switcher."""
 
 from typing import ClassVar
 
@@ -11,7 +11,7 @@ PAGES = "pages"
 BOOKMARKS = "bookmarks"
 ANNOTATIONS = "annotations"
 SEARCH = "search"
-# Width limits, as in 0.6: wide enough for the Bookmarks header, and up to four columns of thumbnails.
+# Width limits: wide enough for the Bookmarks header, and up to four columns of thumbnails.
 MIN_WIDTH = 265
 MAX_WIDTH = 1301
 

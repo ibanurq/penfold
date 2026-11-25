@@ -1,8 +1,8 @@
 """The annotations Penfold paints over a drawn page: on the pages of the document and on their thumbnails.
 
 Poppler draws a page with the annotations of its PDF that are left as they are. Penfold paints the others on top: those
-it manages (made or changed in Penfold) and those of the PDF moved as they are, with the drawing their program made
-(D73). The page and its thumbnail paint the same ones the same way (07-fase-12, 12).
+it manages (made or changed in Penfold) and those of the PDF moved as they are, with the drawing their program made. The
+page and its thumbnail paint the same ones the same way.
 """
 
 from collections.abc import Callable, Iterable

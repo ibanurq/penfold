@@ -1,4 +1,4 @@
-"""The "Print" dialogue (D57, D64): which groups of annotations are printed, before the system's print dialogue.
+"""The "Print" dialogue: which groups of annotations are printed, before the system's print dialogue.
 
 The four groups are on by default. Continue closes it and emits "print-requested" with the groups left out; Cancel
 or Esc print nothing. Form values are always printed.

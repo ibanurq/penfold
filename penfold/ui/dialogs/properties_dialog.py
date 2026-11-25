@@ -1,4 +1,4 @@
-"""The "Properties" dialogue (07-fase-12, 18): what is known about the document, to read and copy, never to change.
+"""The "Properties" dialogue: what is known about the document, to read and copy, never to change.
 
 Rows are grouped as Document, File, Content, History and Security; a row without a value is left out, and so is a
 group left empty. Values can be selected, and dates and sizes follow the language.
@@ -13,7 +13,7 @@ from penfold.document.properties import DocumentProperties, millimetres, paper_s
 from penfold.ui.dialogs.add_pages_dialog import size_name
 from penfold.ui.document_header import denied_sentences
 
-# Narrow, as Preferences (D63); the height follows the rows, up to what the window allows.
+# Narrow, as Preferences; the height follows the rows, up to what the window allows.
 CONTENT_WIDTH = 460
 
 

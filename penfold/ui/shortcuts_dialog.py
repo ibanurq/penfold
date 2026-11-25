@@ -39,10 +39,9 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
             if (accelerators := application.get_accels_for_action(action))
         )
 
-    # The groups and texts of 0.6 (L2), and the side panel's keys (07-fase-12, 19). A row with an action appears once
-    # the action has keys.
+    # The keys of the window and of the side panel, by group. A row with an action appears once the action has keys.
     groups = (
-        # Keys of the window itself, without an action: they mark text or go back to Select Text (H7, H8).
+        # Keys of the window itself, without an action: they mark text or go back to Select Text.
         ShortcutGroup(
             _("Annotations"),
             (
@@ -84,7 +83,7 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
                 (_("Zoom in"), "win.zoom-in"),
                 (_("Zoom out"), "win.zoom-out"),
                 (_("Fit to page width"), "win.fit-width"),
-                # The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel (D39).
+                # The same keys zoom the thumbnails while they have the focus; so does Ctrl and the wheel.
                 (_("Larger thumbnails (with the focus on them)"), "win.zoom-in"),
                 (_("Smaller thumbnails (with the focus on them)"), "win.zoom-out"),
             ),
@@ -99,7 +98,7 @@ def shortcut_groups(application: Gtk.Application) -> tuple[ShortcutGroup, ...]:
                 (_("Go to page"), "win.focus-page-entry"),
             ),
         ),
-        # Keys of the window itself: they act on the view of the side panel shown (E3, D47, D74).
+        # Keys of the window itself: they act on the view of the side panel shown.
         ShortcutGroup(
             _("Side panel"),
             (

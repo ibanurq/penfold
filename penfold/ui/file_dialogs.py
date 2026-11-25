@@ -1,4 +1,4 @@
-"""The system's file chooser, set up for PDFs (D18)."""
+"""The system's file chooser, set up for PDFs."""
 
 from gettext import gettext as _
 

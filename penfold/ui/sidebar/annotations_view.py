@@ -1,8 +1,8 @@
-"""The Annotations view of the side panel (02-interfaz, 6.3; D24, D25, D64): annotations in four groups.
+"""The Annotations view of the side panel: annotations in four groups.
 
-It lists them, filters them by group and goes to one on a click. Rows are selected as in Pages and Bookmarks, and
-the selection is cleared the same way (D47). A right click on a row, a long press, or the Menu key (or Shift+F10)
-asks for the menu of its annotation, the same as on the page (D72).
+It lists them, filters them by group and goes to one on a click. Rows are selected as in Pages and Bookmarks, and the
+selection is cleared the same way. A right click on a row, a long press, or the Menu key (or Shift+F10) asks for the
+menu of its annotation, the same as on the page.
 """
 
 import time
@@ -26,7 +26,7 @@ from penfold.ui.sidebar.view_header import (
     view_header,
 )
 
-# Foreign annotations without a colour, or white, are shown in this orange so they can be seen (as in 0.6).
+# Foreign annotations without a colour, or white, are shown in this orange so they can be seen.
 FALLBACK_COLOR = (0xC6 / 255, 0x46 / 255, 0)
 COLOR_BAR_WIDTH = 3
 ROW_TEXT_LINES = 4
@@ -34,7 +34,7 @@ ROW_TEXT_LINES = 4
 TEXT_TIME_SLICE = 0.008
 # The actions of the filter's menu, one for each group: "annotations-filter.shapes".
 FILTER_ACTIONS = "annotations-filter"
-# Shown by default: all four groups (D76).
+# Shown by default: all four groups.
 DEFAULT_GROUPS = frozenset(AnnotationGroup)
 
 
@@ -90,7 +90,7 @@ class AnnotationItem(GObject.Object):
 
 
 class AnnotationRow(Gtk.Box):
-    """Like Papers, with the type's icon before "Page N"; the author on the right; under them, the coloured text."""
+    """The type's icon before "Page N"; the author on the right; under them, the coloured text."""
 
     __gtype_name__ = "PenfoldAnnotationRow"
 
@@ -279,7 +279,7 @@ class AnnotationsView(Gtk.Box):
         return [item.annotation for item in items if isinstance(item, AnnotationItem)]
 
     def unselect_all(self) -> bool:
-        """Clear the selection (Esc, D47); return whether anything was selected."""
+        """Clear the selection (Esc); return whether anything was selected."""
         return unselect_all(self.selection)
 
     def bound_rows(self) -> list[AnnotationRow]:
@@ -413,7 +413,7 @@ class AnnotationsView(Gtk.Box):
     def _on_row_clicked(
         self, gesture: Gtk.GestureClick, _presses: int, _x: float, _y: float, row: AnnotationRow
     ) -> None:
-        """A click without Ctrl or Shift goes to the annotation (its height on the top third, B8)."""
+        """A click without Ctrl or Shift goes to the annotation (its height on the top third)."""
         if gesture.get_current_event_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK):
             return
         annotation = row.annotation
@@ -455,7 +455,7 @@ class AnnotationsView(Gtk.Box):
         return actions
 
     def _filter_popover(self) -> Gtk.Popover:
-        """A box for each group (D64). Unlike a menu, it stays open to tick several; Esc or a click outside close it."""
+        """A box for each group. Unlike a menu, it stays open to tick several; Esc or a click outside close it."""
         boxes = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=6, margin_bottom=6)
         for group, name in group_names().items():
             boxes.append(Gtk.CheckButton(label=name, action_name=f"{FILTER_ACTIONS}.{group.value}"))

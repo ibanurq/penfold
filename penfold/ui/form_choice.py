@@ -1,4 +1,4 @@
-"""Dropdowns and lists of a form on the pages (I1).
+"""Dropdowns and lists of a form on the pages.
 
 A dropdown shows the chosen option and opens the options below it; one that lets the reader write (/Ff Edit) is a
 text box with the options beside it. A list shows its options inside the field, with one or several chosen.

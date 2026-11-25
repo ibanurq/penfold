@@ -1,12 +1,11 @@
-"""Editing annotations from their menu (D72): a right click, or a long press, on an annotation of a page.
+"""Editing annotations from their menu: a right click, or a long press, on an annotation of a page.
 
-The menu has the six colours at the top (the annotation's own with a ring) and, below, what can be done with that
-type of annotation. A click on a colour changes it and closes the menu; Edit Text… edits the text of a comment in
-its popover and that of a text box on the page; Format… opens its Format panel beside it, whose changes show at once
-and are undone as one edit; Move and Resize shows its handles on the page (D73), and the change is one edit too;
-Delete deletes it without asking, with a toast to undo it. While
-the menu is open, the annotation is outlined. Annotations of types Penfold does not make only have Delete. A PDF that
-does not allow annotating shows the menu with everything greyed out.
+The menu has the six colours at the top (the annotation's own with a ring) and, below, what can be done with that type
+of annotation. A click on a colour changes it and closes the menu; Edit Text… edits the text of a comment in its popover
+and that of a text box on the page; Format… opens its Format panel beside it, whose changes show at once and are undone
+as one edit; Move and Resize shows its handles on the page, and the change is one edit too; Delete deletes it without
+asking, with a toast to undo it. While the menu is open, the annotation is outlined. Annotations of types Penfold does
+not make only have Delete. A PDF that does not allow annotating shows the menu with everything greyed out.
 
 An annotation of a PDF that Penfold cannot draw again as it is (its foreign look) is only changed after a warning:
 changing it would lose that look.
@@ -140,7 +139,7 @@ class AnnotationEditing:
             self._change(annotation, lambda copy: replace(copy, color=hex_to_color(value)))
 
     def edit_text(self) -> None:
-        """Edit the text of the annotation of the menu: a comment in its popover, a text box on the page (D72)."""
+        """Edit the text of the annotation of the menu: a comment in its popover, a text box on the page."""
         annotation = self.annotation
         if annotation is None or annotation.kind not in WITH_TEXT:
             return
@@ -159,7 +158,7 @@ class AnnotationEditing:
         self.menu.popdown()
 
     def format(self) -> None:
-        """Open the Format panel of the annotation of the menu beside it (D72).
+        """Open the Format panel of the annotation of the menu beside it.
 
         One Penfold cannot draw again as it is is warned of first.
         """
@@ -176,13 +175,13 @@ class AnnotationEditing:
         self._when_menu_closed(open_panel)
 
     def reshape(self) -> None:
-        """Show the handles of the annotation of the menu on its page, to move it or change its size (D73)."""
+        """Show the handles of the annotation of the menu on its page, to move it or change its size."""
         annotation = self.annotation
         if annotation is not None and self._can_reshape(annotation):
             self._when_menu_closed(lambda: self._edit_shape(annotation))
 
     def _can_reshape(self, annotation: Annotation) -> bool:
-        """Whether Move and Resize can be used on an annotation now (D73).
+        """Whether Move and Resize can be used on an annotation now.
 
         A mark on text needs text under it, and to be drawn again by Penfold: it changes the text it covers. Any other
         that moves can be moved: one of a PDF keeps its own drawing.
@@ -194,7 +193,7 @@ class AnnotationEditing:
     def _edit_shape(self, annotation: Annotation) -> None:
         """Move an annotation, or resize it with handles, shown as it changes (Poppler leaves out one of the PDF).
 
-        One of a PDF is moved as it is (D73), and only has handles if Penfold can draw it again as it is.
+        One of a PDF is moved as it is, and only has handles if Penfold can draw it again as it is.
         """
         view, document = self._document_view, self._document()
         renderer = view.renderer
@@ -308,7 +307,7 @@ class AnnotationEditing:
         editor.on_done = write
 
     def delete(self, annotations: list[Annotation] | None = None) -> None:
-        """Delete some annotations (by default, that of the menu), with a toast to undo it (D72)."""
+        """Delete some annotations (by default, that of the menu), with a toast to undo it."""
         document = self._document()
         chosen = annotations if annotations is not None else [self.annotation] if self.annotation else []
         if self.menu is not None:
@@ -323,7 +322,7 @@ class AnnotationEditing:
         )
 
     def _change(self, annotation: Annotation, change: Callable[[Annotation], Annotation]) -> None:
-        """Change an annotation as a managed copy (D60), after a warning if Penfold cannot draw all its look."""
+        """Change an annotation as a managed copy, after a warning if Penfold cannot draw all its look."""
         document = self._document()
         if document is None or not document.permissions.annotate:
             return
@@ -343,7 +342,7 @@ class AnnotationEditing:
             self._warn_of_foreign_look(apply)
 
     def _warn_of_foreign_look(self, apply: Callable[[], None]) -> None:
-        """Ask before changing an annotation Penfold cannot draw again as it is (D72)."""
+        """Ask before changing an annotation Penfold cannot draw again as it is."""
         dialog = Adw.AlertDialog(
             heading=_("Change This Annotation?"),
             body=_(
@@ -369,7 +368,7 @@ class AnnotationEditing:
 def _can_resize(annotation: Annotation) -> bool:
     """Whether an annotation is resized with handles: of a type that has them, that Penfold can draw again as it is.
 
-    Any that moves is moved, though: one of a PDF keeps its own drawing (D73).
+    Any that moves is moved, though: one of a PDF keeps its own drawing.
     """
     return can_resize(annotation) and (annotation.managed or not annotation.foreign_look)
 
@@ -377,8 +376,8 @@ def _can_resize(annotation: Annotation) -> bool:
 def _reshape_label(annotation: Annotation) -> str | None:
     """The menu item that shows the handles, or None for a type without them.
 
-    Move and Resize; Move for one of a fixed size (a comment); Adjust Ends for the marks on text, which follow the
-    text instead of moving (D76).
+    Move and Resize; Move for one of a fixed size (a comment); Adjust Ends for the marks on text, which follow the text
+    instead of moving.
     """
     if can_resize(annotation):
         return _("_Adjust Ends") if annotation.kind in TEXT_MARKUPS else _("_Move and Resize")

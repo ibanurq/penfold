@@ -1,4 +1,4 @@
-"""The page box of the document header (02-interfaz, 3.4; D14)."""
+"""The page box of the document header."""
 
 from gettext import gettext as _
 from typing import ClassVar

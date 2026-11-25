@@ -1,4 +1,4 @@
-"""How well text in a colour can be read on a background, and the colour adjusted until it can (07-fase-12, 6).
+"""How well text in a colour can be read on a background, and the colour adjusted until it can.
 
 Contrast as WCAG 2 measures it; the colour is made darker or lighter in OKLab, where lightness changes without changing
 the hue.

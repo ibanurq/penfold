@@ -1,4 +1,4 @@
-"""The Find view of the side panel (02-interfaz, 6.4; D13): the search box and the list of every match.
+"""The Find view of the side panel: the search box and the list of every match.
 
 The list fills while the PDF is searched, in page order. Enter and Shift+Enter (and Ctrl+G, Shift+Ctrl+G) go to the
 next and previous match, from the current page on; Esc goes back to the view Find covered.
@@ -128,7 +128,7 @@ class SearchView(Gtk.Box):
         Args:
             sources: gives the source PDFs when a search starts.
             layout: gives the pages of the document as they are shown when a search starts.
-            page_label: names a page by its position (D14).
+            page_label: names a page by its position.
             context: reads the sentence of a match.
         """
         if self._search is not None:

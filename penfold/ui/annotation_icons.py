@@ -1,4 +1,4 @@
-"""The icon and the name of each annotation type, the same in the annotation bar and in the Annotations view (D75).
+"""The icon and the name of each annotation type, the same in the annotation bar and in the Annotations view.
 
 They come from Adwaita or, when it has none, from GNOME's icon collection (data/icons, prefixed "penfold-").
 """

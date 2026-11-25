@@ -1,4 +1,4 @@
-"""Scrolling a list by itself while something is dragged near its top or bottom, so it can be dropped far (E1, F1)."""
+"""Scrolling a list by itself while something is dragged near its top or bottom, so it can be dropped far."""
 
 from gi.repository import Gdk, GLib, Gtk
 

@@ -1,4 +1,4 @@
-"""The pieces of the context menus of annotations, pages and bookmarks (D72, D74).
+"""The pieces of the context menus of annotations, pages and bookmarks.
 
 They open without an arrow, from the pointer to its right, and are one section with separators of their own between
 the groups: GTK measures a menu with a custom item and several sections too short, and the menu then scrolls. A row

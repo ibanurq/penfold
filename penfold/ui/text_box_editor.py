@@ -1,8 +1,8 @@
-"""Writing a text box on the page (02-interfaz, 5; H3, H5, D69): a box of text over the page, as it will look.
+"""Writing a text box on the page: a box of text over the page, as it will look.
 
-It has the font, the size, the background and the border of the text box, at the zoom of the view, and grows down
-as the text grows. Ctrl+Enter, or a click outside it, applies; Esc cancels; Enter starts a new line. Blank, nothing
-is made. Editing the text of a text box (D72), it starts with that text and has its format.
+It has the font, the size, the background and the border of the text box, at the zoom of the view, and grows down as the
+text grows. Ctrl+Enter, or a click outside it, applies; Esc cancels; Enter starts a new line. Blank, nothing is made.
+Editing the text of a text box, it starts with that text and has its format.
 """
 
 import math
@@ -107,7 +107,7 @@ class TextBoxEditor:
         self.on_done(text or None)
 
     def _finish_after_leaving(self) -> bool:
-        """A click outside the box applies it (H3), once GTK has moved the focus elsewhere."""
+        """A click outside the box applies it, once GTK has moved the focus elsewhere."""
         self.finish(apply=True)
         return GLib.SOURCE_REMOVE
 

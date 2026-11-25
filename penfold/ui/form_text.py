@@ -1,4 +1,4 @@
-"""Text fields of a form on the pages (I1): a text box over each place of the field, and the size of its text."""
+"""Text fields of a form on the pages: a text box over each place of the field, and the size of its text."""
 
 from collections.abc import Callable
 
