@@ -12,21 +12,40 @@ template $PenfoldPreferencesDialog: Adw.PreferencesDialog {
     Adw.PreferencesGroup {
       title: _("Annotations");
 
-      // A plain row with an entry, because an entry row cannot show a hint when empty (07-fase-12, 8).
-      Adw.ActionRow {
-        title: _("Author");
-        activatable-widget: author_entry;
+      // An entry row of its own, because Adw.EntryRow cannot show a hint when empty (07-fase-12, 8): the title is always
+      // small on top, and the entry, without a frame, takes the width of the row under it (D84).
+      Adw.PreferencesRow author_row {
+        styles [
+          "author-row",
+        ]
 
-        [suffix]
-        Gtk.Entry author_entry {
-          styles [
-            "author-entry",
-          ]
+        Box {
+          orientation: vertical;
 
-          valign: center;
-          width-chars: 14;
-          secondary-icon-name: "document-edit-symbolic";
-          secondary-icon-activatable: false;
+          Label author_title {
+            label: _("Author");
+            xalign: 0;
+
+            styles [
+              "author-title",
+              "dim-label",
+            ]
+          }
+
+          Gtk.Entry author_entry {
+            styles [
+              "author-entry",
+            ]
+
+            has-frame: false;
+            hexpand: true;
+            secondary-icon-name: "document-edit-symbolic";
+            secondary-icon-activatable: false;
+
+            accessibility {
+              labelled-by: author_title;
+            }
+          }
         }
       }
 

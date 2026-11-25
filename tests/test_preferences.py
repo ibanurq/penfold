@@ -7,7 +7,7 @@ import pytest
 from gi.repository import Adw, Gio, Gtk
 
 from penfold import config
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until
 
 if TYPE_CHECKING:
     from penfold.application import PenfoldApplication
@@ -128,6 +128,24 @@ def test_the_empty_author_hints_at_the_name_annotations_get(dialog: "PenfoldPref
     from penfold.document.annotations import DEFAULT_AUTHOR
 
     assert dialog.author_entry.get_placeholder_text() == DEFAULT_AUTHOR
+
+
+def test_the_author_row_keeps_its_title_small_on_top_and_gives_the_entry_the_focus_when_activated(
+    dialog: "PenfoldPreferencesDialog",
+) -> None:
+    title = dialog.author_entry.get_prev_sibling()
+    assert isinstance(title, Gtk.Label)
+    assert (title.get_label(), title.has_css_class("author-title")) == ("Author", True)
+    assert not dialog.author_entry.get_has_frame()
+    # The row can take the focus, so the dialogue opens with it there, not with the name selected in the entry.
+    assert dialog.author_row.get_focusable()
+
+    def entry_has_focus() -> bool:
+        focus = dialog.get_focus()  # the text inside the entry
+        return focus is not None and focus.is_ancestor(dialog.author_entry)
+
+    dialog.author_row.activate()
+    wait_until(entry_has_focus)
 
 
 def test_the_author_shows_a_pencil_while_empty_and_a_clear_button_once_written(

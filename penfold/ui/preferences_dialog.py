@@ -29,6 +29,7 @@ class PenfoldPreferencesDialog(Adw.PreferencesDialog):
 
     __gtype_name__ = "PenfoldPreferencesDialog"
 
+    author_row: Adw.PreferencesRow = Gtk.Template.Child()
     author_entry: Gtk.Entry = Gtk.Template.Child()
     annotation_bar_row: Adw.SwitchRow = Gtk.Template.Child()
     permissions_row: Adw.SwitchRow = Gtk.Template.Child()
@@ -42,6 +43,11 @@ class PenfoldPreferencesDialog(Adw.PreferencesDialog):
         self.author_entry.set_placeholder_text(DEFAULT_AUTHOR)
         self.author_entry.connect("notify::text", self._on_author_changed)
         self.author_entry.connect("icon-press", self._on_author_icon_pressed)
+        # The row takes the focus when the dialogue opens, so that the name is not selected to be typed over; a click
+        # on its title, or Enter on it, puts the cursor in the entry.
+        rows = self.author_row.get_parent()
+        assert isinstance(rows, Gtk.ListBox)
+        rows.connect("row-activated", self._on_row_activated)
         self._settings = Gio.Settings(schema_id=config.APP_ID)
         self._settings.bind(AUTHOR_NAME_KEY, self.author_entry, "text", Gio.SettingsBindFlags.DEFAULT)
         self._settings.bind(SHOW_ANNOTATION_BAR_KEY, self.annotation_bar_row, "active", Gio.SettingsBindFlags.DEFAULT)
@@ -57,6 +63,10 @@ class PenfoldPreferencesDialog(Adw.PreferencesDialog):
         self.author_entry.set_icon_from_icon_name(position, CLEAR_AUTHOR_ICON if has_text else EMPTY_AUTHOR_ICON)
         self.author_entry.set_icon_activatable(position, has_text)
         self.author_entry.set_icon_tooltip_text(position, _("Clear") if has_text else None)
+
+    def _on_row_activated(self, _rows: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+        if row is self.author_row:
+            self.author_entry.grab_focus()
 
     def _on_author_icon_pressed(self, entry: Gtk.Entry, _position: Gtk.EntryIconPosition) -> None:
         """Empty the author when its clear button is pressed (the pencil is not a button)."""

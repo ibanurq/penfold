@@ -217,7 +217,30 @@ textview.form-field > text {
   margin: 6px 0;
 }
 
-/* The hint of the empty author entry in Preferences: the name annotations will get (07-fase-12, 8). */
+/* The Author row in Preferences (D84): the title small on top, the entry flat under it, and the row marked while the
+   entry has the focus, like an entry row of libadwaita (the row itself takes the focus when the dialogue opens). */
+row.author-row {
+  padding: 6px 12px 4px;
+}
+
+row.author-row:focus-within:not(:focus) {
+  outline: 2px solid color-mix(in srgb, var(--accent-color) 50%, transparent);
+  outline-offset: -2px;
+}
+
+.author-title {
+  font-size: 0.8em;
+}
+
+.author-entry {
+  background: none;
+  box-shadow: none;
+  outline: none;
+  min-height: 26px;
+  padding: 0;
+}
+
+/* The hint of the empty author entry: the name annotations will get (07-fase-12, 8). */
 .author-entry > text > placeholder {
   font-style: italic;
 }
