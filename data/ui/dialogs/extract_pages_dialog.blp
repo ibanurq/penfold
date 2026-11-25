@@ -47,8 +47,9 @@ template $PenfoldExtractPagesDialog: Adw.Dialog {
         }
 
         Label {
-          // Hyphens that do not break, so that a range never splits at the end of a line.
-          label: _("Separate the pages with commas and use a dash for a range (10‑12). 56‑ means from page 56 to the end.");
+          // Hyphens and spaces that do not break, so that a range never splits at the end of a line and the example stays
+          // whole.
+          label: _("Separate single pages with commas and group ranges with a dash (with no last number, it runs to the last page). Example: 1, 4, 7‑10, 15, 22‑");
           wrap: true;
           xalign: 0;
           margin-top: 12;
