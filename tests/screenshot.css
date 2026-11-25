@@ -1,4 +1,0 @@
-/* Applied only while taking screenshots in the tests: brief messages depend on timing */
-#msg {
-  visibility: hidden !important;
-}
