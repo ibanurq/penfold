@@ -69,6 +69,7 @@
   </screenshots>
   <url type="homepage">https://github.com/ibanurq/penfold</url>
   <url type="bugtracker">https://github.com/ibanurq/penfold/issues</url>
+  <url type="donation">https://ko-fi.com/ibanurq</url>
   <content_rating type="oars-1.1"/>
   <releases>
     <release version="1.0.0-beta.1" date="2026-11-25" type="development">
