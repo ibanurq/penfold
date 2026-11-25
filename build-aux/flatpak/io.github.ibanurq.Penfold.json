@@ -158,11 +158,7 @@
             ".venv",
             "_build",
             "_flatpak",
-            "dist",
-            "node_modules",
-            "notas_privadas",
-            "playwright-report",
-            "test-results"
+            "notas_privadas"
           ]
         }
       ]

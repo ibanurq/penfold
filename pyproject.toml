@@ -4,7 +4,7 @@
 [tool.ruff]
 line-length = 120
 target-version = "py313"
-extend-exclude = ["node_modules", "notas_privadas"]
+extend-exclude = ["notas_privadas"]
 
 [tool.ruff.lint]
 select = [

@@ -1,19 +1,6 @@
 # Private notes (internal version of the specification, research, ideas): never saved by git
 notas_privadas/
 
-# Dependencies installed by npm
-node_modules/
-
-# Test results and reports (Playwright)
-test-results/
-playwright-report/
-blob-report/
-playwright/.cache/
-
-# Build output (desktop packages)
-dist/
-out/
-
 # Python development environment and tool caches
 .venv/
 __pycache__/
