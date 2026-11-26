@@ -73,7 +73,26 @@ Or from the terminal:
 
     flatpak install --user ~/Downloads/penfold.flatpak
 
-I hope it will soon be available on [Flathub](https://flathub.org), with automatic updates.
+Once installed, it will not update itself to a new version. You will need to download the new version and install
+it with the same command.
+
+I'm thinking about what options I have to make that possible...
+
+## Permissions
+
+Penfold has permission to read and write in your home folder. Because of this, your software manager may label it as
+“potentially unsafe”.
+
+It has this permission so that it can remember the last document and open it directly, at the position where you left
+it. Without that permission, after a restart, this feature simply does not work.
+
+If you would rather it did not have this permission, turn it off with
+[Flatseal](https://flathub.org/apps/com.github.tchx84.Flatseal) (for example). Penfold will keep working the same way,
+with no error messages; it will just no longer open the last document after a restart.
+
+<p align="center">
+  <img src="docs/images/flatseal_permissions.png" width="60%" alt="Penfold's permissions in Flatseal">
+</p>
 
 ## Languages
 
@@ -88,9 +107,12 @@ I hope it will soon be available on [Flathub](https://flathub.org), with automat
   the annotation tools have to be turned on. This last behavior can be changed.
 - I don't know how to program, so I relied on AI to develop it. In
   [docs/working-with-ai.md](docs/working-with-ai.md) I explain the method I followed.
+- One of the instructions given to the AI was that the code it wrote should always be easy for people to understand,
+  and that it should follow all the conventions and recommendations for programming.
 - Although in its current state it meets my needs for home use, I have also tried it with real files from work,
   following the workflow we use there, and the result was satisfactory: merging several files with text, images and
-  drawings, into a final file of 50–60 MB and about 800 pages.
+  drawings, into a final file of 50–70 MB, with about 1500 pages and 1700 bookmarks.
+- On my computer, Penfold is the default reader for PDF documents.
 - Thanks to the whole free software community. Penfold would not have been possible without it.
 
 ## Support Penfold
