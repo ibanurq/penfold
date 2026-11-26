@@ -5,6 +5,22 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.0.0 — 2026-11-26
+
+First stable version of Penfold 1.0, a native GNOME app (GTK 4 and libadwaita, written in Python) that replaces the web
+and Electron app of 0.6. Its alphas, betas and release candidate are listed below. Compared with 0.6, it also brings:
+
+- Undo and redo of every change.
+- Find, in the side panel, and page labels.
+- Editing annotations, also those made in other programs: color, text, format, position and size.
+- Right-click menus for pages, bookmarks and annotations.
+- PDFs with passwords and permissions, which can be used and saved.
+- Preferences, the document's properties, and choosing which annotations to print.
+
+### Changed
+- The README explains why Penfold can read and write the home folder and how to turn that off, and says that the app
+  does not update itself.
+
 ## 1.0.0-rc.1 — 2026-11-25
 
 Release candidate of Penfold 1.0: Extract in the thumbnail menu, faster bookmarks and small fixes.
