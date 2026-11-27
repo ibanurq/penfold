@@ -187,21 +187,29 @@ def test_one_penfold_cannot_draw_again_only_moves_without_a_warning(annotated_wi
     assert moved.moved_by == pytest.approx((-10, -5))
 
 
-def test_a_freehand_drawing_of_another_program_only_moves(freehand_window: "PenfoldWindow") -> None:
+def test_a_freehand_drawing_of_another_program_moves_and_is_stretched(freehand_window: "PenfoldWindow") -> None:
     from penfold.ui.annotation_editing import _reshape_label
 
     window = freehand_window
     assert window.document is not None
     original = next(item for item in window.document.annotations if item.kind is Kind.FREEHAND)
     editor = start_editing(window, (150, 842 - 770))
-    assert _reshape_label(original) == "_Move"
-    assert editor.handle_at(*widget_point(window, 0, 95, 842 - 795)) is None  # No handles yet.
+    assert _reshape_label(original) == "_Move and Resize"
+    assert editor.handle_at(*widget_point(window, 0, 95, 842 - 795)) is Handle.TOP_LEFT  # At its corners.
     drag(window, 0, (200, 842 - 790), (210, 842 - 770))
     press_key(window, Gdk.KEY_Return)
     moved = next(item for item in window.document.annotations if item.kind is Kind.FREEHAND)
     assert moved.moved_as_is
     assert moved.moved_by == pytest.approx((10, 20))
     assert moved.strokes[1][0] == pytest.approx((260, 842 - 680))
+    start_editing(window, (160, 842 - 750))
+    drag(window, 0, (315, 842 - 675), (415, 842 - 625))  # Its bottom right corner, after it was moved.
+    press_key(window, Gdk.KEY_Return)
+    stretched = next(item for item in window.document.annotations if item.kind is Kind.FREEHAND)
+    assert (stretched.managed, stretched.style.line_width) == (True, 3)  # Drawn again, as wide.
+    points = [point for stroke in stretched.strokes for point in stroke]
+    assert stretched.rectangle[0] == pytest.approx(105)  # Its left side stays.
+    assert (min(x for x, _y in points), max(x for x, _y in points)) == pytest.approx((108, 412))  # 3 points inside.
 
 
 def test_the_menu_says_move_and_resize_or_move(annotated_window: "PenfoldWindow") -> None:

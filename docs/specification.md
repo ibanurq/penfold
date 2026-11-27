@@ -361,7 +361,7 @@ it is empty). Text in `/Contents` is UTF-16.
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
 
 *(In progress: the annotation bar does not have the Freehand tool yet, so freehand drawings, also those of other
-programs with several strokes, can be edited but not made; their handles come later, so for now they only move.)*
+programs with several strokes, can be edited but not made.)*
 
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
 - **Shapes** are drawn while dragging, so their shape is seen before releasing.
@@ -391,7 +391,7 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 ( ● ) ( ● ) ( ● ) ( ● ) ( ● ) ( ● )     the six colors; one click changes and closes
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments
-Move and Resize                         “Move” for comments and freehand drawings; “Adjust Ends” for text markups
+Move and Resize                         “Move” for comments; “Adjust Ends” for text markups
 Delete
 ```
 
@@ -407,7 +407,8 @@ Delete
   | Freehand | Line Width · Opacity |
   | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the color is the background’s and the border’s, the text is always black |
 
-- **Move and Resize:** handles on the annotation: corners for rectangles and circles; for a text box, one on each side,
+- **Move and Resize:** handles on the annotation: corners for rectangles and circles, and for freehand drawings, whose
+  strokes stretch or shrink to fill the new frame without being mirrored, while their line keeps its width; for a text box, one on each side,
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.

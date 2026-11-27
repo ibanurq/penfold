@@ -4,10 +4,10 @@ While it is edited, the annotation shows as it is being changed, over a thin fra
 handles. Dragging a handle changes its size; dragging it from anywhere else on it moves it. Enter or a click
 outside it accept the change; Esc cancels it. The document view owns the editor and passes it the mouse and the keys.
 
-Rectangles and circles have a handle at each corner (document/reshaping.py); text boxes one at each side, which change
-only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py); arrows
-one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments and
-freehand drawings have no handles: they keep their size, and are only moved. Marks on text have a handle where they
+Rectangles, circles and freehand drawings have a handle at each corner (document/reshaping.py); text boxes one at each
+side, which change only their width: the text is laid out again as it is dragged, and the box is as tall as it needs
+(text_box.py); arrows one at each end, and they move when their line is dragged (anywhere else, a press accepts the
+change). Comments have no handles: they keep their size, and are only moved. Marks on text have a handle where they
 start and one where they end: each covers the text up to the other, letter by letter, as a selection does; they do not
 move. Theirs are drops, as the touch selection handles of GNOME: the start one above the first letter, the end one
 below the last.
@@ -46,7 +46,7 @@ HANDLE_REACH = 9.0
 # The frame around the annotation, in pixels.
 FRAME_WIDTH = 1.0
 WHITE = (1.0, 1.0, 1.0, 1.0)
-CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
+CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.FREEHAND})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
 # The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.

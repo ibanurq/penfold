@@ -2,7 +2,7 @@
 
 import pytest
 
-from penfold.document.annotations import Annotation, Kind, new_annotation
+from penfold.document.annotations import Annotation, Kind, Style, new_annotation
 from penfold.document.reshaping import (
     SMALLEST_SIZE,
     Handle,
@@ -39,7 +39,7 @@ def test_which_types_move_and_which_change_their_size() -> None:
     comment = shape(Kind.COMMENT, (10, 10, 30, 30))
     drawn = new_annotation(Kind.FREEHAND, 0, (10, 10, 30, 30), RED, "Iban", strokes=(((10, 10), (30, 30)),))
     assert [can_move(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, True, False, True]
-    assert [can_resize(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, False, True, False]
+    assert [can_resize(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, False, True, True]
 
 
 def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
@@ -108,6 +108,39 @@ def test_a_shape_never_gets_smaller_than_the_smallest_size() -> None:
 def test_at_the_edge_of_the_page_the_smallest_shape_goes_the_other_way() -> None:
     at_edge = shape(rectangle=(0, 0, 50, 50))
     assert with_corner(at_edge, Handle.TOP_RIGHT, (-20, 30), PAGE).rectangle == (0, 30, SMALLEST_SIZE, 50)
+
+
+def drawing(*strokes: tuple[tuple[float, float], ...]) -> Annotation:
+    """A freehand drawing 2 points wide, its rectangle around its strokes as wide as its line."""
+    points = [point for stroke in strokes for point in stroke]
+    xs, ys = [x for x, _y in points], [y for _x, y in points]
+    rectangle = (min(xs) - 2, min(ys) - 2, max(xs) + 2, max(ys) + 2)
+    return new_annotation(Kind.FREEHAND, 0, rectangle, RED, "Iban", strokes=strokes, style=Style(line_width=2))
+
+
+def test_a_freehand_drawing_is_stretched_inside_its_line_and_keeps_its_width() -> None:
+    original = drawing(((100, 100), (150, 120), (200, 100)), ((150, 150),))  # Its rectangle: (98, 98, 202, 152).
+    stretched = with_corner(original, Handle.BOTTOM_RIGHT, (302, 202), PAGE)  # Twice as wide and as tall.
+    assert stretched.strokes == (((100.0, 100.0), (200.0, 140.0), (300.0, 100.0)), ((200.0, 200.0),))
+    assert stretched.rectangle == (98.0, 98.0, 302.0, 202.0)
+    assert stretched.style.line_width == 2
+    # Half as wide and as tall, from the other corner.
+    shrunk = with_corner(original, Handle.TOP_LEFT, (148, 123), PAGE)
+    assert shrunk.strokes == (((150.0, 125.0), (175.0, 135.0), (200.0, 125.0)), ((175.0, 150.0),))
+
+
+def test_a_freehand_drawing_does_not_turn_over_nor_vanish() -> None:
+    original = drawing(((100, 100), (200, 150)))
+    past = with_corner(original, Handle.BOTTOM_RIGHT, (48, 50), PAGE)  # Past its top left corner.
+    assert past.strokes == (((50.0, 52.0), (96.0, 96.0)),)  # Not mirrored.
+    squeezed = with_corner(original, Handle.BOTTOM_RIGHT, (99, 99), PAGE)
+    assert squeezed.rectangle == (98, 98, 98 + SMALLEST_SIZE + 4, 98 + SMALLEST_SIZE + 4)  # Its strokes, 3 points.
+
+
+def test_a_straight_stroke_is_not_stretched_across() -> None:
+    flat = drawing(((100, 100), (200, 100)))
+    taller = with_corner(flat, Handle.BOTTOM_RIGHT, (302, 202), PAGE)
+    assert taller.strokes == (((100.0, 150.0), (300.0, 150.0)),)  # Longer, in the middle of its new height.
 
 
 def test_only_corners_change_a_shape() -> None:

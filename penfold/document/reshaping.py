@@ -1,7 +1,7 @@
 """Moving annotations and changing their size with handles.
 
-Rectangles and circles have a handle at each corner, arrows one at each end; text boxes have one at each side, which
-change only their width (rendering/text_box.py: their height follows the text). Comments and freehand drawings are only
+Rectangles, circles and freehand drawings have a handle at each corner, arrows one at each end; text boxes have one at
+each side, which change only their width (rendering/text_box.py: their height follows the text). Comments are only
 moved. Marks on text (highlights, underlines, strikethroughs) have one where they start and one where they end, and
 they cover the text from one to the other (the interface asks Poppler for it); they do not move. Everything stays
 inside the annotation's page.
@@ -17,10 +17,13 @@ from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
 from penfold.document.geometry import Rectangle, Size, bounds
 
 Point = tuple[float, float]
-# The smallest width or height of a shape, and the shortest arrow, in points: a smaller one would hardly be seen.
+# The smallest width or height of a shape, and the shortest arrow, in points: a smaller one would hardly be seen. A
+# freehand drawing's strokes are kept this big, inside its line.
 SMALLEST_SIZE = 3.0
+# Less wide or tall than this, in points, a freehand drawing (a straight stroke) is not stretched that way.
+FLAT = 1e-6
 MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX})
-RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.TEXT_BOX, *TEXT_MARKUPS})
+RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, *TEXT_MARKUPS})
 
 
 class Handle(enum.Enum):
@@ -70,7 +73,7 @@ def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
 
 
 def corner_handles(annotation: Annotation) -> dict[Handle, Point]:
-    """Where the handles of a rectangle or circle are: its corners."""
+    """Where the handles of a rectangle, circle or freehand drawing are: the corners of its rectangle."""
     left, top, right, bottom = annotation.rectangle
     return {
         Handle.TOP_LEFT: (left, top),
@@ -119,9 +122,11 @@ def with_lines(annotation: Annotation, lines: list[Rectangle]) -> Annotation:
 
 
 def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size: Size) -> Annotation:
-    """A rectangle or circle with a corner taken to a point of its page; the opposite corner stays where it was.
+    """A rectangle, circle or freehand drawing with a corner taken to a point of its page; the opposite one stays.
 
-    Taken past the opposite corner, the shape turns over; it never gets smaller than SMALLEST_SIZE.
+    Taken past the opposite corner, the shape turns over; it never gets smaller than SMALLEST_SIZE. A freehand drawing's
+    strokes are stretched or shrunk to fill its new rectangle, inside its line, which keeps its width; they do not turn
+    over, so that it is never seen mirrored.
 
     Raises:
         ValueError: the handle is not a corner.
@@ -132,8 +137,48 @@ def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size:
     opposite = CORNERS[(CORNERS.index(corner) + 2) % len(CORNERS)]
     fixed_x, fixed_y = corner_handles(annotation)[opposite]
     width, height = page_size
-    x, y = _reach(fixed_x, point[0], width), _reach(fixed_y, point[1], height)
-    return replace(annotation, rectangle=(min(x, fixed_x), min(y, fixed_y), max(x, fixed_x), max(y, fixed_y)))
+    smallest = SMALLEST_SIZE + 2 * _margin(annotation) if annotation.kind is Kind.FREEHAND else SMALLEST_SIZE
+    x, y = _reach(fixed_x, point[0], width, smallest), _reach(fixed_y, point[1], height, smallest)
+    rectangle = (min(x, fixed_x), min(y, fixed_y), max(x, fixed_x), max(y, fixed_y))
+    if annotation.kind is Kind.FREEHAND:
+        return _stretched(annotation, rectangle)
+    return replace(annotation, rectangle=rectangle)
+
+
+def _stretched(annotation: Annotation, rectangle: Rectangle) -> Annotation:
+    """A freehand drawing with its strokes stretched or shrunk to fill a rectangle, inside its line.
+
+    Its rectangle is then that of its strokes and their line around: where its handles are next.
+    """
+    margin = _margin(annotation)
+    points = [point for stroke in annotation.strokes for point in stroke]
+    old = bounds([(x, y, x, y) for x, y in points])
+    left, top, right, bottom = rectangle
+    new = (left + margin, top + margin, right - margin, bottom - margin)
+    strokes = tuple(tuple(_fitted(point, old, new) for point in stroke) for stroke in annotation.strokes)
+    inner_left, inner_top, inner_right, inner_bottom = bounds([(x, y, x, y) for stroke in strokes for x, y in stroke])
+    return replace(
+        annotation,
+        strokes=strokes,
+        rectangle=(inner_left - margin, inner_top - margin, inner_right + margin, inner_bottom + margin),
+    )
+
+
+def _fitted(point: Point, old: Rectangle, new: Rectangle) -> Point:
+    """A point of one rectangle at the same place in another; along a side the old one does not have, in the middle."""
+    fitted = []
+    for axis in (0, 1):
+        old_start, old_end, new_start, new_end = old[axis], old[axis + 2], new[axis], new[axis + 2]
+        if old_end - old_start < FLAT:
+            fitted.append((new_start + new_end) / 2)
+        else:
+            fitted.append(new_start + (point[axis] - old_start) * (new_end - new_start) / (old_end - old_start))
+    return fitted[0], fitted[1]
+
+
+def _margin(annotation: Annotation) -> float:
+    """How far a freehand drawing's rectangle is from its strokes: as far as its line is wide, as when it is saved."""
+    return annotation.style.line_width
 
 
 def with_end(annotation: Annotation, end: Handle, point: Point, page_size: Size) -> Annotation:
@@ -175,11 +220,11 @@ def _shifted(rectangle: Rectangle, dx: float, dy: float) -> Rectangle:
     return left + dx, top + dy, right + dx, bottom + dy
 
 
-def _reach(fixed: float, to: float, limit: float) -> float:
-    """Where a side taken towards a coordinate ends up, kept in the page (0 to limit) and SMALLEST_SIZE from fixed."""
+def _reach(fixed: float, to: float, limit: float, smallest: float = SMALLEST_SIZE) -> float:
+    """Where a side taken towards a coordinate ends up, kept in the page (0 to limit) and smallest from fixed."""
     to = min(max(to, 0.0), limit)
-    if abs(to - fixed) >= SMALLEST_SIZE:
+    if abs(to - fixed) >= smallest:
         return to
-    nearest = fixed + SMALLEST_SIZE if to >= fixed else fixed - SMALLEST_SIZE
+    nearest = fixed + smallest if to >= fixed else fixed - smallest
     # Too close to the edge of the page on that side: on the other side of the fixed one.
     return nearest if 0.0 <= nearest <= limit else 2 * fixed - nearest
