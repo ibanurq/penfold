@@ -194,12 +194,20 @@ buttons rise just above the bar. It looks like GNOME’s side panel: light gray 
 border and a soft shadow, so it stands out from white paper. While it is shown, toasts appear just above it.
 
 ```
-[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Color]
+[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Image] | [Color]
 ```
 
-- The separators mark the groups of annotations (see “Annotation groups”). Images cannot be made from the bar yet.
+- The separators mark the groups of annotations (see “Annotation groups”).
 - One tool at a time; Select Text is the default; the initial color is yellow. **The tool stays active** after an
-  annotation is made, and the cursor shows which one it is. Each annotation made can be undone and redone.
+  annotation is made, and the cursor shows which one it is (but for Image). Each annotation made can be undone and
+  redone.
+- **Image** first opens the file chooser, “Insert Image”, with the images that can be inserted; its button stays
+  pressed. Back on the document, with the crosshair cursor, a thin frame in the accent color, as big as the image,
+  follows the pointer with its top left corner, all inside the page. A **click** puts the image there; pressing and
+  **dragging** frames it from where the press was to the pointer, keeping its proportion (further right or down,
+  bigger; back, smaller); a drag shorter than 3 pt is a click. Then the tool chosen before comes back. Cancelling the
+  file chooser, or Esc, puts nothing and brings it back too; a file that cannot be read says so in a toast (“The image
+  could not be opened”).
 - **Color:** a button with the current color opens upwards a row of six color circles, with a ring around the one
   chosen; choosing a color closes it. Every palette in the app looks like this.
 - **H and U:** with text selected, they highlight or underline it without changing the tool; with nothing selected,
@@ -208,7 +216,8 @@ border and a soft shadow, so it stands out from white paper. While it is shown, 
   easy; annotations are edited with the right click (see “Editing annotations”). Form fields only respond with Select
   Text.
 - **Esc** does only the first of these that applies: close an open menu or palette → cancel the text being written →
-  close the Find view → clear the selection of Pages or Bookmarks → go back to the Select Text tool.
+  close the Find view → clear the selection of Pages or Bookmarks → go back to the Select Text tool (from Image, to the
+  tool chosen before).
 
 ### Side panel
 
@@ -346,7 +355,7 @@ System, Light or Dark; the choice is saved and applied at once to every window. 
 
 ### Annotation types and how they are saved
 
-Penfold makes ten types and edits an eleventh, images. Each is saved with its own `/AP` (a Form XObject in `/AP /N`),
+Penfold makes eleven types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`),
 the entries the standard asks for (`/NM`, dates, `/F` with the print flag, color, border style…) and the author of
 Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 
@@ -362,13 +371,14 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 | Freehand | `/Ink` | Dragging; each stroke is one annotation | A 2 pt line through the points of the stroke (`/InkList`), drawn as a smooth curve (Catmull-Rom, as Bézier curves), with round ends and corners |
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
+| Image | `/Stamp`, `/IT /StampImage` | Choosing its file, then clicking or dragging | The image, as big as it is printed (see “Images from files”), shrunk to fit if it is bigger than the page |
 
 - **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
   moving, scaling and opacity aside). Penfold keeps its drawing as it is and stretches it to its rectangle, as viewers
   do; written again, it is that drawing, unturned as it was, with `/IT /StampImage` and no color (the version the PDF
   declares is not changed). Other stamps are listed with Other Types, for now.
-- **Images from files** (they cannot be inserted from the bar yet): JPEG, PNG, WebP, GIF (its first picture), BMP and
+- **Images from files:** JPEG, PNG, WebP, GIF (its first picture), BMP and
   TIFF, read with Pillow. A JPEG goes in as it is (`/DCTDecode`), without loss and without growing; the others go in
   without loss (`/FlateDecode` with PNG predictors), their transparency as a soft mask (`/SMask`). A photo is seen as
   its EXIF orientation says, and the image is upright as the page is seen, however its PDF and Penfold turn it. Its

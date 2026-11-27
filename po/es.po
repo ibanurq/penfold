@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-27 13:25+0100\n"
+"POT-Creation-Date: 2026-11-27 17:14+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -70,11 +70,11 @@ msgstr "Anotaciones: resaltados, subrayados (también ondulados) y tachados"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:21
 msgid ""
-"Graphic elements: comments, text boxes, rectangles, circles, arrows and "
-"freehand drawings"
+"Graphic elements: comments, text boxes, rectangles, circles, arrows, "
+"freehand drawings and images"
 msgstr ""
 "Elementos gráficos: comentarios, cuadros de texto, cuadros, círculos, "
-"flechas y dibujos a mano alzada"
+"flechas, dibujos a mano alzada e imágenes"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:22
 msgid ""
@@ -168,7 +168,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:356
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
-#: penfold/ui/window.py:1238
+#: penfold/ui/window.py:1240
 msgid "_Cancel"
 msgstr "_Cancelar"
 
@@ -399,7 +399,7 @@ msgid "_Print…"
 msgstr "_Imprimir…"
 
 #: data/ui/document_header.blp:86 penfold/ui/bookmark_editing.py:173
-#: penfold/ui/window.py:1240
+#: penfold/ui/window.py:1242
 msgid "_Save"
 msgstr "_Guardar"
 
@@ -537,6 +537,10 @@ msgstr "Licencia SIL Open Font 1.1."
 msgid "Icons"
 msgstr "Iconos"
 
+#: penfold/ui/annotating.py:215 penfold/ui/annotating.py:232
+msgid "The image could not be opened"
+msgstr "No se pudo abrir la imagen"
+
 #: penfold/ui/annotation_editing.py:324
 #, python-brace-format
 msgid "Annotation deleted"
@@ -633,12 +637,12 @@ msgstr "Imagen"
 msgid "Other Annotation"
 msgstr "Otra anotación"
 
-#: penfold/ui/annotation_toolbar.py:75
+#: penfold/ui/annotation_toolbar.py:78
 msgid "Select Text"
 msgstr "Seleccionar texto"
 
 #. Without a name of its own, screen readers would read the names of the colours in its open palette.
-#: penfold/ui/annotation_toolbar.py:112 penfold/ui/annotation_toolbar.py:119
+#: penfold/ui/annotation_toolbar.py:115 penfold/ui/annotation_toolbar.py:122
 msgid "Color"
 msgstr "Color"
 
@@ -713,13 +717,13 @@ msgid "Drag PDFs here or click “Add PDFs…”"
 msgstr "Arrastra aquí los PDF o pulsa «Añadir PDF…»"
 
 #: penfold/ui/dialogs/merge_dialog.py:138 penfold/ui/window.py:414
-#: penfold/ui/window.py:935 penfold/ui/window.py:984
+#: penfold/ui/window.py:937 penfold/ui/window.py:986
 #, python-brace-format
 msgid "Could not open “{name}”"
 msgstr "No se pudo abrir «{name}»"
 
 #: penfold/ui/dialogs/merge_dialog.py:141 penfold/ui/extraction.py:125
-#: penfold/ui/window.py:1113
+#: penfold/ui/window.py:1115
 msgid "_OK"
 msgstr "_Aceptar"
 
@@ -958,9 +962,17 @@ msgstr "_Sobrescribir"
 msgid "Could not save “{name}”"
 msgstr "No se pudo guardar «{name}»"
 
-#: penfold/ui/file_dialogs.py:12
+#: penfold/ui/file_dialogs.py:14
 msgid "PDF Documents"
 msgstr "Documentos PDF"
+
+#: penfold/ui/file_dialogs.py:26
+msgid "Images"
+msgstr "Imágenes"
+
+#: penfold/ui/file_dialogs.py:31
+msgid "Insert Image"
+msgstr "Insertar imagen"
 
 #: penfold/ui/format_popover.py:97
 msgid "Background"
@@ -1246,7 +1258,7 @@ msgstr "Este PDF no tiene anotaciones"
 msgid "(External)"
 msgstr "(Externa)"
 
-#: penfold/ui/sidebar/annotations_view.py:444
+#: penfold/ui/sidebar/annotations_view.py:446
 #, python-brace-format
 msgid "{group} ({count})"
 msgstr "{group} ({count})"
@@ -1419,30 +1431,30 @@ msgstr "Copia aplanada guardada como «{name}»"
 msgid "{file_name} — Penfold"
 msgstr "{file_name} — Penfold"
 
-#: penfold/ui/window.py:952
+#: penfold/ui/window.py:954
 msgid "merged.pdf"
 msgstr "combinado.pdf"
 
-#: penfold/ui/window.py:963
+#: penfold/ui/window.py:965
 msgid "Could not merge the PDFs"
 msgstr "No se pudieron combinar los PDF"
 
-#: penfold/ui/window.py:970
+#: penfold/ui/window.py:972
 #, python-brace-format
 msgid "PDFs merged: {count} page"
 msgid_plural "PDFs merged: {count} pages"
 msgstr[0] "PDF combinados: {count} página"
 msgstr[1] "PDF combinados: {count} páginas"
 
-#: penfold/ui/window.py:1233
+#: penfold/ui/window.py:1235
 #, python-brace-format
 msgid "Save changes to “{name}”?"
 msgstr "¿Guardar los cambios de «{name}»?"
 
-#: penfold/ui/window.py:1234
+#: penfold/ui/window.py:1236
 msgid "If you don’t save, your changes will be lost."
 msgstr "Si no los guardas, se perderán."
 
-#: penfold/ui/window.py:1239
+#: penfold/ui/window.py:1241
 msgid "_Discard"
 msgstr "_Descartar"

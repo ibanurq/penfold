@@ -736,6 +736,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
             self.document_view,
             lambda: self.document,
             lambda: self._settings.get_string(AUTHOR_NAME_KEY),
+            notify=lambda message: self.toast_overlay.add_toast(Adw.Toast(title=message)),
         )
         self.annotation_editing = AnnotationEditing(
             self, self.document_view, lambda: self.document, self._show_undo_toast
@@ -837,7 +838,8 @@ class PenfoldWindow(Adw.ApplicationWindow):
     ) -> bool:
         """Esc, when nothing in the window used the key before (a menu, a dialogue…), does the first that applies.
 
-        It closes Find, or else clears the selection of the panel view shown, or else goes back to the tool Select Text.
+        It closes Find, or else clears the selection of the panel view shown, or else goes back to the tool Select Text
+        (from the image tool, to the tool chosen before).
         """
         if keyval != Gdk.KEY_Escape:
             return False
@@ -847,7 +849,7 @@ class PenfoldWindow(Adw.ApplicationWindow):
         if self._unselect_panel_view():
             return True
         if self.annotating.tool is not Tool.SELECT:
-            self.annotating.choose(Tool.SELECT)
+            self.annotating.leave_tool()
             return True
         return False
 

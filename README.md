@@ -20,7 +20,7 @@ files on my personal computer over quite a few years.
 - **Pages**: reorder, extract, delete and rotate.
 - **Bookmarks**: add, rename, reorder.
 - **Annotations**: highlights, underlines (also squiggly) and strikethroughs.
-- **Graphic elements**: comments, text boxes, rectangles, circles, arrows and freehand drawings.
+- **Graphic elements**: comments, text boxes, rectangles, circles, arrows, freehand drawings and images.
 - **Forms**.
 
 ## Screenshots

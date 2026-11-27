@@ -8,11 +8,15 @@ mouse is released. H and U mark the text selected without changing the tool, or 
 circles and arrows are drawn by dragging, from where the drag starts to where it ends; a freehand stroke follows the
 drag, and is smoothed a little when the mouse is released (document/freehand.py). A click places a comment, whose
 text is written in a popover. A drag sets the width of a text box (a click gives it a usual width), whose text is
-written on the page.
+written on the page. The image tool first asks for the image's file; then a frame of its size follows the pointer, and
+a click or a drag puts it on the page (ui/image_placing.py). Once it is put, or if the file is not chosen or cannot be
+read, or with Esc, the tool chosen before comes back.
 """
 
 from collections.abc import Callable
 from dataclasses import replace
+from gettext import gettext as _
+from pathlib import Path
 
 from gi.repository import Gdk, Gio, GLib, Gtk
 
@@ -21,19 +25,24 @@ from penfold.document.appearance import COMMENT_SIZE
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.freehand import freehand_rectangle, smoothed
-from penfold.document.geometry import bounds
+from penfold.document.geometry import Rectangle, bounds
+from penfold.document.image_files import image_from_file
 from penfold.document.reshaping import SMALLEST_SIZE
+from penfold.errors import ImageOpenError
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import DEFAULT_WIDTH, NARROWEST, text_box_pdf, text_height
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.document_view import DocumentView, PageClick
+from penfold.ui.file_dialogs import image_file_dialog
 from penfold.ui.palette import ANNOTATION_COLORS, Color, hex_to_color
 
 Point = tuple[float, float]
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
-DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND, Tool.COMMENT, Tool.TEXT_BOX})
+DRAWING_TOOLS = frozenset(
+    {Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND, Tool.COMMENT, Tool.TEXT_BOX, Tool.IMAGE}
+)
 MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT})
 SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
 
@@ -41,20 +50,31 @@ SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
 class Annotating:
     """The window's actions "annotate" (the pencil), "annotation-tool" and "annotation-color"."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 (the window, what it shows and what it is told)
         self,
         window: Gtk.ApplicationWindow,
         toolbar: AnnotationToolbar,
         document_view: DocumentView,
         document: Callable[[], OpenDocument | None],
         author: Callable[[], str],
+        *,
+        notify: Callable[[str], None],
     ) -> None:
-        """Add the actions to the window; document gives the document shown, if any, and author the preference."""
+        """Add the actions to the window.
+
+        document gives the document shown, if any; author, the preference; notify shows a short message (a toast).
+        """
+        self._window = window
+        self._notify = notify
         self._toolbar = toolbar
         self._author = author
         self._document_view = document_view
         self._document = document
         self._chosen_tool = Tool.SELECT
+        # The tool that comes back once an image is put; and the image being put: its file, its size as seen (points)
+        # and its drawings, by the turns of the page they are made for (the PDF's and Penfold's).
+        self._before_image = Tool.SELECT
+        self._image: tuple[Path, tuple[float, float], dict[tuple[int, int], bytes]] | None = None
         self._chosen_color = ANNOTATION_COLORS[0]
         self._bar_shown = False
         self.comment_popover: CommentPopover | None = None
@@ -117,6 +137,10 @@ class Annotating:
             self._annotate.change_state(GLib.Variant.new_boolean(True))
         self._tool.change_state(GLib.Variant.new_string(tool.value))
 
+    def leave_tool(self) -> None:
+        """Esc: from the image tool, back to the tool chosen before; from the others, to Select Text."""
+        self.choose(self._before_image if self.tool is Tool.IMAGE else Tool.SELECT)
+
     def mark_or_choose(self, tool: Tool) -> bool:
         """H and U: mark the text selected with this tool's mark, or else choose it; return whether done."""
         if not self.allowed or tool not in MARKING_TOOLS:
@@ -151,8 +175,12 @@ class Annotating:
     def _on_tool_chosen(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         if value.get_string() not in {tool.value for tool in Tool}:
             return
+        if Tool(value.get_string()) is Tool.IMAGE and self.tool is not Tool.IMAGE:
+            self._before_image = self.tool
         action.set_state(value)
         self._chosen_tool = Tool(value.get_string())
+        self._image = None
+        self._document_view.stop_placing_image()
         self._document_view.marking = self.tool in MARKING_TOOLS
         makers = {
             **dict.fromkeys(SHAPE_TOOLS, self._make_shape),
@@ -163,6 +191,54 @@ class Annotating:
         self._document_view.placing = self.tool is Tool.COMMENT
         self._document_view.set_fields_active(self.tool is Tool.SELECT)
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
+        if self.tool is Tool.IMAGE:
+            image_file_dialog().open(self._window, None, self._on_image_file_chosen)
+
+    def _on_image_file_chosen(self, dialog: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
+        try:
+            chosen = dialog.open_finish(result)
+        except GLib.Error:  # Cancelled.
+            chosen = None
+        path = None if chosen is None else chosen.get_path()
+        if self.tool is not Tool.IMAGE:
+            return  # Another tool was chosen meanwhile.
+        if path is None:
+            self.choose(self._before_image)
+            return
+        self.place_image(Path(path))
+
+    def place_image(self, path: Path) -> None:
+        """Show where the image of a file goes, following the pointer, until a click or a drag puts it on a page."""
+        try:
+            drawing, size = image_from_file(path)
+        except ImageOpenError:
+            self._notify(_("The image could not be opened"))
+            self.choose(self._before_image)
+            return
+        self._image = (path, size, {(0, 0): drawing})
+        self._document_view.place_image(size, self._put_image)
+
+    def _put_image(self, page: ShownPage, shown: Rectangle) -> None:
+        """Put the image being placed on a page, in a rectangle of the page as shown; the tool before comes back."""
+        document, image = self._document(), self._image
+        if document is None or image is None or not self.allowed:
+            self.choose(self._before_image)
+            return
+        path, _size, drawings = image
+        turns = (document.own_rotation(page.source), page.rotation)
+        try:
+            drawing = drawings.get(turns) or image_from_file(path, *turns)[0]
+        except ImageOpenError:
+            self._notify(_("The image could not be opened"))
+            self.choose(self._before_image)
+            return
+        left, top, right, bottom = shown
+        corners = [page.to_source(left, top), page.to_source(right, bottom)]
+        xs, ys = [x for x, _y in corners], [y for _x, y in corners]
+        rectangle = (min(xs), min(ys), max(xs), max(ys))
+        made = new_annotation(Kind.IMAGE, page.source, rectangle, None, self._author(), drawing=drawing)
+        document.execute(AddAnnotations(document, [made]))
+        self.choose(self._before_image)
 
     def _make_shape(self, page: ShownPage, trail: list[Point]) -> Annotation | None:
         """The shape of the tool chosen from one end of a drag to the other; None for a click."""

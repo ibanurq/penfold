@@ -16,6 +16,7 @@ install_data(
   'extraction.py',
   'format_popover.py',
   'handle_editor.py',
+  'image_placing.py',
   'file_dialogs.py',
   'form_choice.py',
   'form_layer.py',

@@ -16,6 +16,7 @@ data/ui/window.blp
 data/ui/zoom_controls.blp
 penfold/application.py
 penfold/ui/about.py
+penfold/ui/annotating.py
 penfold/ui/annotation_editing.py
 penfold/ui/annotation_icons.py
 penfold/ui/annotation_toolbar.py

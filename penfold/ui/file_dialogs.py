@@ -1,10 +1,12 @@
-"""The system's file chooser, set up for PDFs."""
+"""The system's file chooser, set up for PDFs or for images."""
 
 from gettext import gettext as _
 
 from gi.repository import Gio, Gtk
 
 PDF_MIME_TYPE = "application/pdf"
+# The images that can be inserted (document/image_files.py).
+IMAGE_MIME_TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff")
 
 
 def pdf_file_dialog(title: str, initial_file: Gio.File | None = None) -> Gtk.FileDialog:
@@ -17,3 +19,13 @@ def pdf_file_dialog(title: str, initial_file: Gio.File | None = None) -> Gtk.Fil
     if initial_file is not None:
         dialog.set_initial_file(initial_file)
     return dialog
+
+
+def image_file_dialog() -> Gtk.FileDialog:
+    """Return a file chooser, "Insert Image", that shows the images that can be inserted."""
+    image_filter = Gtk.FileFilter(name=_("Images"))
+    for mime_type in IMAGE_MIME_TYPES:
+        image_filter.add_mime_type(mime_type)
+    filters = Gio.ListStore.new(Gtk.FileFilter)
+    filters.append(image_filter)
+    return Gtk.FileDialog(title=_("Insert Image"), filters=filters, default_filter=image_filter)

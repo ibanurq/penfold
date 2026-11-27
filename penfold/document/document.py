@@ -245,6 +245,11 @@ class OpenDocument:
             denied=self.access_permissions.denied,
         )
 
+    def own_rotation(self, source: int) -> int:
+        """The turn a page's own PDF gives it (/Rotate), by its source index, in degrees clockwise."""
+        found, index = locate(self.sources.spans, source)
+        return PageFrame.of(self.sources.pdf(found).pages[index]).rotation
+
     def _shown_size(self, page: Page) -> tuple[float, float]:
         """The width and height of a page as it is shown, with its own turn and Penfold's, in points."""
         source, index = locate(self.sources.spans, page.source_index)

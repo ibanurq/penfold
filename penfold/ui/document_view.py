@@ -16,7 +16,7 @@ from gi.repository import Adw, Gdk, GLib, GObject, Graphene, Gsk, Gtk, Poppler
 
 from penfold.document.annotations import Annotation, Hit, Kind, Style, hit, topmost
 from penfold.document.document import OpenDocument
-from penfold.document.geometry import Rectangle, merge_lines
+from penfold.document.geometry import Rectangle, Size, merge_lines
 from penfold.rendering.kept_look import KeptLooks
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.page_content import ExternalTarget, InternalTarget, Link, PageContent
@@ -26,6 +26,7 @@ from penfold.rendering.text_search import SearchResult
 from penfold.ui.annotation_layer import AnnotationLayer
 from penfold.ui.form_layer import FormLayer, ShownBox
 from penfold.ui.handle_editor import HandleEditor
+from penfold.ui.image_placing import ImagePlacer
 from penfold.ui.text_box_editor import TextBoxEditor
 from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
@@ -236,6 +237,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.text_editor: TextBoxEditor | None = None
         # An annotation being moved or resized with handles.
         self.handle_editor: HandleEditor | None = None
+        self.image_placer: ImagePlacer | None = None
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -776,13 +778,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
                     ready.append((key, texture))
             draw_tiles = functools.partial(self._draw_tiles, origin=(x, y), box=box, ready=ready, missing=missing)
             draw_tiles(snapshot)
-            shown = self.renderer.layout[box.page]
-            if self.handle_editor is not None:
-                self.handle_editor.snapshot_frame(snapshot, shown, (x, y), self.zoom)
-            self._draw_annotations(snapshot, x, y, box, draw_tiles)
-            self._draw_mark(snapshot, x, y, box)
-            if self.handle_editor is not None:
-                self.handle_editor.snapshot_handles(snapshot, shown, (x, y), self.zoom)
+            self._draw_over_page(snapshot, x, y, box, draw_tiles)
             self._draw_matches(snapshot, x, y, box)
             self._draw_selection(snapshot, x, y, box)
         for page in self._nearby_pages(visible):
@@ -792,6 +788,21 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._form_layer.snapshot(snapshot)
         if self.text_editor is not None:
             self.text_editor.snapshot(snapshot)
+
+    def _draw_over_page(
+        self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox, draw_tiles: Callable[[Gtk.Snapshot], None]
+    ) -> None:
+        """Draw what goes over a page: its annotations, the one outlined, and what is being edited or placed on it."""
+        assert self.renderer is not None
+        shown = self.renderer.layout[box.page]
+        if self.handle_editor is not None:
+            self.handle_editor.snapshot_frame(snapshot, shown, (x, y), self.zoom)
+        self._draw_annotations(snapshot, x, y, box, draw_tiles)
+        self._draw_mark(snapshot, x, y, box)
+        if self.image_placer is not None:
+            self.image_placer.snapshot(snapshot, box.page, (x, y), self.zoom)
+        if self.handle_editor is not None:
+            self.handle_editor.snapshot_handles(snapshot, shown, (x, y), self.zoom)
 
     def _draw_page_frame(self, snapshot: Gtk.Snapshot, x: float, y: float, box: PageBox) -> None:
         """Draw the white page with its edge, before its tiles."""
@@ -993,6 +1004,24 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.grab_focus()
         return self.handle_editor
 
+    def place_image(self, size: Size, on_placed: Callable[[ShownPage, Rectangle], None]) -> ImagePlacer:
+        """Show where an image of a size (points as seen) goes, following the pointer, until a click or a drag puts it.
+
+        on_placed receives the page and the rectangle, in points of the page as shown; stop_placing_image ends it.
+        """
+        self.finish_editing()
+        self.image_placer = ImagePlacer(self, size, on_placed)
+        if self._pointer is not None:
+            self.image_placer.hover(*self._pointer)
+        self.grab_focus()
+        return self.image_placer
+
+    def stop_placing_image(self) -> None:
+        """Stop showing where an image goes."""
+        if self.image_placer is not None:
+            self.image_placer = None
+            self.queue_draw()
+
     def has_text_under(self, annotation: Annotation) -> bool:
         """Whether there is text under a mark on text, to cover more or less of it."""
         if self.content is None or self.renderer is None or self.renderer.layout.position(annotation.page) is None:
@@ -1078,6 +1107,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.add_controller(drag)
         motion = Gtk.EventControllerMotion()
         motion.connect("motion", self._on_motion)
+        motion.connect("leave", self._on_leave)
         self.add_controller(motion)
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self._on_key_pressed)
@@ -1231,6 +1261,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if self.handle_editor is not None:
             self.handle_editor.press(x, y)
             return
+        if self.image_placer is not None:
+            self._set_selection(None)
+            self.image_placer.press(x, y)
+            return
         if self._shape_maker is not None:
             self._set_selection(None)
             self._shape_start = self.page_point(x, y)
@@ -1250,6 +1284,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if self.handle_editor is not None:
             _found, start_x, start_y = gesture.get_start_point()
             self.handle_editor.drag(start_x + offset_x, start_y + offset_y)
+            return
+        if self.image_placer is not None:
+            _found, start_x, start_y = gesture.get_start_point()
+            self.image_placer.drag(start_x + offset_x, start_y + offset_y)
             return
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
@@ -1285,10 +1323,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
         """The end of a selection or a shape; a click without moving follows a link, or clears the selection."""
-        if self.handle_editor is not None:
-            self._on_drag_update(gesture, offset_x, offset_y)
-            if self.handle_editor is not None:
-                self.handle_editor.release()
+        if self._end_editing_drag(gesture, offset_x, offset_y):
             return
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
@@ -1315,6 +1350,19 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if link is not None:
             self.follow_link(link)
 
+    def _end_editing_drag(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> bool:
+        """The end of a drag of handles, or of one putting an image; return whether it was one."""
+        if self.handle_editor is not None:
+            self._on_drag_update(gesture, offset_x, offset_y)
+            if self.handle_editor is not None:
+                self.handle_editor.release()
+            return True
+        if self.image_placer is not None:
+            _found, start_x, start_y = gesture.get_start_point()
+            self.image_placer.release(start_x + offset_x, start_y + offset_y)
+            return True
+        return False
+
     def follow_link(self, link: Link) -> None:
         """Go to an internal destination, or open a web address in the browser."""
         target = link.target
@@ -1335,6 +1383,12 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
         self._pointer = (x, y)
         self._show_cursor(x, y)
+        if self.image_placer is not None:
+            self.image_placer.hover(x, y)
+
+    def _on_leave(self, _controller: Gtk.EventControllerMotion) -> None:
+        if self.image_placer is not None:
+            self.image_placer.leave()
 
     def _show_cursor(self, x: float, y: float) -> None:
         """The drawing tool's cursor over pages; without one, a hand over links and the text cursor over pages.

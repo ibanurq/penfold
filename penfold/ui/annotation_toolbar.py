@@ -36,6 +36,7 @@ class Tool(enum.Enum):
     FREEHAND = "freehand"
     COMMENT = "comment"
     TEXT_BOX = "text-box"
+    IMAGE = "image"
 
     @property
     def kind(self) -> Kind | None:
@@ -54,6 +55,7 @@ TOOL_KINDS = {
     Tool.FREEHAND: Kind.FREEHAND,
     Tool.COMMENT: Kind.COMMENT,
     Tool.TEXT_BOX: Kind.TEXT_BOX,
+    Tool.IMAGE: Kind.IMAGE,
 }
 # The tools by group, in the order of the print dialogue.
 TOOL_GROUPS = (
@@ -61,6 +63,7 @@ TOOL_GROUPS = (
     (Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT),
     (Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND),
     (Tool.COMMENT, Tool.TEXT_BOX),
+    (Tool.IMAGE,),
 )
 
 
