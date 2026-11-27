@@ -5,19 +5,22 @@ until another is chosen. A PDF is only annotated if it allows it: otherwise the 
 
 The tools that mark text (highlight, underline, squiggly underline, strike through) mark what is selected when the
 mouse is released. H and U mark the text selected without changing the tool, or else choose their tool. Rectangles,
-circles and arrows are drawn by dragging, from where the drag starts to where it ends. A click places a comment, whose
+circles and arrows are drawn by dragging, from where the drag starts to where it ends; a freehand stroke follows the
+drag, and is smoothed a little when the mouse is released (document/freehand.py). A click places a comment, whose
 text is written in a popover. A drag sets the width of a text box (a click gives it a usual width), whose text is
 written on the page.
 """
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from gi.repository import Gdk, Gio, GLib, Gtk
 
-from penfold.document.annotations import Annotation, Kind, new_annotation
+from penfold.document.annotations import Annotation, Kind, default_style, new_annotation
 from penfold.document.appearance import COMMENT_SIZE
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.document import OpenDocument
+from penfold.document.freehand import freehand_rectangle, smoothed
 from penfold.document.geometry import bounds
 from penfold.document.reshaping import SMALLEST_SIZE
 from penfold.rendering.layout import ShownPage
@@ -30,7 +33,7 @@ from penfold.ui.palette import ANNOTATION_COLORS, Color, hex_to_color
 Point = tuple[float, float]
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
-DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.COMMENT, Tool.TEXT_BOX})
+DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND, Tool.COMMENT, Tool.TEXT_BOX})
 MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT})
 SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
 
@@ -151,24 +154,39 @@ class Annotating:
         action.set_state(value)
         self._chosen_tool = Tool(value.get_string())
         self._document_view.marking = self.tool in MARKING_TOOLS
-        makers = {**dict.fromkeys(SHAPE_TOOLS, self._make_shape), Tool.TEXT_BOX: self._frame_text_box}
+        makers = {
+            **dict.fromkeys(SHAPE_TOOLS, self._make_shape),
+            Tool.FREEHAND: self._draw_freehand,
+            Tool.TEXT_BOX: self._frame_text_box,
+        }
         self._document_view.set_shape_maker(makers.get(self.tool))
         self._document_view.placing = self.tool is Tool.COMMENT
         self._document_view.set_fields_active(self.tool is Tool.SELECT)
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
 
-    def _make_shape(self, page: ShownPage, shown_start: Point, shown_end: Point) -> Annotation | None:
+    def _make_shape(self, page: ShownPage, trail: list[Point]) -> Annotation | None:
         """The shape of the tool chosen from one end of a drag to the other; None for a click."""
         kind = self.tool.kind
-        start, end = page.to_source(*shown_start), page.to_source(*shown_end)
+        start, end = page.to_source(*trail[0]), page.to_source(*trail[-1])
         if kind is None or max(abs(end[0] - start[0]), abs(end[1] - start[1])) < SMALLEST_SIZE:
             return None
         rectangle = (min(start[0], end[0]), min(start[1], end[1]), max(start[0], end[0]), max(start[1], end[1]))
         line = (*start, *end) if kind is Kind.ARROW else None
         return new_annotation(kind, page.source, rectangle, self.color, self._author(), line=line)
 
-    def _frame_text_box(self, page: ShownPage, shown_start: Point, shown_end: Point) -> Annotation:
+    def _draw_freehand(self, page: ShownPage, trail: list[Point]) -> Annotation | None:
+        """The stroke a drag draws, as it goes (smoothed once made); None while smaller than a shape can be."""
+        stroke = tuple(page.to_source(*point) for point in trail)
+        xs, ys = [x for x, _y in stroke], [y for _x, y in stroke]
+        if max(max(xs) - min(xs), max(ys) - min(ys)) < SMALLEST_SIZE:
+            return None
+        style = default_style(Kind.FREEHAND)
+        rectangle = freehand_rectangle([stroke], style.line_width)
+        return new_annotation(Kind.FREEHAND, page.source, rectangle, self.color, self._author(), strokes=(stroke,))
+
+    def _frame_text_box(self, page: ShownPage, trail: list[Point]) -> Annotation:
         """The empty text box a drag frames: as wide as the drag (a click: the usual width), inside the page."""
+        shown_start, shown_end = trail[0], trail[-1]
         page_width, _page_height = page.size
         left = min(shown_start[0], shown_end[0])
         width = abs(shown_end[0] - shown_start[0])
@@ -206,6 +224,9 @@ class Annotating:
         document = self._document()
         if document is None or not self.allowed:
             return
+        if shape.kind is Kind.FREEHAND:
+            strokes = tuple(smoothed(stroke) for stroke in shape.strokes)
+            shape = replace(shape, strokes=strokes, rectangle=freehand_rectangle(strokes, shape.style.line_width))
         if shape.kind is not Kind.TEXT_BOX:
             document.execute(AddAnnotations(document, [shape]))
             return

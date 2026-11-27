@@ -33,6 +33,7 @@ class Tool(enum.Enum):
     RECTANGLE = "rectangle"
     CIRCLE = "circle"
     ARROW = "arrow"
+    FREEHAND = "freehand"
     COMMENT = "comment"
     TEXT_BOX = "text-box"
 
@@ -50,6 +51,7 @@ TOOL_KINDS = {
     Tool.RECTANGLE: Kind.RECTANGLE,
     Tool.CIRCLE: Kind.CIRCLE,
     Tool.ARROW: Kind.ARROW,
+    Tool.FREEHAND: Kind.FREEHAND,
     Tool.COMMENT: Kind.COMMENT,
     Tool.TEXT_BOX: Kind.TEXT_BOX,
 }
@@ -57,7 +59,7 @@ TOOL_KINDS = {
 TOOL_GROUPS = (
     (Tool.SELECT,),
     (Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT),
-    (Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW),
+    (Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND),
     (Tool.COMMENT, Tool.TEXT_BOX),
 )
 

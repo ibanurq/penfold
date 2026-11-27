@@ -119,6 +119,58 @@ def test_the_shape_is_shown_while_dragging(shape_window: "PenfoldWindow") -> Non
     assert (view._preview.kind, made(window)) == (Kind.CIRCLE, [])  # Not made until the mouse is released.
 
 
+def draw_by_hand(window: "PenfoldWindow", page: int, points: list[tuple[float, float]]) -> None:
+    """Drag through points of a page as shown, as the mouse does, releasing at the last one."""
+    view = window.document_view
+    start_x, start_y = widget_point(window, page, *points[0])
+    gesture = FakeDrag(start_x, start_y)
+    view._on_pressed(None, 1, start_x, start_y)  # type: ignore[arg-type]
+    for point in points[1:-1]:
+        x, y = widget_point(window, page, *point)
+        view._on_drag_update(gesture, x - start_x, y - start_y)  # type: ignore[arg-type]
+    end_x, end_y = widget_point(window, page, *points[-1])
+    view._on_drag_end(gesture, end_x - start_x, end_y - start_y)  # type: ignore[arg-type]
+
+
+def test_a_freehand_stroke_follows_the_drag_and_is_smoothed(shape_window: "PenfoldWindow") -> None:
+    window = shape_window
+    view = window.document_view
+    choose(window, Tool.FREEHAND)
+    assert view._drawing_cursor == "crosshair"
+    zigzag = [(100.0 + 2 * index, 200 + (index % 2) * 0.6) for index in range(60)] + [(220.0, 260.0), (240.0, 300.0)]
+    start_x, start_y = widget_point(window, 1, *zigzag[0])
+    view._on_pressed(None, 1, start_x, start_y)  # type: ignore[arg-type]
+    for point in zigzag[1:30]:
+        x, y = widget_point(window, 1, *point)
+        view._on_drag_update(FakeDrag(start_x, start_y), x - start_x, y - start_y)  # type: ignore[arg-type]
+    assert view._preview is not None
+    assert (view._preview.kind, len(view._preview.strokes[0]), made(window)) == (Kind.FREEHAND, 30, [])  # As it goes.
+    view._shape_start = None  # Let go, and draw it at once.
+    draw_by_hand(window, 1, zigzag)
+    (drawn,) = made(window)
+    assert (drawn.kind, drawn.page, drawn.style.line_width) == (Kind.FREEHAND, 1, 2.0)
+    (stroke,) = drawn.strokes
+    assert stroke[0] == pytest.approx(zigzag[0], abs=0.5)
+    assert stroke[-1] == pytest.approx(zigzag[-1], abs=0.5)
+    assert len(stroke) < len(zigzag) / 4  # Smoothed: its trembling along the straight part is gone.
+    assert max(abs(y - 200.3) for x, y in stroke[1:] if x < 210) < 0.25  # Its start stays where it was.
+    xs, ys = [x for x, _y in stroke], [y for _x, y in stroke]
+    assert drawn.rectangle == pytest.approx((min(xs) - 2, min(ys) - 2, max(xs) + 2, max(ys) + 2))
+    assert window.annotating.tool is Tool.FREEHAND  # It stays.
+    draw_by_hand(window, 1, [(300, 300), (330, 340)])
+    assert len(made(window)) == 2  # Each stroke, an annotation of its own.
+    window.activate_action("win.undo", None)
+    assert made(window) == [drawn]  # Undo takes away the last stroke.
+
+
+def test_a_click_or_a_tiny_scribble_draws_nothing(shape_window: "PenfoldWindow") -> None:
+    window = shape_window
+    choose(window, Tool.FREEHAND)
+    draw_by_hand(window, 0, [(100, 100), (100, 100)])
+    draw_by_hand(window, 0, [(100, 100), (101, 102), (102, 100)])
+    assert made(window) == []
+
+
 def test_with_select_text_a_drag_selects_text(shape_window: "PenfoldWindow") -> None:
     window = shape_window
     choose(window, Tool.RECTANGLE)

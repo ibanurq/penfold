@@ -193,7 +193,7 @@ buttons rise just above the bar. It looks like GNOME’s side panel: light gray 
 border and a soft shadow, so it stands out from white paper. While it is shown, toasts appear just above it.
 
 ```
-[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] | [Comment] [Text Box] | [Color]
+[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Color]
 ```
 
 - The separators mark the four groups of annotations (see “Annotation groups”).
@@ -360,11 +360,13 @@ it is empty). Text in `/Contents` is UTF-16.
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
 
-*(In progress: the annotation bar does not have the Freehand tool yet, so freehand drawings, also those of other
-programs with several strokes, can be edited but not made.)*
-
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
-- **Shapes** are drawn while dragging, so their shape is seen before releasing.
+- **Shapes** are drawn while dragging, so their shape is seen before releasing. A click, or a drag smaller than 3 pt,
+  makes nothing.
+- **Freehand:** the stroke follows the drag and is seen as it is drawn. On release it is smoothed a little, without
+  changing its shape: points closer than 0.75 pt are left out, the others are averaged twice with their neighbors
+  (the ends stay), and those not needed to keep it within 0.2 pt are left out (Ramer–Douglas–Peucker). Each stroke is
+  one annotation, so Undo takes away the last one. Freehand drawings of other programs may have several strokes.
 - **Comment:** a popover pointing at the place, with a multi-line box and Cancel · Apply (Enter: new line; Ctrl+Enter:
   Apply; Esc: Cancel; empty: nothing is made). On hover, its text in a tooltip (at most ten lines and about 500
   characters; longer, with “…” at the end). No `/Popup` is written.

@@ -21,8 +21,10 @@ from penfold.document.pdf_values import date, name, number, numbers, text
 
 # The author of new annotations when none is set in the preferences.
 DEFAULT_AUTHOR = "Penfold"
-# How a new annotation looks: lines of 1 point, highlights at 75 %, text boxes in 11 points.
+# How a new annotation looks: lines of 1 point (freehand drawings, 2: by hand, 1 point looks faint and shaky),
+# highlights at 75 %, text boxes in 11 points.
 LINE_WIDTH = 1.0
+FREEHAND_LINE_WIDTH = 2.0
 HIGHLIGHT_OPACITY = 0.75
 TEXT_BOX_FONT_SIZE = 11.0
 # How much of the colour the soft fill of rectangles and circles has, over white.
@@ -110,7 +112,11 @@ class Style:
 
 def default_style(kind: Kind) -> Style:
     """How a new annotation of a type looks."""
-    return Style(opacity=HIGHLIGHT_OPACITY) if kind is Kind.HIGHLIGHT else Style()
+    if kind is Kind.HIGHLIGHT:
+        return Style(opacity=HIGHLIGHT_OPACITY)
+    if kind is Kind.FREEHAND:
+        return Style(line_width=FREEHAND_LINE_WIDTH)
+    return Style()
 
 
 SUBTYPE_KINDS = {f"/{kind.value}": kind for kind in Kind if kind is not Kind.OTHER}

@@ -54,9 +54,9 @@ MATCH_COLOR = (0.97, 0.89, 0.36, 0.45)
 CURRENT_MATCH_COLOR = (1.0, 0.47, 0.0, 0.5)
 # A press that moves less than this, in pixels, is a click (it follows links), not a drag.
 DRAG_THRESHOLD = 3
-# Makes the annotation of a shape from its page and its two ends on the page as shown; None for one too small to keep
-# (a click).
-ShapeMaker = Callable[[ShownPage, tuple[float, float], tuple[float, float]], Annotation | None]
+# Makes the annotation of a shape from its page and the points of the page (as shown) the drag has gone through, from
+# where it started to where it is now; None for one too small to keep (a click).
+ShapeMaker = Callable[[ShownPage, list[tuple[float, float]]], Annotation | None]
 # How far from a line a click still reaches it, in pixels of the screen.
 HIT_REACH = 4.0
 # The outline of the annotation whose menu is open: its margin, width and corner radius, in pixels.
@@ -222,6 +222,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         # While a tool draws shapes, a drag draws one instead of selecting text.
         self._shape_maker: ShapeMaker | None = None
         self._shape_start: PagePoint | None = None
+        self._shape_trail: list[tuple[float, float]] = []
         # While a tool places things, a click on a page is told (page-clicked) instead of selecting text.
         self.placing = False
         self._click: PagePoint | None = None
@@ -1178,7 +1179,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._form_layer.set_active(active)
 
     def set_shape_maker(self, maker: "ShapeMaker | None") -> None:
-        """Draw shapes with drags, made by maker from the page and the two ends; None to select text again."""
+        """Draw shapes with drags, made by maker from the page and the points dragged through; None to select text."""
         self._shape_maker = maker
         self._shape_start = None
         self.set_preview(None)
@@ -1233,6 +1234,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         if self._shape_maker is not None:
             self._set_selection(None)
             self._shape_start = self.page_point(x, y)
+            self._shape_trail = [] if self._shape_start is None else [(self._shape_start.x, self._shape_start.y)]
             return
         if self.placing:
             self._set_selection(None)
@@ -1263,7 +1265,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._set_selection(TextSelection(self._press, focus, self._press_style))
 
     def _draw_shape(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
-        """Show the shape from where the drag started to where it is now, kept inside the page it started on."""
+        """Show the shape the drag has drawn from where it started to where it is now, inside the page it started on."""
         start = self._shape_start
         if start is None or self._shape_maker is None or self.renderer is None or self._hadjustment is None:
             return
@@ -1277,7 +1279,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         end_x = (start_x + offset_x + self._hadjustment.get_value() - box.x) / self.zoom
         end_y = (start_y + offset_y + self._vadjustment.get_value() - box.y) / self.zoom
         end = (min(max(end_x, 0.0), width), min(max(end_y, 0.0), height))
-        self.set_preview(self._shape_maker(page, (start.x, start.y), end))
+        if end != self._shape_trail[-1]:
+            self._shape_trail.append(end)
+        self.set_preview(self._shape_maker(page, list(self._shape_trail)))
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
         """The end of a selection or a shape; a click without moving follows a link, or clears the selection."""

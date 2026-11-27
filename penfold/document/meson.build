@@ -8,6 +8,7 @@ install_data(
   'extracting.py',
   'form_filling.py',
   'forms.py',
+  'freehand.py',
   'geometry.py',
   'history.py',
   'page_frame.py',

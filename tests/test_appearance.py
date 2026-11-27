@@ -126,9 +126,9 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
             [350, 462, 380, 512, 410, 452, 440, 517, 470, 447, 500, 502],
             [420, 482],
         ]
-        assert (float(freehand.BS.W), str(freehand.BS.S)) == (1.0, "/S")
+        assert (float(freehand.BS.W), str(freehand.BS.S)) == (2.0, "/S")  # As new ones are drawn.
         left, bottom, right, top = floats(freehand.Rect)
-        assert (left, right) == (349, 501)  # The strokes and half their line, and a little more.
+        assert (left, right) == (348, 502)  # The strokes and half their line, and a little more.
         assert bottom < 447
         assert top > 517
         assert "/Contents" not in underline

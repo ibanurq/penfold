@@ -110,6 +110,7 @@ def test_a_new_annotation_is_managed_and_named() -> None:
 def test_new_annotations_look_as_in_0_6() -> None:
     assert default_style(Kind.HIGHLIGHT) == Style(opacity=0.75)
     assert default_style(Kind.RECTANGLE) == Style(opacity=1.0, line_width=1.0, filled=False, dashed=False)
+    assert default_style(Kind.FREEHAND) == Style(line_width=2.0)  # By hand, 1 point looks faint and shaky.
     assert new_annotation(Kind.HIGHLIGHT, 0, (0, 0, 9, 9), (1.0, 1.0, 0.0), "").style.opacity == 0.75
     bold = Style(line_width=4.0)
     assert new_annotation(Kind.CIRCLE, 0, (0, 0, 9, 9), (1.0, 1.0, 0.0), "", style=bold).style is bold

@@ -14,6 +14,7 @@ import math
 from dataclasses import replace
 
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
+from penfold.document.freehand import freehand_rectangle
 from penfold.document.geometry import Rectangle, Size, bounds
 
 Point = tuple[float, float]
@@ -156,12 +157,7 @@ def _stretched(annotation: Annotation, rectangle: Rectangle) -> Annotation:
     left, top, right, bottom = rectangle
     new = (left + margin, top + margin, right - margin, bottom - margin)
     strokes = tuple(tuple(_fitted(point, old, new) for point in stroke) for stroke in annotation.strokes)
-    inner_left, inner_top, inner_right, inner_bottom = bounds([(x, y, x, y) for stroke in strokes for x, y in stroke])
-    return replace(
-        annotation,
-        strokes=strokes,
-        rectangle=(inner_left - margin, inner_top - margin, inner_right + margin, inner_bottom + margin),
-    )
+    return replace(annotation, strokes=strokes, rectangle=freehand_rectangle(strokes, margin))
 
 
 def _fitted(point: Point, old: Rectangle, new: Rectangle) -> Point:
