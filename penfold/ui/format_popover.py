@@ -7,6 +7,7 @@ are shown:
 - rectangles and circles: line width, line style, fill and opacity;
 - arrows: line width, line style, arrowheads and opacity;
 - freehand drawings: line width and opacity;
+- images: opacity (they have no colour: the colour circles are greyed out);
 - text boxes: letter size, background and border (their colours are those of the background and the border).
 
 A value read from another program that is not one of the options (a line of 3 points) is shown as one more option,
@@ -31,7 +32,7 @@ LEAST_OPACITY = 10
 OPACITY_STEP = 5
 OPACITY_WIDTH = 150
 SHAPES = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
-FORMATTED = frozenset({*TEXT_MARKUPS, *SHAPES, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX})
+FORMATTED = frozenset({*TEXT_MARKUPS, *SHAPES, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE})
 # No colour circle is ringed for a colour that is not one of the palette's.
 NO_COLOR = ""
 
@@ -78,6 +79,7 @@ class FormatPopover(Gtk.Popover):
         row = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, homogeneous=True)
         for value in ANNOTATION_COLORS:
             row.append(color_circle(value, "format.color"))
+        action.set_enabled(self.annotation.kind is not Kind.IMAGE)  # An image has no colour.
         return row
 
     def _on_color_chosen(self, action: Gio.SimpleAction, value: GLib.Variant | None) -> None:

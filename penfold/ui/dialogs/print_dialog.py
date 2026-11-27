@@ -1,6 +1,6 @@
 """The "Print" dialogue: which groups of annotations are printed, before the system's print dialogue.
 
-The four groups are on by default. Continue closes it and emits "print-requested" with the groups left out; Cancel
+The five groups are on by default. Continue closes it and emits "print-requested" with the groups left out; Cancel
 or Esc print nothing. Form values are always printed.
 """
 
@@ -25,6 +25,7 @@ class PenfoldPrintDialog(Adw.Dialog):
     text_markups_row: Adw.SwitchRow = Gtk.Template.Child()
     shapes_row: Adw.SwitchRow = Gtk.Template.Child()
     text_elements_row: Adw.SwitchRow = Gtk.Template.Child()
+    images_and_stamps_row: Adw.SwitchRow = Gtk.Template.Child()
     others_row: Adw.SwitchRow = Gtk.Template.Child()
 
     def left_out(self) -> frozenset[AnnotationGroup]:
@@ -33,6 +34,7 @@ class PenfoldPrintDialog(Adw.Dialog):
             AnnotationGroup.TEXT_MARKUPS: self.text_markups_row,
             AnnotationGroup.SHAPES: self.shapes_row,
             AnnotationGroup.TEXT_ELEMENTS: self.text_elements_row,
+            AnnotationGroup.IMAGES_AND_STAMPS: self.images_and_stamps_row,
             AnnotationGroup.OTHERS: self.others_row,
         }
         return frozenset(group for group, row in rows.items() if not row.get_active())

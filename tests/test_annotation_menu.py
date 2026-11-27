@@ -378,6 +378,52 @@ def test_a_freehand_drawing_has_its_width_and_opacity(freehand_window: "PenfoldW
     assert window.annotation_editing.menu is None
 
 
+@pytest.fixture
+def image_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A page with an image of another program near its top (a stamp whose drawing is an image)."""
+    from tests.test_images import stamp, with_stamps
+
+    path = tmp_path / "image.pdf"
+    with_stamps(path, lambda pdf: stamp(pdf, [100, 700, 220, 780]))
+    assert open_and_wait(window, path)
+    return window
+
+
+def test_an_image_has_no_colour_but_its_opacity(image_window: "PenfoldWindow") -> None:
+    window = image_window
+    assert window.document is not None
+    right_click(window, 160, 740)
+    editing = window.annotation_editing
+    assert editing.annotation == annotation(window, Kind.IMAGE)
+    actions = {name: window.lookup_action(name) for name in ("annotation-menu-color", "reshape-annotation")}
+    assert {name: action.get_enabled() for name, action in actions.items() if action is not None} == {
+        "annotation-menu-color": False,  # Greyed out, not hidden.
+        "reshape-annotation": True,
+    }
+    window.activate_action("win.format-annotation")
+    process_pending_events()
+    popover = editing.format_popover
+    assert popover is not None
+    assert list(rows_of(popover)) == ["Opacity"]
+    content = popover.get_child()
+    assert content is not None
+    circles = content.get_first_child()  # The row of colours.
+    assert circles is not None
+    assert [circle.get_sensitive() for circle in _descendants(circles) if circle.get_parent() is circles] == [False] * 6
+    opacity = rows_of(popover)["Opacity"]
+    scale = next(widget for widget in _descendants(opacity) if isinstance(widget, Gtk.Scale))
+    scale.set_value(40)
+    changed = annotation(window, Kind.IMAGE)
+    assert (changed.managed, changed.style.opacity, changed.color) == (True, 0.4, None)
+    assert [item.kind for item in window.document.replaced_annotations] == [Kind.IMAGE]  # Penfold paints it.
+
+
+def test_an_image_is_moved_with_its_own_drawing(image_window: "PenfoldWindow") -> None:
+    from penfold.ui.annotation_editing import _reshape_label
+
+    assert _reshape_label(annotation(image_window, Kind.IMAGE)) == "_Move"  # Not resized yet.
+
+
 def _descendants(widget: Gtk.Widget) -> list[Gtk.Widget]:
     found = []
     child = widget.get_first_child()
@@ -394,7 +440,7 @@ def panel_window(annotated_window: "PenfoldWindow") -> "PenfoldWindow":
 
     annotated_window.split_view.set_show_sidebar(True)
     annotated_window.sidebar.show_view(sidebar_views.ANNOTATIONS)
-    for group in ("text-markups", "shapes", "others"):  # All four are shown by default.
+    for group in ("text-markups", "shapes", "others"):  # All five are shown by default.
         annotated_window.annotations_view.activate_action(f"annotations-filter.{group}", None)
     process_pending_events()
     return annotated_window

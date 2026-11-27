@@ -5,7 +5,8 @@ change them.
 
 New ones look as docs/specification.md describes ("Annotation types and how they are saved"); the comment is the speech
 bubble of GNOME's icon collection. Their style changes the opacity, the lines, the fill, the arrowheads and the text
-box's letters, background and border. Texts are written in UTF-16, so that no character can break the file.
+box's letters, background and border. Texts are written in UTF-16, so that no character can break the file. An image
+is written with the drawing it keeps (images.py), stretched to its rectangle.
 """
 
 import io
@@ -18,6 +19,7 @@ import pikepdf
 
 from penfold.document.annotations import FILL_STRENGTH, Annotation, Kind, LineEnds, Style
 from penfold.document.geometry import HALF_TURN, Rectangle
+from penfold.document.images import DRAWING, STAMP_IMAGE
 from penfold.document.page_frame import PageFrame
 
 # The line width of the comment's outline, in points (the others are in each annotation's style).
@@ -76,6 +78,8 @@ def write_annotation(pdf: pikepdf.Pdf, annotation: Annotation, page: pikepdf.Pag
     """
     if annotation.kind is Kind.TEXT_BOX:
         entries, appearance = _text_box(pdf, annotation, frame)
+    elif annotation.kind is Kind.IMAGE:
+        entries, appearance = _image(pdf, annotation, frame)
     else:
         entries, appearance = _drawn(pdf, annotation, frame)
     dictionary = pikepdf.Dictionary(_common_entries(annotation, page))
@@ -155,6 +159,36 @@ def _text_box(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tup
     return entries, appearance
 
 
+def _image(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[dict[str, object], pikepdf.Object]:
+    """An image (Stamp): its entries, and its drawing, which viewers stretch from its box to the image's /Rect.
+
+    The drawing kept is painted unturned, as it was in its page; its opacity goes in the drawing too, as with the
+    others.
+    """
+    if not annotation.drawing:
+        message = "an image needs its drawing"
+        raise ValueError(message)
+    with pikepdf.open(io.BytesIO(annotation.drawing)) as kept:
+        drawing = pdf.copy_foreign(kept.make_indirect(kept.pages[0].as_form_xobject(handle_transformations=False)))
+    entries: dict[str, object] = {"/Rect": _bounds(_rectangle_points(annotation.rectangle, frame))}
+    entries["/IT"] = pikepdf.Name(f"/{STAMP_IMAGE}")
+    resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary({DRAWING: drawing}))
+    content = f"q {DRAWING} Do Q"
+    opacity = annotation.style.opacity
+    if opacity < 1:
+        entries["/CA"] = opacity
+        state = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState, CA=opacity)
+        state.ca = opacity
+        resources.ExtGState = pikepdf.Dictionary(Look=state)
+        content = f"q /Look gs {DRAWING} Do Q"
+    stream = pikepdf.Stream(pdf, content.encode())
+    stream.Type = pikepdf.Name.XObject
+    stream.Subtype = pikepdf.Name.Form
+    stream.BBox = drawing.BBox
+    stream.Resources = resources
+    return entries, pdf.make_indirect(stream)
+
+
 @dataclass
 class _Written:
     """The entries of one type of annotation, and its drawing, in the page's units inside its /Rect."""
@@ -176,8 +210,9 @@ def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, obj
         "/CreationDate": created,
         "/M": pdf_date(annotation.modified) if annotation.modified else created,
         "/F": PRINT_FLAG,
-        "/C": pikepdf.Array(_rounded(annotation.color or (0.0, 0.0, 0.0))),
     }
+    if annotation.kind is not Kind.IMAGE:  # An image has no colour.
+        entries["/C"] = pikepdf.Array(_rounded(annotation.color or (0.0, 0.0, 0.0)))
     if annotation.text:
         entries["/Contents"] = utf16(annotation.text)
     return entries

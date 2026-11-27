@@ -25,6 +25,7 @@ from penfold.document.appearance import (
     tint,
 )
 from penfold.document.geometry import Rectangle
+from penfold.rendering.image_look import paint_image
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import paint_text_box
 
@@ -47,6 +48,9 @@ def paint_annotations(
             _paint_comment(context, page, annotation)  # Upright, whatever the turn.
         elif annotation.kind is Kind.TEXT_BOX:
             _paint_text_box(context, page, annotation)
+        elif annotation.kind is Kind.IMAGE:
+            context.transform(turn_matrix(page))
+            paint_image(context, annotation)
         else:
             context.transform(turn_matrix(page))
             _paint_on_unturned_page(context, annotation)

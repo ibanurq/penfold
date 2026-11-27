@@ -71,11 +71,11 @@ penfold/
 │   ├── document.py           OpenDocument: an open PDF and everything that can be edited in it, with its history.
 │   ├── sources.py            The source PDFs whose pages make up the document (the opened one and those added).
 │   ├── pages.py, page_labels.py, page_frame.py, geometry.py
-│   ├── annotations.py, appearance.py, reshaping.py
+│   ├── annotations.py, appearance.py, reshaping.py, freehand.py, images.py
 │   ├── bookmarks.py, forms.py, form_filling.py, access_permissions.py, properties.py, pdf_values.py
 │   ├── history.py, commands/ Undo and redo, and one command class per kind of change.
 │   └── saving.py, extracting.py
-├── rendering/                Drawing with Poppler and cairo: pages in worker threads, annotations, text boxes, search.
+├── rendering/                Drawing with Poppler and cairo: pages in worker threads, annotations, images, text boxes, search.
 └── ui/                       The interface: window, headers, document view, side panel, dialogs. GTK 4 + libadwaita.
 data/
 ├── ui/                       The interface in Blueprint (.blp), one file per piece of ui/.
@@ -196,7 +196,7 @@ border and a soft shadow, so it stands out from white paper. While it is shown, 
 [Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Color]
 ```
 
-- The separators mark the four groups of annotations (see “Annotation groups”).
+- The separators mark the groups of annotations (see “Annotation groups”). Images cannot be made from the bar yet.
 - One tool at a time; Select Text is the default; the initial color is yellow. **The tool stays active** after an
   annotation is made, and the cursor shows which one it is. Each annotation made can be undone and redone.
 - **Color:** a button with the current color opens upwards a row of six color circles, with a ring around the one
@@ -262,12 +262,13 @@ What the three list views share:
 **Annotations**
 
 - Header: “Annotations” · **Filter**: a popover with one check box per group, which stays open while ticking (Esc or a
-  click outside close it). All four are ticked by default.
-- The list has the four sections of the groups, each with a count (“Text Elements (2)”), sorted by page and position.
+  click outside close it). All five are ticked by default.
+- The list has the five sections of the groups, each with a count (“Text Elements (2)”), sorted by page and position.
   Every annotation type the PDF has falls into one of them.
 - **Each row:** a small icon of the type on the left; “Page N” in bold and the author on the right in gray (or
   “(External)” without one); under it, up to about four lines of its text, with a vertical bar in the annotation’s
-  color. White or colorless annotations from other programs use orange `#c64600` for the bar, so it can be seen.
+  color. White or colorless annotations from other programs use orange `#c64600` for the bar, so it can be seen;
+  images, which have no color, have no bar.
   Text markups without text of their own show the marked text in quotation marks; shapes without text, “No text”.
 - The annotations of the page being read are marked, and the list scrolls to the first one.
 - Click goes to the annotation. Right click opens the same menu as on the page (see “Editing annotations”); it acts
@@ -301,7 +302,8 @@ Enter confirms and Esc cancels.
 
 Adwaita’s symbolic icons; where there is no suitable one, an icon from the GNOME design team’s icon-development-kit,
 included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline, freehand and text box
-types, Collapse All and Expand All). See `THIRD-PARTY-NOTICES.md`. Each annotation type has the same icon in the
+types, Collapse All and Expand All). Images have Adwaita’s `image-x-generic`. See `THIRD-PARTY-NOTICES.md`. Each
+annotation type has the same icon in the
 annotation bar and in the panel. Right-click menus have text, no icons.
 
 ### Light and dark style
@@ -343,9 +345,9 @@ System, Light or Dark; the choice is saved and applied at once to every window. 
 
 ### Annotation types and how they are saved
 
-Penfold makes ten types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`), the entries the standard asks
-for (`/NM`, dates, `/F` with the print flag, color, border style…) and the author of Preferences as `/T` (`Penfold` if
-it is empty). Text in `/Contents` is UTF-16.
+Penfold makes ten types and edits an eleventh, images. Each is saved with its own `/AP` (a Form XObject in `/AP /N`),
+the entries the standard asks for (`/NM`, dates, `/F` with the print flag, color, border style…) and the author of
+Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 
 | Type | Subtype | Made by | Default look |
 |---|---|---|---|
@@ -360,6 +362,11 @@ it is empty). Text in `/Contents` is UTF-16.
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
 
+- **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
+  as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
+  moving, scaling and opacity aside). Penfold keeps its drawing as it is and stretches it to its rectangle, as viewers
+  do; written again, it is that drawing, unturned as it was, with `/IT /StampImage` and no color (the version the PDF
+  declares is not changed). They cannot be made yet. Other stamps are listed with Other Types, for now.
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
 - **Shapes** are drawn while dragging, so their shape is seen before releasing. A click, or a drag smaller than 3 pt,
   makes nothing.
@@ -378,7 +385,8 @@ it is empty). Text in `/Contents` is UTF-16.
   printing):
   - **Text Highlights:** highlights, underlines (also squiggly), strikethroughs;
   - **Shapes:** rectangles, circles, arrows and lines, polygons, polylines, freehand drawings;
-  - **Text Elements:** comments, text boxes, stamps, insert-text marks;
+  - **Text Elements:** comments, text boxes, insert-text marks;
+  - **Images and Stamps:** images (stamps whose drawing is an image; other stamps go in Other Types, for now);
   - **Other Types:** everything else that is listed (attachments, sounds, redactions, watermarks…). Links, form fields
     and pop-ups are not listed.
 
@@ -407,6 +415,7 @@ Delete
   | Rectangle, circle | Line Width (Thin 1 pt · Medium 2 pt · Thick 4 pt) · Line (Solid · Dashed) · Fill (a soft tint of the color) · Opacity (10–100 %) |
   | Arrow | Line Width · Line · Arrowheads (At the End · At Both Ends · None) · Opacity |
   | Freehand | Line Width · Opacity |
+  | Image | Opacity; it has no color, so the six colors are grayed out (also in the right-click menu) |
   | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the color is the background’s and the border’s, the text is always black |
 
 - **Move and Resize:** handles on the annotation: corners for rectangles and circles, and for freehand drawings, whose
@@ -415,8 +424,9 @@ Delete
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
-- **Annotations from other programs** of the ten types are edited like Penfold’s (a freehand drawing without strokes,
-  `/InkList`, counts as another type). What is not touched does not
+- **Annotations from other programs** of the eleven types are edited like Penfold’s (a freehand drawing without
+  strokes, `/InkList`, counts as another type; a stamp, unless it is an image). Images are only moved, for now. What
+  is not touched does not
   change: a color outside the palette has no circle marked; a value outside the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns
@@ -487,7 +497,7 @@ Delete
 
 ### Printing
 
-Print… (Ctrl+P) first shows a dialog with four switches, one per annotation group, all on; Continue opens the
+Print… (Ctrl+P) first shows a dialog with five switches, one per annotation group, all on; Continue opens the
 system’s print dialog. If the document has no annotations (counting those not yet saved), it goes straight to the
 system’s dialog. The PDF printed is prepared as saving does (with the form values and the annotations chosen, without
 the others), and drawn by Poppler.

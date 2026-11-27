@@ -1,10 +1,10 @@
 """Moving annotations and changing their size with handles.
 
 Rectangles, circles and freehand drawings have a handle at each corner, arrows one at each end; text boxes have one at
-each side, which change only their width (rendering/text_box.py: their height follows the text). Comments are only
-moved. Marks on text (highlights, underlines, strikethroughs) have one where they start and one where they end, and
-they cover the text from one to the other (the interface asks Poppler for it); they do not move. Everything stays
-inside the annotation's page.
+each side, which change only their width (rendering/text_box.py: their height follows the text). Comments and images
+are only moved. Marks on text (highlights, underlines, strikethroughs) have one where they start and one where they
+end, and they cover the text from one to the other (the interface asks Poppler for it); they do not move. Everything
+stays inside the annotation's page.
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -23,7 +23,7 @@ Point = tuple[float, float]
 SMALLEST_SIZE = 3.0
 # Less wide or tall than this, in points, a freehand drawing (a straight stroke) is not stretched that way.
 FLAT = 1e-6
-MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX})
+MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX, Kind.IMAGE})
 RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, *TEXT_MARKUPS})
 
 

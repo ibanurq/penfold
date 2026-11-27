@@ -1,4 +1,4 @@
-"""The Annotations view of the side panel: annotations in four groups.
+"""The Annotations view of the side panel: annotations in five groups.
 
 It lists them, filters them by group and goes to one on a click. Rows are selected as in Pages and Bookmarks, and the
 selection is cleared the same way. A right click on a row, a long press, or the Menu key (or Shift+F10) asks for the
@@ -34,7 +34,7 @@ ROW_TEXT_LINES = 4
 TEXT_TIME_SLICE = 0.008
 # The actions of the filter's menu, one for each group: "annotations-filter.shapes".
 FILTER_ACTIONS = "annotations-filter"
-# Shown by default: all four groups.
+# Shown by default: all five groups.
 DEFAULT_GROUPS = frozenset(AnnotationGroup)
 
 
@@ -44,6 +44,7 @@ def group_names() -> dict[AnnotationGroup, str]:
         AnnotationGroup.TEXT_MARKUPS: _("Text Highlights"),
         AnnotationGroup.SHAPES: _("Shapes"),
         AnnotationGroup.TEXT_ELEMENTS: _("Text Elements"),
+        AnnotationGroup.IMAGES_AND_STAMPS: _("Images and Stamps"),
         AnnotationGroup.OTHERS: _("Other Types"),
     }
 
@@ -135,7 +136,7 @@ class AnnotationRow(Gtk.Box):
 
 
 class AnnotationsView(Gtk.Box):
-    """Annotations in four groups, with a filter; "annotation-activated" gives a page and a height on a click.
+    """Annotations in five groups, with a filter; "annotation-activated" gives a page and a height on a click.
 
     The list only makes rows for the annotations in sight, so a PDF with thousands of them costs no more than one
     with a few; the text a highlight marks is read for the rows shown, a few at a time.
@@ -336,6 +337,8 @@ class AnnotationsView(Gtk.Box):
         row.show_kind(annotation.kind)
         row.author.set_label(annotation.author or _("(External)"))
         row.color_bar.set_color(display_color(annotation))
+        # An image has no colour: no line, though its place stays, so that the texts of the rows line up.
+        row.color_bar.set_opacity(0 if annotation.kind is Kind.IMAGE else 1)
         self._rows[id(annotation)] = row
         self._show_mark(row)
         if id(annotation) in self._texts or not self._needs_marked_text(annotation):

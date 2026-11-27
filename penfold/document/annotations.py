@@ -3,7 +3,8 @@
 The annotations of the PDF are read and shown as they are; Poppler draws them. The ones made in Penfold are managed:
 Penfold draws them and writes them into the PDF when it is saved. An annotation of the PDF of a type Penfold makes
 becomes managed when it is changed; one deleted or changed is taken out of its page when the PDF is saved. Links, form
-fields and pop-up windows are not annotations to list.
+fields and pop-up windows are not annotations to list. Stamps are listed as images when their drawing is one
+(images.py); the others are listed as another type, for now.
 """
 
 import enum
@@ -16,6 +17,7 @@ from itertools import pairwise
 
 import pikepdf
 
+from penfold.document.images import image_drawing, is_image
 from penfold.document.page_frame import PageFrame
 from penfold.document.pdf_values import date, name, number, numbers, text
 
@@ -53,18 +55,21 @@ class Kind(enum.Enum):
     CIRCLE = "Circle"
     ARROW = "Line"
     FREEHAND = "Ink"
+    IMAGE = "Stamp"
     OTHER = "Other"
 
 
 class AnnotationGroup(enum.Enum):
-    """The four groups of annotations, the same in the panel's filter and lists and when printing."""
+    """The five groups of annotations, the same in the annotation bar, the panel's filter and lists, and printing."""
 
     TEXT_MARKUPS = "text-markups"
     """Highlights, underlines (also squiggly), strikethroughs."""
     SHAPES = "shapes"
     """Rectangles, circles, arrows and lines, polygons, polylines and freehand drawings."""
     TEXT_ELEMENTS = "text-elements"
-    """Comments, text boxes, stamps and insert-text marks."""
+    """Comments, text boxes and insert-text marks."""
+    IMAGES_AND_STAMPS = "images-and-stamps"
+    """Images (stamps whose drawing is an image); the other stamps are listed with the other types, for now."""
     OTHERS = "others"
     """Every other type that is listed: attachments, sounds, redactions, watermarks…"""
 
@@ -72,14 +77,17 @@ class AnnotationGroup(enum.Enum):
 SUBTYPE_GROUPS = {
     **dict.fromkeys(("/Highlight", "/Underline", "/Squiggly", "/StrikeOut"), AnnotationGroup.TEXT_MARKUPS),
     **dict.fromkeys(("/Square", "/Circle", "/Line", "/Polygon", "/PolyLine", "/Ink"), AnnotationGroup.SHAPES),
-    **dict.fromkeys(("/Text", "/FreeText", "/Stamp", "/Caret"), AnnotationGroup.TEXT_ELEMENTS),
+    **dict.fromkeys(("/Text", "/FreeText", "/Caret"), AnnotationGroup.TEXT_ELEMENTS),
 }
 
 
-def group_of(subtype: str) -> AnnotationGroup | None:
-    """The group of an annotation subtype ("/Ink"), or None for those that are not listed (links, form fields…)."""
+def group_of(annotation: pikepdf.Dictionary) -> AnnotationGroup | None:
+    """The group of an annotation of a PDF, or None for those that are not listed (links, form fields…)."""
+    subtype = str(annotation.get("/Subtype"))
     if subtype in NOT_LISTED:
         return None
+    if is_image(annotation):
+        return AnnotationGroup.IMAGES_AND_STAMPS
     return SUBTYPE_GROUPS.get(subtype, AnnotationGroup.OTHERS)
 
 
@@ -131,7 +139,7 @@ class Annotation:
     The rectangle is in PDF points from the top left corner of the page as shown (page_frame.py): left, top, right,
     bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines (also
     squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows; the strokes are the
-    paths of a freehand drawing, each the points it goes through in order (one alone is a dot).
+    paths of a freehand drawing, each the points it goes through in order (one alone is a dot). An image has no colour.
 
     A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once changed,
     the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from a PDF
@@ -142,7 +150,7 @@ class Annotation:
     it out when Penfold draws it instead (Poppler skips those it cannot read, so the place among all of them would not
     do); those made in Penfold have neither. A text box reads turned clockwise by text_turn degrees from the page as
     shown (the turn Penfold gave the page when it was written, so that it was upright), and keeps its saved drawing: a
-    one-page PDF with the fonts it uses inside.
+    one-page PDF with the fonts it uses inside. An image keeps its drawing too, as images.py makes it.
 
     One read from a PDF that was only moved is not drawn again: it keeps the drawing its program made, moved by moved_by
     on its page (as its rectangle is), and saving moves it in its page instead of writing it again.
@@ -178,6 +186,8 @@ class Annotation:
     @property
     def group(self) -> AnnotationGroup:
         """The group it is listed and printed in."""
+        if self.kind is Kind.IMAGE:
+            return AnnotationGroup.IMAGES_AND_STAMPS
         return SUBTYPE_GROUPS.get(f"/{self.subtype}", AnnotationGroup.OTHERS)
 
 
@@ -374,7 +384,10 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
     strokes = _strokes(annotation.get("/InkList"), frame) if kind is Kind.FREEHAND else ()
     if kind is Kind.FREEHAND and not strokes:
         kind = Kind.OTHER  # Without its strokes, Penfold cannot draw it.
-    color = _color(annotation.get("/C"))
+    drawing = image_drawing(annotation, frame.rotation) if kind is Kind.IMAGE else None
+    if kind is Kind.IMAGE and drawing is None:
+        kind = Kind.OTHER  # A stamp that is not an image.
+    color = None if kind is Kind.IMAGE else _color(annotation.get("/C"))
     look = _Look(annotation, kind, color)
     return Annotation(
         page=page,
@@ -393,6 +406,7 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
         origin=origin,
         style=look.style,
         foreign_look=tuple(look.foreign),
+        drawing=drawing or b"",
     )
 
 

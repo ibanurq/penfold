@@ -417,8 +417,9 @@ def _leave_out_annotations(pdf: pikepdf.Pdf, groups: frozenset[AnnotationGroup])
 
 
 def _print_group(annotation: pikepdf.Object) -> AnnotationGroup | None:
-    subtype = annotation.get("/Subtype") if isinstance(annotation, pikepdf.Dictionary) else None
-    return group_of(str(subtype)) if isinstance(subtype, pikepdf.Name) else None
+    if not isinstance(annotation, pikepdf.Dictionary) or not isinstance(annotation.get("/Subtype"), pikepdf.Name):
+        return None
+    return group_of(annotation)
 
 
 def _popup_of(annotation: pikepdf.Object, dropped: set[tuple[int, int]]) -> bool:

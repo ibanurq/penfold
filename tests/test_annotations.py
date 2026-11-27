@@ -128,11 +128,12 @@ def test_every_listed_type_has_a_group(annotations: list[Annotation]) -> None:
         AnnotationGroup.SHAPES,
         AnnotationGroup.SHAPES,  # a freehand drawing is a shape, though Penfold does not make them
     ]
-    assert group_of("/Squiggly") is AnnotationGroup.TEXT_MARKUPS
-    assert group_of("/Stamp") is AnnotationGroup.TEXT_ELEMENTS
-    assert group_of("/FileAttachment") is AnnotationGroup.OTHERS
-    assert group_of("/Link") is None
-    assert group_of("/Widget") is None
+    assert group_of(annotation("/Squiggly", [0, 0, 1, 1])) is AnnotationGroup.TEXT_MARKUPS
+    # A stamp that is not an image is listed with the other types, for now (images: test_images.py).
+    assert group_of(annotation("/Stamp", [0, 0, 1, 1])) is AnnotationGroup.OTHERS
+    assert group_of(annotation("/FileAttachment", [0, 0, 1, 1])) is AnnotationGroup.OTHERS
+    assert group_of(annotation("/Link", [0, 0, 1, 1])) is None
+    assert group_of(annotation("/Widget", [0, 0, 1, 1])) is None
 
 
 def test_pdf_without_annotations(tmp_path: Path) -> None:

@@ -41,6 +41,8 @@ def test_ctrl_p_asks_which_annotations_to_print(form_window: "PenfoldWindow") ->
     dialog.shapes_row.set_active(False)
     dialog.others_row.set_active(False)
     assert dialog.left_out() == frozenset({AnnotationGroup.SHAPES, AnnotationGroup.OTHERS})
+    dialog.images_and_stamps_row.set_active(False)
+    assert AnnotationGroup.IMAGES_AND_STAMPS in dialog.left_out()
     dialog.close()
 
 

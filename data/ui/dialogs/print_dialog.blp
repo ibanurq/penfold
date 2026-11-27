@@ -52,7 +52,13 @@ template $PenfoldPrintDialog: Adw.Dialog {
 
         Adw.SwitchRow text_elements_row {
           title: _("Text Elements");
-          subtitle: _("Comments, text boxes, stamps, etc.");
+          subtitle: _("Comments, text boxes, etc.");
+          active: true;
+        }
+
+        Adw.SwitchRow images_and_stamps_row {
+          title: _("Images and Stamps");
+          subtitle: _("Photos, logos, stamps, etc.");
           active: true;
         }
 

@@ -243,19 +243,29 @@ def test_annotations_are_grouped_and_filtered(window: "PenfoldWindow", tmp_path:
     open_and_wait(window, path)
     view = window.annotations_view
 
-    # All four groups are shown by default.
+    # All five groups are shown by default.
     assert view.shown_groups == set(AnnotationGroup)
     popover = view.filter_button.get_popover()
     assert popover is not None
     column = popover.get_child()
     assert column is not None
     boxes = [box for box in column if isinstance(box, Gtk.CheckButton)]
-    assert [box.get_label() for box in boxes] == ["Text Highlights", "Shapes", "Text Elements", "Other Types"]
-    assert [box.get_active() for box in boxes] == [True, True, True, True]
+    assert [box.get_label() for box in boxes] == [
+        "Text Highlights",
+        "Shapes",
+        "Text Elements",
+        "Images and Stamps",
+        "Other Types",
+    ]
+    assert [box.get_active() for box in boxes] == [True, True, True, True, True]
     view.activate_action("annotations-filter.shapes", None)
     view.activate_action("annotations-filter.others", None)
-    assert view.shown_groups == {AnnotationGroup.TEXT_MARKUPS, AnnotationGroup.TEXT_ELEMENTS}
-    assert [box.get_active() for box in boxes] == [True, False, True, False]
+    assert view.shown_groups == {
+        AnnotationGroup.TEXT_MARKUPS,
+        AnnotationGroup.TEXT_ELEMENTS,
+        AnnotationGroup.IMAGES_AND_STAMPS,
+    }
+    assert [box.get_active() for box in boxes] == [True, False, True, True, False]
     assert [annotation.kind for annotation in view.shown_annotations()] == [Kind.COMMENT]
     view.activate_action("annotations-filter.shapes", None)
     view.activate_action("annotations-filter.others", None)
@@ -612,3 +622,23 @@ def add_outline_to_text_pdf(path: Path) -> None:
         with pdf.open_outline() as outline:
             outline.root.append(pikepdf.OutlineItem("Added", 0))
         pdf.save(path)
+
+
+def test_an_image_has_no_colour_line(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from penfold.document.annotations import Kind
+    from penfold.ui.sidebar import sidebar
+    from tests.test_images import stamp, with_stamps
+
+    path = tmp_path / "image.pdf"
+    with_stamps(
+        path,
+        lambda pdf: stamp(pdf, [100, 600, 220, 680]),
+        lambda _pdf: pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Square, Rect=[50, 50, 90, 90]),
+    )
+    open_and_wait(window, path)
+    window.split_view.set_show_sidebar(True)
+    window.sidebar.show_view(sidebar.ANNOTATIONS)
+    view = window.annotations_view
+    wait_until(lambda: len(view._rows) == 2)
+    lines = {item.kind: view._rows[id(item)].color_bar.get_opacity() for item in view.shown_annotations()}
+    assert lines == {Kind.IMAGE: 0, Kind.RECTANGLE: 1}  # Its place stays, so that the texts line up.

@@ -11,6 +11,7 @@ install_data(
   'freehand.py',
   'geometry.py',
   'history.py',
+  'images.py',
   'page_frame.py',
   'page_labels.py',
   'pages.py',

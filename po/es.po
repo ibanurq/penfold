@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-27 12:29+0100\n"
+"POT-Creation-Date: 2026-11-27 13:25+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -165,7 +165,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:21
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:353
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:356
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
 #: penfold/ui/window.py:1238
@@ -214,7 +214,7 @@ msgstr "Dónde"
 msgid "At the Start"
 msgstr "Al principio"
 
-#: data/ui/dialogs/add_pages_dialog.blp:95 penfold/ui/format_popover.py:127
+#: data/ui/dialogs/add_pages_dialog.blp:95 penfold/ui/format_popover.py:129
 msgid "At the End"
 msgstr "Al final"
 
@@ -332,15 +332,24 @@ msgid "Text Elements"
 msgstr "Elementos con texto"
 
 #: data/ui/dialogs/print_dialog.blp:55
-msgid "Comments, text boxes, stamps, etc."
-msgstr "Comentarios, cuadros de texto, sellos, etc."
+msgid "Comments, text boxes, etc."
+msgstr "Comentarios, cuadros de texto, etc."
 
 #: data/ui/dialogs/print_dialog.blp:60
 #: penfold/ui/sidebar/annotations_view.py:47
+msgid "Images and Stamps"
+msgstr "Imágenes y sellos"
+
+#: data/ui/dialogs/print_dialog.blp:61
+msgid "Photos, logos, stamps, etc."
+msgstr "Fotos, logotipos, sellos, etc."
+
+#: data/ui/dialogs/print_dialog.blp:66
+#: penfold/ui/sidebar/annotations_view.py:48
 msgid "Other Types"
 msgstr "Otros tipos"
 
-#: data/ui/dialogs/print_dialog.blp:61
+#: data/ui/dialogs/print_dialog.blp:67
 msgid "Attachments, sounds, etc."
 msgstr "Archivos adjuntos, sonidos, etc."
 
@@ -443,7 +452,7 @@ msgid "Go to Page"
 msgstr "Ir a la página"
 
 #: data/ui/preferences_dialog.blp:13 data/ui/sidebar/sidebar.blp:69
-#: penfold/ui/shortcuts_dialog.py:46 penfold/ui/sidebar/annotations_view.py:160
+#: penfold/ui/shortcuts_dialog.py:46 penfold/ui/sidebar/annotations_view.py:161
 msgid "Annotations"
 msgstr "Anotaciones"
 
@@ -528,18 +537,18 @@ msgstr "Licencia SIL Open Font 1.1."
 msgid "Icons"
 msgstr "Iconos"
 
-#: penfold/ui/annotation_editing.py:321
+#: penfold/ui/annotation_editing.py:324
 #, python-brace-format
 msgid "Annotation deleted"
 msgid_plural "{count} annotations deleted"
 msgstr[0] "Anotación eliminada"
 msgstr[1] "{count} anotaciones eliminadas"
 
-#: penfold/ui/annotation_editing.py:347
+#: penfold/ui/annotation_editing.py:350
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:349
+#: penfold/ui/annotation_editing.py:352
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -547,76 +556,80 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:354
+#: penfold/ui/annotation_editing.py:357
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:383
+#: penfold/ui/annotation_editing.py:386
 msgid "_Adjust Ends"
 msgstr "_Ajustar extremos"
 
-#: penfold/ui/annotation_editing.py:383
+#: penfold/ui/annotation_editing.py:386
 msgid "_Move and Resize"
 msgstr "_Mover y cambiar tamaño"
 
-#: penfold/ui/annotation_editing.py:384
+#: penfold/ui/annotation_editing.py:387
 msgid "_Move"
 msgstr "_Mover"
 
-#: penfold/ui/annotation_editing.py:396
+#: penfold/ui/annotation_editing.py:399
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:398
+#: penfold/ui/annotation_editing.py:401
 msgid "_Format…"
 msgstr "_Formato…"
 
-#: penfold/ui/annotation_editing.py:403
+#: penfold/ui/annotation_editing.py:406
 #: penfold/ui/sidebar/bookmarks_view.py:133 penfold/ui/sidebar/pages_view.py:91
 msgid "_Delete"
 msgstr "_Eliminar"
 
-#: penfold/ui/annotation_icons.py:29 penfold/ui/shortcuts_dialog.py:48
+#: penfold/ui/annotation_icons.py:30 penfold/ui/shortcuts_dialog.py:48
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: penfold/ui/annotation_icons.py:30 penfold/ui/shortcuts_dialog.py:49
+#: penfold/ui/annotation_icons.py:31 penfold/ui/shortcuts_dialog.py:49
 msgid "Underline"
 msgstr "Subrayar"
 
-#: penfold/ui/annotation_icons.py:31
+#: penfold/ui/annotation_icons.py:32
 msgid "Squiggly Underline"
 msgstr "Subrayado ondulado"
 
-#: penfold/ui/annotation_icons.py:32
+#: penfold/ui/annotation_icons.py:33
 msgid "Strike Through"
 msgstr "Tachar"
 
-#: penfold/ui/annotation_icons.py:33
+#: penfold/ui/annotation_icons.py:34
 msgid "Comment"
 msgstr "Comentario"
 
-#: penfold/ui/annotation_icons.py:34
+#: penfold/ui/annotation_icons.py:35
 msgid "Text Box"
 msgstr "Cuadro de texto"
 
-#: penfold/ui/annotation_icons.py:35
+#: penfold/ui/annotation_icons.py:36
 msgid "Rectangle"
 msgstr "Rectángulo"
 
-#: penfold/ui/annotation_icons.py:36
+#: penfold/ui/annotation_icons.py:37
 msgid "Circle"
 msgstr "Círculo"
 
-#: penfold/ui/annotation_icons.py:37
+#: penfold/ui/annotation_icons.py:38
 msgid "Arrow"
 msgstr "Flecha"
 
-#: penfold/ui/annotation_icons.py:38
+#: penfold/ui/annotation_icons.py:39
 msgid "Freehand"
 msgstr "Mano alzada"
 
-#: penfold/ui/annotation_icons.py:39
+#: penfold/ui/annotation_icons.py:40
+msgid "Image"
+msgstr "Imagen"
+
+#: penfold/ui/annotation_icons.py:41
 msgid "Other Annotation"
 msgstr "Otra anotación"
 
@@ -630,7 +643,7 @@ msgid "Color"
 msgstr "Color"
 
 #: penfold/ui/bookmark_editing.py:125
-#: penfold/ui/sidebar/annotations_view.py:168
+#: penfold/ui/sidebar/annotations_view.py:169
 #: penfold/ui/sidebar/bookmarks_view.py:651
 #: penfold/ui/sidebar/pages_view.py:261 penfold/ui/sidebar/search_view.py:108
 #, python-brace-format
@@ -949,89 +962,89 @@ msgstr "No se pudo guardar «{name}»"
 msgid "PDF Documents"
 msgstr "Documentos PDF"
 
-#: penfold/ui/format_popover.py:95
+#: penfold/ui/format_popover.py:97
 msgid "Background"
 msgstr "Fondo"
 
-#: penfold/ui/format_popover.py:96
+#: penfold/ui/format_popover.py:98
 msgid "Border"
 msgstr "Borde"
 
-#: penfold/ui/format_popover.py:104
+#: penfold/ui/format_popover.py:106
 msgid "Fill"
 msgstr "Relleno"
 
-#: penfold/ui/format_popover.py:111
+#: penfold/ui/format_popover.py:113
 msgid "Thin"
 msgstr "Fino"
 
-#: penfold/ui/format_popover.py:111
+#: penfold/ui/format_popover.py:113
 msgid "Medium"
 msgstr "Medio"
 
-#: penfold/ui/format_popover.py:111
+#: penfold/ui/format_popover.py:113
 msgid "Thick"
 msgstr "Grueso"
 
-#: penfold/ui/format_popover.py:113
+#: penfold/ui/format_popover.py:115
 msgid "Line Width"
 msgstr "Grosor"
 
-#: penfold/ui/format_popover.py:117
+#: penfold/ui/format_popover.py:119
 msgid "Small"
 msgstr "Pequeña"
 
-#: penfold/ui/format_popover.py:117
+#: penfold/ui/format_popover.py:119
 msgid "Normal"
 msgstr "Normal"
 
-#: penfold/ui/format_popover.py:117
+#: penfold/ui/format_popover.py:119
 msgid "Large"
 msgstr "Grande"
 
-#: penfold/ui/format_popover.py:117
+#: penfold/ui/format_popover.py:119
 msgid "Very Large"
 msgstr "Muy grande"
 
-#: penfold/ui/format_popover.py:119
+#: penfold/ui/format_popover.py:121
 msgid "Letter Size"
 msgstr "Tamaño de letra"
 
-#: penfold/ui/format_popover.py:123
+#: penfold/ui/format_popover.py:125
 msgid "Solid"
 msgstr "Continua"
 
-#: penfold/ui/format_popover.py:123
+#: penfold/ui/format_popover.py:125
 msgid "Dashed"
 msgstr "Discontinua"
 
-#: penfold/ui/format_popover.py:124
+#: penfold/ui/format_popover.py:126
 msgid "Line"
 msgstr "Línea"
 
-#: penfold/ui/format_popover.py:127
+#: penfold/ui/format_popover.py:129
 msgid "At Both Ends"
 msgstr "En los dos extremos"
 
-#: penfold/ui/format_popover.py:127
+#: penfold/ui/format_popover.py:129
 msgid "None"
 msgstr "Ninguna"
 
-#: penfold/ui/format_popover.py:128
+#: penfold/ui/format_popover.py:130
 msgid "Arrowheads"
 msgstr "Puntas"
 
-#: penfold/ui/format_popover.py:134
+#: penfold/ui/format_popover.py:136
 #, python-brace-format
 msgid "{size:g} pt"
 msgstr "{size:g} pt"
 
-#: penfold/ui/format_popover.py:151
+#: penfold/ui/format_popover.py:153
 #, python-brace-format
 msgid "{percent} %"
 msgstr "{percent} %"
 
-#: penfold/ui/format_popover.py:153 penfold/ui/format_popover.py:155
+#: penfold/ui/format_popover.py:155 penfold/ui/format_popover.py:157
 msgid "Opacity"
 msgstr "Opacidad"
 
@@ -1213,27 +1226,27 @@ msgstr "Estilo claro"
 msgid "Dark Style"
 msgstr "Estilo oscuro"
 
-#: penfold/ui/sidebar/annotations_view.py:133
+#: penfold/ui/sidebar/annotations_view.py:134
 msgid "No text"
 msgstr "Sin texto"
 
-#: penfold/ui/sidebar/annotations_view.py:156
+#: penfold/ui/sidebar/annotations_view.py:157
 msgid "Filter"
 msgstr "Filtro"
 
-#: penfold/ui/sidebar/annotations_view.py:259
+#: penfold/ui/sidebar/annotations_view.py:260
 msgid "No annotations of the types shown"
 msgstr "Ninguna anotación de los tipos elegidos"
 
-#: penfold/ui/sidebar/annotations_view.py:259
+#: penfold/ui/sidebar/annotations_view.py:260
 msgid "This PDF has no annotations"
 msgstr "Este PDF no tiene anotaciones"
 
-#: penfold/ui/sidebar/annotations_view.py:337
+#: penfold/ui/sidebar/annotations_view.py:338
 msgid "(External)"
 msgstr "(Externa)"
 
-#: penfold/ui/sidebar/annotations_view.py:443
+#: penfold/ui/sidebar/annotations_view.py:444
 #, python-brace-format
 msgid "{group} ({count})"
 msgstr "{group} ({count})"

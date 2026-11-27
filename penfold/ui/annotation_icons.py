@@ -19,6 +19,7 @@ KIND_ICONS = {
     Kind.CIRCLE: "penfold-type-circle-symbolic",
     Kind.ARROW: "penfold-type-arrow-symbolic",
     Kind.FREEHAND: "penfold-type-freehand-symbolic",
+    Kind.IMAGE: "image-x-generic-symbolic",
     Kind.OTHER: "penfold-type-other-symbolic",
 }
 
@@ -36,5 +37,6 @@ def kind_names() -> dict[Kind, str]:
         Kind.CIRCLE: _("Circle"),
         Kind.ARROW: _("Arrow"),
         Kind.FREEHAND: _("Freehand"),
+        Kind.IMAGE: _("Image"),
         Kind.OTHER: _("Other Annotation"),
     }
