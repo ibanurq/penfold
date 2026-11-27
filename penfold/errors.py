@@ -26,3 +26,7 @@ class AssemblyNotAllowedError(PenfoldError):
 
 class SaveError(PenfoldError):
     """The PDF could not be saved; the file that was there is left as it was."""
+
+
+class ImageOpenError(PenfoldError):
+    """The file could not be read as an image to insert (missing, unreadable, damaged, or of another format)."""

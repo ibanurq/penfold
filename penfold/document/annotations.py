@@ -195,7 +195,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     kind: Kind,
     page: int,
     rectangle: tuple[float, float, float, float],
-    color: tuple[float, float, float],
+    color: tuple[float, float, float] | None,
     author: str,
     *,
     text: str = "",
@@ -208,7 +208,8 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
 ) -> Annotation:
     """Make an annotation in Penfold, now, by an author ("Penfold" if none is set), with a unique name.
 
-    It looks as new annotations of its type do, unless a style is given.
+    It looks as new annotations of its type do, unless a style is given. An image has no colour (its drawing is that
+    of image_files.py).
 
     Raises:
         ValueError: the kind is not one Penfold makes.
@@ -223,7 +224,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         rectangle=rectangle,
         text=text,
         author=author.strip() or DEFAULT_AUTHOR,
-        color=color,
+        color=None if kind is Kind.IMAGE else color,
         quads=quads,
         line=line,
         strokes=strokes,

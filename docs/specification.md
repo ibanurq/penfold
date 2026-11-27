@@ -50,6 +50,7 @@ shortcuts window, `AdwShortcutsDialog`, needs libadwaita 1.8; with 1.7, `GtkShor
 | libadwaita | 1.7 | `gir1.2-adw-1` | GNOME’s widgets and style |
 | Poppler (glib) | 25.03 | `gir1.2-poppler-0.18` | Reading and drawing pages, text, links, page labels |
 | pikepdf (on qpdf 12) | 9.5 | `python3-pikepdf` | Reading the PDF’s objects and writing PDFs |
+| Pillow | 11.1 | `python3-pil` (comes with pikepdf) | Reading the images to insert |
 | PyCairo | 1.27 | `python3-cairo`, `python3-gi-cairo` | Drawing annotations |
 | Meson | 1.7 | `meson` | Building and installing |
 | Blueprint | 0.16 | `blueprint-compiler` | Describing the interface |
@@ -67,11 +68,11 @@ GNOME’s portals (file chooser, “Open With”, drag and drop).
 penfold/
 ├── main.py, application.py   Start-up, the single application instance, its windows and global actions.
 ├── config.py, errors.py      Version and app ID (filled in by Meson); the errors explained to the user.
-├── document/                 The PDF and its changes. No GTK, no Poppler: pikepdf only.
+├── document/                 The PDF and its changes. No GTK, no Poppler: pikepdf (and Pillow, for images) only.
 │   ├── document.py           OpenDocument: an open PDF and everything that can be edited in it, with its history.
 │   ├── sources.py            The source PDFs whose pages make up the document (the opened one and those added).
 │   ├── pages.py, page_labels.py, page_frame.py, geometry.py
-│   ├── annotations.py, appearance.py, reshaping.py, freehand.py, images.py
+│   ├── annotations.py, appearance.py, reshaping.py, freehand.py, images.py, image_files.py
 │   ├── bookmarks.py, forms.py, form_filling.py, access_permissions.py, properties.py, pdf_values.py
 │   ├── history.py, commands/ Undo and redo, and one command class per kind of change.
 │   └── saving.py, extracting.py
@@ -366,7 +367,12 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
   moving, scaling and opacity aside). Penfold keeps its drawing as it is and stretches it to its rectangle, as viewers
   do; written again, it is that drawing, unturned as it was, with `/IT /StampImage` and no color (the version the PDF
-  declares is not changed). They cannot be made yet. Other stamps are listed with Other Types, for now.
+  declares is not changed). Other stamps are listed with Other Types, for now.
+- **Images from files** (they cannot be inserted from the bar yet): JPEG, PNG, WebP, GIF (its first picture), BMP and
+  TIFF, read with Pillow. A JPEG goes in as it is (`/DCTDecode`), without loss and without growing; the others go in
+  without loss (`/FlateDecode` with PNG predictors), their transparency as a soft mask (`/SMask`). A photo is seen as
+  its EXIF orientation says, and the image is upright as the page is seen, however its PDF and Penfold turn it. Its
+  size is the one it is printed at (its resolution) or, if it says none, as on a screen at 96 dots per inch.
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
 - **Shapes** are drawn while dragging, so their shape is seen before releasing. A click, or a drag smaller than 3 pt,
   makes nothing.

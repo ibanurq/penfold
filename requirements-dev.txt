@@ -1,5 +1,5 @@
 # Development tools, installed in the project's virtual environment (.venv), not in the system.
-# The application's own libraries (GTK, libadwaita, Poppler, pikepdf) come from the system or the Flatpak runtime.
+# The application's own libraries (GTK, libadwaita, Poppler, pikepdf, Pillow) come from the system or the Flatpak runtime.
 mypy==2.4.1
 pre-commit==4.7.0
 pytest==9.2.0
