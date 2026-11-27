@@ -5,6 +5,16 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.1.0-alpha.2 — 2026-11-27
+
+Second alpha of Penfold 1.1: freehand drawings.
+
+### Added
+- Freehand, in the annotation bar after Arrow: dragging draws a stroke that follows the pointer, 2 pt wide, smoothed
+  a little when the mouse is released. Each stroke is an annotation of its own, so Undo takes away the last one.
+- Freehand drawings can be edited like the shapes: color, line width, opacity, Move and Resize (the strokes stretch
+  while the line keeps its width) and Delete, also those made in other programs.
+
 ## 1.1.0-alpha.1 — 2026-11-27
 
 First alpha of Penfold 1.1: squiggly underlines.
