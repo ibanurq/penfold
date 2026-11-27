@@ -11,6 +11,7 @@ SELECT_TEXT_ICON = "font-select-symbolic"
 KIND_ICONS = {
     Kind.HIGHLIGHT: "penfold-type-highlight-symbolic",
     Kind.UNDERLINE: "format-text-underline-symbolic",
+    Kind.SQUIGGLY: "penfold-type-squiggly-symbolic",
     Kind.STRIKE_OUT: "format-text-strikethrough-symbolic",
     Kind.COMMENT: "penfold-type-comment-symbolic",
     Kind.TEXT_BOX: "penfold-type-text-box-symbolic",
@@ -26,6 +27,7 @@ def kind_names() -> dict[Kind, str]:
     return {
         Kind.HIGHLIGHT: _("Highlight"),
         Kind.UNDERLINE: _("Underline"),
+        Kind.SQUIGGLY: _("Squiggly Underline"),
         Kind.STRIKE_OUT: _("Strike Through"),
         Kind.COMMENT: _("Comment"),
         Kind.TEXT_BOX: _("Text Box"),

@@ -1,6 +1,7 @@
 """Writing the annotations made in Penfold into the PDF, with their drawing and the standard's entries."""
 
 from dataclasses import replace
+from itertools import pairwise
 from pathlib import Path
 
 import gi
@@ -19,6 +20,7 @@ from penfold.document.annotations import (  # noqa: E402
     new_annotation,
     read_annotations,
 )
+from penfold.document.appearance import SQUIGGLE_MINIMUM, squiggle  # noqa: E402
 from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import DeletePages, RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
@@ -35,6 +37,7 @@ def every_kind(page: int) -> list[Annotation]:
     return [
         new_annotation(Kind.HIGHLIGHT, page, (72, 72, 300, 90), YELLOW, "Iban", quads=((72, 72, 300, 90),)),
         new_annotation(Kind.UNDERLINE, page, (72, 100, 300, 118), RED, "Iban", quads=((72, 100, 300, 118),)),
+        new_annotation(Kind.SQUIGGLY, page, (72, 160, 300, 178), RED, "Iban", quads=((72, 160, 300, 178),)),
         new_annotation(Kind.STRIKE_OUT, page, (72, 130, 300, 148), RED, "Iban", quads=((72, 130, 300, 148),)),
         new_annotation(Kind.RECTANGLE, page, (72, 200, 200, 280), RED, "Iban"),
         new_annotation(Kind.CIRCLE, page, (250, 200, 400, 280), RED, "Iban"),
@@ -104,7 +107,9 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
             assert str(entry.M).endswith("Z")
             assert entry.P.objgen == pdf.pages[1].obj.objgen
             assert entry.AP.N.Subtype == pikepdf.Name.Form
-        highlight, underline, _strike, rectangle, _circle, arrow, comment = (written[index] for index in range(7))
+        highlight, underline, squiggly, _strike, rectangle, _circle, arrow, comment = (
+            written[index] for index in range(8)
+        )
         assert float(highlight.CA) == 0.75
         assert floats(highlight.QuadPoints) == [72, 770, 300, 770, 72, 752, 300, 752]
         assert floats(rectangle.Rect) == [72, 562, 200, 642]
@@ -114,8 +119,26 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
         assert [str(arrow.LE[index]) for index in range(len(arrow.LE))] == ["/None", "/OpenArrow"]
         assert (str(comment.Name), str(comment.Contents)) == ("/Comment", "Ñandú → ✓ (a) \\ 😀")
         assert "/Contents" not in underline
+        assert floats(squiggly.QuadPoints) == [72, 682, 300, 682, 72, 664, 300, 664]
         assert "/Popup" not in comment
     assert pikepdf.open(target).check() == []
+
+
+def test_a_squiggly_underline_zigzags_along_the_bottom_of_the_text() -> None:
+    corners = squiggle((72, 100), (172, 100), (72, 118), 1.0)  # A line of text 18 points tall, upwards.
+    assert len(corners) % 2 == 1  # An even number of strokes: it starts and ends low.
+    assert corners[0] == pytest.approx((72, 100.5))  # Lifted by half the line, as an underline is.
+    assert corners[-1] == pytest.approx((172, 100.5))
+    assert {round(y, 6) for _x, y in corners} == {100.5, 103.5}  # As tall as a sixth of the text.
+    steps = [second[0] - first[0] for first, second in pairwise(corners)]
+    assert steps == pytest.approx([100 / 34] * 34)  # Each stroke about as long as it is tall, ending at the end.
+    turned = squiggle((100, 72), (100, 172), (82, 72), 1.0)  # The same text, reading downwards.
+    assert [coordinate for x, y in turned for coordinate in (y, 200 - x)] == pytest.approx(
+        [coordinate for corner in corners for coordinate in corner]
+    )
+    tiny = squiggle((0, 0), (1, 0), (0, 2), 1.0)
+    assert len(tiny) == 3  # Always one wave, at least.
+    assert max(y for _x, y in tiny) == pytest.approx(0.5 + SQUIGGLE_MINIMUM)
 
 
 def test_poppler_reads_them_with_their_author_and_text(document: OpenDocument, tmp_path: Path) -> None:
@@ -124,7 +147,7 @@ def test_poppler_reads_them_with_their_author_and_text(document: OpenDocument, t
     save(document.save_plan(target))
     page = Poppler.Document.new_from_file(target.as_uri(), None).get_page(0)
     read = {mapping.annot.get_annot_type().value_nick: mapping.annot for mapping in page.get_annot_mapping()}
-    assert set(read) == {"highlight", "underline", "strike-out", "square", "circle", "line", "text"}
+    assert set(read) == {"highlight", "underline", "squiggly", "strike-out", "square", "circle", "line", "text"}
     assert read["text"].get_contents() == "Ñandú → ✓ (a) \\ 😀"
     square = read["square"]
     assert isinstance(square, Poppler.AnnotMarkup)
@@ -172,7 +195,7 @@ def test_undone_or_on_deleted_pages_they_are_not_written(document: OpenDocument,
 
 
 def test_extracting_and_printing_write_them_too(document: OpenDocument, tmp_path: Path) -> None:
-    add(document, [*every_kind(0)[:4], new_annotation(Kind.CIRCLE, 1, (72, 72, 100, 100), RED, "Iban")])
+    add(document, [*every_kind(0)[:5], new_annotation(Kind.CIRCLE, 1, (72, 72, 100, 100), RED, "Iban")])
     save(document.extract_plan([1], tmp_path / "extracted.pdf"))
     assert subtypes(tmp_path / "extracted.pdf") == ["/Circle"]
     save(document.print_plan(tmp_path / "print.pdf", frozenset({AnnotationGroup.TEXT_MARKUPS})))
@@ -181,13 +204,15 @@ def test_extracting_and_printing_write_them_too(document: OpenDocument, tmp_path
 
 def test_their_format_is_written_as_the_standard_keeps_it(document: OpenDocument, tmp_path: Path) -> None:
     annotations = restyled(every_kind(0))
-    straight = replace(annotations[5], style=Style(line_ends=LineEnds.NONE))
+    straight = replace(annotations[6], style=Style(line_ends=LineEnds.NONE))
     add(document, [*annotations, straight])
     target = tmp_path / "saved.pdf"
     save(document.save_plan(target))
     with pikepdf.open(target) as pdf:
         written = pdf.pages[0].Annots
-        highlight, _underline, _strike, rectangle, circle, arrow, comment, line = (written[index] for index in range(8))
+        highlight, _underline, _squiggly, _strike, rectangle, circle, arrow, comment, line = (
+            written[index] for index in range(9)
+        )
         assert float(highlight.CA) == 0.5
         assert str(highlight.AP.N.Resources.ExtGState.Look.BM) == "/Multiply"
         for shape in (rectangle, circle, arrow):

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-26 17:27+0100\n"
+"POT-Creation-Date: 2026-11-27 10:45+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -558,39 +558,43 @@ msgstr "_Formato…"
 msgid "_Delete"
 msgstr "_Eliminar"
 
-#: penfold/ui/annotation_icons.py:27 penfold/ui/shortcuts_dialog.py:48
+#: penfold/ui/annotation_icons.py:28 penfold/ui/shortcuts_dialog.py:48
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: penfold/ui/annotation_icons.py:28 penfold/ui/shortcuts_dialog.py:49
+#: penfold/ui/annotation_icons.py:29 penfold/ui/shortcuts_dialog.py:49
 msgid "Underline"
 msgstr "Subrayar"
 
-#: penfold/ui/annotation_icons.py:29
+#: penfold/ui/annotation_icons.py:30
+msgid "Squiggly Underline"
+msgstr "Subrayado ondulado"
+
+#: penfold/ui/annotation_icons.py:31
 msgid "Strike Through"
 msgstr "Tachar"
 
-#: penfold/ui/annotation_icons.py:30
+#: penfold/ui/annotation_icons.py:32
 msgid "Comment"
 msgstr "Comentario"
 
-#: penfold/ui/annotation_icons.py:31
+#: penfold/ui/annotation_icons.py:33
 msgid "Text Box"
 msgstr "Cuadro de texto"
 
-#: penfold/ui/annotation_icons.py:32
+#: penfold/ui/annotation_icons.py:34
 msgid "Rectangle"
 msgstr "Rectángulo"
 
-#: penfold/ui/annotation_icons.py:33
+#: penfold/ui/annotation_icons.py:35
 msgid "Circle"
 msgstr "Círculo"
 
-#: penfold/ui/annotation_icons.py:34
+#: penfold/ui/annotation_icons.py:36
 msgid "Arrow"
 msgstr "Flecha"
 
-#: penfold/ui/annotation_icons.py:35
+#: penfold/ui/annotation_icons.py:37
 msgid "Other Annotation"
 msgstr "Otra anotación"
 

@@ -20,6 +20,7 @@ from penfold.document.appearance import (
     arrowhead_wings,
     arrowheads,
     dashes,
+    squiggle,
     tint,
 )
 from penfold.document.geometry import Rectangle
@@ -85,6 +86,8 @@ def _paint_on_unturned_page(context: cairo.Context, annotation: Annotation) -> N
             _paint_highlight(context, annotation)
         case Kind.UNDERLINE | Kind.STRIKE_OUT:
             _paint_text_lines(context, annotation)
+        case Kind.SQUIGGLY:
+            _paint_squiggles(context, annotation)
         case Kind.RECTANGLE | Kind.CIRCLE:
             _paint_shape(context, annotation)
         case Kind.ARROW:
@@ -105,6 +108,17 @@ def _paint_text_lines(context: cairo.Context, annotation: Annotation) -> None:
         y = bottom - annotation.style.line_width / 2 if annotation.kind is Kind.UNDERLINE else (top + bottom) / 2
         context.move_to(left, y)
         context.line_to(right, y)
+    context.stroke()
+
+
+def _paint_squiggles(context: cairo.Context, annotation: Annotation) -> None:
+    """A zigzag along the bottom of each marked area, inside it, with round corners."""
+    context.set_line_join(cairo.LINE_JOIN_ROUND)
+    for left, top, right, bottom in annotation.quads:
+        first, *others = squiggle((left, bottom), (right, bottom), (left, top), annotation.style.line_width)
+        context.move_to(*first)
+        for point in others:
+            context.line_to(*point)
     context.stroke()
 
 

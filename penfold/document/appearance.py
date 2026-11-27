@@ -30,6 +30,10 @@ ARROWHEAD_ANGLE = math.pi / 6
 # Dashed lines: the length of each dash and of each gap, for each point of width.
 DASH = 4.0
 GAP = 3.0
+# The zigzag of a squiggly underline: how tall it is, as a share of the height of the marked text, and at least, in
+# points. Each of its strokes goes up or down as much as it goes along.
+SQUIGGLE_SHARE = 1 / 6
+SQUIGGLE_MINIMUM = 1.5
 # The text box's background strength (its drawing is made with Pango, in the rendering layer).
 TEXT_BOX_BACKGROUND = 0.14
 # A comment is a square of this side, in points.
@@ -89,6 +93,7 @@ def _drawn(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[
     writers = {
         Kind.HIGHLIGHT: _text_markup,
         Kind.UNDERLINE: _text_markup,
+        Kind.SQUIGGLY: _text_markup,
         Kind.STRIKE_OUT: _text_markup,
         Kind.RECTANGLE: _rectangle_or_circle,
         Kind.CIRCLE: _rectangle_or_circle,
@@ -178,7 +183,11 @@ def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, obj
 
 
 def _text_markup(annotation: Annotation, frame: PageFrame) -> _Written:
-    """Highlight: the marked areas filled, multiplied over the text. Underline and strikethrough: a line on each."""
+    """Highlight: the marked areas filled, multiplied over the text. The others: a line on each.
+
+    Underline: on its bottom edge. Squiggly: a zigzag there, with round corners, so that they do not stick out of the
+    area. Strikethrough: across its middle.
+    """
     quads = [_corners(quad, frame) for quad in annotation.quads]
     color = _color(annotation)
     width = annotation.style.line_width
@@ -187,7 +196,12 @@ def _text_markup(annotation: Annotation, frame: PageFrame) -> _Written:
         drawing += [f"{_path([corners[0], corners[1], corners[3], corners[2]])} h f" for corners in quads]
     else:
         drawing = [f"{color} RG {width:g} w"]
+        if annotation.kind is Kind.SQUIGGLY:
+            drawing.append("1 j")
         for upper_left, upper_right, lower_left, lower_right in quads:
+            if annotation.kind is Kind.SQUIGGLY:
+                drawing.append(f"{_path(squiggle(lower_left, lower_right, upper_left, width))} S")
+                continue
             if annotation.kind is Kind.UNDERLINE:
                 # On the bottom edge, lifted by half the line, so that it is all inside the area.
                 lift = _towards(lower_left, upper_left, width / 2)
@@ -264,6 +278,28 @@ def arrowhead_wings(tip: Point, tail: Point, line_width: float) -> tuple[Point, 
         for turn in (-ARROWHEAD_ANGLE, ARROWHEAD_ANGLE)
     )
     return first, second
+
+
+def squiggle(lower_left: Point, lower_right: Point, upper_left: Point, line_width: float) -> list[Point]:
+    """The corners of a squiggly underline's zigzag along the bottom edge of a marked area, inside it.
+
+    It starts and ends low, lifted by half the line as an underline is, with an even number of strokes, as many as fit.
+    The area is given by three of its corners, as the text reads, so that it serves on turned pages too.
+    """
+    up = _towards(lower_left, upper_left, 1.0)
+    tall = max(SQUIGGLE_MINIMUM, math.dist(lower_left, upper_left) * SQUIGGLE_SHARE)
+    strokes = max(2, 2 * round(math.dist(lower_left, lower_right) / (2 * tall)))
+    points = []
+    for index in range(strokes + 1):
+        along = index / strokes
+        lift = line_width / 2 + (tall if index % 2 else 0.0)
+        points.append(
+            (
+                lower_left[0] + (lower_right[0] - lower_left[0]) * along + up[0] * lift,
+                lower_left[1] + (lower_right[1] - lower_left[1]) * along + up[1] * lift,
+            )
+        )
+    return points
 
 
 def dashes(style: Style) -> list[float]:

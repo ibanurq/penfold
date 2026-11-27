@@ -40,6 +40,7 @@ class Kind(enum.Enum):
 
     HIGHLIGHT = "Highlight"
     UNDERLINE = "Underline"
+    SQUIGGLY = "Squiggly"
     STRIKE_OUT = "StrikeOut"
     COMMENT = "Text"
     TEXT_BOX = "FreeText"
@@ -110,7 +111,7 @@ def default_style(kind: Kind) -> Style:
 
 SUBTYPE_KINDS = {f"/{kind.value}": kind for kind in Kind if kind is not Kind.OTHER}
 # Marks on text, whose list row shows the marked text when they have no text of their own.
-TEXT_MARKUPS = frozenset({Kind.HIGHLIGHT, Kind.UNDERLINE, Kind.STRIKE_OUT})
+TEXT_MARKUPS = frozenset({Kind.HIGHLIGHT, Kind.UNDERLINE, Kind.SQUIGGLY, Kind.STRIKE_OUT})
 
 
 @dataclass(frozen=True)
@@ -118,8 +119,8 @@ class Annotation:
     """One annotation of a page.
 
     The rectangle is in PDF points from the top left corner of the page as shown (page_frame.py): left, top, right,
-    bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines and
-    strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows.
+    bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines (also
+    squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows.
 
     A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once changed,
     the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from a PDF

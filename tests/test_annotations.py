@@ -217,6 +217,13 @@ def test_a_managed_copy_keeps_its_name_and_creation(tmp_path: Path) -> None:
         managed_copy(read_one(tmp_path, "/Ink"))
 
 
+def test_squiggly_underlines_of_other_programs_can_be_changed(tmp_path: Path) -> None:
+    squiggly = read_one(tmp_path, "/Squiggly", QuadPoints=pikepdf.Array([100, 200, 200, 200, 100, 180, 200, 180]))
+    assert (squiggly.kind, squiggly.group) == (Kind.SQUIGGLY, AnnotationGroup.TEXT_MARKUPS)
+    assert squiggly.quads[0] == pytest.approx((100, 642, 200, 662))
+    assert managed_copy(squiggly).managed
+
+
 def test_pdf_dates() -> None:
     assert date(pikepdf.String("D:20261122103015Z")) == datetime(2026, 11, 22, 10, 30, 15, tzinfo=UTC)
     assert date(pikepdf.String("D:19990101120000-05'30'")) == datetime(
