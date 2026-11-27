@@ -224,6 +224,17 @@ def test_squiggly_underlines_of_other_programs_can_be_changed(tmp_path: Path) ->
     assert managed_copy(squiggly).managed
 
 
+def test_freehand_drawings_of_other_programs_can_be_changed(tmp_path: Path) -> None:
+    strokes = pikepdf.Array([pikepdf.Array([110, 190, 150, 150, 190, 170]), pikepdf.Array([120, 120]), pikepdf.Array()])
+    freehand = read_one(tmp_path, "/Ink", InkList=strokes, BS=pikepdf.Dictionary(W=3), CA=0.5)
+    assert (freehand.kind, freehand.group) == (Kind.FREEHAND, AnnotationGroup.SHAPES)
+    assert freehand.strokes == (((110.0, 652.0), (150.0, 692.0), (190.0, 672.0)), ((120.0, 722.0),))  # None empty.
+    assert freehand.style == Style(opacity=0.5, line_width=3)
+    assert managed_copy(freehand).managed
+    broken = read_one(tmp_path, "/Ink")  # Without strokes, there is nothing to draw.
+    assert (broken.kind, broken.subtype) == (Kind.OTHER, "Ink")
+
+
 def test_pdf_dates() -> None:
     assert date(pikepdf.String("D:20261122103015Z")) == datetime(2026, 11, 22, 10, 30, 15, tzinfo=UTC)
     assert date(pikepdf.String("D:19990101120000-05'30'")) == datetime(
@@ -241,10 +252,15 @@ def test_what_a_point_is_on() -> None:
     filled = new_annotation(Kind.CIRCLE, 0, (100, 100, 200, 200), red, "", style=Style(filled=True))
     arrow = new_annotation(Kind.ARROW, 0, (0, 0, 100, 100), red, "", line=(0, 0, 100, 100))
     marked = new_annotation(Kind.HIGHLIGHT, 0, (0, 0, 50, 20), red, "", quads=((0, 0, 50, 10), (0, 12, 30, 20)))
+    drawn = new_annotation(
+        Kind.FREEHAND, 0, (0, 0, 100, 100), red, "", strokes=(((0, 0), (100, 0), (100, 100)), ((50, 50),))
+    )
     assert [hit(square, x, 150, 2) for x in (99, 101, 150, 250)] == [Hit.ON, Hit.ON, Hit.INSIDE, Hit.NONE]
     assert (hit(filled, 150, 150, 2), hit(filled, 100, 150, 2), hit(filled, 105, 105, 2)) == (Hit.ON, Hit.ON, Hit.NONE)
     assert (hit(arrow, 52, 50, 2), hit(arrow, 60, 50, 2), hit(arrow, 104, 104, 2)) == (Hit.ON, Hit.NONE, Hit.NONE)
     assert (hit(marked, 40, 5, 2), hit(marked, 40, 15, 2)) == (Hit.ON, Hit.NONE)  # Between its lines, nothing.
+    on_strokes = [hit(drawn, x, y, 2) for x, y in ((50, 2), (102, 50), (51, 52), (30, 70), (70, 30))]
+    assert on_strokes == [Hit.ON, Hit.ON, Hit.ON, Hit.NONE, Hit.NONE]  # Its lines and its dot, not its inside.
 
 
 def test_the_one_most_hit_and_on_top_is_chosen(tmp_path: Path) -> None:

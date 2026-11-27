@@ -6,6 +6,7 @@ are shown:
 - highlights, underlines and strikethroughs: opacity;
 - rectangles and circles: line width, line style, fill and opacity;
 - arrows: line width, line style, arrowheads and opacity;
+- freehand drawings: line width and opacity;
 - text boxes: letter size, background and border (their colours are those of the background and the border).
 
 A value read from another program that is not one of the options (a line of 3 points) is shown as one more option,
@@ -30,7 +31,7 @@ LEAST_OPACITY = 10
 OPACITY_STEP = 5
 OPACITY_WIDTH = 150
 SHAPES = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
-FORMATTED = frozenset({*TEXT_MARKUPS, *SHAPES, Kind.ARROW, Kind.TEXT_BOX})
+FORMATTED = frozenset({*TEXT_MARKUPS, *SHAPES, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX})
 # No colour circle is ringed for a colour that is not one of the palette's.
 NO_COLOR = ""
 
@@ -95,8 +96,10 @@ class FormatPopover(Gtk.Popover):
                 self._switch_row(_("Border"), "border", active=style.border),
             ]
         rows: list[Gtk.Widget] = []
+        if kind in SHAPES or kind in {Kind.ARROW, Kind.FREEHAND}:
+            rows.append(self._line_width_row(style))
         if kind in SHAPES or kind is Kind.ARROW:
-            rows += [self._line_width_row(style), self._line_style_row(style)]
+            rows.append(self._line_style_row(style))
         if kind in SHAPES:
             rows.append(self._switch_row(_("Fill"), "filled", active=style.filled))
         if kind is Kind.ARROW:

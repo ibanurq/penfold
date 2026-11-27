@@ -64,7 +64,7 @@ def test_saved_it_is_moved_in_its_page_with_its_own_drawing(path: Path, tmp_path
         assert "/BE" in saved  # Its cloudy border, which Penfold cannot draw, is still there.
         assert "/M" in saved
         others = [pdf.pages[0].obj.Annots[index] for index in (0, 2, 3, 4, 5)]
-        assert [str(item.Subtype) for item in others] == ["/Highlight", "/Ink", "/Text", "/FreeText", "/Line"]
+        assert [str(item.Subtype) for item in others] == ["/Highlight", "/Polygon", "/Text", "/FreeText", "/Line"]
         read = read_annotations(pdf)
     assert of_kind(read, Kind.RECTANGLE).rectangle == pytest.approx(square.rectangle)
 

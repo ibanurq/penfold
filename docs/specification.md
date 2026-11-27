@@ -23,7 +23,7 @@ Two principles guide what it does:
   appearance stream (`/AP`)** and every entry the standard asks for, so other viewers show them exactly as Penfold
   does. Text written into the PDF is UTF-16, so emoji and any other character are kept.
 
-Penfold never uses the network. It does not create new annotation types beyond the nine listed below, insert images,
+Penfold never uses the network. It does not create new annotation types beyond the ten listed below, insert images,
 set passwords or permissions on a PDF, or recognize text in scanned pages.
 
 ## Name, version and license
@@ -300,9 +300,9 @@ Enter confirms and Esc cancels.
 ### Icons
 
 Adwaita’s symbolic icons; where there is no suitable one, an icon from the GNOME design team’s icon-development-kit,
-included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline and text box types,
-Collapse All and Expand All). See `THIRD-PARTY-NOTICES.md`. Each annotation type has the same icon in the annotation
-bar and in the panel. Right-click menus have text, no icons.
+included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline, freehand and text box
+types, Collapse All and Expand All). See `THIRD-PARTY-NOTICES.md`. Each annotation type has the same icon in the
+annotation bar and in the panel. Right-click menus have text, no icons.
 
 ### Light and dark style
 
@@ -343,7 +343,7 @@ System, Light or Dark; the choice is saved and applied at once to every window. 
 
 ### Annotation types and how they are saved
 
-Penfold makes nine types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`), the entries the standard asks
+Penfold makes ten types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`), the entries the standard asks
 for (`/NM`, dates, `/F` with the print flag, color, border style…) and the author of Preferences as `/T` (`Penfold` if
 it is empty). Text in `/Contents` is UTF-16.
 
@@ -356,8 +356,12 @@ it is empty). Text in `/Contents` is UTF-16.
 | Rectangle | `/Square` | Dragging | A 1 pt line, hollow |
 | Circle | `/Circle` | Dragging (four Bézier curves) | A 1 pt line, hollow |
 | Arrow | `/Line` | Dragging from its start to its end | A 1 pt line with an open arrowhead at the end (`/LE`) |
+| Freehand | `/Ink` | Dragging; each stroke is one annotation | A 2 pt line through the points of the stroke (`/InkList`), drawn as a smooth curve (Catmull-Rom, as Bézier curves), with round ends and corners |
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
+
+*(In progress: the annotation bar does not have the Freehand tool yet, so freehand drawings, also those of other
+programs with several strokes, can be edited but not made; their handles come later, so for now they only move.)*
 
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
 - **Shapes** are drawn while dragging, so their shape is seen before releasing.
@@ -387,7 +391,7 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 ( ● ) ( ● ) ( ● ) ( ● ) ( ● ) ( ● )     the six colors; one click changes and closes
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments
-Move and Resize                         “Move” for comments; “Adjust Ends” for text markups
+Move and Resize                         “Move” for comments and freehand drawings; “Adjust Ends” for text markups
 Delete
 ```
 
@@ -400,6 +404,7 @@ Delete
   | Highlight, underline, squiggly underline, strikethrough | Opacity |
   | Rectangle, circle | Line Width (Thin 1 pt · Medium 2 pt · Thick 4 pt) · Line (Solid · Dashed) · Fill (a soft tint of the color) · Opacity (10–100 %) |
   | Arrow | Line Width · Line · Arrowheads (At the End · At Both Ends · None) · Opacity |
+  | Freehand | Line Width · Opacity |
   | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the color is the background’s and the border’s, the text is always black |
 
 - **Move and Resize:** handles on the annotation: corners for rectangles and circles; for a text box, one on each side,
@@ -407,7 +412,8 @@ Delete
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
-- **Annotations from other programs** of the nine types are edited like Penfold’s. What is not touched does not
+- **Annotations from other programs** of the ten types are edited like Penfold’s (a freehand drawing without strokes,
+  `/InkList`, counts as another type). What is not touched does not
   change: a color outside the palette has no circle marked; a value outside the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns

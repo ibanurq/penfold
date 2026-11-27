@@ -1,10 +1,10 @@
 """Moving annotations and changing their size with handles.
 
 Rectangles and circles have a handle at each corner, arrows one at each end; text boxes have one at each side, which
-change only their width (rendering/text_box.py: their height follows the text). Comments are only moved. Marks on text
-(highlights, underlines, strikethroughs) have one where they start and one where they end, and they cover the text
-from one to the other (the interface asks Poppler for it); they do not move. Everything stays inside the annotation's
-page.
+change only their width (rendering/text_box.py: their height follows the text). Comments and freehand drawings are only
+moved. Marks on text (highlights, underlines, strikethroughs) have one where they start and one where they end, and
+they cover the text from one to the other (the interface asks Poppler for it); they do not move. Everything stays
+inside the annotation's page.
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -19,7 +19,7 @@ from penfold.document.geometry import Rectangle, Size, bounds
 Point = tuple[float, float]
 # The smallest width or height of a shape, and the shortest arrow, in points: a smaller one would hardly be seen.
 SMALLEST_SIZE = 3.0
-MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.COMMENT, Kind.TEXT_BOX})
+MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX})
 RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.TEXT_BOX, *TEXT_MARKUPS})
 
 
@@ -54,8 +54,8 @@ def can_resize(annotation: Annotation) -> bool:
 def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
     """The annotation moved by an offset, as far as it stays inside its page (it is not pushed in if already out).
 
-    Everything moves with it: its rectangle, the areas of its text, its line. Nothing else changes: one of a PDF that
-    Penfold does not manage keeps the drawing its program made, moved as far (moved_by).
+    Everything moves with it: its rectangle, the areas of its text, its line, its strokes. Nothing else changes: one of
+    a PDF that Penfold does not manage keeps the drawing its program made, moved as far (moved_by).
     """
     dx, dy = _shift_inside(annotation.rectangle, offset, page_size)
     moved_x, moved_y = annotation.moved_by
@@ -64,6 +64,7 @@ def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
         rectangle=_shifted(annotation.rectangle, dx, dy),
         quads=tuple(_shifted(quad, dx, dy) for quad in annotation.quads),
         line=None if annotation.line is None else _shifted(annotation.line, dx, dy),
+        strokes=tuple(tuple((x + dx, y + dy) for x, y in stroke) for stroke in annotation.strokes),
         moved_by=annotation.moved_by if annotation.managed else (moved_x + dx, moved_y + dy),
     )
 

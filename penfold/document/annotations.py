@@ -12,6 +12,7 @@ import re
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from itertools import pairwise
 
 import pikepdf
 
@@ -34,6 +35,8 @@ BLACK_TEXT = re.compile(r"(?:^|\s)(?:0(?:\.0*)?\s+g|0(?:\.0*)?\s+0(?:\.0*)?\s+0(
 # Never listed: they are not notes (links, form fields, pop-up windows of notes…).
 NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
 
+Point = tuple[float, float]
+
 
 class Kind(enum.Enum):
     """The types the panel groups annotations by, in the order of its filter, and the rest."""
@@ -47,6 +50,7 @@ class Kind(enum.Enum):
     RECTANGLE = "Square"
     CIRCLE = "Circle"
     ARROW = "Line"
+    FREEHAND = "Ink"
     OTHER = "Other"
 
 
@@ -120,7 +124,8 @@ class Annotation:
 
     The rectangle is in PDF points from the top left corner of the page as shown (page_frame.py): left, top, right,
     bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines (also
-    squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows.
+    squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows; the strokes are the
+    paths of a freehand drawing, each the points it goes through in order (one alone is a dot).
 
     A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once changed,
     the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from a PDF
@@ -146,6 +151,7 @@ class Annotation:
     color: tuple[float, float, float] | None = None
     quads: tuple[tuple[float, float, float, float], ...] = ()
     line: tuple[float, float, float, float] | None = None
+    strokes: tuple[tuple[Point, ...], ...] = ()
     name: str = ""
     created: datetime | None = None
     modified: datetime | None = None
@@ -179,6 +185,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     text: str = "",
     quads: tuple[tuple[float, float, float, float], ...] = (),
     line: tuple[float, float, float, float] | None = None,
+    strokes: tuple[tuple[Point, ...], ...] = (),
     text_turn: int = 0,
     drawing: bytes = b"",
     style: Style | None = None,
@@ -203,6 +210,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         color=color,
         quads=quads,
         line=line,
+        strokes=strokes,
         text_turn=text_turn,
         drawing=drawing,
         style=style or default_style(kind),
@@ -261,6 +269,9 @@ def hit(annotation: Annotation, x: float, y: float, reach: float) -> Hit:
     if annotation.kind is Kind.ARROW and annotation.line is not None:
         width = annotation.style.line_width / 2 + reach
         return Hit.ON if _distance_to_line(annotation.line, x, y) <= width else Hit.NONE
+    if annotation.kind is Kind.FREEHAND and annotation.strokes:
+        width = annotation.style.line_width / 2 + reach
+        return Hit.ON if _distance_to_strokes(annotation.strokes, x, y) <= width else Hit.NONE
     if annotation.kind in {Kind.RECTANGLE, Kind.CIRCLE}:
         return _shape_hit(annotation, x, y, reach)
     return Hit.ON if _within(annotation.rectangle, x, y, 0.0) else Hit.NONE
@@ -298,6 +309,15 @@ def _distance_to_line(line: tuple[float, float, float, float], x: float, y: floa
     along = 0.0 if not length else ((x - start_x) * (end_x - start_x) + (y - start_y) * (end_y - start_y)) / length
     along = min(1.0, max(0.0, along))
     return math.hypot(x - (start_x + along * (end_x - start_x)), y - (start_y + along * (end_y - start_y)))
+
+
+def _distance_to_strokes(strokes: tuple[tuple[Point, ...], ...], x: float, y: float) -> float:
+    """The distance from a point to the nearest part of a freehand drawing's strokes."""
+    return min(
+        _distance_to_line((*first, *second), x, y)
+        for stroke in strokes
+        for first, second in (pairwise(stroke) if len(stroke) > 1 else [(stroke[0], stroke[0])])
+    )
 
 
 def topmost(annotations: list[Annotation], hits: dict[int, Hit]) -> Annotation | None:
@@ -345,6 +365,9 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
     if area is None:
         return None
     kind = SUBTYPE_KINDS.get(str(subtype), Kind.OTHER)
+    strokes = _strokes(annotation.get("/InkList"), frame) if kind is Kind.FREEHAND else ()
+    if kind is Kind.FREEHAND and not strokes:
+        kind = Kind.OTHER  # Without its strokes, Penfold cannot draw it.
     color = _color(annotation.get("/C"))
     look = _Look(annotation, kind, color)
     return Annotation(
@@ -357,6 +380,7 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
         color=color,
         quads=_quads(annotation.get("/QuadPoints"), frame),
         line=look.line(frame) if kind is Kind.ARROW else None,
+        strokes=strokes,
         name=text(annotation.get("/NM")),
         created=date(annotation.get("/CreationDate")),
         modified=date(annotation.get("/M")),
@@ -481,6 +505,19 @@ def _quads(value: object, frame: PageFrame) -> tuple[tuple[float, float, float, 
         xs, ys = [x for x, _y in points], [y for _x, y in points]
         quads.append((min(xs), min(ys), max(xs), max(ys)))
     return tuple(quads)
+
+
+def _strokes(value: object, frame: PageFrame) -> tuple[tuple[Point, ...], ...]:
+    """Turn /InkList (paths, each of points x, y, x, y…) into strokes on the page as shown, leaving out empty paths."""
+    if not isinstance(value, pikepdf.Array):
+        return ()
+    strokes = []
+    for index in range(len(value)):
+        coordinates = numbers(value[index]) or []
+        points = tuple(frame.point(x, y) for x, y in zip(coordinates[::2], coordinates[1::2], strict=False))
+        if points:
+            strokes.append(points)
+    return tuple(strokes)
 
 
 def _color(value: object) -> tuple[float, float, float] | None:

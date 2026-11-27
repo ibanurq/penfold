@@ -21,6 +21,7 @@ from penfold.document.appearance import (
     arrowheads,
     dashes,
     squiggle,
+    stroke_curves,
     tint,
 )
 from penfold.document.geometry import Rectangle
@@ -92,6 +93,8 @@ def _paint_on_unturned_page(context: cairo.Context, annotation: Annotation) -> N
             _paint_shape(context, annotation)
         case Kind.ARROW:
             _paint_arrow(context, annotation)
+        case Kind.FREEHAND:
+            _paint_freehand(context, annotation)
 
 
 def _paint_highlight(context: cairo.Context, annotation: Annotation) -> None:
@@ -168,6 +171,22 @@ def _paint_arrow(context: cairo.Context, annotation: Annotation) -> None:
         context.move_to(*first)
         context.line_to(*tip)
         context.line_to(*second)
+        context.stroke()
+
+
+def _paint_freehand(context: cairo.Context, annotation: Annotation) -> None:
+    """Each stroke as a smooth curve through its points, with round ends and corners (a lone point, a dot)."""
+    context.set_dash(dashes(annotation.style))
+    context.set_line_cap(cairo.LINE_CAP_ROUND)
+    context.set_line_join(cairo.LINE_JOIN_ROUND)
+    for stroke in annotation.strokes:
+        first = stroke[0]
+        context.move_to(*first)
+        curves = stroke_curves(list(stroke))
+        for curve in curves:
+            context.curve_to(*(coordinate for point in curve for coordinate in point))
+        if not curves:
+            context.line_to(*first)
         context.stroke()
 
 

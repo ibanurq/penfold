@@ -6,10 +6,11 @@ outside it accept the change; Esc cancels it. The document view owns the editor 
 
 Rectangles and circles have a handle at each corner (document/reshaping.py); text boxes one at each side, which change
 only their width: the text is laid out again as it is dragged, and the box is as tall as it needs (text_box.py); arrows
-one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments have no
-handles: they keep their size, and are only moved. Marks on text have a handle where they start and one where they end:
-each covers the text up to the other, letter by letter, as a selection does; they do not move. Theirs are drops, as the
-touch selection handles of GNOME: the start one above the first letter, the end one below the last.
+one at each end, and they move when their line is dragged (anywhere else, a press accepts the change). Comments and
+freehand drawings have no handles: they keep their size, and are only moved. Marks on text have a handle where they
+start and one where they end: each covers the text up to the other, letter by letter, as a selection does; they do not
+move. Theirs are drops, as the touch selection handles of GNOME: the start one above the first letter, the end one
+below the last.
 """
 
 import math
@@ -161,7 +162,7 @@ class HandleEditor:
         self.release()
         self._view.stop_handle_editing(self)
         now, before = self.annotation, self.original
-        changed = apply and (now.rectangle, now.line, now.quads) != (before.rectangle, before.line, before.quads)
+        changed = apply and _place(now) != _place(before)
         self.on_done(self.annotation if changed else None)
 
     def key_pressed(self, keyval: int) -> bool:
@@ -300,6 +301,11 @@ class HandleEditor:
         if handle in {Handle.LEFT, Handle.RIGHT}:  # In the middle of a side: it stretches one way only.
             return "ew-resize" if abs(across) > abs(down) else "ns-resize"
         return "nwse-resize" if (across > 0) == (down > 0) else "nesw-resize"
+
+
+def _place(annotation: Annotation) -> tuple[object, ...]:
+    """Where an annotation is and how big: what moving it or its handles changes."""
+    return annotation.rectangle, annotation.line, annotation.quads, annotation.strokes
 
 
 def _handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:

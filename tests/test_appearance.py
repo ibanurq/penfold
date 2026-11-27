@@ -20,7 +20,7 @@ from penfold.document.annotations import (  # noqa: E402
     new_annotation,
     read_annotations,
 )
-from penfold.document.appearance import SQUIGGLE_MINIMUM, squiggle  # noqa: E402
+from penfold.document.appearance import SQUIGGLE_MINIMUM, squiggle, stroke_curves  # noqa: E402
 from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import DeletePages, RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
@@ -31,6 +31,8 @@ from tests.sample_pdfs import make_pdf  # noqa: E402
 YELLOW = (0.976, 0.941, 0.42)
 RED = (0.965, 0.38, 0.318)
 A4 = (595.0, 842.0)
+# A freehand drawing: a wave and a dot.
+FREEHAND_STROKES = (((350, 380), (380, 330), (410, 390), (440, 325), (470, 395), (500, 340)), ((420, 360),))
 
 
 def every_kind(page: int) -> list[Annotation]:
@@ -42,6 +44,7 @@ def every_kind(page: int) -> list[Annotation]:
         new_annotation(Kind.RECTANGLE, page, (72, 200, 200, 280), RED, "Iban"),
         new_annotation(Kind.CIRCLE, page, (250, 200, 400, 280), RED, "Iban"),
         new_annotation(Kind.ARROW, page, (72, 320, 300, 400), RED, "Iban", line=(72, 400, 300, 320)),
+        new_annotation(Kind.FREEHAND, page, (350, 320, 500, 400), RED, "Iban", strokes=FREEHAND_STROKES),
         new_annotation(Kind.COMMENT, page, (400, 72, 420, 92), YELLOW, "Iban", text="Ñandú → ✓ (a) \\ 😀"),
     ]
 
@@ -53,6 +56,7 @@ def restyled(annotations: list[Annotation]) -> list[Annotation]:
         Kind.RECTANGLE: shape,
         Kind.CIRCLE: shape,
         Kind.ARROW: replace(shape, filled=False, line_ends=LineEnds.BOTH),
+        Kind.FREEHAND: Style(opacity=0.5, line_width=4.0),
         Kind.COMMENT: Style(),
     }
     return [replace(annotation, style=styles.get(annotation.kind, Style(opacity=0.5))) for annotation in annotations]
@@ -107,8 +111,8 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
             assert str(entry.M).endswith("Z")
             assert entry.P.objgen == pdf.pages[1].obj.objgen
             assert entry.AP.N.Subtype == pikepdf.Name.Form
-        highlight, underline, squiggly, _strike, rectangle, _circle, arrow, comment = (
-            written[index] for index in range(8)
+        highlight, underline, squiggly, _strike, rectangle, _circle, arrow, freehand, comment = (
+            written[index] for index in range(9)
         )
         assert float(highlight.CA) == 0.75
         assert floats(highlight.QuadPoints) == [72, 770, 300, 770, 72, 752, 300, 752]
@@ -118,6 +122,15 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
         assert floats(arrow.L) == [72, 442, 300, 522]
         assert [str(arrow.LE[index]) for index in range(len(arrow.LE))] == ["/None", "/OpenArrow"]
         assert (str(comment.Name), str(comment.Contents)) == ("/Comment", "Ñandú → ✓ (a) \\ 😀")
+        assert [floats(freehand.InkList[index]) for index in range(len(freehand.InkList))] == [
+            [350, 462, 380, 512, 410, 452, 440, 517, 470, 447, 500, 502],
+            [420, 482],
+        ]
+        assert (float(freehand.BS.W), str(freehand.BS.S)) == (1.0, "/S")
+        left, bottom, right, top = floats(freehand.Rect)
+        assert (left, right) == (349, 501)  # The strokes and half their line, and a little more.
+        assert bottom < 447
+        assert top > 517
         assert "/Contents" not in underline
         assert floats(squiggly.QuadPoints) == [72, 682, 300, 682, 72, 664, 300, 664]
         assert "/Popup" not in comment
@@ -141,13 +154,24 @@ def test_a_squiggly_underline_zigzags_along_the_bottom_of_the_text() -> None:
     assert max(y for _x, y in tiny) == pytest.approx(0.5 + SQUIGGLE_MINIMUM)
 
 
+def test_a_freehand_stroke_is_a_smooth_curve_through_its_points() -> None:
+    points = [(0.0, 0.0), (10.0, 10.0), (20.0, 0.0), (30.0, 10.0)]
+    curves = stroke_curves(points)
+    assert [end for _first, _second, end in curves] == points[1:]  # Through every point, in order.
+    for (_first, second, _end), (first, _second, _next_end), point in zip(curves, curves[1:], points[1:], strict=False):
+        # No corner at a point: the curve leaves it in the direction it arrives.
+        assert (point[0] - second[0], point[1] - second[1]) == pytest.approx((first[0] - point[0], first[1] - point[1]))
+    assert stroke_curves([(5.0, 5.0)]) == []  # A dot.
+
+
 def test_poppler_reads_them_with_their_author_and_text(document: OpenDocument, tmp_path: Path) -> None:
     add(document, every_kind(0))
     target = tmp_path / "saved.pdf"
     save(document.save_plan(target))
     page = Poppler.Document.new_from_file(target.as_uri(), None).get_page(0)
     read = {mapping.annot.get_annot_type().value_nick: mapping.annot for mapping in page.get_annot_mapping()}
-    assert set(read) == {"highlight", "underline", "squiggly", "strike-out", "square", "circle", "line", "text"}
+    kinds = {"highlight", "underline", "squiggly", "strike-out", "square", "circle", "line", "ink", "text"}
+    assert set(read) == kinds
     assert read["text"].get_contents() == "Ñandú → ✓ (a) \\ 😀"
     square = read["square"]
     assert isinstance(square, Poppler.AnnotMarkup)
@@ -163,8 +187,12 @@ def test_they_are_read_back_where_they_were_made(document: OpenDocument, tmp_pat
         read = read_annotations(pdf)
     by_name = {annotation.kind: annotation for annotation in read}
     for annotation in annotations:
-        if annotation.kind is not Kind.ARROW:  # Its rectangle holds the arrowhead too.
+        if annotation.kind not in {Kind.ARROW, Kind.FREEHAND}:  # Their rectangle holds arrowheads, curves and lines.
             assert by_name[annotation.kind].rectangle == pytest.approx(annotation.rectangle)
+    freehand = by_name[Kind.FREEHAND]
+    assert [value for stroke in freehand.strokes for point in stroke for value in point] == pytest.approx(
+        [value for stroke in FREEHAND_STROKES for point in stroke for value in point]
+    )
     assert by_name[Kind.HIGHLIGHT].quads[0] == pytest.approx(annotations[0].quads[0])
 
 
@@ -210,8 +238,8 @@ def test_their_format_is_written_as_the_standard_keeps_it(document: OpenDocument
     save(document.save_plan(target))
     with pikepdf.open(target) as pdf:
         written = pdf.pages[0].Annots
-        highlight, _underline, _squiggly, _strike, rectangle, circle, arrow, comment, line = (
-            written[index] for index in range(9)
+        highlight, _underline, _squiggly, _strike, rectangle, circle, arrow, freehand, comment, line = (
+            written[index] for index in range(10)
         )
         assert float(highlight.CA) == 0.5
         assert str(highlight.AP.N.Resources.ExtGState.Look.BM) == "/Multiply"
@@ -222,6 +250,7 @@ def test_their_format_is_written_as_the_standard_keeps_it(document: OpenDocument
         assert floats(rectangle.IC) == [0.991, 0.845, 0.83]  # a soft red inside
         assert [str(arrow.LE[index]) for index in range(2)] == ["/OpenArrow", "/OpenArrow"]
         assert [str(line.LE[index]) for index in range(2)] == ["/None", "/None"]
+        assert (float(freehand.BS.W), str(freehand.BS.S), float(freehand.CA)) == (4.0, "/S", 0.5)
         assert "/CA" not in line  # opaque
         assert "/CA" not in comment
     assert pikepdf.open(target).check() == []

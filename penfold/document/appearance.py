@@ -98,6 +98,7 @@ def _drawn(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[
         Kind.RECTANGLE: _rectangle_or_circle,
         Kind.CIRCLE: _rectangle_or_circle,
         Kind.ARROW: _arrow,
+        Kind.FREEHAND: _freehand,
         Kind.COMMENT: _comment,
     }
     writer = writers.get(annotation.kind)
@@ -262,6 +263,50 @@ def _arrow(annotation: Annotation, frame: PageFrame) -> _Written:
         "/BS": _border(style.line_width, dashed=style.dashed),
     }
     return _Written(entries, drawing)
+
+
+def _freehand(annotation: Annotation, frame: PageFrame) -> _Written:
+    """Each stroke as a smooth curve through its points, with round ends and corners (a lone point, a dot)."""
+    if not annotation.strokes:
+        message = "a freehand drawing needs its strokes"
+        raise ValueError(message)
+    strokes = [[frame.pdf_point(*point) for point in stroke] for stroke in annotation.strokes]
+    drawing = [_line_style(annotation), "1 J 1 j"]
+    reached = []
+    for stroke in strokes:
+        curves = stroke_curves(stroke)
+        drawing.append(f"{_numbers(stroke[0])} m")
+        drawing += [f"{_numbers(coordinate for point in curve for coordinate in point)} c" for curve in curves]
+        if not curves:
+            drawing.append(f"{_numbers(stroke[0])} l")
+        drawing.append("S")
+        reached += [stroke[0], *(point for curve in curves for point in curve)]
+    margin = annotation.style.line_width
+    xs, ys = [x for x, _y in reached], [y for _x, y in reached]
+    entries: dict[str, object] = {
+        "/Rect": pikepdf.Array(_rounded((min(xs) - margin, min(ys) - margin, max(xs) + margin, max(ys) + margin))),
+        "/InkList": pikepdf.Array(
+            [pikepdf.Array([value for point in stroke for value in _rounded(point)]) for stroke in strokes]
+        ),
+        "/BS": _border(annotation.style.line_width, dashed=annotation.style.dashed),
+    }
+    return _Written(entries, drawing)
+
+
+def stroke_curves(points: list[Point]) -> list[tuple[Point, Point, Point]]:
+    """The Bézier curves of a smooth line through points, from the first: two control points and the end of each.
+
+    Each curve leaves a point in the direction from the point before it to the point after it (a Catmull-Rom spline),
+    so that the line has no corners at the points. A curve stays inside its control points, and so does the line.
+    """
+    curves = []
+    for index in range(len(points) - 1):
+        before, start, end = points[max(index - 1, 0)], points[index], points[index + 1]
+        after = points[min(index + 2, len(points) - 1)]
+        first = (start[0] + (end[0] - before[0]) / 6, start[1] + (end[1] - before[1]) / 6)
+        second = (end[0] - (after[0] - start[0]) / 6, end[1] - (after[1] - start[1]) / 6)
+        curves.append((first, second, end))
+    return curves
 
 
 def arrowheads(start: Point, end: Point, line_ends: LineEnds) -> list[tuple[Point, Point]]:

@@ -33,7 +33,9 @@ def entry(subtype: str, rect: list[float], **entries: object) -> pikepdf.Diction
 
 
 def make_annotated_pdf(path: Path, *, permissions: tuple[str, ...] | None = None) -> Path:
-    """A page with annotations of another program: a highlight, a cloudy square and a freehand drawing.
+    """A page with annotations of another program.
+
+    A highlight, a cloudy square, a polygon (a type Penfold does not make), a comment, a text box and an arrow.
 
     They are near the top, so that the menu can point at them in the window.
     """
@@ -47,7 +49,7 @@ def make_annotated_pdf(path: Path, *, permissions: tuple[str, ...] | None = None
                 C=pikepdf.Array([0.976, 0.941, 0.42]),
             ),
             entry("/Square", [100, 400, 300, 600], C=pikepdf.Array([1, 0, 0]), BE=pikepdf.Dictionary(S=pikepdf.Name.C)),
-            entry("/Ink", [400, 700, 500, 800], InkList=pikepdf.Array([pikepdf.Array([400, 700, 500, 800])])),
+            entry("/Polygon", [400, 700, 500, 800], Vertices=pikepdf.Array([400, 700, 500, 800, 400, 800])),
             entry("/Text", [520, 780, 540, 800], Contents=pikepdf.String("Old note"), C=pikepdf.Array([1, 1, 0])),
             entry(
                 "/FreeText",
@@ -333,6 +335,47 @@ def test_a_text_box_grows_with_its_letters(annotated_window: "PenfoldWindow") ->
     assert (box.style.font_size, box.style.background, bool(box.drawing)) == (18.0, False, True)
     assert box.rectangle[3] - box.rectangle[1] == pytest.approx(text_height("Old box", 200, 18))  # As its text needs.
     assert box.rectangle[:3] == pytest.approx(old.rectangle[:3])
+
+
+@pytest.fixture
+def freehand_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A page with a freehand drawing of another program near its top: a stroke 3 points wide and a dot."""
+    path = make_pdf(tmp_path / "freehand.pdf", page_count=1)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        strokes = pikepdf.Array([pikepdf.Array([100, 750, 200, 790, 300, 750]), pikepdf.Array([250, 700])])
+        drawn = entry(
+            "/Ink", [95, 695, 305, 795], InkList=strokes, BS=pikepdf.Dictionary(W=3), C=pikepdf.Array([0, 0, 1])
+        )
+        pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(drawn)]))
+        pdf.save(path)
+    assert open_and_wait(window, path)
+    return window
+
+
+def test_a_freehand_drawing_has_its_width_and_opacity(freehand_window: "PenfoldWindow") -> None:
+    window = freehand_window
+    assert window.document is not None
+    popover = open_format(window, 150, 770)  # On its stroke.
+    rows = rows_of(popover)
+    assert list(rows) == ["Line Width", "Opacity"]  # No dashes nor fill for a stroke drawn by hand.
+    width = rows["Line Width"]
+    assert isinstance(width, Adw.ComboRow)
+    assert width.get_selected() == 2  # Its own 3 points.
+    width.set_selected(0)
+    popover.activate_action("format.color", GLib.Variant.new_string(GREEN))
+    drawn = annotation(window, Kind.FREEHAND)
+    assert (drawn.managed, drawn.style.line_width, color_to_hex(drawn.color or (0, 0, 0))) == (True, 1.0, GREEN)
+    assert [item.kind for item in window.document.replaced_annotations] == [Kind.FREEHAND]  # Penfold draws it.
+    popover.popdown()
+    process_pending_events()
+    right_click(window, 250, 700)  # Its dot.
+    menu = window.annotation_editing.menu
+    assert menu is not None
+    assert window.annotation_editing.annotation == drawn
+    menu.popdown()
+    process_pending_events()
+    right_click(window, 200, 720)  # Below its stroke, inside its rectangle: nothing.
+    assert window.annotation_editing.menu is None
 
 
 def _descendants(widget: Gtk.Widget) -> list[Gtk.Widget]:

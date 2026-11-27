@@ -37,8 +37,9 @@ def arrow(line: tuple[float, float, float, float] = (100, 100, 200, 150)) -> Ann
 def test_which_types_move_and_which_change_their_size() -> None:
     marks = new_annotation(Kind.HIGHLIGHT, 0, (10, 10, 50, 20), RED, "Iban", quads=((10, 10, 50, 20),))
     comment = shape(Kind.COMMENT, (10, 10, 30, 30))
-    assert [can_move(item) for item in (shape(), arrow(), comment, marks)] == [True, True, True, False]
-    assert [can_resize(item) for item in (shape(), arrow(), comment, marks)] == [True, True, False, True]
+    drawn = new_annotation(Kind.FREEHAND, 0, (10, 10, 30, 30), RED, "Iban", strokes=(((10, 10), (30, 30)),))
+    assert [can_move(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, True, False, True]
+    assert [can_resize(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, False, True, False]
 
 
 def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
@@ -49,6 +50,8 @@ def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
     pointing = moved(original, (-20, 30), PAGE)
     assert (pointing.line, pointing.rectangle) == ((80, 130, 180, 180), (80, 130, 180, 180))
     assert (pointing.name, pointing.color, pointing.style) == (original.name, original.color, original.style)
+    drawn = new_annotation(Kind.FREEHAND, 0, (10, 10, 40, 30), RED, "Iban", strokes=(((10, 10), (40, 30)), ((20, 20),)))
+    assert moved(drawn, (5, 7), PAGE).strokes == (((15, 17), (45, 37)), ((25, 27),))
 
 
 def test_moving_stops_at_the_edges_of_the_page() -> None:
