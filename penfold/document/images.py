@@ -129,3 +129,28 @@ def _drawn_box(form: pikepdf.Stream) -> Box | None:
     if right - left <= 0 or top - bottom <= 0:
         return None
     return left, bottom, right, top
+
+
+def turned_drawing(drawing: bytes, clockwise: bool) -> bytes:
+    """An image's drawing turned a quarter, clockwise or anticlockwise, as it is seen: its width and height swap.
+
+    The drawing goes inside the new one as it was, turned; the page keeps its turn (/Rotate), which turns both alike.
+    """
+    with pikepdf.open(io.BytesIO(drawing)) as kept, pikepdf.new() as pdf:
+        old = kept.pages[0]
+        left, bottom, right, top = numbers(old.obj.get("/MediaBox")) or (0.0, 0.0, 0.0, 0.0)
+        width, height = right - left, top - bottom
+        form = pdf.copy_foreign(kept.make_indirect(old.as_form_xobject(handle_transformations=False)))
+        pdf.add_blank_page(page_size=(height, width))
+        page = pdf.pages[0].obj
+        page.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary({DRAWING: form}))
+        # From the old page (from its corner) to the new one: a point x, y goes to y, width - x (clockwise).
+        matrix = f"0 -1 1 0 0 {width:g}" if clockwise else f"0 1 -1 0 {height:g} 0"
+        move = f"1 0 0 1 {-left:g} {-bottom:g} cm " if left or bottom else ""
+        page.Contents = pdf.make_stream(f"q {matrix} cm {move}{DRAWING} Do Q".encode())
+        rotation = old.obj.get("/Rotate")
+        if rotation is not None:
+            page.Rotate = rotation
+        written = io.BytesIO()
+        pdf.save(written)
+    return written.getvalue()

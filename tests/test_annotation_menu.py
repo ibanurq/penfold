@@ -519,3 +519,30 @@ def test_the_menu_key_opens_the_menu_wherever_the_focus_is(panel_window: "Penfol
     process_pending_events()
     window.split_view.set_show_sidebar(False)
     assert not window._on_menu_key(window, None)  # Not with the panel hidden.
+
+
+def test_an_image_turns_a_quarter_from_its_menu(image_window: "PenfoldWindow") -> None:
+    from penfold.ui.annotation_editing import _menu_model
+
+    window = image_window
+    assert window.document is not None
+    model = _menu_model(colored=True, with_text=False, with_format=True, reshape="_Move and Resize", turnable=True)
+    section = model.get_item_link(0, "section")
+    assert section is not None
+    labels = [section.get_item_attribute_value(index, "label", None) for index in range(section.get_n_items())]
+    assert [label.get_string() for label in labels if label is not None] == [
+        "_Format…",
+        "_Move and Resize",
+        "Rotate _Left",
+        "Rotate _Right",
+        "_Delete",
+    ]
+    original = annotation(window, Kind.IMAGE)  # 120 by 80, from 100, 62 on the page as shown.
+    right_click(window, 160, 740)
+    window.activate_action("win.rotate-annotation-right")
+    process_pending_events()
+    turned = annotation(window, Kind.IMAGE)
+    assert (turned.managed, window.annotation_editing.menu) == (True, None)
+    assert turned.rectangle == pytest.approx((120, 42, 200, 162))  # 80 by 120, around the same centre.
+    window.activate_action("win.undo")
+    assert annotation(window, Kind.IMAGE) == original  # One edit.

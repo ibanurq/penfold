@@ -5,7 +5,7 @@ one at each end; text boxes have one at each side, which change only their width
 follows the text). Comments are only moved. Marks on text (highlights, underlines, strikethroughs) have one where they
 start and one where they end, and they cover the text from one to the other (the interface asks Poppler for it); they do
 not move. Everything stays inside the annotation's page. An image being put on a page goes where placed or dragged
-say.
+say. Images also turn a quarter at a time (turned).
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -17,6 +17,7 @@ from dataclasses import replace
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
 from penfold.document.freehand import freehand_rectangle
 from penfold.document.geometry import Rectangle, Size, bounds
+from penfold.document.images import turned_drawing
 
 Point = tuple[float, float]
 # The smallest width or height of a shape, and the shortest arrow, in points: a smaller one would hardly be seen. A
@@ -280,3 +281,24 @@ def dragged(start: Point, point: Point, size: Size, page_size: Size) -> Rectangl
     scale = min(scale, (page_width - start[0]) / width, (page_height - start[1]) / height)
     scale = max(scale, SMALLEST_SIZE / min(width, height))
     return start[0], start[1], start[0] + width * scale, start[1] + height * scale
+
+
+def turned(annotation: Annotation, clockwise: bool, page_size: Size) -> Annotation:
+    """An image turned a quarter around its centre, clockwise or anticlockwise, as far inside its page as it fits.
+
+    Its width and height swap; if it no longer fits in the page, it is shrunk to fit, keeping its proportion, and it
+    is moved in from the edges as far as it needs. Its drawing turns with it (images.py).
+    """
+    left, top, right, bottom = annotation.rectangle
+    centre_x, centre_y = (left + right) / 2, (top + bottom) / 2
+    width, height = max(bottom - top, FLAT), max(right - left, FLAT)
+    page_width, page_height = page_size
+    scale = min(1.0, page_width / width, page_height / height)
+    width, height = width * scale, height * scale
+    left = min(max(centre_x - width / 2, 0.0), page_width - width)
+    top = min(max(centre_y - height / 2, 0.0), page_height - height)
+    return replace(
+        annotation,
+        rectangle=(left, top, left + width, top + height),
+        drawing=turned_drawing(annotation.drawing, clockwise),
+    )

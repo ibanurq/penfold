@@ -275,3 +275,50 @@ def test_a_missing_file_or_another_format_says_so(tmp_path: Path) -> None:
         image_from_file(tmp_path / "missing.png")
     with pytest.raises(ImageOpenError):
         image_from_file(written(tmp_path, picture(), "icon.ico"))
+
+
+def painted_quarters(annotation: Annotation, page: ShownPage) -> list[tuple[int, int, int]]:
+    """The colours of the four quarters of an image painted on a page, as it is seen."""
+    width, height = page.size
+    surface = cairo.ImageSurface(cairo.FORMAT_RGB24, round(width), round(height))
+    context = cairo.Context(surface)
+    context.set_source_rgb(1, 1, 1)
+    context.paint()
+    paint_annotations(context, page, [annotation])
+    surface.flush()
+    left, top, right, bottom = page.from_source(annotation.rectangle)
+    return [
+        color_at(surface, (left + (right - left) * x) / width, (top + (bottom - top) * y) / height)
+        for y in (0.25, 0.75)
+        for x in (0.25, 0.75)
+    ]
+
+
+@pytest.mark.parametrize("rotation", [0, 90])
+@pytest.mark.parametrize(
+    ("clockwise", "expected"), [(True, (BLUE, RED, YELLOW, GREEN)), (False, (GREEN, YELLOW, RED, BLUE))]
+)
+def test_an_image_turns_a_quarter_around_its_centre(
+    tmp_path: Path, rotation: int, clockwise: bool, expected: tuple[tuple[int, int, int], ...]
+) -> None:
+    from penfold.document.reshaping import turned
+
+    drawing, (width, height) = image_from_file(written(tmp_path, picture(), "image.png"), rotation)
+    source_size = (600.0, 800.0)
+    made = image(drawing, (100, 100, 100 + width * 4, 100 + height * 4))  # 192 by 144, its centre at 196, 172.
+    once = turned(made, clockwise, source_size)
+    assert once.rectangle == pytest.approx((124, 76, 268, 268))  # 144 by 192, around the same centre.
+    assert close(painted_quarters(once, ShownPage(0, source_size)), expected)
+    back = turned(once, not clockwise, source_size)
+    assert back.rectangle == pytest.approx(made.rectangle)
+    assert close(painted_quarters(back, ShownPage(0, source_size)))
+
+
+def test_turned_it_stays_inside_the_page(tmp_path: Path) -> None:
+    from penfold.document.reshaping import turned
+
+    drawing, _size = image_from_file(written(tmp_path, picture(), "image.png"))
+    at_the_edge = image(drawing, (0, 0, 160, 120))
+    assert turned(at_the_edge, True, (600.0, 800.0)).rectangle == pytest.approx((20, 0, 140, 160))  # Moved down.
+    wide = image(drawing, (0, 300, 600, 750))  # As wide as the page: turned, too tall for it.
+    assert turned(wide, True, (600.0, 500.0)).rectangle == pytest.approx((112.5, 0, 487.5, 500))

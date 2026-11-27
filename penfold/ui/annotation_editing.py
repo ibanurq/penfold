@@ -1,12 +1,12 @@
 """Editing annotations from their menu: a right click, or a long press, on an annotation of a page.
 
-The menu has the six colours at the top (the annotation's own with a ring; greyed out for images, which have none)
-and, below, what can be done with that type of annotation. A click on a colour changes it and closes the menu; Edit
-Text… edits the text of a comment in its popover and that of a text box on the page; Format… opens its Format panel
-beside it, whose changes show at once and are undone as one edit; Move and Resize shows its handles on the page, and
-the change is one edit too; Delete deletes it without asking, with a toast to undo it. While the menu is open, the
-annotation is outlined. Annotations of types Penfold does not make only have Delete. A PDF that does not allow
-annotating shows the menu with everything greyed out.
+The menu has the six colours at the top (the annotation's own with a ring; greyed out for images, which have none) and,
+below, what can be done with that type of annotation. A click on a colour changes it and closes the menu; Edit Text…
+edits the text of a comment in its popover and that of a text box on the page; Format… opens its Format panel beside it,
+whose changes show at once and are undone as one edit; Move and Resize shows its handles on the page, and the change is
+one edit too; Rotate Left and Rotate Right turn an image a quarter around its centre, as one edit; Delete deletes it
+without asking, with a toast to undo it. While the menu is open, the annotation is outlined. Annotations of types
+Penfold does not make only have Delete. A PDF that does not allow annotating shows the menu with everything greyed out.
 
 An annotation of a PDF that Penfold cannot draw again as it is (its foreign look) is only changed after a warning:
 changing it would lose that look.
@@ -23,7 +23,7 @@ from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind, managed
 from penfold.document.commands.annotations import ChangeAnnotation, DeleteAnnotations
 from penfold.document.document import OpenDocument
 from penfold.document.history import Command
-from penfold.document.reshaping import can_move, can_resize
+from penfold.document.reshaping import can_move, can_resize, turned
 from penfold.rendering.text_box import redrawn, with_text, written_frame
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.context_menu import COLORS, SEPARATOR, color_row, context_menu, custom_item, separator
@@ -36,6 +36,8 @@ NO_COLOR = ""
 WITH_TEXT = frozenset({Kind.COMMENT, Kind.TEXT_BOX})
 # Types without a colour: their colour circles are greyed out.
 UNCOLORED = frozenset({Kind.IMAGE})
+# Types that turn a quarter at a time.
+TURNABLE = frozenset({Kind.IMAGE})
 
 
 class AnnotationEditing:
@@ -72,9 +74,14 @@ class AnnotationEditing:
         self._format.connect("activate", lambda _action, _parameter: self.format())
         self._reshape = Gio.SimpleAction.new("reshape-annotation", None)
         self._reshape.connect("activate", lambda _action, _parameter: self.reshape())
+        self._turn_left = Gio.SimpleAction.new("rotate-annotation-left", None)
+        self._turn_left.connect("activate", lambda _action, _parameter: self.turn(clockwise=False))
+        self._turn_right = Gio.SimpleAction.new("rotate-annotation-right", None)
+        self._turn_right.connect("activate", lambda _action, _parameter: self.turn(clockwise=True))
         self._delete = Gio.SimpleAction.new("delete-annotation", None)
         self._delete.connect("activate", lambda _action, _parameter: self.delete())
-        for action in (self._color, self._edit_text, self._format, self._reshape, self._delete):
+        actions = (self._color, self._edit_text, self._format, self._reshape, self._turn_left, self._turn_right)
+        for action in (*actions, self._delete):
             window.add_action(action)
         document_view.connect("annotation-menu-requested", self._on_menu_requested)
 
@@ -97,12 +104,15 @@ class AnnotationEditing:
         self._edit_text.set_enabled(allowed)
         self._format.set_enabled(allowed)
         self._reshape.set_enabled(allowed and self._can_reshape(annotation))
+        for turn in (self._turn_left, self._turn_right):
+            turn.set_enabled(allowed)
         self._delete.set_enabled(allowed)
         model = _menu_model(
             colored=colored,
             with_text=annotation.kind in WITH_TEXT,
             with_format=has_format(annotation.kind),
             reshape=_reshape_label(annotation),
+            turnable=annotation.kind in TURNABLE,
         )
         custom = {SEPARATOR: separator()}
         if colored:
@@ -140,6 +150,15 @@ class AnnotationEditing:
             self.menu.popdown()
         if annotation is not None:
             self._change(annotation, lambda copy: replace(copy, color=hex_to_color(value)))
+
+    def turn(self, *, clockwise: bool) -> None:
+        """Turn the image of the menu a quarter around its centre, clockwise (Rotate Right) or not (Rotate Left)."""
+        annotation = self.annotation
+        page = None if annotation is None else self._document_view.shown_page(annotation.page)
+        if self.menu is not None:
+            self.menu.popdown()
+        if annotation is not None and page is not None and annotation.kind in TURNABLE:
+            self._change(annotation, lambda copy: turned(copy, clockwise, page.source_size))
 
     def edit_text(self) -> None:
         """Edit the text of the annotation of the menu: a comment in its popover, a text box on the page."""
@@ -387,8 +406,12 @@ def _reshape_label(annotation: Annotation) -> str | None:
     return _("_Move") if can_move(annotation) else None
 
 
-def _menu_model(*, colored: bool, with_text: bool, with_format: bool, reshape: str | None) -> Gio.Menu:
-    """The menu of an annotation: the colours, Edit Text…, Format…, the item of the handles (those it has), Delete.
+def _menu_model(
+    *, colored: bool, with_text: bool, with_format: bool, reshape: str | None, turnable: bool = False
+) -> Gio.Menu:
+    """The menu of an annotation: the colours, Edit Text…, Format…, the item of the handles, the turns, Delete.
+
+    Each only if it has it.
 
     It is one section, with separators of its own between the groups (as every context menu, ui/context_menu.py).
     """
@@ -401,7 +424,10 @@ def _menu_model(*, colored: bool, with_text: bool, with_format: bool, reshape: s
         items.append(_("_Format…"), "win.format-annotation")
     if reshape:
         items.append(reshape, "win.reshape-annotation")
-    if with_text or with_format or reshape:
+    if turnable:
+        items.append(_("Rotate _Left"), "win.rotate-annotation-left")
+        items.append(_("Rotate _Right"), "win.rotate-annotation-right")
+    if with_text or with_format or reshape or turnable:
         items.append_item(custom_item(SEPARATOR))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()

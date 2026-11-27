@@ -418,6 +418,8 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments
 Move and Resize                         “Move” for comments; “Adjust Ends” for text markups
+Rotate Left                             images
+Rotate Right                            images
 Delete
 ```
 
@@ -441,6 +443,9 @@ Delete
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
+- **Rotate Left, Rotate Right** (images): a quarter turn around its centre, anticlockwise or clockwise, as the page is
+  seen; its width and height swap. If it no longer fits in the page, it is shrunk to fit, keeping its proportion, and
+  it is moved in from the edges as far as it needs. Its drawing is kept, turned. One undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
 - **Annotations from other programs** of the eleven types are edited like Penfold’s (a freehand drawing without
   strokes, `/InkList`, counts as another type; a stamp, unless it is an image). What is not touched does not

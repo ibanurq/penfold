@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-27 17:14+0100\n"
+"POT-Creation-Date: 2026-11-27 17:33+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -165,7 +165,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:21
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:356
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:375
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
 #: penfold/ui/window.py:1240
@@ -541,18 +541,18 @@ msgstr "Iconos"
 msgid "The image could not be opened"
 msgstr "No se pudo abrir la imagen"
 
-#: penfold/ui/annotation_editing.py:324
+#: penfold/ui/annotation_editing.py:343
 #, python-brace-format
 msgid "Annotation deleted"
 msgid_plural "{count} annotations deleted"
 msgstr[0] "Anotación eliminada"
 msgstr[1] "{count} anotaciones eliminadas"
 
-#: penfold/ui/annotation_editing.py:350
+#: penfold/ui/annotation_editing.py:369
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:352
+#: penfold/ui/annotation_editing.py:371
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -560,31 +560,39 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:357
+#: penfold/ui/annotation_editing.py:376
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:386
+#: penfold/ui/annotation_editing.py:405
 msgid "_Adjust Ends"
 msgstr "_Ajustar extremos"
 
-#: penfold/ui/annotation_editing.py:386
+#: penfold/ui/annotation_editing.py:405
 msgid "_Move and Resize"
 msgstr "_Mover y cambiar tamaño"
 
-#: penfold/ui/annotation_editing.py:387
+#: penfold/ui/annotation_editing.py:406
 msgid "_Move"
 msgstr "_Mover"
 
-#: penfold/ui/annotation_editing.py:399
+#: penfold/ui/annotation_editing.py:422
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:401
+#: penfold/ui/annotation_editing.py:424
 msgid "_Format…"
 msgstr "_Formato…"
 
-#: penfold/ui/annotation_editing.py:406
+#: penfold/ui/annotation_editing.py:428 penfold/ui/sidebar/pages_view.py:85
+msgid "Rotate _Left"
+msgstr "Girar a la _izquierda"
+
+#: penfold/ui/annotation_editing.py:429 penfold/ui/sidebar/pages_view.py:86
+msgid "Rotate _Right"
+msgstr "Girar a la _derecha"
+
+#: penfold/ui/annotation_editing.py:432
 #: penfold/ui/sidebar/bookmarks_view.py:133 penfold/ui/sidebar/pages_view.py:91
 msgid "_Delete"
 msgstr "_Eliminar"
@@ -1314,14 +1322,6 @@ msgid "{count} selected"
 msgid_plural "{count} selected"
 msgstr[0] "{count} seleccionado"
 msgstr[1] "{count} seleccionados"
-
-#: penfold/ui/sidebar/pages_view.py:85
-msgid "Rotate _Left"
-msgstr "Girar a la _izquierda"
-
-#: penfold/ui/sidebar/pages_view.py:86
-msgid "Rotate _Right"
-msgstr "Girar a la _derecha"
 
 #: penfold/ui/sidebar/pages_view.py:87
 msgid "Rotate _180°"
