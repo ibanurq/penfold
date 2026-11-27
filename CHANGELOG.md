@@ -5,6 +5,23 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.1.0-alpha.3 — 2026-11-27
+
+Third alpha of Penfold 1.1: images.
+
+### Added
+- Image, in a group of its own in the annotation bar, before the color: it asks for the file (JPEG, PNG, WebP, GIF,
+  BMP or TIFF); then a thin frame as big as the image follows the pointer, and a click puts the image there, or a
+  drag frames it keeping its proportion. An image bigger than the page is shrunk to fit inside a margin of an inch.
+  Then the tool chosen before comes back.
+- Images are saved as stamps with the image as their drawing (`/IT /StampImage`): a JPEG goes in as it is, the
+  others without loss and with their transparency. A photo is seen as its EXIF orientation says, and an image is
+  upright as the page is seen.
+- Images can be edited: opacity, Move and Resize (they keep their proportion), Rotate Left and Rotate Right, and
+  Delete, also those made in other programs (stamps whose drawing is an image).
+- A new group of annotations, Images and Stamps, in the side panel's filter and lists and when printing. Stamps that
+  are not images are listed with the other types, for now.
+
 ## 1.1.0-alpha.2 — 2026-11-27
 
 Second alpha of Penfold 1.1: freehand drawings.
