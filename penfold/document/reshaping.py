@@ -25,6 +25,9 @@ Point = tuple[float, float]
 SMALLEST_SIZE = 3.0
 # Less wide or tall than this, in points, a freehand drawing (a straight stroke) is not stretched that way.
 FLAT = 1e-6
+# The margin an image bigger than its page keeps from each edge when it is put, in points: an inch, about 2.5 cm (a
+# page's usual margin); at most a quarter of the page, on very small ones.
+IMAGE_MARGIN = 72.0
 MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX, Kind.IMAGE})
 RESIZABLE = frozenset(
     {Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE, *TEXT_MARKUPS}
@@ -254,15 +257,20 @@ def _reach(fixed: float, to: float, limit: float, smallest: float = SMALLEST_SIZ
 def placed(corner: Point, size: Size, page_size: Size) -> Rectangle:
     """Where an image of a size goes with its top left corner at a point of a page.
 
-    It is as big as it is, unless it is bigger than the page: then it is shrunk to fit, keeping its proportion. It is
-    moved in from the edges of the page as far as it needs, so that it is all inside.
+    It is as big as it is, and moved in from the edges of the page as far as it needs, so that it is all inside. One
+    bigger than the page is shrunk to fit inside its margins (IMAGE_MARGIN from each edge), keeping its proportion, and
+    stays inside them: as wide as they let it, it is in the middle.
     """
     width, height = max(size[0], FLAT), max(size[1], FLAT)
     page_width, page_height = page_size
-    scale = min(1.0, page_width / width, page_height / height)
+    margin = 0.0
+    if width > page_width or height > page_height:
+        margin = min(IMAGE_MARGIN, page_width / 4, page_height / 4)
+    room_width, room_height = page_width - 2 * margin, page_height - 2 * margin
+    scale = min(1.0, room_width / width, room_height / height)
     width, height = width * scale, height * scale
-    left = min(max(corner[0], 0.0), page_width - width)
-    top = min(max(corner[1], 0.0), page_height - height)
+    left = min(max(corner[0], margin), page_width - margin - width)
+    top = min(max(corner[1], margin), page_height - margin - height)
     return left, top, left + width, top + height
 
 

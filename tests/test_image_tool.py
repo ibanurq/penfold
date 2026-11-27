@@ -157,7 +157,8 @@ def test_at_the_edge_it_moves_in_and_bigger_than_the_page_it_shrinks(
     click(window, 0, (300, 300))
     near_the_edge, big = images(window)
     assert near_the_edge.rectangle == pytest.approx((475, 762, 595, 842), abs=0.1)
-    assert big.rectangle == pytest.approx((0, 300, 595, 721), abs=0.1)  # Half as big, moved in from the right.
+    # Shrunk inside the page's margins, an inch from each edge: as wide as they let it, in the middle.
+    assert big.rectangle == pytest.approx((72, 300, 523, 300 + 451 * 842 / 1190), abs=0.1)
 
 
 def test_cancelling_the_file_chooser_brings_back_the_tool_before(image_window: "PenfoldWindow") -> None:
@@ -209,7 +210,10 @@ def test_on_a_page_turned_in_penfold_it_is_put_as_seen(image_window: "PenfoldWin
 
 def test_where_a_click_and_a_drag_put_it() -> None:
     assert placed((10, 20), (100, 50), A4) == (10, 20, 110, 70)
-    assert placed((-5, 820), (100, 50), A4) == (0, 792, 100, 842)
+    assert placed((-5, 820), (100, 50), A4) == (0, 792, 100, 842)  # Fitting in the page, it goes up to its edges.
+    assert placed((0, 0), (1000, 500), A4) == pytest.approx((72, 72, 523, 72 + 225.5))  # Bigger: inside the margins.
+    assert placed((300, 800), (300, 2000), A4) == pytest.approx((300, 72, 404.7, 770), abs=0.1)
+    assert placed((0, 0), (100, 100), (100.0, 60.0)) == pytest.approx((15, 15, 45, 45))  # A tiny page: smaller ones.
     assert dragged((10, 20), (11, 21), (100, 50), A4) is None  # A click.
     assert dragged((10, 20), (60, 30), (100, 50), A4) == pytest.approx((10, 20, 60, 45))
     assert dragged((10, 20), (0, 0), (100, 50), A4) == pytest.approx(
