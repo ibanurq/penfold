@@ -593,3 +593,41 @@ def test_move_and_resize_from_the_annotations_panel(panel_window: "PenfoldWindow
     assert view.has_focus()
     press_key(window, Gdk.KEY_Escape)
     assert view.handle_editor is None
+
+
+def test_an_image_of_another_program_moves_and_is_resized_keeping_its_proportion(
+    window: "PenfoldWindow", tmp_path: Path
+) -> None:
+    from penfold.document.saving import save
+    from penfold.ui.annotation_editing import _reshape_label
+    from tests.test_images import BLUE, ORANGE, near, pixel, render, stamp, with_stamps
+
+    path = tmp_path / "image.pdf"
+    with_stamps(path, lambda pdf: stamp(pdf, [100, 662, 220, 742]))  # From 100, 100 on the page as shown, 120 by 80.
+    assert open_and_wait(window, path)
+    assert window.document is not None
+
+    def the_image() -> Annotation:
+        assert window.document is not None
+        return next(item for item in window.document.annotations if item.kind is Kind.IMAGE)
+
+    original = the_image()
+    assert _reshape_label(original) == "_Move and Resize"
+    editor = start_editing(window, (160, 140))
+    assert editor.handle_at(*widget_point(window, 0, 220, 180)) is Handle.BOTTOM_RIGHT  # At its corners.
+    drag(window, 0, (160, 140), (170, 150))
+    press_key(window, Gdk.KEY_Return)
+    moved = the_image()
+    assert moved.moved_as_is  # Its own drawing, moved.
+    assert moved.moved_by == pytest.approx((10, 10))
+    start_editing(window, (170, 150))
+    drag(window, 0, (230, 190), (350, 210))  # Taken furthest across: twice as wide, and as tall as it keeps.
+    press_key(window, Gdk.KEY_Return)
+    resized = the_image()
+    assert resized.managed
+    assert resized.rectangle == pytest.approx((110, 110, 350, 270))
+    target = tmp_path / "saved.pdf"
+    save(window.document.save_plan(target))
+    saved = render(target)
+    assert near(pixel(saved, 130, 190), BLUE)
+    assert near(pixel(saved, 330, 190), ORANGE)  # Its drawing stretched to its new size.

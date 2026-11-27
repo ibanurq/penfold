@@ -1,10 +1,10 @@
 """Moving annotations and changing their size with handles.
 
-Rectangles, circles and freehand drawings have a handle at each corner, arrows one at each end; text boxes have one at
-each side, which change only their width (rendering/text_box.py: their height follows the text). Comments and images
-are only moved. Marks on text (highlights, underlines, strikethroughs) have one where they start and one where they
-end, and they cover the text from one to the other (the interface asks Poppler for it); they do not move. Everything
-stays inside the annotation's page.
+Rectangles, circles, freehand drawings and images have a handle at each corner (images keep their proportion), arrows
+one at each end; text boxes have one at each side, which change only their width (rendering/text_box.py: their height
+follows the text). Comments are only moved. Marks on text (highlights, underlines, strikethroughs) have one where they
+start and one where they end, and they cover the text from one to the other (the interface asks Poppler for it); they do
+not move. Everything stays inside the annotation's page.
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -24,7 +24,9 @@ SMALLEST_SIZE = 3.0
 # Less wide or tall than this, in points, a freehand drawing (a straight stroke) is not stretched that way.
 FLAT = 1e-6
 MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX, Kind.IMAGE})
-RESIZABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, *TEXT_MARKUPS})
+RESIZABLE = frozenset(
+    {Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE, *TEXT_MARKUPS}
+)
 
 
 class Handle(enum.Enum):
@@ -74,7 +76,7 @@ def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
 
 
 def corner_handles(annotation: Annotation) -> dict[Handle, Point]:
-    """Where the handles of a rectangle, circle or freehand drawing are: the corners of its rectangle."""
+    """Where the handles of a rectangle, circle, freehand drawing or image are: the corners of its rectangle."""
     left, top, right, bottom = annotation.rectangle
     return {
         Handle.TOP_LEFT: (left, top),
@@ -123,11 +125,11 @@ def with_lines(annotation: Annotation, lines: list[Rectangle]) -> Annotation:
 
 
 def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size: Size) -> Annotation:
-    """A rectangle, circle or freehand drawing with a corner taken to a point of its page; the opposite one stays.
+    """A rectangle, circle, freehand drawing or image with a corner taken to a point of its page; the opposite stays.
 
     Taken past the opposite corner, the shape turns over; it never gets smaller than SMALLEST_SIZE. A freehand drawing's
     strokes are stretched or shrunk to fill its new rectangle, inside its line, which keeps its width; they do not turn
-    over, so that it is never seen mirrored.
+    over, so that it is never seen mirrored. An image keeps its proportion (_scaled).
 
     Raises:
         ValueError: the handle is not a corner.
@@ -137,6 +139,8 @@ def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size:
         raise ValueError(message)
     opposite = CORNERS[(CORNERS.index(corner) + 2) % len(CORNERS)]
     fixed_x, fixed_y = corner_handles(annotation)[opposite]
+    if annotation.kind is Kind.IMAGE:
+        return _scaled(annotation, corner, (fixed_x, fixed_y), point, page_size)
     width, height = page_size
     smallest = SMALLEST_SIZE + 2 * _margin(annotation) if annotation.kind is Kind.FREEHAND else SMALLEST_SIZE
     x, y = _reach(fixed_x, point[0], width, smallest), _reach(fixed_y, point[1], height, smallest)
@@ -144,6 +148,25 @@ def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size:
     if annotation.kind is Kind.FREEHAND:
         return _stretched(annotation, rectangle)
     return replace(annotation, rectangle=rectangle)
+
+
+def _scaled(annotation: Annotation, corner: Handle, fixed: Point, point: Point, page_size: Size) -> Annotation:
+    """An image grown or shrunk from its fixed corner towards a point, keeping its proportion.
+
+    It follows the pointer along the side it is taken furthest by, as much as it fits in the page, and never turns over
+    (it is never seen mirrored); its shorter side never gets smaller than SMALLEST_SIZE.
+    """
+    left, top, right, bottom = annotation.rectangle
+    width, height = max(right - left, FLAT), max(bottom - top, FLAT)
+    corner_x, corner_y = corner_handles(annotation)[corner]
+    towards_x, towards_y = (1 if corner_x >= fixed[0] else -1), (1 if corner_y >= fixed[1] else -1)
+    scale = max((point[0] - fixed[0]) * towards_x / width, (point[1] - fixed[1]) * towards_y / height)
+    page_width, page_height = page_size
+    room_x = page_width - fixed[0] if towards_x > 0 else fixed[0]
+    room_y = page_height - fixed[1] if towards_y > 0 else fixed[1]
+    scale = max(min(scale, room_x / width, room_y / height), SMALLEST_SIZE / min(width, height))
+    x, y = fixed[0] + towards_x * width * scale, fixed[1] + towards_y * height * scale
+    return replace(annotation, rectangle=(min(x, fixed[0]), min(y, fixed[1]), max(x, fixed[0]), max(y, fixed[1])))
 
 
 def _stretched(annotation: Annotation, rectangle: Rectangle) -> Annotation:

@@ -418,12 +418,6 @@ def test_an_image_has_no_colour_but_its_opacity(image_window: "PenfoldWindow") -
     assert [item.kind for item in window.document.replaced_annotations] == [Kind.IMAGE]  # Penfold paints it.
 
 
-def test_an_image_is_moved_with_its_own_drawing(image_window: "PenfoldWindow") -> None:
-    from penfold.ui.annotation_editing import _reshape_label
-
-    assert _reshape_label(annotation(image_window, Kind.IMAGE)) == "_Move"  # Not resized yet.
-
-
 def _descendants(widget: Gtk.Widget) -> list[Gtk.Widget]:
     found = []
     child = widget.get_first_child()

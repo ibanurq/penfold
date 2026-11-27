@@ -418,15 +418,16 @@ Delete
   | Image | Opacity; it has no color, so the six colors are grayed out (also in the right-click menu) |
   | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the color is the background’s and the border’s, the text is always black |
 
-- **Move and Resize:** handles on the annotation: corners for rectangles and circles, and for freehand drawings, whose
-  strokes stretch or shrink to fill the new frame without being mirrored, while their line keeps its width; for a text box, one on each side,
+- **Move and Resize:** handles on the annotation: corners for rectangles and circles; for freehand drawings, whose
+  strokes stretch or shrink to fill the new frame without being mirrored, while their line keeps its width; for
+  images, which keep their proportion (they follow the pointer along the side it is taken furthest by, never mirrored,
+  within the page), their drawing stretched as viewers stretch it; for a text box, one on each side,
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
 - **Annotations from other programs** of the eleven types are edited like Penfold’s (a freehand drawing without
-  strokes, `/InkList`, counts as another type; a stamp, unless it is an image). Images are only moved, for now. What
-  is not touched does not
+  strokes, `/InkList`, counts as another type; a stamp, unless it is an image). What is not touched does not
   change: a color outside the palette has no circle marked; a value outside the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns

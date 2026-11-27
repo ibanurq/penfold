@@ -1,5 +1,7 @@
 """Moving annotations and changing their size with handles."""
 
+from dataclasses import replace
+
 import pytest
 
 from penfold.document.annotations import Annotation, Kind, Style, new_annotation
@@ -40,6 +42,7 @@ def test_which_types_move_and_which_change_their_size() -> None:
     drawn = new_annotation(Kind.FREEHAND, 0, (10, 10, 30, 30), RED, "Iban", strokes=(((10, 10), (30, 30)),))
     assert [can_move(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, True, False, True]
     assert [can_resize(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, False, True, True]
+    assert (can_move(image()), can_resize(image())) == (True, True)
 
 
 def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
@@ -108,6 +111,35 @@ def test_a_shape_never_gets_smaller_than_the_smallest_size() -> None:
 def test_at_the_edge_of_the_page_the_smallest_shape_goes_the_other_way() -> None:
     at_edge = shape(rectangle=(0, 0, 50, 50))
     assert with_corner(at_edge, Handle.TOP_RIGHT, (-20, 30), PAGE).rectangle == (0, 30, SMALLEST_SIZE, 50)
+
+
+def image(rectangle: tuple[float, float, float, float] = (100, 100, 220, 180)) -> Annotation:
+    """An image 3 wide for 2 tall (its drawing does not matter here)."""
+    return replace(shape(rectangle=rectangle), kind=Kind.IMAGE, subtype="Stamp", color=None)
+
+
+@pytest.mark.parametrize(
+    ("corner", "point", "expected"),
+    [
+        (Handle.BOTTOM_RIGHT, (340, 200), (100, 100, 340, 260)),  # Taken furthest across: it follows across.
+        (Handle.BOTTOM_RIGHT, (230, 340), (100, 100, 460, 340)),  # Taken furthest down: it follows down.
+        (Handle.TOP_LEFT, (160, 170), (160, 140, 220, 180)),  # Shrunk towards the opposite corner.
+        (Handle.TOP_RIGHT, (280, 120), (100, 60, 280, 180)),
+        (Handle.BOTTOM_LEFT, (40, 180), (40, 100, 220, 220)),
+    ],
+)
+def test_an_image_keeps_its_proportion(
+    corner: Handle, point: tuple[float, float], expected: tuple[float, float, float, float]
+) -> None:
+    assert with_corner(image(), corner, point, PAGE).rectangle == pytest.approx(expected)
+
+
+def test_an_image_does_not_turn_over_and_stays_inside_the_page() -> None:
+    past = with_corner(image(), Handle.BOTTOM_RIGHT, (50, 50), PAGE).rectangle
+    assert past == pytest.approx((100, 100, 100 + SMALLEST_SIZE * 1.5, 100 + SMALLEST_SIZE))  # Smallest, not mirrored.
+    assert with_corner(image(), Handle.BOTTOM_RIGHT, (2000, 900), PAGE).rectangle == pytest.approx(
+        (100, 100, 600, 100 + 500 * 2 / 3)  # As far as the right edge of the page lets it.
+    )
 
 
 def drawing(*strokes: tuple[tuple[float, float], ...]) -> Annotation:
