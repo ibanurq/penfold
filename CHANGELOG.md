@@ -5,6 +5,16 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.1.0-alpha.1 — 2026-11-27
+
+First alpha of Penfold 1.1: squiggly underlines.
+
+### Added
+- Squiggly Underline, in the annotation bar right after Underline: it marks the selected text with a zigzag under each
+  line, and works like Underline.
+- Squiggly underlines made in other programs can be edited like those made in Penfold: color, opacity, Adjust Ends
+  and Delete.
+
 ## 1.0.0 — 2026-11-26
 
 First stable version of Penfold 1.0, a native GNOME app (GTK 4 and libadwaita, written in Python) that replaces the web

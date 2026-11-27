@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-27 11:01+0100\n"
+"POT-Creation-Date: 2026-11-27 11:11+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -133,6 +133,14 @@ msgid "Choosing which annotations to print"
 msgstr "Elegir qué anotaciones se imprimen"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:77
+msgid ""
+"First alpha of Penfold 1.1: squiggly underlines, also those made in other "
+"programs."
+msgstr ""
+"Primera alfa de Penfold 1.1: subrayados ondulados, también los hechos con "
+"otros programas."
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:82
 msgid ""
 "First stable version: read, annotate and organize PDFs, merge files, extract "
 "pages and fill in forms."
