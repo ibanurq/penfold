@@ -19,7 +19,7 @@ files on my personal computer over quite a few years.
 - **Merge files** into a single file.
 - **Pages**: reorder, extract, delete and rotate.
 - **Bookmarks**: add, rename, reorder.
-- **Annotations**: highlights, underlines and strikethroughs.
+- **Annotations**: highlights, underlines (also squiggly) and strikethroughs.
 - **Graphic elements**: comments, text boxes, rectangles, circles and arrows.
 - **Forms**.
 

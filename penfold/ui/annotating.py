@@ -3,10 +3,11 @@
 The pencil shows and hides the bar; hiding it goes back to Select Text. A tool stays chosen after an annotation is made,
 until another is chosen. A PDF is only annotated if it allows it: otherwise the pencil is greyed out.
 
-The tools that mark text (highlight, underline, strike through) mark what is selected when the mouse is released. H and
-U mark the text selected without changing the tool, or else choose their tool. Rectangles, circles and arrows are drawn
-by dragging, from where the drag starts to where it ends. A click places a comment, whose text is written in a popover.
-A drag sets the width of a text box (a click gives it a usual width), whose text is written on the page.
+The tools that mark text (highlight, underline, squiggly underline, strike through) mark what is selected when the
+mouse is released. H and U mark the text selected without changing the tool, or else choose their tool. Rectangles,
+circles and arrows are drawn by dragging, from where the drag starts to where it ends. A click places a comment, whose
+text is written in a popover. A drag sets the width of a text box (a click gives it a usual width), whose text is
+written on the page.
 """
 
 from collections.abc import Callable
@@ -30,7 +31,7 @@ Point = tuple[float, float]
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
 DRAWING_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.COMMENT, Tool.TEXT_BOX})
-MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT})
+MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT})
 SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
 
 

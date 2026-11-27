@@ -79,6 +79,14 @@ def test_a_mark_over_several_pages_is_one_edit(text_window: "PenfoldWindow") -> 
     assert made(window) == []
 
 
+def test_squiggly_underlines_are_made_like_underlines(text_window: "PenfoldWindow") -> None:
+    window = text_window
+    choose(window, Tool.SQUIGGLY)
+    select(window, PagePoint(0, 95, 70), PagePoint(0, 117, 200))
+    assert made(window) == [(Kind.SQUIGGLY, 0, 2)]
+    assert window.annotating.tool is Tool.SQUIGGLY  # It stays.
+
+
 def test_selecting_with_select_text_marks_nothing(text_window: "PenfoldWindow") -> None:
     select(text_window, PagePoint(0, 95, 70), PagePoint(0, 117, 200))
     assert made(text_window) == []

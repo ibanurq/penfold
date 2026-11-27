@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-27 10:45+0100\n"
+"POT-Creation-Date: 2026-11-27 11:01+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -65,8 +65,8 @@ msgid "Bookmarks: add, rename and reorder"
 msgstr "Marcadores: añadir, renombrar y reordenar"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:20
-msgid "Annotations: highlights, underlines and strikethroughs"
-msgstr "Anotaciones: resaltados, subrayados y tachados"
+msgid "Annotations: highlights, underlines (also squiggly) and strikethroughs"
+msgstr "Anotaciones: resaltados, subrayados (también ondulados) y tachados"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:21
 msgid "Graphic elements: comments, text boxes, rectangles, circles and arrows"
@@ -598,12 +598,12 @@ msgstr "Flecha"
 msgid "Other Annotation"
 msgstr "Otra anotación"
 
-#: penfold/ui/annotation_toolbar.py:71
+#: penfold/ui/annotation_toolbar.py:73
 msgid "Select Text"
 msgstr "Seleccionar texto"
 
 #. Without a name of its own, screen readers would read the names of the colours in its open palette.
-#: penfold/ui/annotation_toolbar.py:108 penfold/ui/annotation_toolbar.py:115
+#: penfold/ui/annotation_toolbar.py:110 penfold/ui/annotation_toolbar.py:117
 msgid "Color"
 msgstr "Color"
 

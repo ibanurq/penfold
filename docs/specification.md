@@ -193,7 +193,7 @@ buttons rise just above the bar. It looks like GNOME’s side panel: light gray 
 border and a soft shadow, so it stands out from white paper. While it is shown, toasts appear just above it.
 
 ```
-[Select Text] | [Highlight] [Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] | [Comment] [Text Box] | [Color]
+[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] | [Comment] [Text Box] | [Color]
 ```
 
 - The separators mark the four groups of annotations (see “Annotation groups”).
@@ -358,9 +358,6 @@ it is empty). Text in `/Contents` is UTF-16.
 | Arrow | `/Line` | Dragging from its start to its end | A 1 pt line with an open arrowhead at the end (`/LE`) |
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
-
-*(In progress: the annotation bar does not have the Squiggly Underline tool yet, so squiggly underlines can be edited
-but not made.)*
 
 - **Text markups** turn the selection into one quadrilateral per line (`/QuadPoints`).
 - **Shapes** are drawn while dragging, so their shape is seen before releasing.

@@ -28,6 +28,7 @@ class Tool(enum.Enum):
     SELECT = "select"
     HIGHLIGHT = "highlight"
     UNDERLINE = "underline"
+    SQUIGGLY = "squiggly"
     STRIKE_OUT = "strike-out"
     RECTANGLE = "rectangle"
     CIRCLE = "circle"
@@ -44,6 +45,7 @@ class Tool(enum.Enum):
 TOOL_KINDS = {
     Tool.HIGHLIGHT: Kind.HIGHLIGHT,
     Tool.UNDERLINE: Kind.UNDERLINE,
+    Tool.SQUIGGLY: Kind.SQUIGGLY,
     Tool.STRIKE_OUT: Kind.STRIKE_OUT,
     Tool.RECTANGLE: Kind.RECTANGLE,
     Tool.CIRCLE: Kind.CIRCLE,
@@ -54,7 +56,7 @@ TOOL_KINDS = {
 # The tools by group, in the order of the print dialogue.
 TOOL_GROUPS = (
     (Tool.SELECT,),
-    (Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.STRIKE_OUT),
+    (Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT),
     (Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW),
     (Tool.COMMENT, Tool.TEXT_BOX),
 )
