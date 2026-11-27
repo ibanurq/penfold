@@ -9,7 +9,7 @@ import pikepdf
 import pytest
 from gi.repository import Gtk
 
-from tests.gtk_helpers import process_pending_events
+from tests.gtk_helpers import process_pending_events, wait_until
 from tests.sample_pdfs import make_pdf
 from tests.test_bookmark_editing import rows, select, selected_titles
 from tests.test_bookmarks import add_outline, outline_item
@@ -168,11 +168,10 @@ def test_folding_every_branch_shows_the_outline_from_the_beginning(window: "Penf
     process_pending_events()
     scrolling = view.scrolled.get_vadjustment()
     scrolling.set_value(scrolling.get_upper())
-    process_pending_events()
-    assert scrolling.get_value() > 0
+    wait_until(lambda: scrolling.get_value() > 0)
     view.expand_all()
-    process_pending_events()
-    assert scrolling.get_value() == 0
+    # The list goes back to its beginning once it is laid out again: a slow machine takes longer.
+    wait_until(lambda: scrolling.get_value() == 0)
     assert len(rows(window)) == 82
 
 
