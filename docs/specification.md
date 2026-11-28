@@ -280,7 +280,9 @@ What the three list views share:
   “(External)” without one); under it, up to about four lines of its text, with a vertical bar in the annotation’s
   color. White or colorless annotations from other programs use orange `#c64600` for the bar, so it can be seen;
   images, which have no color, have no bar.
-  Text markups without text of their own show the marked text in quotation marks; shapes without text, “No text”.
+  Text markups without text of their own show the marked text in quotation marks; stamps, which stamp they are (their
+  name, `/Name`: translated for those of the standard and Penfold’s, as it is for others; “Draft” without one, as the
+  standard says); shapes without text, “No text”.
 - The annotations of the page being read are marked, and the list scrolls to the first one.
 - Click goes to the annotation. Right click opens the same menu as on the page (see “Editing annotations”); it acts
   on one annotation, so there is no counter. Delete removes the selected ones, with “Undo”.
@@ -312,8 +314,8 @@ Enter confirms and Esc cancels.
 ### Icons
 
 Adwaita’s symbolic icons; where there is no suitable one, an icon from the GNOME design team’s icon-development-kit,
-included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline, freehand and text box
-types, Collapse All and Expand All). Images have Adwaita’s `image-x-generic`. See `THIRD-PARTY-NOTICES.md`. Each
+included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline, freehand, text box and
+stamp types, Collapse All and Expand All). Images have Adwaita’s `image-x-generic`. See `THIRD-PARTY-NOTICES.md`. Each
 annotation type has the same icon in the
 annotation bar and in the panel. Right-click menus have text, no icons.
 
@@ -378,7 +380,11 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
   moving, scaling and opacity aside). Penfold keeps its drawing as it is and stretches it to its rectangle, as viewers
   do; written again, it is that drawing, unturned as it was, with `/IT /StampImage` and no color (the version the PDF
-  declares is not changed). Other stamps are listed with Other Types, for now.
+  declares is not changed).
+- **Stamps.** Every other stamp is a stamp: a word such as “Approved”, named by `/Name`. Those of other programs keep
+  their drawing as images do, stretched to their rectangle, and are written again with it, their `/Name`, `/IT /Stamp`
+  and their color (if they had one). A stamp without a drawing is drawn by each viewer its own way: Penfold only moves
+  it, keeping the drawing Poppler gives it.
 - **Images from files:** JPEG, PNG, WebP, GIF (its first picture), BMP and
   TIFF, read with Pillow. A JPEG goes in as it is (`/DCTDecode`), without loss and without growing; the others go in
   without loss (`/FlateDecode` with PNG predictors), their transparency as a soft mask (`/SMask`). A photo is seen as
@@ -403,7 +409,7 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
   - **Text Highlights:** highlights, underlines (also squiggly), strikethroughs;
   - **Shapes:** rectangles, circles, arrows and lines, polygons, polylines, freehand drawings;
   - **Text Elements:** comments, text boxes, insert-text marks;
-  - **Images and Stamps:** images (stamps whose drawing is an image; other stamps go in Other Types, for now);
+  - **Images and Stamps:** images (stamps whose drawing is an image) and the other stamps;
   - **Other Types:** everything else that is listed (attachments, sounds, redactions, watermarks…). Links, form fields
     and pop-ups are not listed.
 
@@ -417,8 +423,8 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 ```
 ( ● ) ( ● ) ( ● ) ( ● ) ( ● ) ( ● )     the six colors; one click changes and closes
 Edit Text…                              comments and text boxes
-Format…                                 every type but comments
-Move and Resize                         “Move” for comments; “Adjust Ends” for text markups
+Format…                                 every type but comments (grayed out for stamps without a drawing)
+Move and Resize                         “Move” for comments and stamps without a drawing; “Adjust Ends” for text markups
 Rotate Left                             images
 Rotate Right                            images
 Delete
@@ -435,11 +441,12 @@ Delete
   | Arrow | Line Width · Line · Arrowheads (At the End · At Both Ends · None) · Opacity |
   | Freehand | Line Width · Opacity |
   | Image | Opacity; it has no color, so the six colors are grayed out (also in the right-click menu) |
+  | Stamp | Opacity; its color goes with the stamp, so the six colors are grayed out (also in the right-click menu) |
   | Text box | Letter Size (Small 9 · Normal 11 · Large 14 · Very Large 18 pt) · Background · Border; the color is the background’s and the border’s, the text is always black |
 
 - **Move and Resize:** handles on the annotation: corners for rectangles and circles; for freehand drawings, whose
   strokes stretch or shrink to fill the new frame without being mirrored, while their line keeps its width; for
-  images, which keep their proportion (they follow the pointer along the side it is taken furthest by, never mirrored,
+  images and stamps, which keep their proportion (they follow the pointer along the side it is taken furthest by, never mirrored,
   within the page), their drawing stretched as viewers stretch it; for a text box, one on each side,
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
@@ -448,8 +455,8 @@ Delete
   seen; its width and height swap. If it no longer fits in the page, it is shrunk to fit, keeping its proportion, and
   it is moved in from the edges as far as it needs. Its drawing is kept, turned. One undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
-- **Annotations from other programs** of the eleven types are edited like Penfold’s (a freehand drawing without
-  strokes, `/InkList`, counts as another type; a stamp, unless it is an image). What is not touched does not
+- **Annotations from other programs** of the twelve types are edited like Penfold’s (a freehand drawing without
+  strokes, `/InkList`, counts as another type; a stamp without its drawing is only moved). What is not touched does not
   change: a color outside the palette has no circle marked; a value outside the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns

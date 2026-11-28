@@ -1,7 +1,7 @@
-"""Painting the images Penfold manages: the drawing each keeps (document/images.py), stretched to its rectangle.
+"""Painting the images and stamps Penfold manages: the drawing each keeps (document/images.py), stretched to fit.
 
-Poppler draws the drawing once, as vectors (the image stays an image, scaled when painted), and it is painted at any
-zoom, at the image's opacity, as viewers paint a stamp's drawing stretched to its /Rect.
+Poppler draws the drawing once, as vectors (an image stays an image, scaled when painted), and it is painted at any
+zoom, at the annotation's opacity, as viewers paint a stamp's drawing stretched to its /Rect.
 """
 
 import functools
@@ -12,12 +12,12 @@ from gi.repository import GLib, Poppler
 from penfold.document.annotations import Annotation
 from penfold.rendering.renderer import POPPLER_DRAWING
 
-# How many drawings are kept drawn: those of the images on the pages being looked at.
-KEPT_DRAWINGS = 32
+# How many drawings are kept drawn: those of the images and stamps on the pages being looked at.
+CACHED_DRAWINGS = 32
 
 
-def paint_image(context: cairo.Context, annotation: Annotation) -> None:
-    """Paint an image on a context in points of its unturned page, filling its rectangle, at its opacity."""
+def paint_kept_drawing(context: cairo.Context, annotation: Annotation) -> None:
+    """Paint an image or a stamp on a context in points of its unturned page, filling its rectangle, at its opacity."""
     if not annotation.drawing:
         return
     drawing, (width, height) = _drawn(annotation.drawing)
@@ -32,9 +32,9 @@ def paint_image(context: cairo.Context, annotation: Annotation) -> None:
     context.restore()
 
 
-@functools.lru_cache(maxsize=KEPT_DRAWINGS)
+@functools.lru_cache(maxsize=CACHED_DRAWINGS)
 def _drawn(pdf: bytes) -> tuple[cairo.RecordingSurface, tuple[float, float]]:
-    """What Poppler draws of the page of an image's drawing, turned as it is seen, and its size as seen, in points."""
+    """What Poppler draws of the page of a kept drawing, turned as it is seen, and its size as seen, in points."""
     with POPPLER_DRAWING:
         page = Poppler.Document.new_from_bytes(GLib.Bytes.new(pdf), None).get_page(0)
         size = page.get_size()

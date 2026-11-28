@@ -118,20 +118,17 @@ def test_pdf_2_says_a_stamp_is_an_image(tmp_path: Path) -> None:
         lambda pdf: stamp(pdf, [100, 600, 220, 680], framed, IT=pikepdf.Name.StampImage),
         lambda pdf: stamp(pdf, [300, 600, 420, 680], framed),
     )
-    assert [item.kind for item in found] == [Kind.IMAGE, Kind.OTHER]
+    assert [item.kind for item in found] == [Kind.IMAGE, Kind.STAMP]
 
 
-def test_other_stamps_are_listed_with_the_other_types_for_now(tmp_path: Path) -> None:
-    def approved(pdf: pikepdf.Pdf) -> pikepdf.Dictionary:
-        return stamp(pdf, [100, 600, 220, 680], "0 0.5 0 RG 3 w 2 2 116 76 re S", Name=pikepdf.Name.Approved)
-
+def test_a_stamp_without_a_drawing_is_not_an_image(tmp_path: Path) -> None:
     def bare(pdf: pikepdf.Pdf) -> pikepdf.Dictionary:
         made = stamp(pdf, [300, 600, 420, 680], IT=pikepdf.Name.StampImage)
         del made["/AP"]  # Without a drawing, each viewer draws its own.
         return made
 
-    found = with_stamps(tmp_path / "stamps.pdf", approved, bare)
-    assert [(item.kind, item.group) for item in found] == [(Kind.OTHER, AnnotationGroup.OTHERS)] * 2
+    (found,) = with_stamps(tmp_path / "stamps.pdf", bare)
+    assert (found.kind, found.group) == (Kind.STAMP, AnnotationGroup.IMAGES_AND_STAMPS)
 
 
 def test_the_drawing_of_its_state_is_the_one_shown(tmp_path: Path) -> None:
@@ -149,7 +146,7 @@ def test_the_group_of_an_annotation_of_a_pdf(tmp_path: Path) -> None:
     make_pdf(tmp_path / "plain.pdf", page_count=1)
     with pikepdf.open(tmp_path / "plain.pdf") as pdf:
         assert group_of(stamp(pdf, [0, 0, 120, 80])) is AnnotationGroup.IMAGES_AND_STAMPS
-        assert group_of(stamp(pdf, [0, 0, 120, 80], "0 G 0 0 120 80 re S")) is AnnotationGroup.OTHERS
+        assert group_of(stamp(pdf, [0, 0, 120, 80], "0 G 0 0 120 80 re S")) is AnnotationGroup.IMAGES_AND_STAMPS
 
 
 def render(path: Path) -> cairo.ImageSurface:
@@ -226,19 +223,25 @@ def test_its_opacity_goes_in_its_drawing_too(tmp_path: Path) -> None:
     assert shown == pytest.approx(tuple((255 + value) / 2 for value in BLUE), abs=12)  # Half over white.
 
 
-def test_printing_can_leave_images_out(tmp_path: Path) -> None:
+def test_printing_can_leave_images_and_stamps_out(tmp_path: Path) -> None:
     def approved(pdf: pikepdf.Pdf) -> pikepdf.Dictionary:
         return stamp(pdf, [300, 600, 420, 680], "0 G 0 0 120 80 re S", Name=pikepdf.Name.Approved)
 
+    def attachment(_pdf: pikepdf.Pdf) -> pikepdf.Dictionary:
+        return pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.FileAttachment, Rect=[0, 0, 20, 20])
+
     path = tmp_path / "stamps.pdf"
-    with_stamps(path, lambda pdf: stamp(pdf, [100, 600, 220, 680]), approved)
+    with_stamps(path, lambda pdf: stamp(pdf, [100, 600, 220, 680]), approved, attachment)
     document = OpenDocument.open(path)
-    for left_out, kept in ((AnnotationGroup.IMAGES_AND_STAMPS, "/Approved"), (AnnotationGroup.OTHERS, None)):
+    for left_out, kept in (
+        (AnnotationGroup.IMAGES_AND_STAMPS, ["/FileAttachment"]),
+        (AnnotationGroup.OTHERS, ["/Stamp", "/Stamp"]),
+    ):
         target = tmp_path / f"{left_out.value}.pdf"
         save(document.print_plan(target, frozenset({left_out})))
         with pikepdf.open(target) as pdf:
-            printed = only(pdf.pages[0].obj.Annots)
-            assert (str(printed.Name) if "/Name" in printed else None) == kept
+            annots = pdf.pages[0].obj.Annots
+            assert sorted(str(annots[index].Subtype) for index in range(len(annots))) == kept
 
 
 def painted(annotation: Annotation, page: ShownPage) -> cairo.ImageSurface:

@@ -3,8 +3,8 @@
 The annotations of the PDF are read and shown as they are; Poppler draws them. The ones made in Penfold are managed:
 Penfold draws them and writes them into the PDF when it is saved. An annotation of the PDF of a type Penfold makes
 becomes managed when it is changed; one deleted or changed is taken out of its page when the PDF is saved. Links, form
-fields and pop-up windows are not annotations to list. Stamps are listed as images when their drawing is one
-(images.py); the others are listed as another type, for now.
+fields and pop-up windows are not annotations to list. Stamps are listed as images when their drawing is one, and
+as stamps otherwise (images.py).
 """
 
 import enum
@@ -17,7 +17,7 @@ from itertools import pairwise
 
 import pikepdf
 
-from penfold.document.images import image_drawing, is_image
+from penfold.document.images import image_drawing, stamp_drawing
 from penfold.document.page_frame import PageFrame
 from penfold.document.pdf_values import date, name, number, numbers, text
 
@@ -38,6 +38,8 @@ FONT_SETTING = re.compile(r"/([^\s/]+)\s+([\d.]+)\s+Tf")
 BLACK_TEXT = re.compile(r"(?:^|\s)(?:0(?:\.0*)?\s+g|0(?:\.0*)?\s+0(?:\.0*)?\s+0(?:\.0*)?\s+rg)(?:\s|$)")
 # Never listed: they are not notes (links, form fields, pop-up windows of notes…).
 NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
+# The name of a stamp that has none (/Name, ISO 32000-1, table 181).
+DEFAULT_STAMP = "Draft"
 
 Point = tuple[float, float]
 
@@ -55,8 +57,14 @@ class Kind(enum.Enum):
     CIRCLE = "Circle"
     ARROW = "Line"
     FREEHAND = "Ink"
-    IMAGE = "Stamp"
+    IMAGE = "StampImage"
+    STAMP = "Stamp"
     OTHER = "Other"
+
+    @property
+    def subtype(self) -> str:
+        """The annotation type (/Subtype) annotations of this type have: images are stamps."""
+        return "Stamp" if self is Kind.IMAGE else self.value
 
 
 class AnnotationGroup(enum.Enum):
@@ -69,7 +77,7 @@ class AnnotationGroup(enum.Enum):
     TEXT_ELEMENTS = "text-elements"
     """Comments, text boxes and insert-text marks."""
     IMAGES_AND_STAMPS = "images-and-stamps"
-    """Images (stamps whose drawing is an image); the other stamps are listed with the other types, for now."""
+    """Images (stamps whose drawing is an image) and the other stamps."""
     OTHERS = "others"
     """Every other type that is listed: attachments, sounds, redactions, watermarks…"""
 
@@ -78,6 +86,7 @@ SUBTYPE_GROUPS = {
     **dict.fromkeys(("/Highlight", "/Underline", "/Squiggly", "/StrikeOut"), AnnotationGroup.TEXT_MARKUPS),
     **dict.fromkeys(("/Square", "/Circle", "/Line", "/Polygon", "/PolyLine", "/Ink"), AnnotationGroup.SHAPES),
     **dict.fromkeys(("/Text", "/FreeText", "/Caret"), AnnotationGroup.TEXT_ELEMENTS),
+    "/Stamp": AnnotationGroup.IMAGES_AND_STAMPS,
 }
 
 
@@ -86,8 +95,6 @@ def group_of(annotation: pikepdf.Dictionary) -> AnnotationGroup | None:
     subtype = str(annotation.get("/Subtype"))
     if subtype in NOT_LISTED:
         return None
-    if is_image(annotation):
-        return AnnotationGroup.IMAGES_AND_STAMPS
     return SUBTYPE_GROUPS.get(subtype, AnnotationGroup.OTHERS)
 
 
@@ -127,9 +134,11 @@ def default_style(kind: Kind) -> Style:
     return Style()
 
 
-SUBTYPE_KINDS = {f"/{kind.value}": kind for kind in Kind if kind is not Kind.OTHER}
+SUBTYPE_KINDS = {f"/{kind.subtype}": kind for kind in Kind if kind not in {Kind.OTHER, Kind.IMAGE}}
 # Marks on text, whose list row shows the marked text when they have no text of their own.
 TEXT_MARKUPS = frozenset({Kind.HIGHLIGHT, Kind.UNDERLINE, Kind.SQUIGGLY, Kind.STRIKE_OUT})
+# The types that keep their drawing (images.py), painted stretched to their rectangle; a stamp only if it has one.
+KEPT_DRAWINGS = frozenset({Kind.IMAGE, Kind.STAMP})
 
 
 @dataclass(frozen=True)
@@ -140,6 +149,7 @@ class Annotation:
     bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines (also
     squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows; the strokes are the
     paths of a freehand drawing, each the points it goes through in order (one alone is a dot). An image has no colour.
+    A stamp has its name (/Name: "Approved", "Draft"…).
 
     A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once changed,
     the date it was changed (/M; else the creation date). Its foreign look is what of its look as read from a PDF
@@ -150,7 +160,8 @@ class Annotation:
     it out when Penfold draws it instead (Poppler skips those it cannot read, so the place among all of them would not
     do); those made in Penfold have neither. A text box reads turned clockwise by text_turn degrees from the page as
     shown (the turn Penfold gave the page when it was written, so that it was upright), and keeps its saved drawing: a
-    one-page PDF with the fonts it uses inside. An image keeps its drawing too, as images.py makes it.
+    one-page PDF with the fonts it uses inside. An image keeps its drawing too, as images.py makes it, and so does a
+    stamp of a PDF that has one (one that has none is only moved, as it is).
 
     One read from a PDF that was only moved is not drawn again: it keeps the drawing its program made, moved by moved_by
     on its page (as its rectangle is), and saving moves it in its page instead of writing it again.
@@ -177,6 +188,7 @@ class Annotation:
     text_turn: int = 0
     drawing: bytes = field(default=b"", repr=False)
     moved_by: tuple[float, float] = (0.0, 0.0)
+    stamp: str = ""
 
     @property
     def moved_as_is(self) -> bool:
@@ -186,9 +198,12 @@ class Annotation:
     @property
     def group(self) -> AnnotationGroup:
         """The group it is listed and printed in."""
-        if self.kind is Kind.IMAGE:
-            return AnnotationGroup.IMAGES_AND_STAMPS
         return SUBTYPE_GROUPS.get(f"/{self.subtype}", AnnotationGroup.OTHERS)
+
+    @property
+    def drawable(self) -> bool:
+        """Whether Penfold can draw it, to change it: of a type it makes, and a stamp only with its drawing."""
+        return self.kind is not Kind.OTHER and (self.kind is not Kind.STAMP or bool(self.drawing))
 
 
 def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
@@ -220,7 +235,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     return Annotation(
         page=page,
         kind=kind,
-        subtype=kind.value,
+        subtype=kind.subtype,
         rectangle=rectangle,
         text=text,
         author=author.strip() or DEFAULT_AUTHOR,
@@ -244,12 +259,12 @@ def managed_copy(annotation: Annotation) -> Annotation:
     moved as it was is drawn again where it is now.
 
     Raises:
-        ValueError: it is of a type Penfold does not make, so it cannot draw it.
+        ValueError: Penfold cannot draw it (drawable): of a type it does not make, or a stamp without its drawing.
     """
     if annotation.managed:
         return annotation
-    if annotation.kind is Kind.OTHER:
-        message = f"Penfold does not draw annotations of type {annotation.subtype}"
+    if not annotation.drawable:
+        message = f"Penfold cannot draw this annotation of type {annotation.subtype}"
         raise ValueError(message)
     now = datetime.now(UTC)
     return replace(
@@ -385,9 +400,13 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
     strokes = _strokes(annotation.get("/InkList"), frame) if kind is Kind.FREEHAND else ()
     if kind is Kind.FREEHAND and not strokes:
         kind = Kind.OTHER  # Without its strokes, Penfold cannot draw it.
-    drawing = image_drawing(annotation, frame.rotation) if kind is Kind.IMAGE else None
-    if kind is Kind.IMAGE and drawing is None:
-        kind = Kind.OTHER  # A stamp that is not an image.
+    drawing = None
+    if kind is Kind.STAMP:
+        drawing = image_drawing(annotation, frame.rotation)
+        if drawing is not None:
+            kind = Kind.IMAGE
+        else:
+            drawing = stamp_drawing(annotation, frame.rotation)
     color = None if kind is Kind.IMAGE else _color(annotation.get("/C"))
     look = _Look(annotation, kind, color)
     return Annotation(
@@ -408,6 +427,7 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
         style=look.style,
         foreign_look=tuple(look.foreign),
         drawing=drawing or b"",
+        stamp=(name(annotation.get("/Name")) or DEFAULT_STAMP) if kind is Kind.STAMP else "",
     )
 
 

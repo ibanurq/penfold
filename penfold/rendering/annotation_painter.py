@@ -11,7 +11,7 @@ from collections.abc import Iterable
 
 import cairo
 
-from penfold.document.annotations import FILL_STRENGTH, Annotation, Kind
+from penfold.document.annotations import FILL_STRENGTH, KEPT_DRAWINGS, Annotation, Kind
 from penfold.document.appearance import (
     BUBBLE,
     BUBBLE_GRID,
@@ -25,7 +25,7 @@ from penfold.document.appearance import (
     tint,
 )
 from penfold.document.geometry import Rectangle
-from penfold.rendering.image_look import paint_image
+from penfold.rendering.image_look import paint_kept_drawing
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import paint_text_box
 
@@ -48,9 +48,9 @@ def paint_annotations(
             _paint_comment(context, page, annotation)  # Upright, whatever the turn.
         elif annotation.kind is Kind.TEXT_BOX:
             _paint_text_box(context, page, annotation)
-        elif annotation.kind is Kind.IMAGE:
+        elif annotation.kind in KEPT_DRAWINGS:
             context.transform(turn_matrix(page))
-            paint_image(context, annotation)
+            paint_kept_drawing(context, annotation)
         else:
             context.transform(turn_matrix(page))
             _paint_on_unturned_page(context, annotation)

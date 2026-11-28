@@ -32,7 +32,9 @@ LEAST_OPACITY = 10
 OPACITY_STEP = 5
 OPACITY_WIDTH = 150
 SHAPES = frozenset({Kind.RECTANGLE, Kind.CIRCLE})
-FORMATTED = frozenset({*TEXT_MARKUPS, *SHAPES, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE})
+FORMATTED = frozenset({*TEXT_MARKUPS, *SHAPES, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE, Kind.STAMP})
+# Types whose colour is not chosen: images have none, and each stamp has its own.
+UNCOLORED = frozenset({Kind.IMAGE, Kind.STAMP})
 # No colour circle is ringed for a colour that is not one of the palette's.
 NO_COLOR = ""
 
@@ -79,7 +81,7 @@ class FormatPopover(Gtk.Popover):
         row = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, homogeneous=True)
         for value in ANNOTATION_COLORS:
             row.append(color_circle(value, "format.color"))
-        action.set_enabled(self.annotation.kind is not Kind.IMAGE)  # An image has no colour.
+        action.set_enabled(self.annotation.kind not in UNCOLORED)
         return row
 
     def _on_color_chosen(self, action: Gio.SimpleAction, value: GLib.Variant | None) -> None:

@@ -46,7 +46,7 @@ HANDLE_REACH = 9.0
 # The frame around the annotation, in pixels.
 FRAME_WIDTH = 1.0
 WHITE = (1.0, 1.0, 1.0, 1.0)
-CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.FREEHAND, Kind.IMAGE})
+CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.FREEHAND, Kind.IMAGE, Kind.STAMP})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
 # The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.

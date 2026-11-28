@@ -1,13 +1,15 @@
-"""Images on the pages: stamp annotations (/Stamp, ISO 32000-1, 12.5.6.12) whose drawing is an image.
+"""Images and stamps on the pages: stamp annotations (/Stamp, ISO 32000-1, 12.5.6.12) and the drawings they keep.
 
 The standard has no annotation type for images: a stamp with an image as its drawing (/AP) is what viewers show as one.
 PDF 2.0 (ISO 32000-2) says so with /IT /StampImage; older programs only draw the image. A stamp is taken as an image
 when it says so, or when its drawing does nothing but paint one image (and set up how: clip, move, scale, opacity).
+The other stamps are stamps: a word such as "Approved", named by /Name, that their drawing shows if they have one.
 
-Penfold keeps an image's drawing as a one-page PDF of the size of the drawing, the drawing filling it: on the screen it
-is painted stretched to the image's rectangle, as viewers stretch an annotation's drawing to its /Rect, and it is
-written back as the drawing of the stamp. The page is turned as its source page is (/Rotate), so that it is painted as
-it is seen on that page; what is written back is the page unturned, as the drawing was.
+Penfold keeps the drawing of an image, or of a stamp of another program, as a one-page PDF of the size of the drawing,
+the drawing filling it: on the screen it is painted stretched to the annotation's rectangle, as viewers stretch an
+annotation's drawing to its /Rect, and it is written back as the drawing of the stamp. The page is turned as its source
+page is (/Rotate), so that it is painted as it is seen on that page; what is written back is the page unturned, as the
+drawing was.
 """
 
 import io
@@ -41,9 +43,19 @@ def image_drawing(annotation: pikepdf.Dictionary, rotation: int = 0) -> bytes | 
     A stamp without a drawing, or whose drawing paints anything else, is not an image.
     """
     found = _image_appearance(annotation)
-    if found is None:
-        return None
-    appearance, (left, bottom, right, top) = found
+    return None if found is None else _kept(*found, rotation)
+
+
+def stamp_drawing(annotation: pikepdf.Dictionary, rotation: int = 0) -> bytes | None:
+    """The drawing of a stamp, whatever it paints, as a one-page PDF turned by rotation; None if it has none."""
+    appearance = normal_appearance(annotation)
+    box = None if appearance is None else _drawn_box(appearance)
+    return None if appearance is None or box is None else _kept(appearance, box, rotation)
+
+
+def _kept(appearance: pikepdf.Stream, box: Box, rotation: int) -> bytes:
+    """A drawing as a one-page PDF as big as the box it fills, turned by rotation."""
+    left, bottom, right, top = box
     with pikepdf.new() as pdf:
         pdf.add_blank_page(page_size=(right - left, top - bottom))
         page = pdf.pages[0].obj
@@ -54,11 +66,6 @@ def image_drawing(annotation: pikepdf.Dictionary, rotation: int = 0) -> bytes | 
         written = io.BytesIO()
         pdf.save(written)
     return written.getvalue()
-
-
-def is_image(annotation: pikepdf.Dictionary) -> bool:
-    """Whether an annotation of a PDF is a stamp that is an image."""
-    return str(annotation.get("/Subtype")) == "/Stamp" and _image_appearance(annotation) is not None
 
 
 def _image_appearance(annotation: pikepdf.Dictionary) -> tuple[pikepdf.Stream, Box] | None:

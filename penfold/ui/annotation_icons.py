@@ -1,6 +1,7 @@
 """The icon and the name of each annotation type, the same in the annotation bar and in the Annotations view.
 
-They come from Adwaita or, when it has none, from GNOME's icon collection (data/icons, prefixed "penfold-").
+They come from Adwaita or, when it has none, from GNOME's icon collection or drawn for Penfold (data/icons, prefixed
+"penfold-"). Stamps also have the name of the stamp each is, as the Annotations view shows it.
 """
 
 from gettext import gettext as _
@@ -20,6 +21,7 @@ KIND_ICONS = {
     Kind.ARROW: "penfold-type-arrow-symbolic",
     Kind.FREEHAND: "penfold-type-freehand-symbolic",
     Kind.IMAGE: "image-x-generic-symbolic",
+    Kind.STAMP: "penfold-type-stamp-symbolic",
     Kind.OTHER: "penfold-type-other-symbolic",
 }
 
@@ -38,5 +40,30 @@ def kind_names() -> dict[Kind, str]:
         Kind.ARROW: _("Arrow"),
         Kind.FREEHAND: _("Freehand"),
         Kind.IMAGE: _("Image"),
+        Kind.STAMP: _("Stamp"),
         Kind.OTHER: _("Other Annotation"),
     }
+
+
+def stamp_name(stamp: str) -> str:
+    """The name of a stamp (its /Name) to show: translated for those of the standard and Penfold's, else as it is."""
+    names = {
+        # Translators: the names of stamps, which say what state a document is in, as the annotation list shows them.
+        "Approved": _("Approved"),
+        "AsIs": _("As Is"),
+        "Confidential": _("Confidential"),
+        "Departmental": _("Departmental"),
+        "Draft": _("Draft"),
+        "Experimental": _("Experimental"),
+        "Expired": _("Expired"),
+        "Final": _("Final"),
+        "ForComment": _("For Comment"),
+        "ForPublicRelease": _("For Public Release"),
+        "NotApproved": _("Not Approved"),
+        "NotForPublicRelease": _("Not For Public Release"),
+        "Paid": _("Paid"),
+        "Received": _("Received"),
+        "Sold": _("Sold"),
+        "TopSecret": _("Top Secret"),
+    }
+    return names.get(stamp, stamp)

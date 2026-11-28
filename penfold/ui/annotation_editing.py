@@ -1,12 +1,14 @@
 """Editing annotations from their menu: a right click, or a long press, on an annotation of a page.
 
-The menu has the six colours at the top (the annotation's own with a ring; greyed out for images, which have none) and,
+The menu has the six colours at the top (the annotation's own with a ring; greyed out for images, which have none, and
+stamps, whose colour goes with the stamp) and,
 below, what can be done with that type of annotation. A click on a colour changes it and closes the menu; Edit Text…
 edits the text of a comment in its popover and that of a text box on the page; Format… opens its Format panel beside it,
 whose changes show at once and are undone as one edit; Move and Resize shows its handles on the page, and the change is
 one edit too; Rotate Left and Rotate Right turn an image a quarter around its centre, as one edit; Delete deletes it
 without asking, with a toast to undo it. While the menu is open, the annotation is outlined. Annotations of types
-Penfold does not make only have Delete. A PDF that does not allow annotating shows the menu with everything greyed out.
+Penfold does not make only have Delete; a stamp of a PDF without its drawing is only moved (Format… greyed out). A PDF
+that does not allow annotating shows the menu with everything greyed out.
 
 An annotation of a PDF that Penfold cannot draw again as it is (its foreign look) is only changed after a warning:
 changing it would lose that look.
@@ -28,14 +30,12 @@ from penfold.rendering.text_box import redrawn, with_text, written_frame
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.context_menu import COLORS, SEPARATOR, color_row, context_menu, custom_item, separator
 from penfold.ui.document_view import AnnotationClick, DocumentView
-from penfold.ui.format_popover import FormatPopover, has_format
+from penfold.ui.format_popover import UNCOLORED, FormatPopover, has_format
 from penfold.ui.palette import ANNOTATION_COLORS, color_to_hex, hex_to_color
 
 # No colour circle is ringed for a colour that is not one of the palette's.
 NO_COLOR = ""
 WITH_TEXT = frozenset({Kind.COMMENT, Kind.TEXT_BOX})
-# Types without a colour: their colour circles are greyed out.
-UNCOLORED = frozenset({Kind.IMAGE})
 # Types that turn a quarter at a time.
 TURNABLE = frozenset({Kind.IMAGE})
 
@@ -102,7 +102,7 @@ class AnnotationEditing:
         self._color.set_state(GLib.Variant.new_string(color if color in ANNOTATION_COLORS else NO_COLOR))
         self._color.set_enabled(allowed and colored and annotation.kind not in UNCOLORED)
         self._edit_text.set_enabled(allowed)
-        self._format.set_enabled(allowed)
+        self._format.set_enabled(allowed and annotation.drawable)
         self._reshape.set_enabled(allowed and self._can_reshape(annotation))
         for turn in (self._turn_left, self._turn_right):
             turn.set_enabled(allowed)

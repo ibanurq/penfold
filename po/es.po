@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-27 17:49+0100\n"
+"POT-Creation-Date: 2026-11-28 07:13+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -222,7 +222,7 @@ msgstr "Dónde"
 msgid "At the Start"
 msgstr "Al principio"
 
-#: data/ui/dialogs/add_pages_dialog.blp:95 penfold/ui/format_popover.py:129
+#: data/ui/dialogs/add_pages_dialog.blp:95 penfold/ui/format_popover.py:131
 msgid "At the End"
 msgstr "Al final"
 
@@ -605,53 +605,122 @@ msgstr "Girar a la _derecha"
 msgid "_Delete"
 msgstr "_Eliminar"
 
-#: penfold/ui/annotation_icons.py:30 penfold/ui/shortcuts_dialog.py:48
+#: penfold/ui/annotation_icons.py:32 penfold/ui/shortcuts_dialog.py:48
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: penfold/ui/annotation_icons.py:31 penfold/ui/shortcuts_dialog.py:49
+#: penfold/ui/annotation_icons.py:33 penfold/ui/shortcuts_dialog.py:49
 msgid "Underline"
 msgstr "Subrayar"
 
-#: penfold/ui/annotation_icons.py:32
+#: penfold/ui/annotation_icons.py:34
 msgid "Squiggly Underline"
 msgstr "Subrayado ondulado"
 
-#: penfold/ui/annotation_icons.py:33
+#: penfold/ui/annotation_icons.py:35
 msgid "Strike Through"
 msgstr "Tachar"
 
-#: penfold/ui/annotation_icons.py:34
+#: penfold/ui/annotation_icons.py:36
 msgid "Comment"
 msgstr "Comentario"
 
-#: penfold/ui/annotation_icons.py:35
+#: penfold/ui/annotation_icons.py:37
 msgid "Text Box"
 msgstr "Cuadro de texto"
 
-#: penfold/ui/annotation_icons.py:36
+#: penfold/ui/annotation_icons.py:38
 msgid "Rectangle"
 msgstr "Rectángulo"
 
-#: penfold/ui/annotation_icons.py:37
+#: penfold/ui/annotation_icons.py:39
 msgid "Circle"
 msgstr "Círculo"
 
-#: penfold/ui/annotation_icons.py:38
+#: penfold/ui/annotation_icons.py:40
 msgid "Arrow"
 msgstr "Flecha"
 
-#: penfold/ui/annotation_icons.py:39
+#: penfold/ui/annotation_icons.py:41
 msgid "Freehand"
 msgstr "Mano alzada"
 
-#: penfold/ui/annotation_icons.py:40
+#: penfold/ui/annotation_icons.py:42
 msgid "Image"
 msgstr "Imagen"
 
-#: penfold/ui/annotation_icons.py:41
+#: penfold/ui/annotation_icons.py:43
+msgid "Stamp"
+msgstr "Sello"
+
+#: penfold/ui/annotation_icons.py:44
 msgid "Other Annotation"
 msgstr "Otra anotación"
+
+#. Translators: the names of stamps, which say what state a document is in, as the annotation list shows them.
+#: penfold/ui/annotation_icons.py:52
+msgid "Approved"
+msgstr "Aprobado"
+
+#: penfold/ui/annotation_icons.py:53
+msgid "As Is"
+msgstr "Tal cual"
+
+#: penfold/ui/annotation_icons.py:54
+msgid "Confidential"
+msgstr "Confidencial"
+
+#: penfold/ui/annotation_icons.py:55
+msgid "Departmental"
+msgstr "Departamental"
+
+#: penfold/ui/annotation_icons.py:56
+msgid "Draft"
+msgstr "Borrador"
+
+#: penfold/ui/annotation_icons.py:57
+msgid "Experimental"
+msgstr "Experimental"
+
+#: penfold/ui/annotation_icons.py:58
+msgid "Expired"
+msgstr "Caducado"
+
+#: penfold/ui/annotation_icons.py:59
+msgid "Final"
+msgstr "Final"
+
+#: penfold/ui/annotation_icons.py:60
+msgid "For Comment"
+msgstr "Para comentarios"
+
+#: penfold/ui/annotation_icons.py:61
+msgid "For Public Release"
+msgstr "Para difusión pública"
+
+#: penfold/ui/annotation_icons.py:62
+msgid "Not Approved"
+msgstr "No aprobado"
+
+#: penfold/ui/annotation_icons.py:63
+msgid "Not For Public Release"
+msgstr "No apto para difusión pública"
+
+#: penfold/ui/annotation_icons.py:64
+msgid "Paid"
+msgstr "Pagado"
+
+#: penfold/ui/annotation_icons.py:65
+msgid "Received"
+msgstr "Recibido"
+
+#: penfold/ui/annotation_icons.py:66
+msgid "Sold"
+msgstr "Vendido"
+
+#: penfold/ui/annotation_icons.py:67
+msgid "Top Secret"
+msgstr "Alto secreto"
 
 #: penfold/ui/annotation_toolbar.py:78
 msgid "Select Text"
@@ -990,89 +1059,89 @@ msgstr "Imágenes"
 msgid "Insert Image"
 msgstr "Insertar imagen"
 
-#: penfold/ui/format_popover.py:97
+#: penfold/ui/format_popover.py:99
 msgid "Background"
 msgstr "Fondo"
 
-#: penfold/ui/format_popover.py:98
+#: penfold/ui/format_popover.py:100
 msgid "Border"
 msgstr "Borde"
 
-#: penfold/ui/format_popover.py:106
+#: penfold/ui/format_popover.py:108
 msgid "Fill"
 msgstr "Relleno"
 
-#: penfold/ui/format_popover.py:113
+#: penfold/ui/format_popover.py:115
 msgid "Thin"
 msgstr "Fino"
 
-#: penfold/ui/format_popover.py:113
+#: penfold/ui/format_popover.py:115
 msgid "Medium"
 msgstr "Medio"
 
-#: penfold/ui/format_popover.py:113
+#: penfold/ui/format_popover.py:115
 msgid "Thick"
 msgstr "Grueso"
 
-#: penfold/ui/format_popover.py:115
+#: penfold/ui/format_popover.py:117
 msgid "Line Width"
 msgstr "Grosor"
 
-#: penfold/ui/format_popover.py:119
+#: penfold/ui/format_popover.py:121
 msgid "Small"
 msgstr "Pequeña"
 
-#: penfold/ui/format_popover.py:119
+#: penfold/ui/format_popover.py:121
 msgid "Normal"
 msgstr "Normal"
 
-#: penfold/ui/format_popover.py:119
+#: penfold/ui/format_popover.py:121
 msgid "Large"
 msgstr "Grande"
 
-#: penfold/ui/format_popover.py:119
+#: penfold/ui/format_popover.py:121
 msgid "Very Large"
 msgstr "Muy grande"
 
-#: penfold/ui/format_popover.py:121
+#: penfold/ui/format_popover.py:123
 msgid "Letter Size"
 msgstr "Tamaño de letra"
 
-#: penfold/ui/format_popover.py:125
+#: penfold/ui/format_popover.py:127
 msgid "Solid"
 msgstr "Continua"
 
-#: penfold/ui/format_popover.py:125
+#: penfold/ui/format_popover.py:127
 msgid "Dashed"
 msgstr "Discontinua"
 
-#: penfold/ui/format_popover.py:126
+#: penfold/ui/format_popover.py:128
 msgid "Line"
 msgstr "Línea"
 
-#: penfold/ui/format_popover.py:129
+#: penfold/ui/format_popover.py:131
 msgid "At Both Ends"
 msgstr "En los dos extremos"
 
-#: penfold/ui/format_popover.py:129
+#: penfold/ui/format_popover.py:131
 msgid "None"
 msgstr "Ninguna"
 
-#: penfold/ui/format_popover.py:130
+#: penfold/ui/format_popover.py:132
 msgid "Arrowheads"
 msgstr "Puntas"
 
-#: penfold/ui/format_popover.py:136
+#: penfold/ui/format_popover.py:138
 #, python-brace-format
 msgid "{size:g} pt"
 msgstr "{size:g} pt"
 
-#: penfold/ui/format_popover.py:153
+#: penfold/ui/format_popover.py:155
 #, python-brace-format
 msgid "{percent} %"
 msgstr "{percent} %"
 
-#: penfold/ui/format_popover.py:155 penfold/ui/format_popover.py:157
+#: penfold/ui/format_popover.py:157 penfold/ui/format_popover.py:159
 msgid "Opacity"
 msgstr "Opacidad"
 

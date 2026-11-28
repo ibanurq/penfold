@@ -6,7 +6,7 @@ change them.
 New ones look as docs/specification.md describes ("Annotation types and how they are saved"); the comment is the speech
 bubble of GNOME's icon collection. Their style changes the opacity, the lines, the fill, the arrowheads and the text
 box's letters, background and border. Texts are written in UTF-16, so that no character can break the file. An image
-is written with the drawing it keeps (images.py), stretched to its rectangle.
+is written with the drawing it keeps (images.py), stretched to its rectangle, and so is a stamp of another program.
 """
 
 import io
@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 
 import pikepdf
 
-from penfold.document.annotations import FILL_STRENGTH, Annotation, Kind, LineEnds, Style
+from penfold.document.annotations import FILL_STRENGTH, KEPT_DRAWINGS, Annotation, Kind, LineEnds, Style
 from penfold.document.geometry import HALF_TURN, Rectangle
 from penfold.document.images import DRAWING, STAMP_IMAGE
 from penfold.document.page_frame import PageFrame
@@ -40,6 +40,8 @@ SQUIGGLE_MINIMUM = 1.5
 TEXT_BOX_BACKGROUND = 0.14
 # A comment is a square of this side, in points.
 COMMENT_SIZE = 20.0
+# What PDF 2.0 says a stamp that is not an image is (/IT).
+STAMP_INTENT = "Stamp"
 # Annotation flags (/F, 12.5.3): "Print", it is printed; "NoRotate", it stays upright when the page is turned.
 PRINT_FLAG = 4
 NO_ROTATE_FLAG = 16
@@ -78,8 +80,8 @@ def write_annotation(pdf: pikepdf.Pdf, annotation: Annotation, page: pikepdf.Pag
     """
     if annotation.kind is Kind.TEXT_BOX:
         entries, appearance = _text_box(pdf, annotation, frame)
-    elif annotation.kind is Kind.IMAGE:
-        entries, appearance = _image(pdf, annotation, frame)
+    elif annotation.kind in KEPT_DRAWINGS:
+        entries, appearance = _kept_drawing(pdf, annotation, frame)
     else:
         entries, appearance = _drawn(pdf, annotation, frame)
     dictionary = pikepdf.Dictionary(_common_entries(annotation, page))
@@ -159,19 +161,25 @@ def _text_box(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tup
     return entries, appearance
 
 
-def _image(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[dict[str, object], pikepdf.Object]:
-    """An image (Stamp): its entries, and its drawing, which viewers stretch from its box to the image's /Rect.
+def _kept_drawing(
+    pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame
+) -> tuple[dict[str, object], pikepdf.Object]:
+    """An image or a stamp (Stamp): its entries, and its drawing, which viewers stretch from its box to its /Rect.
 
     The drawing kept is painted unturned, as it was in its page; its opacity goes in the drawing too, as with the
-    others.
+    others. A stamp keeps its name (/Name).
     """
     if not annotation.drawing:
-        message = "an image needs its drawing"
+        message = "an image or a stamp needs its drawing"
         raise ValueError(message)
     with pikepdf.open(io.BytesIO(annotation.drawing)) as kept:
         drawing = pdf.copy_foreign(kept.make_indirect(kept.pages[0].as_form_xobject(handle_transformations=False)))
     entries: dict[str, object] = {"/Rect": _bounds(_rectangle_points(annotation.rectangle, frame))}
-    entries["/IT"] = pikepdf.Name(f"/{STAMP_IMAGE}")
+    if annotation.kind is Kind.IMAGE:
+        entries["/IT"] = pikepdf.Name(f"/{STAMP_IMAGE}")
+    else:
+        entries["/IT"] = pikepdf.Name(f"/{STAMP_INTENT}")
+        entries["/Name"] = pikepdf.Name(f"/{annotation.stamp}")
     resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary({DRAWING: drawing}))
     content = f"q {DRAWING} Do Q"
     opacity = annotation.style.opacity
@@ -211,7 +219,8 @@ def _common_entries(annotation: Annotation, page: pikepdf.Page) -> dict[str, obj
         "/M": pdf_date(annotation.modified) if annotation.modified else created,
         "/F": PRINT_FLAG,
     }
-    if annotation.kind is not Kind.IMAGE:  # An image has no colour.
+    if annotation.kind is not Kind.IMAGE and (annotation.color or annotation.kind is not Kind.STAMP):
+        # An image has no colour, nor a stamp of another program that had none.
         entries["/C"] = pikepdf.Array(_rounded(annotation.color or (0.0, 0.0, 0.0)))
     if annotation.text:
         entries["/Contents"] = utf16(annotation.text)

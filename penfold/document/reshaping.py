@@ -1,11 +1,11 @@
 """Moving annotations and changing their size with handles.
 
-Rectangles, circles, freehand drawings and images have a handle at each corner (images keep their proportion), arrows
-one at each end; text boxes have one at each side, which change only their width (rendering/text_box.py: their height
-follows the text). Comments are only moved. Marks on text (highlights, underlines, strikethroughs) have one where they
-start and one where they end, and they cover the text from one to the other (the interface asks Poppler for it); they do
-not move. Everything stays inside the annotation's page. An image being put on a page goes where placed says. Images
-also turn a quarter at a time (turned).
+Rectangles, circles, freehand drawings, images and stamps have a handle at each corner (images and stamps keep their
+proportion; a stamp without its drawing is only moved), arrows one at each end; text boxes have one at each side,
+which change only their width (rendering/text_box.py: their height follows the text). Comments are only moved. Marks
+on text (highlights, underlines, strikethroughs) have one where they start and one where they end, and they cover the
+text from one to the other (the interface asks Poppler for it); they do not move. Everything stays inside the
+annotation's page. An image being put on a page goes where placed says. Images also turn a quarter at a time (turned).
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -14,7 +14,7 @@ import enum
 import math
 from dataclasses import replace
 
-from penfold.document.annotations import TEXT_MARKUPS, Annotation, Kind
+from penfold.document.annotations import KEPT_DRAWINGS, TEXT_MARKUPS, Annotation, Kind
 from penfold.document.freehand import freehand_rectangle
 from penfold.document.geometry import Rectangle, Size, bounds
 from penfold.document.images import turned_drawing
@@ -28,9 +28,11 @@ FLAT = 1e-6
 # The margin an image bigger than its page keeps from each edge when it is put, in points: an inch, about 2.5 cm (a
 # page's usual margin); at most a quarter of the page, on very small ones.
 IMAGE_MARGIN = 72.0
-MOVABLE = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX, Kind.IMAGE})
+MOVABLE = frozenset(
+    {Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.COMMENT, Kind.TEXT_BOX, Kind.IMAGE, Kind.STAMP}
+)
 RESIZABLE = frozenset(
-    {Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE, *TEXT_MARKUPS}
+    {Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE, Kind.STAMP, *TEXT_MARKUPS}
 )
 
 
@@ -58,8 +60,11 @@ def can_move(annotation: Annotation) -> bool:
 
 
 def can_resize(annotation: Annotation) -> bool:
-    """Whether an annotation is of a type whose size or ends change with handles (marks: the text they cover)."""
-    return annotation.kind in RESIZABLE
+    """Whether an annotation is of a type whose size or ends change with handles (marks: the text they cover).
+
+    A stamp without its drawing is not: Penfold cannot draw it at another size.
+    """
+    return annotation.kind in RESIZABLE and annotation.drawable
 
 
 def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
@@ -81,7 +86,7 @@ def moved(annotation: Annotation, offset: Point, page_size: Size) -> Annotation:
 
 
 def corner_handles(annotation: Annotation) -> dict[Handle, Point]:
-    """Where the handles of a rectangle, circle, freehand drawing or image are: the corners of its rectangle."""
+    """Where the handles of a rectangle, circle, freehand drawing, image or stamp are: the corners of its rectangle."""
     left, top, right, bottom = annotation.rectangle
     return {
         Handle.TOP_LEFT: (left, top),
@@ -130,11 +135,11 @@ def with_lines(annotation: Annotation, lines: list[Rectangle]) -> Annotation:
 
 
 def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size: Size) -> Annotation:
-    """A rectangle, circle, freehand drawing or image with a corner taken to a point of its page; the opposite stays.
+    """A rectangle, circle, freehand drawing, image or stamp with a corner taken to a point of its page.
 
-    Taken past the opposite corner, the shape turns over; it never gets smaller than SMALLEST_SIZE. A freehand drawing's
-    strokes are stretched or shrunk to fill its new rectangle, inside its line, which keeps its width; they do not turn
-    over, so that it is never seen mirrored. An image keeps its proportion (_scaled).
+    The opposite corner stays. Taken past it, the shape turns over; it never gets smaller than SMALLEST_SIZE. A freehand
+    drawing's strokes are stretched or shrunk to fill its new rectangle, inside its line, which keeps its width; they do
+    not turn over, so that it is never seen mirrored. An image or a stamp keeps its proportion (_scaled).
 
     Raises:
         ValueError: the handle is not a corner.
@@ -144,7 +149,7 @@ def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size:
         raise ValueError(message)
     opposite = CORNERS[(CORNERS.index(corner) + 2) % len(CORNERS)]
     fixed_x, fixed_y = corner_handles(annotation)[opposite]
-    if annotation.kind is Kind.IMAGE:
+    if annotation.kind in KEPT_DRAWINGS:
         return _scaled(annotation, corner, (fixed_x, fixed_y), point, page_size)
     width, height = page_size
     smallest = SMALLEST_SIZE + 2 * _margin(annotation) if annotation.kind is Kind.FREEHAND else SMALLEST_SIZE
@@ -156,7 +161,7 @@ def with_corner(annotation: Annotation, corner: Handle, point: Point, page_size:
 
 
 def _scaled(annotation: Annotation, corner: Handle, fixed: Point, point: Point, page_size: Size) -> Annotation:
-    """An image grown or shrunk from its fixed corner towards a point, keeping its proportion.
+    """An image or a stamp grown or shrunk from its fixed corner towards a point, keeping its proportion.
 
     It follows the pointer along the side it is taken furthest by, as much as it fits in the page, and never turns over
     (it is never seen mirrored); its shorter side never gets smaller than SMALLEST_SIZE.

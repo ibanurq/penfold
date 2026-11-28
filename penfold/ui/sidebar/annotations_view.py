@@ -15,7 +15,7 @@ from penfold.document.annotations import TEXT_MARKUPS, Annotation, AnnotationGro
 from penfold.document.document import OpenDocument
 from penfold.rendering.page_content import PageContent
 from penfold.rendering.renderer import Renderer
-from penfold.ui.annotation_icons import KIND_ICONS, kind_names
+from penfold.ui.annotation_icons import KIND_ICONS, kind_names, stamp_name
 from penfold.ui.context_menu import is_menu_key
 from penfold.ui.sidebar.view_header import (
     RecentUse,
@@ -342,7 +342,7 @@ class AnnotationsView(Gtk.Box):
         self._rows[id(annotation)] = row
         self._show_mark(row)
         if id(annotation) in self._texts or not self._needs_marked_text(annotation):
-            row.show_text(self._texts.get(id(annotation), annotation.text))
+            row.show_text(self._texts.get(id(annotation), _own_text(annotation)))
         else:
             row.show_text(None)
             self._pending_texts[row] = (annotation, item)
@@ -471,6 +471,13 @@ class AnnotationsView(Gtk.Box):
         else:
             self.shown_groups.discard(group)
         self.refresh()
+
+
+def _own_text(annotation: Annotation) -> str:
+    """What a row reads of an annotation's own: its text; a stamp without one, which stamp it is."""
+    if not annotation.text and annotation.kind is Kind.STAMP:
+        return stamp_name(annotation.stamp)
+    return annotation.text
 
 
 def _compare(first: object, second: object, order: list[AnnotationGroup]) -> int:

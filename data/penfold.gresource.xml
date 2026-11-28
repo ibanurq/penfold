@@ -11,6 +11,7 @@
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-circle-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-comment-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-freehand-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-stamp-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-highlight-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-other-symbolic.svg</file>
     <file preprocess="xml-stripblanks">icons/scalable/actions/penfold-type-rectangle-symbolic.svg</file>
