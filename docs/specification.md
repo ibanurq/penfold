@@ -72,11 +72,11 @@ penfold/
 │   ├── document.py           OpenDocument: an open PDF and everything that can be edited in it, with its history.
 │   ├── sources.py            The source PDFs whose pages make up the document (the opened one and those added).
 │   ├── pages.py, page_labels.py, page_frame.py, geometry.py
-│   ├── annotations.py, appearance.py, reshaping.py, freehand.py, images.py, image_files.py
+│   ├── annotations.py, appearance.py, reshaping.py, freehand.py, images.py, image_files.py, stamps.py
 │   ├── bookmarks.py, forms.py, form_filling.py, access_permissions.py, properties.py, pdf_values.py
 │   ├── history.py, commands/ Undo and redo, and one command class per kind of change.
 │   └── saving.py, extracting.py
-├── rendering/                Drawing with Poppler and cairo: pages in worker threads, annotations, images, text boxes, search.
+├── rendering/                Drawing with Poppler and cairo: pages in worker threads, annotations, images, text boxes, stamps, search.
 └── ui/                       The interface: window, headers, document view, side panel, dialogs. GTK 4 + libadwaita.
 data/
 ├── ui/                       The interface in Blueprint (.blp), one file per piece of ui/.
@@ -385,6 +385,15 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
   their drawing as images do, stretched to their rectangle, and are written again with it, their `/Name`, `/IT /Stamp`
   and their color (if they had one). A stamp without a drawing is drawn by each viewer its own way: Penfold only moves
   it, keeping the drawing Poppler gives it.
+- **Penfold’s stamps** are eight, in three groups by their color, from GNOME’s palette: green `#26a269` (Approved,
+  Final, Received, Paid), blue `#1c71d8` (Draft, For Comment) and red `#c01c28` (Not Approved, Confidential). Their
+  `/Name` is the standard’s (`/Approved`, `/Final`, `/Draft`, `/ForComment`, `/NotApproved`, `/Confidential`) or, for
+  the two the standard lacks, `/Received` and `/Paid`. They are upright as the page is seen, like a rubber stamp: a
+  double border with round corners (1.6 pt outside, 0.5 pt inside, 1.4 pt apart), a faint background of the color (14 %,
+  what is under it shows through), and the word in capitals, in the interface’s language, in Liberation Sans Bold 14 pt
+  spaced out by 1.4 pt, in the color. All are 28 pt (1 cm) tall; each is as wide as its word, with 11 pt at each side
+  (“APPROVED”, about 4 cm). They are written with that drawing (the letters used inside), `/Name`, `/IT /Stamp` and
+  their color, so every viewer shows them alike.
 - **Images from files:** JPEG, PNG, WebP, GIF (its first picture), BMP and
   TIFF, read with Pillow. A JPEG goes in as it is (`/DCTDecode`), without loss and without growing; the others go in
   without loss (`/FlateDecode` with PNG predictors), their transparency as a soft mask (`/SMask`). A photo is seen as

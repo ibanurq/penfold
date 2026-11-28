@@ -35,6 +35,7 @@ MATRIX_SIZE = 6
 
 # A box in the PDF: left, bottom, right, top.
 Box = tuple[float, float, float, float]
+Matrix = tuple[float, float, float, float, float, float]
 
 
 def image_drawing(annotation: pikepdf.Dictionary, rotation: int = 0) -> bytes | None:
@@ -136,6 +137,40 @@ def _drawn_box(form: pikepdf.Stream) -> Box | None:
     if right - left <= 0 or top - bottom <= 0:
         return None
     return left, bottom, right, top
+
+
+def upright_matrix(seen: int, width: float, height: float) -> Matrix:
+    """From the page as seen, turned clockwise by seen degrees, to the page unturned (both from the bottom left)."""
+    return {
+        0: (1, 0, 0, 1, 0, 0),
+        90: (0, 1, -1, 0, height, 0),
+        180: (-1, 0, 0, -1, width, height),
+        270: (0, -1, 1, 0, 0, width),
+    }[seen % 360]
+
+
+def upright_drawing(drawing: bytes, rotation: int, turn: int) -> bytes:
+    """A drawing made as it is to be seen (a one-page PDF), kept for a page its PDF turns by rotation (/Rotate).
+
+    Penfold turns that page by turn too: the drawing goes inside its kept page turned so that it is seen upright on
+    the page, and the kept page is turned as the page is (/Rotate), as the drawings of images are.
+    """
+    with pikepdf.open(io.BytesIO(drawing)) as made, pikepdf.new() as pdf:
+        left, bottom, right, top = numbers(made.pages[0].obj.get("/MediaBox")) or (0.0, 0.0, 0.0, 0.0)
+        width, height = right - left, top - bottom
+        form = pdf.copy_foreign(made.make_indirect(made.pages[0].as_form_xobject(handle_transformations=False)))
+        seen = (rotation + turn) % 360
+        pdf.add_blank_page(page_size=(height, width) if seen % 180 else (width, height))
+        page = pdf.pages[0].obj
+        page.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary({DRAWING: form}))
+        matrix = " ".join(f"{value:g}" for value in upright_matrix(seen, width, height))
+        move = f" 1 0 0 1 {-left:g} {-bottom:g} cm" if left or bottom else ""
+        page.Contents = pdf.make_stream(f"q {matrix} cm{move} {DRAWING} Do Q".encode())
+        if rotation % 360:
+            page.Rotate = rotation % 360
+        written = io.BytesIO()
+        pdf.save(written)
+    return written.getvalue()
 
 
 def turned_drawing(drawing: bytes, clockwise: bool) -> bytes:

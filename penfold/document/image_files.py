@@ -19,6 +19,7 @@ from pathlib import Path
 import pikepdf
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from penfold.document.images import upright_matrix
 from penfold.errors import ImageOpenError
 
 # The formats that can be inserted, as Pillow names them.
@@ -47,8 +48,6 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_PIXELS = b"IDAT"
 PNG_PREDICTORS = 15
 COLOR_SPACES = {"L": pikepdf.Name.DeviceGray, "RGB": pikepdf.Name.DeviceRGB, "CMYK": pikepdf.Name.DeviceCMYK}
-
-Matrix = tuple[float, float, float, float, float, float]
 
 
 def image_from_file(path: Path, rotation: int = 0, turn: int = 0) -> tuple[bytes, tuple[float, float]]:
@@ -187,21 +186,11 @@ def _add_page(
     pdf.add_blank_page(page_size=unturned)
     page = pdf.pages[0].obj
     page.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary({"/Image": picture}))
-    matrices = [_upright(seen, width, height), (width, 0, 0, height, 0, 0), ORIENTATIONS[orientation]]
+    matrices = [upright_matrix(seen, width, height), (width, 0, 0, height, 0, 0), ORIENTATIONS[orientation]]
     content = " ".join(f"{_numbers(matrix)} cm" for matrix in matrices)
     page.Contents = pdf.make_stream(f"q {content} /Image Do Q".encode())
     if rotation % 360:
         page.Rotate = rotation % 360
-
-
-def _upright(seen: int, width: float, height: float) -> Matrix:
-    """From the page as seen, turned clockwise by seen degrees, to the page unturned (both from the bottom left)."""
-    return {
-        0: (1, 0, 0, 1, 0, 0),
-        90: (0, 1, -1, 0, height, 0),
-        180: (-1, 0, 0, -1, width, height),
-        270: (0, -1, 1, 0, 0, width),
-    }[seen]
 
 
 def _numbers(values: tuple[float, ...]) -> str:

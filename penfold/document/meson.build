@@ -21,6 +21,7 @@ install_data(
   'reshaping.py',
   'saving.py',
   'sources.py',
+  'stamps.py',
   install_dir: pkgdatadir / 'penfold' / 'document',
 )
 

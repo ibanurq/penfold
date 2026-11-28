@@ -220,11 +220,12 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     text_turn: int = 0,
     drawing: bytes = b"",
     style: Style | None = None,
+    stamp: str = "",
 ) -> Annotation:
     """Make an annotation in Penfold, now, by an author ("Penfold" if none is set), with a unique name.
 
     It looks as new annotations of its type do, unless a style is given. An image has no colour (its drawing is that
-    of image_files.py).
+    of image_files.py); a stamp has its name (document/stamps.py) and its drawing (rendering/stamp_look.py).
 
     Raises:
         ValueError: the kind is not one Penfold makes.
@@ -245,6 +246,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         strokes=strokes,
         text_turn=text_turn,
         drawing=drawing,
+        stamp=stamp if kind is Kind.STAMP else "",
         style=style or default_style(kind),
         name=_new_name(),
         created=datetime.now(UTC),
