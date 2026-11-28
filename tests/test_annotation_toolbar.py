@@ -143,7 +143,11 @@ def test_in_a_narrow_window_the_zoom_buttons_rise_above_the_bar(window: "Penfold
 def test_each_tool_has_the_icon_of_its_type_in_the_panel(window: "PenfoldWindow") -> None:
     for tool, button in window.annotation_toolbar.tool_buttons.items():
         expected = KIND_ICONS[tool.kind] if tool.kind else SELECT_TEXT_ICON
-        assert button.get_icon_name() == expected
+        child = button.get_child()
+        if isinstance(child, Gtk.Box):  # The stamp tool's: its icon, then an arrow.
+            child = child.get_first_child()
+        icon = child.get_icon_name() if isinstance(child, Gtk.Image) else button.get_icon_name()
+        assert icon == expected
     assert set(KIND_ICONS) == set(Kind)
 
 

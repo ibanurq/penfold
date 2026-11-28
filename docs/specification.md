@@ -23,8 +23,7 @@ Two principles guide what it does:
   appearance stream (`/AP`)** and every entry the standard asks for, so other viewers show them exactly as Penfold
   does. Text written into the PDF is UTF-16, so emoji and any other character are kept.
 
-Penfold never uses the network. It does not create new annotation types beyond the ten listed below, insert images,
-set passwords or permissions on a PDF, or recognize text in scanned pages.
+Penfold never uses the network. It does not create annotation types beyond those listed below, set passwords or permissions on a PDF, or recognize text in scanned pages.
 
 ## Name, version and license
 
@@ -194,12 +193,12 @@ buttons rise just above the bar. It looks like GNOME’s side panel: light gray 
 border and a soft shadow, so it stands out from white paper. While it is shown, toasts appear just above it.
 
 ```
-[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Image] | [Color]
+[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Image] [Stamp] | [Color]
 ```
 
 - The separators mark the groups of annotations (see “Annotation groups”).
 - One tool at a time; Select Text is the default; the initial color is yellow. **The tool stays active** after an
-  annotation is made, and the cursor shows which one it is (but for Image). Each annotation made can be undone and
+  annotation is made, and the cursor shows which one it is (but for Image and Stamp). Each annotation made can be undone and
   redone.
 - **Image** first opens the file chooser, “Insert Image”, with the images that can be inserted; its button stays
   pressed. Back on the document, with the crosshair cursor, a thin frame in the accent color, as big as the image,
@@ -209,6 +208,12 @@ border and a soft shadow, so it stands out from white paper. While it is shown, 
   changed afterwards, with Move and Resize). Then the tool chosen before comes back. Cancelling the
   file chooser, or Esc, puts nothing and brings it back too; a file that cannot be read says so in a toast (“The image
   could not be opened”).
+- **Stamp** has an arrow beside its icon, as the color button: it opens upwards a menu with the names of Penfold’s
+  eight stamps, in three sections by their color (Approved, Final, Received, Paid · Draft, For Comment · Not Approved,
+  Confidential); its button stays pressed. Choosing one closes the menu, and a thin frame as big as that stamp follows
+  the pointer as the image’s does; a **click** puts it there, at once, in its own color (the bar’s does not change
+  it), and the tool chosen before comes back. Closing the menu without choosing one, or Esc, puts nothing and brings
+  it back too.
 - **Color:** a button with the current color opens upwards a row of six color circles, with a ring around the one
   chosen; choosing a color closes it. Every palette in the app looks like this.
 - **H and U:** with text selected, they highlight or underline it without changing the tool; with nothing selected,
@@ -217,8 +222,8 @@ border and a soft shadow, so it stands out from white paper. While it is shown, 
   easy; annotations are edited with the right click (see “Editing annotations”). Form fields only respond with Select
   Text.
 - **Esc** does only the first of these that applies: close an open menu or palette → cancel the text being written →
-  close the Find view → clear the selection of Pages or Bookmarks → go back to the Select Text tool (from Image, to the
-  tool chosen before).
+  close the Find view → clear the selection of Pages or Bookmarks → go back to the Select Text tool (from Image and
+  Stamp, to the tool chosen before).
 
 ### Side panel
 
@@ -375,6 +380,7 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
 | Image | `/Stamp`, `/IT /StampImage` | Choosing its file, then clicking | The image, as big as it is printed (see “Images from files”); if bigger than the page, shrunk to fit an inch inside its edges |
+| Stamp | `/Stamp`, `/IT /Stamp`, `/Name` | Choosing it in the menu, then clicking | A word in a double rounded border, in its color (see “Penfold’s stamps”) |
 
 - **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
@@ -455,8 +461,8 @@ Delete
 
 - **Move and Resize:** handles on the annotation: corners for rectangles and circles; for freehand drawings, whose
   strokes stretch or shrink to fill the new frame without being mirrored, while their line keeps its width; for
-  images and stamps, which keep their proportion (they follow the pointer along the side it is taken furthest by, never mirrored,
-  within the page), their drawing stretched as viewers stretch it; for a text box, one on each side,
+  images and stamps, which keep their proportion (they follow the pointer along the side it is taken furthest by,
+  never mirrored, within the page), their drawing stretched as viewers stretch it; for a text box, one on each side,
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.

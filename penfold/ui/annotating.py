@@ -10,7 +10,9 @@ drag, and is smoothed a little when the mouse is released (document/freehand.py)
 text is written in a popover. A drag sets the width of a text box (a click gives it a usual width), whose text is
 written on the page. The image tool first asks for the image's file; then a frame of its size follows the pointer, and
 a click puts it on the page (ui/image_placing.py). Once it is put, or if the file is not chosen or cannot be
-read, or with Esc, the tool chosen before comes back.
+read, or with Esc, the tool chosen before comes back. The stamp tool does the same with the stamp chosen in its menu
+(ui/annotation_toolbar.py), in its own colour, with its word in the interface's language; closing the menu without
+choosing one brings the tool before back.
 """
 
 from collections.abc import Callable
@@ -28,9 +30,12 @@ from penfold.document.freehand import freehand_rectangle, smoothed
 from penfold.document.geometry import Rectangle, bounds
 from penfold.document.image_files import image_from_file
 from penfold.document.reshaping import SMALLEST_SIZE
+from penfold.document.stamps import STAMPS
 from penfold.errors import ImageOpenError
 from penfold.rendering.layout import ShownPage
+from penfold.rendering.stamp_look import stamp_drawing, stamp_size
 from penfold.rendering.text_box import DEFAULT_WIDTH, NARROWEST, text_box_pdf, text_height
+from penfold.ui.annotation_icons import stamp_name
 from penfold.ui.annotation_toolbar import AnnotationToolbar, Tool
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.document_view import DocumentView, PageClick
@@ -41,8 +46,10 @@ Point = tuple[float, float]
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
 DRAWING_TOOLS = frozenset(
-    {Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND, Tool.COMMENT, Tool.TEXT_BOX, Tool.IMAGE}
+    {Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND, Tool.COMMENT, Tool.TEXT_BOX, Tool.IMAGE, Tool.STAMP}
 )
+# The tools that put one thing on a page, and then give way to the tool chosen before.
+PLACING_TOOLS = frozenset({Tool.IMAGE, Tool.STAMP})
 MARKING_TOOLS = frozenset({Tool.HIGHLIGHT, Tool.UNDERLINE, Tool.SQUIGGLY, Tool.STRIKE_OUT})
 SHAPE_TOOLS = frozenset({Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW})
 
@@ -71,10 +78,12 @@ class Annotating:
         self._document_view = document_view
         self._document = document
         self._chosen_tool = Tool.SELECT
-        # The tool that comes back once an image is put; and the image being put: its file, its size as seen (points)
-        # and its drawings, by the turns of the page they are made for (the PDF's and Penfold's).
-        self._before_image = Tool.SELECT
+        # The tool that comes back once an image or a stamp is put; the image being put: its file, its size as seen
+        # (points) and its drawings, by the turns of the page they are made for (the PDF's and Penfold's); and the
+        # name of the stamp being put.
+        self._before_placing = Tool.SELECT
         self._image: tuple[Path, tuple[float, float], dict[tuple[int, int], bytes]] | None = None
+        self._stamp: str | None = None
         self._chosen_color = ANNOTATION_COLORS[0]
         self._bar_shown = False
         self.comment_popover: CommentPopover | None = None
@@ -91,7 +100,9 @@ class Annotating:
             "annotation-color", GLib.VariantType.new("s"), GLib.Variant.new_string(ANNOTATION_COLORS[0])
         )
         self._color.connect("change-state", self._on_color_chosen)
-        for action in (self._annotate, self._tool, self._color):
+        self._put_stamp_action = Gio.SimpleAction.new("put-stamp", GLib.VariantType.new("s"))
+        self._put_stamp_action.connect("activate", lambda _action, name: self.place_stamp(name.get_string()))
+        for action in (self._annotate, self._tool, self._color, self._put_stamp_action):
             window.add_action(action)
         document_view.connect("text-selected", self._on_text_selected)
         document_view.connect("shape-drawn", self._on_shape_drawn)
@@ -138,8 +149,8 @@ class Annotating:
         self._tool.change_state(GLib.Variant.new_string(tool.value))
 
     def leave_tool(self) -> None:
-        """Esc: from the image tool, back to the tool chosen before; from the others, to Select Text."""
-        self.choose(self._before_image if self.tool is Tool.IMAGE else Tool.SELECT)
+        """Esc: from the image and stamp tools, back to the tool chosen before; from the others, to Select Text."""
+        self.choose(self._before_placing if self.tool in PLACING_TOOLS else Tool.SELECT)
 
     def mark_or_choose(self, tool: Tool) -> bool:
         """H and U: mark the text selected with this tool's mark, or else choose it; return whether done."""
@@ -175,11 +186,12 @@ class Annotating:
     def _on_tool_chosen(self, action: Gio.SimpleAction, value: GLib.Variant) -> None:
         if value.get_string() not in {tool.value for tool in Tool}:
             return
-        if Tool(value.get_string()) is Tool.IMAGE and self.tool is not Tool.IMAGE:
-            self._before_image = self.tool
+        if Tool(value.get_string()) in PLACING_TOOLS and self.tool not in PLACING_TOOLS:
+            self._before_placing = self.tool
         action.set_state(value)
         self._chosen_tool = Tool(value.get_string())
         self._image = None
+        self._stamp = None
         self._document_view.stop_placing_image()
         self._document_view.marking = self.tool in MARKING_TOOLS
         makers = {
@@ -193,6 +205,8 @@ class Annotating:
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
         if self.tool is Tool.IMAGE:
             image_file_dialog().open(self._window, None, self._on_image_file_chosen)
+        elif self.tool is Tool.STAMP:
+            self._toolbar.show_stamp_menu(self._on_stamp_menu_closed)
 
     def _on_image_file_chosen(self, dialog: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
         try:
@@ -203,7 +217,7 @@ class Annotating:
         if self.tool is not Tool.IMAGE:
             return  # Another tool was chosen meanwhile.
         if path is None:
-            self.choose(self._before_image)
+            self.choose(self._before_placing)
             return
         self.place_image(Path(path))
 
@@ -213,7 +227,7 @@ class Annotating:
             drawing, size = image_from_file(path)
         except ImageOpenError:
             self._notify(_("The image could not be opened"))
-            self.choose(self._before_image)
+            self.choose(self._before_placing)
             return
         self._image = (path, size, {(0, 0): drawing})
         self._document_view.place_image(size, self._put_image)
@@ -222,7 +236,7 @@ class Annotating:
         """Put the image being placed on a page, in a rectangle of the page as shown; the tool before comes back."""
         document, image = self._document(), self._image
         if document is None or image is None or not self.allowed:
-            self.choose(self._before_image)
+            self.choose(self._before_placing)
             return
         path, _size, drawings = image
         turns = (document.own_rotation(page.source), page.rotation)
@@ -230,15 +244,40 @@ class Annotating:
             drawing = drawings.get(turns) or image_from_file(path, *turns)[0]
         except ImageOpenError:
             self._notify(_("The image could not be opened"))
-            self.choose(self._before_image)
+            self.choose(self._before_placing)
             return
-        left, top, right, bottom = shown
-        corners = [page.to_source(left, top), page.to_source(right, bottom)]
-        xs, ys = [x for x, _y in corners], [y for _x, y in corners]
-        rectangle = (min(xs), min(ys), max(xs), max(ys))
-        made = new_annotation(Kind.IMAGE, page.source, rectangle, None, self._author(), drawing=drawing)
+        made = new_annotation(Kind.IMAGE, page.source, _unturned(page, shown), None, self._author(), drawing=drawing)
         document.execute(AddAnnotations(document, [made]))
-        self.choose(self._before_image)
+        self.choose(self._before_placing)
+
+    def place_stamp(self, name: str) -> None:
+        """Show where one of Penfold's stamps goes, following the pointer, until a click puts it on a page.
+
+        It is chosen in the stamp tool's menu, with the tool chosen.
+        """
+        if name not in STAMPS or not self.allowed or self.tool is not Tool.STAMP:
+            return
+        self._stamp = name
+        self._document_view.place_image(stamp_size(stamp_name(name)), self._put_stamp)
+
+    def _on_stamp_menu_closed(self) -> None:
+        """Closed without choosing a stamp, the menu brings the tool chosen before back."""
+        if self.tool is Tool.STAMP and self._stamp is None:
+            self.choose(self._before_placing)
+
+    def _put_stamp(self, page: ShownPage, shown: Rectangle) -> None:
+        """Put the stamp being placed on a page, in a rectangle of the page as shown; the tool before comes back."""
+        document, name = self._document(), self._stamp
+        if document is None or name is None or not self.allowed:
+            self.choose(self._before_placing)
+            return
+        color = STAMPS[name].color
+        turns = (document.own_rotation(page.source), page.rotation)
+        drawing, _size = stamp_drawing(stamp_name(name), color, *turns)
+        rectangle = _unturned(page, shown)
+        made = new_annotation(Kind.STAMP, page.source, rectangle, color, self._author(), drawing=drawing, stamp=name)
+        document.execute(AddAnnotations(document, [made]))
+        self.choose(self._before_placing)
 
     def _make_shape(self, page: ShownPage, trail: list[Point]) -> Annotation | None:
         """The shape of the tool chosen from one end of a drag to the other; None for a click."""
@@ -364,3 +403,11 @@ class Annotating:
             action.set_state(value)
             self._chosen_color = value.get_string()
             self._toolbar.show_color(self._chosen_color)
+
+
+def _unturned(page: ShownPage, shown: Rectangle) -> Rectangle:
+    """A rectangle of a page as shown, on the page as its PDF shows it (Penfold's turn undone)."""
+    left, top, right, bottom = shown
+    corners = [page.to_source(left, top), page.to_source(right, bottom)]
+    xs, ys = [x for x, _y in corners], [y for _x, y in corners]
+    return min(xs), min(ys), max(xs), max(ys)

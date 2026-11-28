@@ -103,14 +103,16 @@ def click(window: "PenfoldWindow", page: int, at: tuple[float, float], to: tuple
 
 
 def test_the_image_tool_has_a_group_of_its_own_before_the_colour(image_window: "PenfoldWindow") -> None:
-    assert TOOL_GROUPS[-1] == (Tool.IMAGE,)
+    assert TOOL_GROUPS[-1] == (Tool.IMAGE, Tool.STAMP)
     bar = image_window.annotation_toolbar
     button = bar.tool_buttons[Tool.IMAGE]
     before, after = button.get_prev_sibling(), button.get_next_sibling()
     assert isinstance(before, Gtk.Separator)
     assert before.get_prev_sibling() is bar.tool_buttons[Tool.TEXT_BOX]
-    assert isinstance(after, Gtk.Separator)
-    assert after.get_next_sibling() is bar.color_button
+    assert after is bar.tool_buttons[Tool.STAMP]
+    separator = after.get_next_sibling()
+    assert isinstance(separator, Gtk.Separator)
+    assert separator.get_next_sibling() is bar.color_button
     assert (button.get_icon_name(), button.get_tooltip_text()) == ("image-x-generic-symbolic", "Image")
 
 

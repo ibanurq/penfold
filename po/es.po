@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-28 07:13+0100\n"
+"POT-Creation-Date: 2026-11-28 07:48+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -71,10 +71,10 @@ msgstr "Anotaciones: resaltados, subrayados (también ondulados) y tachados"
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:21
 msgid ""
 "Graphic elements: comments, text boxes, rectangles, circles, arrows, "
-"freehand drawings and images"
+"freehand drawings, images and stamps"
 msgstr ""
 "Elementos gráficos: comentarios, cuadros de texto, cuadros, círculos, "
-"flechas, dibujos a mano alzada e imágenes"
+"flechas, dibujos a mano alzada, imágenes y sellos"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:22
 msgid ""
@@ -545,7 +545,7 @@ msgstr "Licencia SIL Open Font 1.1."
 msgid "Icons"
 msgstr "Iconos"
 
-#: penfold/ui/annotating.py:215 penfold/ui/annotating.py:232
+#: penfold/ui/annotating.py:229 penfold/ui/annotating.py:246
 msgid "The image could not be opened"
 msgstr "No se pudo abrir la imagen"
 
@@ -722,12 +722,12 @@ msgstr "Vendido"
 msgid "Top Secret"
 msgstr "Alto secreto"
 
-#: penfold/ui/annotation_toolbar.py:78
+#: penfold/ui/annotation_toolbar.py:87
 msgid "Select Text"
 msgstr "Seleccionar texto"
 
 #. Without a name of its own, screen readers would read the names of the colours in its open palette.
-#: penfold/ui/annotation_toolbar.py:115 penfold/ui/annotation_toolbar.py:122
+#: penfold/ui/annotation_toolbar.py:127 penfold/ui/annotation_toolbar.py:134
 msgid "Color"
 msgstr "Color"
 

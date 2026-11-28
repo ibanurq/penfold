@@ -1,6 +1,6 @@
-"""Putting an image on a page: a thin frame of its size follows the pointer, and a click puts it there.
+"""Putting an image or a stamp on a page: a thin frame of its size follows the pointer, and a click puts it there.
 
-Once its file is chosen, the frame shows where the image goes and how big it is, with its top left corner at the
+Once its file (or the stamp) is chosen, the frame shows where it goes and how big it is, with its top left corner at the
 pointer, all inside the page (document/reshaping.py, placed). Pressing puts it there, as it is: its size is changed
 afterwards, with its handles. The document view owns the placer and passes it the mouse.
 """
