@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-28 11:31+0100\n"
+"POT-Creation-Date: 2026-11-28 11:38+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -136,6 +136,14 @@ msgstr "Elegir qué anotaciones se imprimen"
 
 #: data/io.github.ibanurq.Penfold.metainfo.xml.in:77
 msgid ""
+"Fifth alpha of Penfold 1.1: polylines, drawn click by click, whose vertices "
+"can each be moved, also those made in other programs."
+msgstr ""
+"Quinta alfa de Penfold 1.1: polilíneas, que se dibujan clic a clic y cuyos "
+"puntos se pueden mover uno a uno, también las hechas con otros programas."
+
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:82
+msgid ""
 "Fourth alpha of Penfold 1.1: stamps, such as Approved or Draft, which can be "
 "put, moved, resized and changed, also those made in other programs."
 msgstr ""
@@ -143,7 +151,7 @@ msgstr ""
 "poner, mover, cambiar de tamaño y cambiar por otros, también los hechos con "
 "otros programas."
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:82
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:87
 msgid ""
 "Third alpha of Penfold 1.1: images, which can be inserted, moved, resized "
 "and turned, also those made in other programs."
@@ -151,7 +159,7 @@ msgstr ""
 "Tercera alfa de Penfold 1.1: imágenes, que se pueden insertar, mover, "
 "cambiar de tamaño y girar, también las hechas con otros programas."
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:87
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:92
 msgid ""
 "Second alpha of Penfold 1.1: freehand drawings, also those made in other "
 "programs."
@@ -159,7 +167,7 @@ msgstr ""
 "Segunda alfa de Penfold 1.1: dibujos a mano alzada, también los hechos con "
 "otros programas."
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:92
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:97
 msgid ""
 "First alpha of Penfold 1.1: squiggly underlines, also those made in other "
 "programs."
@@ -167,7 +175,7 @@ msgstr ""
 "Primera alfa de Penfold 1.1: subrayados ondulados, también los hechos con "
 "otros programas."
 
-#: data/io.github.ibanurq.Penfold.metainfo.xml.in:97
+#: data/io.github.ibanurq.Penfold.metainfo.xml.in:102
 msgid ""
 "First stable version: read, annotate and organize PDFs, merge files, extract "
 "pages and fill in forms."

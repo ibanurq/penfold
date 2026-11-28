@@ -5,6 +5,22 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## 1.1.0-alpha.5 — 2026-11-28
+
+Fifth alpha of Penfold 1.1: polylines.
+
+### Added
+- Polyline, between Arrow and Freehand in the annotation bar: drawn click by click, a vertex at each, with a stretch
+  of line that follows the pointer from the last one. A double click or Enter finishes it, Esc cancels it and
+  Backspace takes away the last vertex. New ones are 1 pt wide, without arrowheads.
+- Polylines are saved as the standard keeps them (`/PolyLine`, with their vertices in `/Vertices`), with round corners
+  and their own drawing, so every viewer shows them alike.
+- Polylines can be edited like arrows: color, Format… (line width, solid or dashed line, arrowheads at the end or at
+  both ends, opacity), Move and Reshape (a handle on each vertex, which moves only that vertex; dragging the line moves
+  it whole) and Delete, also those made in other programs. One that measures (a dimension line) is warned of before
+  Penfold draws it again, since its measure would be lost.
+- Polylines are listed in Shapes, with an icon of their own.
+
 ## 1.1.0-alpha.4 — 2026-11-28
 
 Fourth alpha of Penfold 1.1: stamps.
