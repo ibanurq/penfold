@@ -25,6 +25,7 @@ install_data(
   'menus.py',
   'page_entry.py',
   'palette.py',
+  'polyline_drawing.py',
   'preferences_dialog.py',
   'reading_positions.py',
   'printing.py',

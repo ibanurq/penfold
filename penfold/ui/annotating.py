@@ -6,7 +6,8 @@ until another is chosen. A PDF is only annotated if it allows it: otherwise the 
 The tools that mark text (highlight, underline, squiggly underline, strike through) mark what is selected when the
 mouse is released. H and U mark the text selected without changing the tool, or else choose their tool. Rectangles,
 circles and arrows are drawn by dragging, from where the drag starts to where it ends; a freehand stroke follows the
-drag, and is smoothed a little when the mouse is released (document/freehand.py). A click places a comment, whose
+drag, and is smoothed a little when the mouse is released (document/freehand.py). A polyline is drawn click by click,
+a vertex at each, and finished with a double click or Enter (ui/polyline_drawing.py). A click places a comment, whose
 text is written in a popover. A drag sets the width of a text box (a click gives it a usual width), whose text is
 written on the page. The image tool first asks for the image's file; then a frame of its size follows the pointer, and
 a click puts it on the page (ui/image_placing.py). Once it is put, or if the file is not chosen or cannot be
@@ -46,7 +47,17 @@ Point = tuple[float, float]
 # Over the pages, the cursor of the tools that draw; the others select text, with the view's own cursor.
 DRAWING_CURSOR = "crosshair"
 DRAWING_TOOLS = frozenset(
-    {Tool.RECTANGLE, Tool.CIRCLE, Tool.ARROW, Tool.FREEHAND, Tool.COMMENT, Tool.TEXT_BOX, Tool.IMAGE, Tool.STAMP}
+    {
+        Tool.RECTANGLE,
+        Tool.CIRCLE,
+        Tool.ARROW,
+        Tool.POLYLINE,
+        Tool.FREEHAND,
+        Tool.COMMENT,
+        Tool.TEXT_BOX,
+        Tool.IMAGE,
+        Tool.STAMP,
+    }
 )
 # The tools that put one thing on a page, and then give way to the tool chosen before.
 PLACING_TOOLS = frozenset({Tool.IMAGE, Tool.STAMP})
@@ -200,6 +211,10 @@ class Annotating:
             Tool.TEXT_BOX: self._frame_text_box,
         }
         self._document_view.set_shape_maker(makers.get(self.tool))
+        if self.tool is Tool.POLYLINE:
+            self._document_view.draw_polylines(self._polyline, self._put_polyline)
+        else:
+            self._document_view.stop_drawing_polylines()
         self._document_view.placing = self.tool is Tool.COMMENT
         self._document_view.set_fields_active(self.tool is Tool.SELECT)
         self._document_view.set_drawing_cursor(DRAWING_CURSOR if self.tool in DRAWING_TOOLS else None)
@@ -299,6 +314,18 @@ class Annotating:
         style = default_style(Kind.FREEHAND)
         rectangle = freehand_rectangle([stroke], style.line_width)
         return new_annotation(Kind.FREEHAND, page.source, rectangle, self.color, self._author(), strokes=(stroke,))
+
+    def _polyline(self, page: ShownPage, shown: list[Point]) -> Annotation:
+        """The polyline through vertices of a page (points as shown), as new ones look: without arrowheads."""
+        vertices = tuple(page.to_source(*point) for point in shown)
+        rectangle = bounds([(x, y, x, y) for x, y in vertices])
+        return new_annotation(Kind.POLYLINE, page.source, rectangle, self.color, self._author(), vertices=vertices)
+
+    def _put_polyline(self, page: ShownPage, shown: list[Point]) -> None:
+        """Make the polyline finished on a page, through its vertices (points as shown); the tool stays chosen."""
+        document = self._document()
+        if document is not None and self.allowed:
+            document.execute(AddAnnotations(document, [self._polyline(page, shown)]))
 
     def _frame_text_box(self, page: ShownPage, trail: list[Point]) -> Annotation:
         """The empty text box a drag frames: as wide as the drag (a click: the usual width), inside the page."""

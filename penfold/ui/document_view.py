@@ -27,6 +27,7 @@ from penfold.ui.annotation_layer import AnnotationLayer
 from penfold.ui.form_layer import FormLayer, ShownBox
 from penfold.ui.handle_editor import HandleEditor
 from penfold.ui.image_placing import ImagePlacer
+from penfold.ui.polyline_drawing import PolylineDrawer, PolylineMaker
 from penfold.ui.text_box_editor import TextBoxEditor
 from penfold.ui.text_selection import PagePoint, TextSelection, source_selection
 
@@ -237,10 +238,12 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.text_editor: TextBoxEditor | None = None
         # An annotation being moved or resized with handles.
         self.handle_editor: HandleEditor | None = None
-        # An image being put on a page; and whether the press now going on was for it: the rest of that press (its
-        # drag and its release) does nothing, nor reaches the tool that comes back once the image is put.
+        # An image being put on a page, or a polyline being drawn click by click; and whether the press now going on was
+        # for one of them: the rest of that press (its drag and its release) does nothing, nor reaches the tool that
+        # comes back once the image is put.
         self.image_placer: ImagePlacer | None = None
-        self._image_press = False
+        self.polyline_drawer: PolylineDrawer | None = None
+        self._placing_press = False
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -291,6 +294,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.renderer.disconnect(self._rendered_handler)
         self.document = document
         self.renderer = renderer
+        if self.polyline_drawer is not None:
+            self.polyline_drawer.cancel()  # It was on the pages of the PDF shown before.
         self._rendered_handler = renderer.connect("tile-rendered", lambda _renderer, _page: self.queue_draw())
         self.content = PageContent(renderer.poppler)
         self.annotation_layer.kept_looks = KeptLooks(lambda: renderer.sources)
@@ -1011,6 +1016,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.text_editor.finish(apply=True)
         if self.handle_editor is not None:
             self.handle_editor.finish(apply=True)
+        if self.polyline_drawer is not None:
+            self.polyline_drawer.finish()
         self.handle_editor = HandleEditor(self, annotation, on_done, resizable=resizable, shown=shown)
         self.set_hidden(annotation)
         self.set_preview(self.handle_editor.annotation)
@@ -1029,6 +1036,22 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.grab_focus()
         return self.image_placer
 
+    def draw_polylines(
+        self, make: PolylineMaker, on_drawn: Callable[[ShownPage, list[tuple[float, float]]], None]
+    ) -> None:
+        """Draw polylines click by click, shown as make makes them, until stop_drawing_polylines.
+
+        on_drawn receives the page and the vertices of each one finished, in points of the page as shown.
+        """
+        self.stop_drawing_polylines()
+        self.polyline_drawer = PolylineDrawer(self, make, on_drawn)
+
+    def stop_drawing_polylines(self) -> None:
+        """Stop drawing polylines; one being drawn is forgotten."""
+        if self.polyline_drawer is not None:
+            self.polyline_drawer.cancel()
+            self.polyline_drawer = None
+
     def stop_placing_image(self) -> None:
         """Stop showing where an image goes."""
         if self.image_placer is not None:
@@ -1044,12 +1067,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def finish_editing(self) -> None:
         """Accept what is being edited on a page, as Enter does: a text box being written, an annotation being moved.
 
-        Before the document is saved, printed or changed otherwise, so that what shows is what the document has.
+        Before the document is saved, printed or changed otherwise, so that what shows is what the document has. A
+        polyline being drawn is finished too.
         """
         if self.text_editor is not None:
             self.text_editor.finish(apply=True)
         if self.handle_editor is not None:
             self.handle_editor.finish(apply=True)
+        if self.polyline_drawer is not None:
+            self.polyline_drawer.finish()
 
     def stop_handle_editing(self, editor: HandleEditor) -> None:
         """Stop showing an annotation's handles, and show it as it is in the document."""
@@ -1274,13 +1300,17 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.text_editor.finish(apply=True)
             return
         self.grab_focus()
-        self._image_press = self.image_placer is not None
+        self._placing_press = self.image_placer is not None or self.polyline_drawer is not None
         if self.handle_editor is not None:
             self.handle_editor.press(x, y)
             return
         if self.image_placer is not None:
             self._set_selection(None)
             self.image_placer.press(x, y)
+            return
+        if self.polyline_drawer is not None:
+            self._set_selection(None)
+            self.polyline_drawer.press(x, y, n_press)
             return
         if self._shape_maker is not None:
             self._set_selection(None)
@@ -1302,7 +1332,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             _found, start_x, start_y = gesture.get_start_point()
             self.handle_editor.drag(start_x + offset_x, start_y + offset_y)
             return
-        if self._image_press:
+        if self._placing_press:
             return
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
@@ -1366,9 +1396,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.follow_link(link)
 
     def _end_editing_drag(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> bool:
-        """The end of a drag of handles, or of a press that put an image; return whether it was one."""
-        if self._image_press:
-            self._image_press = False
+        """The end of a drag of handles, or of a press that put an image or a vertex; return whether it was one."""
+        if self._placing_press:
+            self._placing_press = False
             return True
         if self.handle_editor is not None:
             self._on_drag_update(gesture, offset_x, offset_y)
@@ -1399,6 +1429,8 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._show_cursor(x, y)
         if self.image_placer is not None:
             self.image_placer.hover(x, y)
+        if self.polyline_drawer is not None:
+            self.polyline_drawer.hover(x, y)
 
     def _on_leave(self, _controller: Gtk.EventControllerMotion) -> None:
         if self.image_placer is not None:
@@ -1469,11 +1501,15 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
     def _on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
-        """Ctrl+C copies; the arrows scroll, and in Two pages left and right change pair."""
+        """Ctrl+C copies; the arrows scroll, and in Two pages left and right change pair.
+
+        Before, the keys go to an annotation being moved or resized, or to a polyline being drawn.
+        """
         # Keys a form field leaves (the arrows at the ends of its text…) are not for the view.
         if self.renderer is None or self._vadjustment is None or self._hadjustment is None or self.get_focus_child():
             return False
-        if self.handle_editor is not None and self.handle_editor.key_pressed(keyval):
+        editors = (self.handle_editor, self.polyline_drawer)
+        if any(editor is not None and editor.key_pressed(keyval) for editor in editors):
             return True
         control = bool(state & Gdk.ModifierType.CONTROL_MASK)
         if control:

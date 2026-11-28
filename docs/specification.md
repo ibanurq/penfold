@@ -193,7 +193,7 @@ buttons rise just above the bar. It looks like GNOME’s side panel: light gray 
 border and a soft shadow, so it stands out from white paper. While it is shown, toasts appear just above it.
 
 ```
-[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Freehand] | [Comment] [Text Box] | [Image] [Stamp] | [Color]
+[Select Text] | [Highlight] [Underline] [Squiggly Underline] [Strike Through] | [Rectangle] [Circle] [Arrow] [Polyline] [Freehand] | [Comment] [Text Box] | [Image] [Stamp] | [Color]
 ```
 
 - The separators mark the groups of annotations (see “Annotation groups”).
@@ -383,9 +383,6 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 | Image | `/Stamp`, `/IT /StampImage` | Choosing its file, then clicking | The image, as big as it is printed (see “Images from files”); if bigger than the page, shrunk to fit an inch inside its edges |
 | Stamp | `/Stamp`, `/IT /Stamp`, `/Name` | Choosing it in the menu, then clicking | A word in a double rounded border, in its color (see “Penfold’s stamps”) |
 
-*(In progress: the annotation bar does not have the Polyline tool yet, so the polylines of other programs can be
-edited, but none can be made.)*
-
 - **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
   moving, scaling and opacity aside). Penfold keeps its drawing as it is and stretches it to its rectangle, as viewers
@@ -416,6 +413,11 @@ edited, but none can be made.)*
   changing its shape: points closer than 0.75 pt are left out, the others are averaged twice with their neighbors
   (the ends stay), and those not needed to keep it within 0.2 pt are left out (Ramer–Douglas–Peucker). Each stroke is
   one annotation, so Undo takes away the last one. Freehand drawings of other programs may have several strokes.
+- **Polyline:** drawn click by click: each click puts a vertex, and a stretch of line goes from the last one to the
+  pointer, so the polyline is seen as it will look. A double click (which puts the last vertex once) or Enter finishes
+  it; Esc cancels it; Backspace takes away the last vertex. Every vertex stays inside the page of the first: clicks
+  off it put theirs at its edge. With fewer than two vertices, or smaller than 3 pt, nothing is made. Choosing another
+  tool cancels it; saving, printing and the other actions that finish what is being edited finish it, as Enter does.
 - **Comment:** a popover pointing at the place, with a multi-line box and Cancel · Apply (Enter: new line; Ctrl+Enter:
   Apply; Esc: Cancel; empty: nothing is made). On hover, its text in a tooltip (at most ten lines and about 500
   characters; longer, with “…” at the end). No `/Popup` is written.
