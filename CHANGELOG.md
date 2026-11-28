@@ -5,7 +5,21 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
-## Unreleased
+## 1.1.0-alpha.4 — 2026-11-28
+
+Fourth alpha of Penfold 1.1: stamps.
+
+### Added
+- Stamp, after Image in the annotation bar: it opens a menu with eight stamps in three groups by their color (green:
+  Approved, Final, Received, Paid; blue: Draft, For Comment; red: Not Approved, Confidential). A thin frame as big as
+  the stamp chosen follows the pointer, and a click puts it there; then the tool chosen before comes back.
+- Penfold's stamps look like a rubber stamp: a double rounded border, a faint background that lets what is under it
+  show, and the word in capitals, in the interface's language, upright as the page is seen. They are saved with their
+  drawing, the letters inside, so every viewer shows them alike, and with their name (`/Name`).
+- Stamps can be edited: opacity, Move and Resize (they keep their proportion), Change Stamp (another of the eight,
+  keeping its centre and its height) and Delete, also those made in other programs, which keep their own drawing
+  until changed for one of Penfold's. One without a drawing of its own can only be moved, or changed.
+- Stamps are listed in Images and Stamps, with an icon of their own and which stamp each is.
 
 ### Changed
 - Image: a click puts the image as big as the frame shows it, as soon as the button is pressed; dragging no longer
