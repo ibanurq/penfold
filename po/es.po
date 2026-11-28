@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-28 10:55+0100\n"
+"POT-Creation-Date: 2026-11-28 11:16+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -581,39 +581,43 @@ msgstr ""
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:443
+#: penfold/ui/annotation_editing.py:444
 msgid "_Adjust Ends"
 msgstr "_Ajustar extremos"
 
-#: penfold/ui/annotation_editing.py:443
+#: penfold/ui/annotation_editing.py:445
+msgid "_Move and Reshape"
+msgstr "_Mover y cambiar forma"
+
+#: penfold/ui/annotation_editing.py:445
 msgid "_Move and Resize"
 msgstr "_Mover y cambiar tamaño"
 
-#: penfold/ui/annotation_editing.py:444
+#: penfold/ui/annotation_editing.py:446
 msgid "_Move"
 msgstr "_Mover"
 
-#: penfold/ui/annotation_editing.py:466
+#: penfold/ui/annotation_editing.py:468
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:468
+#: penfold/ui/annotation_editing.py:470
 msgid "_Format…"
 msgstr "_Formato…"
 
-#: penfold/ui/annotation_editing.py:470
+#: penfold/ui/annotation_editing.py:472
 msgid "Change _Stamp"
 msgstr "Cambiar _sello"
 
-#: penfold/ui/annotation_editing.py:474 penfold/ui/sidebar/pages_view.py:85
+#: penfold/ui/annotation_editing.py:476 penfold/ui/sidebar/pages_view.py:85
 msgid "Rotate _Left"
 msgstr "Girar a la _izquierda"
 
-#: penfold/ui/annotation_editing.py:475 penfold/ui/sidebar/pages_view.py:86
+#: penfold/ui/annotation_editing.py:477 penfold/ui/sidebar/pages_view.py:86
 msgid "Rotate _Right"
 msgstr "Girar a la _derecha"
 
-#: penfold/ui/annotation_editing.py:478
+#: penfold/ui/annotation_editing.py:480
 #: penfold/ui/sidebar/bookmarks_view.py:133 penfold/ui/sidebar/pages_view.py:91
 msgid "_Delete"
 msgstr "_Eliminar"

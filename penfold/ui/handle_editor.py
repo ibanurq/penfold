@@ -1,14 +1,15 @@
 """Moving an annotation and changing its size on its page, with handles.
 
 While it is edited, the annotation shows as it is being changed, over a thin frame in the accent colour and with its
-handles. Dragging a handle changes its size; dragging it from anywhere else on it moves it. Enter or a click
-outside it accept the change; Esc cancels it. The document view owns the editor and passes it the mouse and the keys.
+handles. Dragging a handle changes its size (or its shape); dragging it from anywhere else on it moves it. Enter or a
+click outside it accept the change; Esc cancels it. The document view owns the editor and passes it the mouse and the
+keys.
 
 Rectangles, circles, freehand drawings and images have a handle at each corner (document/reshaping.py; images keep their
 proportion); text boxes one at each side, which change only their width: the text is laid out again as it is dragged,
 and the box is as tall as it needs (text_box.py); arrows one at each end, and they move when their line is dragged
-(anywhere else, a press accepts the change). Comments have no handles: they keep their size, and are only moved;
-polylines have none either, and move when their line is dragged, as arrows do. Marks on text have a handle where they
+(anywhere else, a press accepts the change); polylines one at each vertex, which moves only that vertex, and they move
+as arrows do. Comments have no handles: they keep their size, and are only moved. Marks on text have a handle where they
 start and one where they end: each covers the text up to the other, letter by letter, as a selection does; they do not
 move. Theirs are drops, as the touch selection handles of GNOME: the start one above the first letter, the end one
 below the last.
@@ -23,16 +24,20 @@ from gi.repository import Adw, Gdk, Graphene, Gsk, Gtk, Poppler
 from penfold.document.annotations import TEXT_MARKUPS, Annotation, Hit, Kind, hit, managed_copy
 from penfold.document.geometry import merge_lines, turn_point
 from penfold.document.reshaping import (
+    Grip,
     Handle,
     Point,
+    Vertex,
     corner_handles,
     end_handles,
     mark_handles,
     mark_tips,
     moved,
+    vertex_handles,
     with_corner,
     with_end,
     with_lines,
+    with_vertex,
 )
 from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import side_handles, with_side
@@ -50,10 +55,11 @@ WHITE = (1.0, 1.0, 1.0, 1.0)
 CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.FREEHAND, Kind.IMAGE, Kind.STAMP})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
+VERTEX_KINDS = frozenset({Kind.POLYLINE})
 # Those moved only by dragging their line: elsewhere in their frame, a press accepts the change.
-LINE_KINDS = END_KINDS | {Kind.POLYLINE}
+LINE_KINDS = END_KINDS | VERTEX_KINDS
 # The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.
-UNFRAMED_KINDS = END_KINDS | TEXT_MARKUPS
+UNFRAMED_KINDS = LINE_KINDS | TEXT_MARKUPS
 # The drop handles of marks on text: Adwaita's icons, drawn this big in pixels; where their tip is, and the part of them
 # that a press takes (left, top, right, bottom), as fractions of their size. Their tip is on the text.
 DROP_SIZE = 32
@@ -89,7 +95,7 @@ class HandleEditor:
         self._resizable = resizable
         # While dragging: the handle taken (None: moving the whole annotation), the annotation and the point (on the
         # unturned page) where the drag started.
-        self._grabbed: Handle | None = None
+        self._grabbed: Grip | None = None
         self._drag_start: tuple[Annotation, Point] | None = None
 
     @property
@@ -129,7 +135,7 @@ class HandleEditor:
             return
         handle_x, handle_y = _handles(page, begun_with)[self._grabbed]
         target = (handle_x + offset[0], handle_y + offset[1])
-        if begun_with.kind in TEXT_MARKUPS:
+        if begun_with.kind in TEXT_MARKUPS and isinstance(self._grabbed, Handle):
             self.annotation = self._marking(page, managed_copy(begun_with), self._grabbed, target)
         else:
             self.annotation = _dragged(page, managed_copy(begun_with), self._grabbed, target)
@@ -178,7 +184,7 @@ class HandleEditor:
             return True
         return False
 
-    def handle_at(self, x: float, y: float) -> Handle | None:
+    def handle_at(self, x: float, y: float) -> Grip | None:
         """The handle under a point of the view, if any (the nearest)."""
         page = self._view.shown_page(self.annotation.page)
         if page is None:
@@ -271,11 +277,11 @@ class HandleEditor:
                 reached.append((distance, handle))
         return min(reached, key=lambda item: item[0])[1] if reached else None
 
-    def _shown_handles(self, page: ShownPage) -> dict[Handle, Point]:
+    def _shown_handles(self, page: ShownPage) -> dict[Grip, Point]:
         """Where the handles are on the page as shown, in points: none if the annotation only moves."""
         return _shown_handles(page, self.annotation) if self._resizable else {}
 
-    def _view_handles(self, page: ShownPage) -> dict[Handle, Point]:
+    def _view_handles(self, page: ShownPage) -> dict[Grip, Point]:
         """Where the handles are in the view, in pixels."""
         return {handle: self._view.point_in_view(page, point) for handle, point in self._shown_handles(page).items()}
 
@@ -291,8 +297,10 @@ class HandleEditor:
         x, y = point
         return left <= x <= right and top <= y <= bottom
 
-    def _resize_cursor(self, page: ShownPage, handle: Handle) -> str:
+    def _resize_cursor(self, page: ShownPage, handle: Grip) -> str:
         """The cursor of a handle, by where it is from the middle of the annotation as shown (pages turn)."""
+        if isinstance(handle, Vertex):  # A vertex goes anywhere, as the end of an arrow.
+            return "crosshair"
         bounds = self._view.annotation_bounds(page, self.annotation)
         handle_x, handle_y = self._shown_handles(page)[handle]
         if bounds is None:
@@ -311,8 +319,15 @@ def _place(annotation: Annotation) -> tuple[object, ...]:
     return annotation.rectangle, annotation.line, annotation.quads, annotation.vertices, annotation.strokes
 
 
-def _handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:
+def _handles(page: ShownPage, annotation: Annotation) -> dict[Grip, Point]:
     """Where an annotation's handles are, on its unturned page."""
+    if annotation.kind in VERTEX_KINDS:
+        return dict(vertex_handles(annotation).items())
+    return dict(_named_handles(page, annotation).items())
+
+
+def _named_handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:
+    """Where the handles of an annotation that has named ones are (corners, sides, ends), on its unturned page."""
     if annotation.kind in CORNER_KINDS:
         return corner_handles(annotation)
     if annotation.kind in SIDE_KINDS:
@@ -324,8 +339,10 @@ def _handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:
     return {}
 
 
-def _dragged(page: ShownPage, annotation: Annotation, handle: Handle, point: Point) -> Annotation:
+def _dragged(page: ShownPage, annotation: Annotation, handle: Grip, point: Point) -> Annotation:
     """The annotation with one of its handles taken to a point of its unturned page."""
+    if isinstance(handle, Vertex):
+        return with_vertex(annotation, handle, point, page.source_size)
     if annotation.kind in SIDE_KINDS:
         return with_side(annotation, handle, point, page.source_size)
     if annotation.kind in END_KINDS:
@@ -333,7 +350,7 @@ def _dragged(page: ShownPage, annotation: Annotation, handle: Handle, point: Poi
     return with_corner(annotation, handle, point, page.source_size)
 
 
-def _shown_handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:
+def _shown_handles(page: ShownPage, annotation: Annotation) -> dict[Grip, Point]:
     """Where an annotation's handles are on its page as shown, in points."""
     return {
         handle: turn_point(*point, page.source_size, page.rotation)

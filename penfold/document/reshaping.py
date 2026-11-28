@@ -1,19 +1,19 @@
 """Moving annotations and changing their size with handles.
 
 Rectangles, circles, freehand drawings, images and stamps have a handle at each corner (images and stamps keep their
-proportion; a stamp without its drawing is only moved), arrows one at each end; text boxes have one at each side,
-which change only their width (rendering/text_box.py: their height follows the text). Comments and polylines are
-only moved. Marks on text (highlights, underlines, strikethroughs) have one where they start and one where they end,
-and they cover the text from one to the other (the interface asks Poppler for it); they do not move. Everything stays
-inside the annotation's page. An image being put on a page goes where placed says. Images also turn a quarter at a
-time (turned).
+proportion; a stamp without its drawing is only moved), arrows one at each end, polylines one at each vertex (which
+moves only that vertex: its shape changes); text boxes have one at each side, which change only their width
+(rendering/text_box.py: their height follows the text). Comments are only moved. Marks on text (highlights, underlines,
+strikethroughs) have one where they start and one where they end, and they cover the text from one to the other (the
+interface asks Poppler for it); they do not move. Everything stays inside the annotation's page. An image being put on a
+page goes where placed says. Images also turn a quarter at a time (turned).
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
 
 import enum
 import math
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from penfold.document.annotations import KEPT_DRAWINGS, TEXT_MARKUPS, Annotation, Kind
 from penfold.document.freehand import freehand_rectangle
@@ -43,7 +43,17 @@ MOVABLE = frozenset(
     }
 )
 RESIZABLE = frozenset(
-    {Kind.RECTANGLE, Kind.CIRCLE, Kind.ARROW, Kind.FREEHAND, Kind.TEXT_BOX, Kind.IMAGE, Kind.STAMP, *TEXT_MARKUPS}
+    {
+        Kind.RECTANGLE,
+        Kind.CIRCLE,
+        Kind.ARROW,
+        Kind.POLYLINE,
+        Kind.FREEHAND,
+        Kind.TEXT_BOX,
+        Kind.IMAGE,
+        Kind.STAMP,
+        *TEXT_MARKUPS,
+    }
 )
 
 
@@ -63,6 +73,17 @@ class Handle(enum.Enum):
 
 
 CORNERS = (Handle.TOP_LEFT, Handle.TOP_RIGHT, Handle.BOTTOM_RIGHT, Handle.BOTTOM_LEFT)
+
+
+@dataclass(frozen=True)
+class Vertex:
+    """The handle of a polyline's vertex: its place among them, from the start."""
+
+    index: int
+
+
+# What a handle changes: a named part of an annotation, or a vertex.
+type Grip = Handle | Vertex
 
 
 def can_move(annotation: Annotation) -> bool:
@@ -114,6 +135,33 @@ def end_handles(annotation: Annotation) -> dict[Handle, Point]:
         return {}
     start_x, start_y, end_x, end_y = annotation.line
     return {Handle.START: (start_x, start_y), Handle.END: (end_x, end_y)}
+
+
+def vertex_handles(annotation: Annotation) -> dict[Vertex, Point]:
+    """Where the handles of a polyline are: its vertices."""
+    return {Vertex(index): vertex for index, vertex in enumerate(annotation.vertices)}
+
+
+def with_vertex(annotation: Annotation, vertex: Vertex, point: Point, page_size: Size) -> Annotation:
+    """A polyline with one of its vertices taken to a point of its page; the others stay where they were.
+
+    Its rectangle is then that of its vertices, as an arrow's is that of its ends. If its vertices would all be closer
+    together than SMALLEST_SIZE (it would hardly be seen), it stays as it was.
+
+    Raises:
+        ValueError: the annotation has no such vertex.
+    """
+    if not 0 <= vertex.index < len(annotation.vertices):
+        message = f"{vertex} is not a vertex of this annotation"
+        raise ValueError(message)
+    width, height = page_size
+    vertices = list(annotation.vertices)
+    vertices[vertex.index] = (min(max(point[0], 0.0), width), min(max(point[1], 0.0), height))
+    rectangle = bounds([(x, y, x, y) for x, y in vertices])
+    left, top, right, bottom = rectangle
+    if max(right - left, bottom - top) < SMALLEST_SIZE:
+        return annotation
+    return replace(annotation, vertices=tuple(vertices), rectangle=rectangle)
 
 
 def mark_handles(annotation: Annotation) -> dict[Handle, Point]:

@@ -1,15 +1,15 @@
 """Editing annotations from their menu: a right click, or a long press, on an annotation of a page.
 
 The menu has the six colours at the top (the annotation's own with a ring; greyed out for images, which have none, and
-stamps, whose colour goes with the stamp) and,
-below, what can be done with that type of annotation. A click on a colour changes it and closes the menu; Edit Text…
-edits the text of a comment in its popover and that of a text box on the page; Format… opens its Format panel beside it,
-whose changes show at once and are undone as one edit; Move and Resize shows its handles on the page, and the change is
-one edit too; Rotate Left and Rotate Right turn an image a quarter around its centre, as one edit; Change Stamp
-gives a stamp another of Penfold's eight, keeping its centre and its height, as one edit; Delete deletes it
-without asking, with a toast to undo it. While the menu is open, the annotation is outlined. Annotations of types
-Penfold does not make only have Delete; a stamp of a PDF without its drawing is only moved (Format… greyed out). A PDF
-that does not allow annotating shows the menu with everything greyed out.
+stamps, whose colour goes with the stamp) and, below, what can be done with that type of annotation. A click on a colour
+changes it and closes the menu; Edit Text… edits the text of a comment in its popover and that of a text box on the
+page; Format… opens its Format panel beside it, whose changes show at once and are undone as one edit; Move and Resize
+(Move and Reshape for polylines, whose handles change their shape) shows its handles on the page, and the change is one
+edit too; Rotate Left and Rotate Right turn an image a quarter around its centre, as one edit; Change Stamp gives a
+stamp another of Penfold's eight, keeping its centre and its height, as one edit; Delete deletes it without asking, with
+a toast to undo it. While the menu is open, the annotation is outlined. Annotations of types Penfold does not make only
+have Delete; a stamp of a PDF without its drawing is only moved (Format… greyed out). A PDF that does not allow
+annotating shows the menu with everything greyed out.
 
 An annotation of a PDF that Penfold cannot draw again as it is (its foreign look) is only changed after a warning:
 changing it would lose that look. So is a stamp of a PDF given one of Penfold's, which takes the place of its drawing.
@@ -436,11 +436,13 @@ def _can_resize(annotation: Annotation) -> bool:
 def _reshape_label(annotation: Annotation) -> str | None:
     """The menu item that shows the handles, or None for a type without them.
 
-    Move and Resize; Move for one of a fixed size (a comment); Adjust Ends for the marks on text, which follow the text
-    instead of moving.
+    Move and Resize; Move and Reshape for polylines, whose handles move their vertices; Move for one of a fixed size (a
+    comment); Adjust Ends for the marks on text, which follow the text instead of moving.
     """
     if can_resize(annotation):
-        return _("_Adjust Ends") if annotation.kind in TEXT_MARKUPS else _("_Move and Resize")
+        if annotation.kind in TEXT_MARKUPS:
+            return _("_Adjust Ends")
+        return _("_Move and Reshape") if annotation.kind is Kind.POLYLINE else _("_Move and Resize")
     return _("_Move") if can_move(annotation) else None
 
 

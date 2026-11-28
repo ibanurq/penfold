@@ -8,6 +8,7 @@ from penfold.document.annotations import Annotation, Kind, Style, new_annotation
 from penfold.document.reshaping import (
     SMALLEST_SIZE,
     Handle,
+    Vertex,
     can_move,
     can_resize,
     corner_handles,
@@ -15,9 +16,11 @@ from penfold.document.reshaping import (
     mark_handles,
     mark_tips,
     moved,
+    vertex_handles,
     with_corner,
     with_end,
     with_lines,
+    with_vertex,
 )
 
 PAGE = (600.0, 800.0)
@@ -44,7 +47,7 @@ def test_which_types_move_and_which_change_their_size() -> None:
     assert [can_resize(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, False, True, True]
     assert (can_move(image()), can_resize(image())) == (True, True)
     polyline = new_annotation(Kind.POLYLINE, 0, (10, 10, 30, 30), RED, "Iban", vertices=((10, 10), (30, 30)))
-    assert (can_move(polyline), can_resize(polyline)) == (True, False)
+    assert (can_move(polyline), can_resize(polyline)) == (True, True)
 
 
 def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
@@ -204,6 +207,33 @@ def test_only_the_ends_of_an_arrow_change_it() -> None:
         with_end(arrow(), Handle.TOP_LEFT, (0, 0), PAGE)
     with pytest.raises(ValueError, match="not an end"):
         with_end(shape(), Handle.START, (0, 0), PAGE)
+
+
+def polyline(vertices: tuple[tuple[float, float], ...] = ((100, 100), (200, 150), (300, 100))) -> Annotation:
+    xs, ys = [x for x, _y in vertices], [y for _x, y in vertices]
+    return new_annotation(Kind.POLYLINE, 0, (min(xs), min(ys), max(xs), max(ys)), RED, "Iban", vertices=vertices)
+
+
+def test_the_handles_of_a_polyline_are_its_vertices() -> None:
+    assert vertex_handles(polyline()) == {Vertex(0): (100, 100), Vertex(1): (200, 150), Vertex(2): (300, 100)}
+
+
+def test_a_vertex_goes_where_it_is_taken_and_the_others_stay() -> None:
+    original = polyline()
+    reshaped = with_vertex(original, Vertex(1), (220, 40), PAGE)
+    assert reshaped.vertices == ((100.0, 100.0), (220.0, 40.0), (300.0, 100.0))
+    assert reshaped.rectangle == (100.0, 40.0, 300.0, 100.0)  # Its vertices'.
+    assert (reshaped.name, reshaped.style) == (original.name, original.style)
+    assert with_vertex(original, Vertex(0), (-50, 900), PAGE).vertices[0] == (0, 800)  # Inside the page.
+
+
+def test_a_polyline_too_small_stays_as_it_was() -> None:
+    short = polyline(((100, 100), (110, 100)))
+    assert with_vertex(short, Vertex(1), (101, 101), PAGE) is short
+    assert with_vertex(short, Vertex(1), (100, 100), PAGE) is short  # On the other: nothing would be seen.
+    assert with_vertex(short, Vertex(1), (105, 100), PAGE).vertices == ((100, 100), (105, 100))
+    with pytest.raises(ValueError, match="not a vertex"):
+        with_vertex(short, Vertex(2), (0, 0), PAGE)
 
 
 def test_the_handles_of_a_mark_are_where_its_text_starts_and_ends() -> None:

@@ -1,15 +1,16 @@
 """Moving annotations and changing their size with handles on the page."""
 
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 from gi.repository import Gdk
 
-from penfold.document.annotations import Annotation, Kind, new_annotation
+from penfold.document.annotations import Annotation, Kind, LineEnds, new_annotation
 from penfold.document.commands.annotations import AddAnnotations
 from penfold.document.commands.pages import RotatePages
-from penfold.document.reshaping import Handle
+from penfold.document.reshaping import Handle, Vertex
 from penfold.rendering.text_box import text_box_pdf, text_height, written_frame
 from penfold.ui.annotation_toolbar import Tool
 from tests.gtk_helpers import process_pending_events, wait_until
@@ -194,14 +195,17 @@ def test_one_penfold_cannot_draw_again_only_moves_without_a_warning(annotated_wi
 
 
 def test_a_polyline_moves_when_its_line_is_dragged(polyline_window: "PenfoldWindow") -> None:
-    from penfold.ui.annotation_editing import _reshape_label
+    from penfold.ui.annotation_editing import _can_resize, _reshape_label
 
     window = polyline_window
     assert window.document is not None
     original = annotation_of(window, Kind.POLYLINE)
     editor = start_editing(window, (150, 842 - 770))
-    assert _reshape_label(original) == "_Move"
-    assert editor.handle_at(*widget_point(window, 0, 100, 842 - 750)) is None  # No handles yet.
+    assert _reshape_label(original) == "_Move and Reshape"  # Its handles change its shape, not its size.
+    assert editor.handle_at(*widget_point(window, 0, 101, 842 - 751)) == Vertex(0)  # At its vertices.
+    assert editor.cursor_at(*widget_point(window, 0, 200, 842 - 790)) == "crosshair"
+    assert editor.cursor_at(*widget_point(window, 0, 150, 842 - 770)) == "move"  # On its line.
+    assert not _can_resize(replace(original, foreign_look=("measurement",)))  # Penfold would lose its measure.
     drag(window, 0, (200, 842 - 760), (230, 842 - 700))  # Under its corner: not on it, so the change is accepted.
     assert window.document_view.handle_editor is None
     assert annotation_of(window, Kind.POLYLINE) is original
@@ -212,6 +216,25 @@ def test_a_polyline_moves_when_its_line_is_dragged(polyline_window: "PenfoldWind
     assert moved.moved_as_is  # Keeping its own drawing.
     assert moved.moved_by == pytest.approx((10, 20))
     assert [value for vertex in moved.vertices for value in vertex] == pytest.approx([110, 112, 210, 72, 310, 112])
+
+
+def test_a_vertex_of_a_polyline_moves_alone_as_one_edit(polyline_window: "PenfoldWindow") -> None:
+    window = polyline_window
+    original = annotation_of(window, Kind.POLYLINE)
+    editor = start_editing(window, (150, 842 - 770))
+    drag(window, 0, (200, 842 - 790), (200, 842 - 690))  # Its middle vertex, 100 points down.
+    assert [value for vertex in editor.annotation.vertices for value in vertex] == pytest.approx(
+        [100, 92, 200, 152, 300, 92]
+    )
+    assert annotation_of(window, Kind.POLYLINE) is original  # Not changed until accepted.
+    press_key(window, Gdk.KEY_Return)
+    reshaped = annotation_of(window, Kind.POLYLINE)
+    assert reshaped.managed  # Penfold draws it again, with its own dashes and arrowhead.
+    assert [value for vertex in reshaped.vertices for value in vertex] == pytest.approx([100, 92, 200, 152, 300, 92])
+    assert (reshaped.style.dashed, reshaped.style.line_ends, reshaped.color) == (True, LineEnds.END, original.color)
+    window.activate_action("win.undo", None)
+    process_pending_events()
+    assert annotation_of(window, Kind.POLYLINE) is original
 
 
 def annotation_of(window: "PenfoldWindow", kind: Kind) -> Annotation:

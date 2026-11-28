@@ -384,7 +384,7 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 | Stamp | `/Stamp`, `/IT /Stamp`, `/Name` | Choosing it in the menu, then clicking | A word in a double rounded border, in its color (see “Penfold’s stamps”) |
 
 *(In progress: the annotation bar does not have the Polyline tool yet, so the polylines of other programs can be
-edited, but none can be made; their handles come later, so for now they only move, when their line is dragged.)*
+edited, but none can be made.)*
 
 - **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
@@ -444,7 +444,7 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments (grayed out for stamps without a drawing)
 Change Stamp ▸                          stamps: Penfold’s eight, the stamp’s own marked
-Move and Resize                         “Move” for comments, polylines and stamps without a drawing; “Adjust Ends” for text markups
+Move and Resize                         “Move and Reshape” for polylines; “Move” for comments and stamps without a drawing; “Adjust Ends” for text markups
 Rotate Left                             images
 Rotate Right                            images
 Delete
@@ -471,6 +471,10 @@ Delete
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
+- **Move and Reshape** (polylines): a handle on each vertex, which moves only that vertex, within the page (the
+  stretches that reach it follow; it does nothing if the whole polyline would be smaller than 3 pt). Dragging its line,
+  away from the handles, moves it whole, keeping its shape; as with an arrow, no frame is drawn and a press elsewhere
+  accepts. Vertices are not added or taken away. Enter or a click outside accept, Esc cancels; one undo step.
 - **Change Stamp** (stamps): a submenu with Penfold’s eight stamps, in their three groups, with a dot on the stamp’s
   own if it is one of them. Choosing one gives the stamp its name, color and drawing (the word in the interface’s
   language); it keeps its centre and its height as seen, and is as wide as the new word needs at that height, moved in
