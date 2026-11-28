@@ -10,11 +10,10 @@ import enum
 from collections.abc import Callable
 from gettext import gettext as _
 
-from gi.repository import Gio, GLib, Gtk
+from gi.repository import GLib, Gtk
 
 from penfold.document.annotations import Kind
-from penfold.document.stamps import STAMP_GROUPS
-from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON, kind_names, stamp_name
+from penfold.ui.annotation_icons import KIND_ICONS, SELECT_TEXT_ICON, kind_names, stamp_menu
 from penfold.ui.palette import ANNOTATION_COLORS, color_circle, color_swatch, show_color
 
 TOOL_ACTION = "win.annotation-tool"
@@ -143,7 +142,7 @@ class AnnotationToolbar(Gtk.Box):
 
         It is told after the action of the item chosen, if one was, has run.
         """
-        menu = Gtk.PopoverMenu.new_from_model(stamp_menu_model())
+        menu = Gtk.PopoverMenu.new_from_model(stamp_menu(STAMP_ACTION))
         menu.set_parent(self.tool_buttons[Tool.STAMP])
         menu.set_position(Gtk.PositionType.TOP)
 
@@ -158,19 +157,6 @@ class AnnotationToolbar(Gtk.Box):
         menu.connect("closed", closed)
         menu.popup()
         return menu
-
-
-def stamp_menu_model() -> Gio.Menu:
-    """The menu of Penfold's stamps, by their names (translated), one section for each group of colour."""
-    menu = Gio.Menu()
-    for group in STAMP_GROUPS:
-        section = Gio.Menu()
-        for stamp in group:
-            item = Gio.MenuItem.new(stamp_name(stamp.name), None)
-            item.set_action_and_target_value(STAMP_ACTION, GLib.Variant.new_string(stamp.name))
-            section.append_item(item)
-        menu.append_section(None, section)
-    return menu
 
 
 def _with_arrow(icon: str) -> Gtk.Widget:

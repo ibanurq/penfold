@@ -5,13 +5,14 @@ stamps, whose colour goes with the stamp) and,
 below, what can be done with that type of annotation. A click on a colour changes it and closes the menu; Edit Text…
 edits the text of a comment in its popover and that of a text box on the page; Format… opens its Format panel beside it,
 whose changes show at once and are undone as one edit; Move and Resize shows its handles on the page, and the change is
-one edit too; Rotate Left and Rotate Right turn an image a quarter around its centre, as one edit; Delete deletes it
+one edit too; Rotate Left and Rotate Right turn an image a quarter around its centre, as one edit; Change Stamp
+gives a stamp another of Penfold's eight, keeping its centre and its height, as one edit; Delete deletes it
 without asking, with a toast to undo it. While the menu is open, the annotation is outlined. Annotations of types
 Penfold does not make only have Delete; a stamp of a PDF without its drawing is only moved (Format… greyed out). A PDF
 that does not allow annotating shows the menu with everything greyed out.
 
 An annotation of a PDF that Penfold cannot draw again as it is (its foreign look) is only changed after a warning:
-changing it would lose that look.
+changing it would lose that look. So is a stamp of a PDF given one of Penfold's, which takes the place of its drawing.
 """
 
 from collections.abc import Callable
@@ -26,7 +27,10 @@ from penfold.document.commands.annotations import ChangeAnnotation, DeleteAnnota
 from penfold.document.document import OpenDocument
 from penfold.document.history import Command
 from penfold.document.reshaping import can_move, can_resize, turned
+from penfold.document.stamps import STAMPS
+from penfold.rendering.stamp_look import restamped
 from penfold.rendering.text_box import redrawn, with_text, written_frame
+from penfold.ui.annotation_icons import stamp_menu, stamp_name
 from penfold.ui.comment_popover import CommentPopover
 from penfold.ui.context_menu import COLORS, SEPARATOR, color_row, context_menu, custom_item, separator
 from penfold.ui.document_view import AnnotationClick, DocumentView
@@ -38,6 +42,8 @@ NO_COLOR = ""
 WITH_TEXT = frozenset({Kind.COMMENT, Kind.TEXT_BOX})
 # Types that turn a quarter at a time.
 TURNABLE = frozenset({Kind.IMAGE})
+# The separators between the groups of stamps in Change Stamp (widgets of the menu's own, as its other separator).
+STAMP_SEPARATORS = ("stamp-separator-1", "stamp-separator-2")
 
 
 class AnnotationEditing:
@@ -78,10 +84,15 @@ class AnnotationEditing:
         self._turn_left.connect("activate", lambda _action, _parameter: self.turn(clockwise=False))
         self._turn_right = Gio.SimpleAction.new("rotate-annotation-right", None)
         self._turn_right.connect("activate", lambda _action, _parameter: self.turn(clockwise=True))
+        # The stamp's name, or none if it is not one of Penfold's: the one marked in Change Stamp.
+        self._stamp = Gio.SimpleAction.new_stateful(
+            "change-stamp", GLib.VariantType.new("s"), GLib.Variant.new_string("")
+        )
+        self._stamp.connect("activate", lambda _action, name: self.change_stamp(name.get_string()))
         self._delete = Gio.SimpleAction.new("delete-annotation", None)
         self._delete.connect("activate", lambda _action, _parameter: self.delete())
         actions = (self._color, self._edit_text, self._format, self._reshape, self._turn_left, self._turn_right)
-        for action in (*actions, self._delete):
+        for action in (*actions, self._stamp, self._delete):
             window.add_action(action)
         document_view.connect("annotation-menu-requested", self._on_menu_requested)
 
@@ -106,6 +117,8 @@ class AnnotationEditing:
         self._reshape.set_enabled(allowed and self._can_reshape(annotation))
         for turn in (self._turn_left, self._turn_right):
             turn.set_enabled(allowed)
+        self._stamp.set_state(GLib.Variant.new_string(annotation.stamp if annotation.stamp in STAMPS else ""))
+        self._stamp.set_enabled(allowed)
         self._delete.set_enabled(allowed)
         model = _menu_model(
             colored=colored,
@@ -113,8 +126,10 @@ class AnnotationEditing:
             with_format=has_format(annotation.kind),
             reshape=_reshape_label(annotation),
             turnable=annotation.kind in TURNABLE,
+            stamp=annotation.kind is Kind.STAMP,
         )
-        custom = {SEPARATOR: separator()}
+        separators = (SEPARATOR, *STAMP_SEPARATORS) if annotation.kind is Kind.STAMP else (SEPARATOR,)
+        custom = {name: separator() for name in separators}
         if colored:
             custom[COLORS] = color_row(ANNOTATION_COLORS, "win.annotation-menu-color")
         # From the pointer to its right, it covers less of the annotation.
@@ -159,6 +174,23 @@ class AnnotationEditing:
             self.menu.popdown()
         if annotation is not None and page is not None and annotation.kind in TURNABLE:
             self._change(annotation, lambda copy: turned(copy, clockwise, page.source_size))
+
+    def change_stamp(self, name: str) -> None:
+        """Give the stamp of the menu another of Penfold's stamps, by its name, keeping its centre and its height.
+
+        One of a PDF is warned of first: its drawing is replaced by Penfold's.
+        """
+        annotation, document = self.annotation, self._document()
+        page = None if annotation is None else self._document_view.shown_page(annotation.page)
+        if self.menu is not None:
+            self.menu.popdown()
+        stamp = STAMPS.get(name)
+        if annotation is None or document is None or page is None or stamp is None or annotation.kind is not Kind.STAMP:
+            return
+        if annotation.managed and annotation.stamp == name:
+            return  # It is that stamp already.
+        rotation = document.own_rotation(page.source)
+        self._change(annotation, lambda copy: restamped(copy, stamp, stamp_name(name), page, rotation), drawn_anew=True)
 
     def edit_text(self) -> None:
         """Edit the text of the annotation of the menu: a comment in its popover, a text box on the page."""
@@ -343,8 +375,14 @@ class AnnotationEditing:
             ngettext("Annotation deleted", "{count} annotations deleted", count).format(count=count), command
         )
 
-    def _change(self, annotation: Annotation, change: Callable[[Annotation], Annotation]) -> None:
-        """Change an annotation as a managed copy, after a warning if Penfold cannot draw all its look."""
+    def _change(
+        self, annotation: Annotation, change: Callable[[Annotation], Annotation], *, drawn_anew: bool = False
+    ) -> None:
+        """Change an annotation as a managed copy, after a warning if Penfold cannot draw all its look.
+
+        One of a PDF that the change draws anew (drawn_anew), such as a stamp given Penfold's drawing, is warned of
+        too; it may be one Penfold could not draw before the change.
+        """
         document = self._document()
         if document is None or not document.permissions.annotate:
             return
@@ -352,13 +390,13 @@ class AnnotationEditing:
         def apply() -> None:
             if not any(item is annotation for item in document.annotations):
                 return  # Undone or deleted while the warning was shown.
-            changed = change(managed_copy(annotation))
+            changed = managed_copy(change(managed_copy(annotation) if annotation.drawable else annotation))
             if changed.kind is Kind.TEXT_BOX:
                 changed = redrawn(changed)
             if changed != annotation:
                 document.execute(ChangeAnnotation(document, annotation, changed))
 
-        if annotation.managed or not annotation.foreign_look:
+        if annotation.managed or not (annotation.foreign_look or drawn_anew):
             apply()
         else:
             self._warn_of_foreign_look(apply)
@@ -406,10 +444,16 @@ def _reshape_label(annotation: Annotation) -> str | None:
     return _("_Move") if can_move(annotation) else None
 
 
-def _menu_model(
-    *, colored: bool, with_text: bool, with_format: bool, reshape: str | None, turnable: bool = False
+def _menu_model(  # noqa: PLR0913 (what each type has)
+    *,
+    colored: bool,
+    with_text: bool,
+    with_format: bool,
+    reshape: str | None,
+    turnable: bool = False,
+    stamp: bool = False,
 ) -> Gio.Menu:
-    """The menu of an annotation: the colours, Edit Text…, Format…, the item of the handles, the turns, Delete.
+    """The menu of an annotation: colours, Edit Text…, Format…, Change Stamp, the handles' item, the turns, Delete.
 
     Each only if it has it.
 
@@ -422,12 +466,14 @@ def _menu_model(
         items.append(_("_Edit Text…"), "win.edit-annotation-text")
     if with_format:
         items.append(_("_Format…"), "win.format-annotation")
+    if stamp:
+        items.append_submenu(_("Change _Stamp"), stamp_menu("win.change-stamp", STAMP_SEPARATORS))
     if reshape:
         items.append(reshape, "win.reshape-annotation")
     if turnable:
         items.append(_("Rotate _Left"), "win.rotate-annotation-left")
         items.append(_("Rotate _Right"), "win.rotate-annotation-right")
-    if with_text or with_format or reshape or turnable:
+    if with_text or with_format or stamp or reshape or turnable:
         items.append_item(custom_item(SEPARATOR))
     items.append(_("_Delete"), "win.delete-annotation")
     menu = Gio.Menu()

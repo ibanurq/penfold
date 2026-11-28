@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: penfold\n"
 "Report-Msgid-Bugs-To: https://github.com/ibanurq/penfold/issues\n"
-"POT-Creation-Date: 2026-11-28 07:48+0100\n"
+"POT-Creation-Date: 2026-11-28 08:04+0100\n"
 "PO-Revision-Date: 2026-11-18 16:00+0100\n"
 "Last-Translator: ibanurq\n"
 "Language-Team: Spanish\n"
@@ -173,7 +173,7 @@ msgstr "Añadir páginas"
 #: data/ui/dialogs/add_pages_dialog.blp:20
 #: data/ui/dialogs/extract_pages_dialog.blp:21
 #: data/ui/dialogs/merge_dialog.blp:22 data/ui/dialogs/print_dialog.blp:20
-#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:375
+#: data/ui/dialogs/save_as_dialog.blp:22 penfold/ui/annotation_editing.py:413
 #: penfold/ui/comment_popover.py:37 penfold/ui/dialogs/password_question.py:49
 #: penfold/ui/dialogs/text_question.py:20 penfold/ui/extraction.py:87
 #: penfold/ui/window.py:1240
@@ -549,18 +549,18 @@ msgstr "Iconos"
 msgid "The image could not be opened"
 msgstr "No se pudo abrir la imagen"
 
-#: penfold/ui/annotation_editing.py:343
+#: penfold/ui/annotation_editing.py:375
 #, python-brace-format
 msgid "Annotation deleted"
 msgid_plural "{count} annotations deleted"
 msgstr[0] "Anotación eliminada"
 msgstr[1] "{count} anotaciones eliminadas"
 
-#: penfold/ui/annotation_editing.py:369
+#: penfold/ui/annotation_editing.py:407
 msgid "Change This Annotation?"
 msgstr "¿Cambiar esta anotación?"
 
-#: penfold/ui/annotation_editing.py:371
+#: penfold/ui/annotation_editing.py:409
 msgid ""
 "It was made with another program, and Penfold cannot draw all of its look. "
 "If it is changed, some of its look will be lost."
@@ -568,166 +568,170 @@ msgstr ""
 "Se hizo con otro programa y Penfold no puede dibujar todo su aspecto. Si se "
 "cambia, se perderá parte de su aspecto."
 
-#: penfold/ui/annotation_editing.py:376
+#: penfold/ui/annotation_editing.py:414
 msgid "C_hange"
 msgstr "_Cambiar"
 
-#: penfold/ui/annotation_editing.py:405
+#: penfold/ui/annotation_editing.py:443
 msgid "_Adjust Ends"
 msgstr "_Ajustar extremos"
 
-#: penfold/ui/annotation_editing.py:405
+#: penfold/ui/annotation_editing.py:443
 msgid "_Move and Resize"
 msgstr "_Mover y cambiar tamaño"
 
-#: penfold/ui/annotation_editing.py:406
+#: penfold/ui/annotation_editing.py:444
 msgid "_Move"
 msgstr "_Mover"
 
-#: penfold/ui/annotation_editing.py:422
+#: penfold/ui/annotation_editing.py:466
 msgid "_Edit Text…"
 msgstr "E_ditar texto…"
 
-#: penfold/ui/annotation_editing.py:424
+#: penfold/ui/annotation_editing.py:468
 msgid "_Format…"
 msgstr "_Formato…"
 
-#: penfold/ui/annotation_editing.py:428 penfold/ui/sidebar/pages_view.py:85
+#: penfold/ui/annotation_editing.py:470
+msgid "Change _Stamp"
+msgstr "Cambiar _sello"
+
+#: penfold/ui/annotation_editing.py:474 penfold/ui/sidebar/pages_view.py:85
 msgid "Rotate _Left"
 msgstr "Girar a la _izquierda"
 
-#: penfold/ui/annotation_editing.py:429 penfold/ui/sidebar/pages_view.py:86
+#: penfold/ui/annotation_editing.py:475 penfold/ui/sidebar/pages_view.py:86
 msgid "Rotate _Right"
 msgstr "Girar a la _derecha"
 
-#: penfold/ui/annotation_editing.py:432
+#: penfold/ui/annotation_editing.py:478
 #: penfold/ui/sidebar/bookmarks_view.py:133 penfold/ui/sidebar/pages_view.py:91
 msgid "_Delete"
 msgstr "_Eliminar"
 
-#: penfold/ui/annotation_icons.py:32 penfold/ui/shortcuts_dialog.py:48
+#: penfold/ui/annotation_icons.py:36 penfold/ui/shortcuts_dialog.py:48
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: penfold/ui/annotation_icons.py:33 penfold/ui/shortcuts_dialog.py:49
+#: penfold/ui/annotation_icons.py:37 penfold/ui/shortcuts_dialog.py:49
 msgid "Underline"
 msgstr "Subrayar"
 
-#: penfold/ui/annotation_icons.py:34
+#: penfold/ui/annotation_icons.py:38
 msgid "Squiggly Underline"
 msgstr "Subrayado ondulado"
 
-#: penfold/ui/annotation_icons.py:35
+#: penfold/ui/annotation_icons.py:39
 msgid "Strike Through"
 msgstr "Tachar"
 
-#: penfold/ui/annotation_icons.py:36
+#: penfold/ui/annotation_icons.py:40
 msgid "Comment"
 msgstr "Comentario"
 
-#: penfold/ui/annotation_icons.py:37
+#: penfold/ui/annotation_icons.py:41
 msgid "Text Box"
 msgstr "Cuadro de texto"
 
-#: penfold/ui/annotation_icons.py:38
+#: penfold/ui/annotation_icons.py:42
 msgid "Rectangle"
 msgstr "Rectángulo"
 
-#: penfold/ui/annotation_icons.py:39
+#: penfold/ui/annotation_icons.py:43
 msgid "Circle"
 msgstr "Círculo"
 
-#: penfold/ui/annotation_icons.py:40
+#: penfold/ui/annotation_icons.py:44
 msgid "Arrow"
 msgstr "Flecha"
 
-#: penfold/ui/annotation_icons.py:41
+#: penfold/ui/annotation_icons.py:45
 msgid "Freehand"
 msgstr "Mano alzada"
 
-#: penfold/ui/annotation_icons.py:42
+#: penfold/ui/annotation_icons.py:46
 msgid "Image"
 msgstr "Imagen"
 
-#: penfold/ui/annotation_icons.py:43
+#: penfold/ui/annotation_icons.py:47
 msgid "Stamp"
 msgstr "Sello"
 
-#: penfold/ui/annotation_icons.py:44
+#: penfold/ui/annotation_icons.py:48
 msgid "Other Annotation"
 msgstr "Otra anotación"
 
 #. Translators: the names of stamps, which say what state a document is in, as the annotation list shows them.
-#: penfold/ui/annotation_icons.py:52
+#: penfold/ui/annotation_icons.py:56
 msgid "Approved"
 msgstr "Aprobado"
 
-#: penfold/ui/annotation_icons.py:53
+#: penfold/ui/annotation_icons.py:57
 msgid "As Is"
 msgstr "Tal cual"
 
-#: penfold/ui/annotation_icons.py:54
+#: penfold/ui/annotation_icons.py:58
 msgid "Confidential"
 msgstr "Confidencial"
 
-#: penfold/ui/annotation_icons.py:55
+#: penfold/ui/annotation_icons.py:59
 msgid "Departmental"
 msgstr "Departamental"
 
-#: penfold/ui/annotation_icons.py:56
+#: penfold/ui/annotation_icons.py:60
 msgid "Draft"
 msgstr "Borrador"
 
-#: penfold/ui/annotation_icons.py:57
+#: penfold/ui/annotation_icons.py:61
 msgid "Experimental"
 msgstr "Experimental"
 
-#: penfold/ui/annotation_icons.py:58
+#: penfold/ui/annotation_icons.py:62
 msgid "Expired"
 msgstr "Caducado"
 
-#: penfold/ui/annotation_icons.py:59
+#: penfold/ui/annotation_icons.py:63
 msgid "Final"
 msgstr "Final"
 
-#: penfold/ui/annotation_icons.py:60
+#: penfold/ui/annotation_icons.py:64
 msgid "For Comment"
 msgstr "Para comentarios"
 
-#: penfold/ui/annotation_icons.py:61
+#: penfold/ui/annotation_icons.py:65
 msgid "For Public Release"
 msgstr "Para difusión pública"
 
-#: penfold/ui/annotation_icons.py:62
+#: penfold/ui/annotation_icons.py:66
 msgid "Not Approved"
 msgstr "No aprobado"
 
-#: penfold/ui/annotation_icons.py:63
+#: penfold/ui/annotation_icons.py:67
 msgid "Not For Public Release"
 msgstr "No apto para difusión pública"
 
-#: penfold/ui/annotation_icons.py:64
+#: penfold/ui/annotation_icons.py:68
 msgid "Paid"
 msgstr "Pagado"
 
-#: penfold/ui/annotation_icons.py:65
+#: penfold/ui/annotation_icons.py:69
 msgid "Received"
 msgstr "Recibido"
 
-#: penfold/ui/annotation_icons.py:66
+#: penfold/ui/annotation_icons.py:70
 msgid "Sold"
 msgstr "Vendido"
 
-#: penfold/ui/annotation_icons.py:67
+#: penfold/ui/annotation_icons.py:71
 msgid "Top Secret"
 msgstr "Alto secreto"
 
-#: penfold/ui/annotation_toolbar.py:87
+#: penfold/ui/annotation_toolbar.py:86
 msgid "Select Text"
 msgstr "Seleccionar texto"
 
 #. Without a name of its own, screen readers would read the names of the colours in its open palette.
-#: penfold/ui/annotation_toolbar.py:127 penfold/ui/annotation_toolbar.py:134
+#: penfold/ui/annotation_toolbar.py:126 penfold/ui/annotation_toolbar.py:133
 msgid "Color"
 msgstr "Color"
 

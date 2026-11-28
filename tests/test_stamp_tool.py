@@ -175,3 +175,115 @@ def test_on_a_page_turned_in_penfold_it_is_put_upright_as_seen(stamp_window: "Pe
     assert page is not None
     width, height = stamp_size("Final")
     assert page.from_source(made.rectangle) == pytest.approx((100, 100, 100 + width, 100 + height), abs=0.1)
+
+
+def open_stamp_menu(window: "PenfoldWindow", made: Annotation) -> None:
+    """Open the menu of a stamp by a right click on its middle."""
+    left, top, right, bottom = made.rectangle
+    view = window.document_view
+    view._ask_for_menu(*widget_point(window, made.page, (left + right) / 2, (top + bottom) / 2))
+    process_pending_events()
+
+
+def test_change_stamp_gives_it_another_keeping_its_centre(stamp_window: "PenfoldWindow") -> None:
+    window = stamp_window
+    document = window.document
+    assert document is not None
+    start(window, "Approved")
+    click(window, 0, (100, 100))
+    (approved,) = stamps(window)
+    open_stamp_menu(window, approved)
+    editing = window.annotation_editing
+    assert editing.menu is not None
+    action = window.lookup_action("change-stamp")
+    assert action is not None
+    state = action.get_state()
+    assert state is not None
+    assert (action.get_enabled(), state.get_string()) == (True, "Approved")  # Its item marked.
+    window.activate_action("win.change-stamp", GLib.Variant.new_string("NotApproved"))
+    process_pending_events()
+    (changed,) = stamps(window)
+    assert (changed.stamp, changed.color, changed.name) == ("NotApproved", RED, approved.name)
+    centre = (approved.rectangle[0] + approved.rectangle[2]) / 2
+    assert (changed.rectangle[0] + changed.rectangle[2]) / 2 == pytest.approx(centre)
+    document.undo()  # One edit.
+    process_pending_events()
+    assert stamps(window)[0].stamp == "Approved"
+
+
+def test_change_stamp_is_in_its_menu_with_the_eight(stamp_window: "PenfoldWindow") -> None:
+    window = stamp_window
+    start(window, "Final")
+    click(window, 0, (100, 100))
+    open_stamp_menu(window, stamps(window)[0])
+    menu = window.annotation_editing.menu
+    assert menu is not None
+    model = menu.get_menu_model()
+    assert model is not None
+    section = model.get_item_link(0, "section")
+    assert section is not None
+    found = [
+        (label.get_string(), section.get_item_link(index, "submenu"))
+        for index in range(section.get_n_items())
+        if (label := section.get_item_attribute_value(index, "label", None)) is not None
+    ]
+    assert [label for label, _submenu in found] == ["_Format…", "Change _Stamp", "_Move and Resize", "_Delete"]
+    submenu = dict(found)["Change _Stamp"]
+    assert submenu is not None
+    # One section, with separators of the menu's own between the groups: GTK measures several too short beside the
+    # colours, and the menu would scroll.
+    (items,) = labels(submenu)
+    assert items == ["Approved", "Final", "Received", "Paid", "Draft", "For Comment", "Not Approved", "Confidential"]
+    customs = [
+        attribute.get_string()
+        for index in range(stamps_section(submenu).get_n_items())
+        if (attribute := stamps_section(submenu).get_item_attribute_value(index, "custom", None)) is not None
+    ]
+    assert customs == ["stamp-separator-1", "stamp-separator-2"]
+    menu.popdown()
+
+
+def stamps_section(menu: Gio.MenuModel) -> Gio.MenuModel:
+    section = menu.get_item_link(0, "section")
+    assert section is not None
+    return section
+
+
+def test_a_stamp_of_another_program_is_changed_only_after_a_warning(window: "PenfoldWindow", tmp_path: Path) -> None:
+    from gi.repository import Adw
+
+    from tests.test_stamps import bare, with_stamps
+
+    path = tmp_path / "stamps.pdf"
+    with_stamps(path, bare)  # Without a drawing: Penfold could not draw it before.
+    assert open_and_wait(window, path)
+    for response, changed in (("cancel", False), ("change", True)):
+        open_stamp_menu(window, stamps(window)[0])
+        window.activate_action("win.change-stamp", GLib.Variant.new_string("Paid"))
+        process_pending_events()
+        dialog = window.get_visible_dialog()
+        assert isinstance(dialog, Adw.AlertDialog)
+        dialog.emit("response", response)
+        dialog.close()
+        process_pending_events()
+        (found,) = stamps(window)
+        assert (found.managed, found.stamp, bool(found.drawing)) == (
+            changed,
+            "Paid" if changed else "Confidential",
+            changed,
+        )
+
+
+def test_its_menu_on_the_page_grows_to_show_the_submenu(stamp_window: "PenfoldWindow") -> None:
+    """A menu on the page follows its content: Change Stamp's list is taller than the menu it opens from."""
+    window = stamp_window
+    start(window, "Draft")
+    click(window, 0, (100, 100))
+    open_stamp_menu(window, stamps(window)[0])
+    menu = window.annotation_editing.menu
+    assert menu is not None
+    wait_until(lambda: menu.get_height() > 0)
+    closed = menu.get_height()
+    menu.set_property("visible-submenu", "Change _Stamp")
+    wait_until(lambda: menu.get_height() > closed + 50)  # Not cut short, scrolling inside.
+    menu.popdown()

@@ -1,5 +1,6 @@
-"""Penfold's stamps: the eight of them, their drawing, and how they are saved (ISO 32000-1, 12.5.6.12)."""
+"""Penfold's stamps: the eight of them, their drawing, how they are saved, and changing one for another."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import cairo
@@ -152,3 +153,50 @@ def test_it_is_upright_as_the_page_is_seen(rotation: int, turn: int) -> None:
         for x in range(40, 40 + int(width))
     ]
     assert sum(differences) / len(differences) < 6  # The same, but for the smoothing of edges.
+
+
+def test_changed_for_another_it_keeps_its_centre_and_its_height() -> None:
+    from penfold.rendering.stamp_look import restamped
+
+    page = ShownPage(0, (595.0, 842.0))
+    approved = penfold_stamp("Approved", "Approved", (100, 100))
+    # Made twice as big with its handles first: the new one is as tall, and as wide as its word needs at that height.
+    left, top, right, bottom = approved.rectangle
+    approved = replace(approved, rectangle=(left, top, left + 2 * (right - left), top + 2 * (bottom - top)))
+    draft = restamped(approved, STAMPS["Draft"], "Draft", page, 0)
+    assert (draft.stamp, draft.color, draft.name, draft.managed) == ("Draft", BLUE, approved.name, True)
+    assert draft.drawing != approved.drawing
+    old_left, old_top, old_right, old_bottom = approved.rectangle
+    new_left, new_top, new_right, new_bottom = draft.rectangle
+    assert ((new_left + new_right) / 2, (new_top + new_bottom) / 2) == pytest.approx(
+        ((old_left + old_right) / 2, (old_top + old_bottom) / 2)
+    )
+    assert new_bottom - new_top == pytest.approx(old_bottom - old_top)
+    width, height = stamp_size("Draft")
+    assert new_right - new_left == pytest.approx(2 * width * HEIGHT / height)
+
+
+def test_changed_near_the_edge_it_stays_inside_the_page() -> None:
+    from penfold.rendering.stamp_look import restamped
+
+    page = ShownPage(0, (595.0, 842.0))
+    final = penfold_stamp("Final", "Final", (595 - stamp_size("Final")[0], 100))  # At the right edge.
+    longer = restamped(final, STAMPS["ForComment"], "For Comment", page, 0)
+    assert longer.rectangle[2] == pytest.approx(595)
+    assert longer.rectangle[2] - longer.rectangle[0] == pytest.approx(stamp_size("For Comment")[0])
+
+
+@pytest.mark.parametrize("turn", [90, 270])
+def test_changed_on_a_page_turned_in_penfold_it_keeps_its_height_as_seen(turn: int) -> None:
+    from penfold.rendering.stamp_look import restamped
+
+    page = ShownPage(0, (595.0, 842.0), turn)
+    width, height = stamp_size("Paid")
+    shown = (100.0, 100.0, 100 + width, 100 + height)
+    paid = penfold_stamp("Paid", "Paid", (0, 0), turn=turn)
+    paid = replace(paid, rectangle=page.to_source_rectangle(shown))
+    received = restamped(paid, STAMPS["Received"], "Received", page, 0)
+    left, top, right, bottom = page.from_source(received.rectangle)
+    assert bottom - top == pytest.approx(height)
+    assert right - left == pytest.approx(stamp_size("Received")[0])
+    assert (left + right) / 2 == pytest.approx(100 + width / 2)

@@ -33,6 +33,13 @@ class ShownPage:
         """Where a rectangle of the unturned page is shown."""
         return turn_rectangle(rectangle, self.source_size, self.rotation)
 
+    def to_source_rectangle(self, rectangle: Rectangle) -> Rectangle:
+        """The rectangle of the unturned page under a rectangle of the page as shown."""
+        left, top, right, bottom = rectangle
+        corners = [self.to_source(left, top), self.to_source(right, bottom)]
+        xs, ys = [x for x, _y in corners], [y for _x, y in corners]
+        return min(xs), min(ys), max(xs), max(ys)
+
     def shown_top(self, top: float | None) -> float | None:
         """The height to show for a destination at a height of the unturned page.
 

@@ -390,7 +390,7 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 - **Stamps.** Every other stamp is a stamp: a word such as “Approved”, named by `/Name`. Those of other programs keep
   their drawing as images do, stretched to their rectangle, and are written again with it, their `/Name`, `/IT /Stamp`
   and their color (if they had one). A stamp without a drawing is drawn by each viewer its own way: Penfold only moves
-  it, keeping the drawing Poppler gives it.
+  it, keeping the drawing Poppler gives it, or gives it one of its own with Change Stamp.
 - **Penfold’s stamps** are eight, in three groups by their color, from GNOME’s palette: green `#26a269` (Approved,
   Final, Received, Paid), blue `#1c71d8` (Draft, For Comment) and red `#c01c28` (Not Approved, Confidential). Their
   `/Name` is the standard’s (`/Approved`, `/Final`, `/Draft`, `/ForComment`, `/NotApproved`, `/Confidential`) or, for
@@ -439,6 +439,7 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 ( ● ) ( ● ) ( ● ) ( ● ) ( ● ) ( ● )     the six colors; one click changes and closes
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments (grayed out for stamps without a drawing)
+Change Stamp ▸                          stamps: Penfold’s eight, the stamp’s own marked
 Move and Resize                         “Move” for comments and stamps without a drawing; “Adjust Ends” for text markups
 Rotate Left                             images
 Rotate Right                            images
@@ -466,13 +467,19 @@ Delete
   which change only its width (the height follows the text, live); the ends of an arrow; for text markups, drop-shaped
   handles at the start and the end, which follow the text letter by letter within the page (grayed out where there is
   no text under them). Dragging inside moves it. Enter or a click outside accept, Esc cancels; one undo step.
+- **Change Stamp** (stamps): a submenu with Penfold’s eight stamps, in their three groups, with a dot on the stamp’s
+  own if it is one of them. Choosing one gives the stamp its name, color and drawing (the word in the interface’s
+  language); it keeps its centre and its height as seen, and is as wide as the new word needs at that height, moved in
+  from the edges of the page if it needs. A stamp of another program is warned of first (“Change This Annotation?”):
+  Penfold’s drawing takes the place of its own. One undo step.
 - **Rotate Left, Rotate Right** (images): a quarter turn around its centre, anticlockwise or clockwise, as the page is
   seen; its width and height swap. If it no longer fits in the page, it is shrunk to fit, keeping its proportion, and
   it is moved in from the edges as far as it needs. Its drawing is kept, turned. One undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
 - **Annotations from other programs** of the twelve types are edited like Penfold’s (a freehand drawing without
-  strokes, `/InkList`, counts as another type; a stamp without its drawing is only moved). What is not touched does not
-  change: a color outside the palette has no circle marked; a value outside the options appears as one more option.
+  strokes, `/InkList`, counts as another type; a stamp without its drawing is only moved or changed for one of
+  Penfold’s). What is not touched does not change: a color outside the palette has no circle marked; a value outside
+  the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns
   before changing it. Annotations of other types can be seen and listed, but not edited.

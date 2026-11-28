@@ -246,7 +246,8 @@ class Annotating:
             self._notify(_("The image could not be opened"))
             self.choose(self._before_placing)
             return
-        made = new_annotation(Kind.IMAGE, page.source, _unturned(page, shown), None, self._author(), drawing=drawing)
+        rectangle = page.to_source_rectangle(shown)
+        made = new_annotation(Kind.IMAGE, page.source, rectangle, None, self._author(), drawing=drawing)
         document.execute(AddAnnotations(document, [made]))
         self.choose(self._before_placing)
 
@@ -274,7 +275,7 @@ class Annotating:
         color = STAMPS[name].color
         turns = (document.own_rotation(page.source), page.rotation)
         drawing, _size = stamp_drawing(stamp_name(name), color, *turns)
-        rectangle = _unturned(page, shown)
+        rectangle = page.to_source_rectangle(shown)
         made = new_annotation(Kind.STAMP, page.source, rectangle, color, self._author(), drawing=drawing, stamp=name)
         document.execute(AddAnnotations(document, [made]))
         self.choose(self._before_placing)
@@ -403,11 +404,3 @@ class Annotating:
             action.set_state(value)
             self._chosen_color = value.get_string()
             self._toolbar.show_color(self._chosen_color)
-
-
-def _unturned(page: ShownPage, shown: Rectangle) -> Rectangle:
-    """A rectangle of a page as shown, on the page as its PDF shows it (Penfold's turn undone)."""
-    left, top, right, bottom = shown
-    corners = [page.to_source(left, top), page.to_source(right, bottom)]
-    xs, ys = [x for x, _y in corners], [y for _x, y in corners]
-    return min(xs), min(ys), max(xs), max(ys)

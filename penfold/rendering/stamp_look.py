@@ -3,17 +3,23 @@
 The border is thick outside and thin inside, with a faint background of the colour that lets what is under it show; the
 word, in capitals, is in Liberation Sans Bold, spaced out a little. All stamps are as tall; each is as wide as its word
 needs. The drawing is made with Pango and cairo, as a one-page PDF with the letters used inside, and kept as the drawing
-of the stamp (document/images.py), turned for its page.
+of the stamp (document/images.py), turned for its page. A stamp is changed for another (restamped) keeping its centre
+and its height.
 """
 
 import io
 import math
+from dataclasses import replace
 
 import cairo
 from gi.repository import Pango, PangoCairo
 
+from penfold.document.annotations import Annotation
 from penfold.document.geometry import Size
 from penfold.document.images import upright_drawing
+from penfold.document.reshaping import placed
+from penfold.document.stamps import Stamp
+from penfold.rendering.layout import ShownPage
 
 FONT = "Liberation Sans Bold"
 # Measures in points: the letters, the height of every stamp, the space at each side of the word, the borders (outside,
@@ -49,6 +55,28 @@ def stamp_drawing(word: str, color: Color, rotation: int = 0, turn: int = 0) -> 
     paint_stamp(cairo.Context(surface), word, color, size)
     surface.finish()
     return upright_drawing(output.getvalue(), rotation, turn), size
+
+
+def restamped(annotation: Annotation, stamp: Stamp, word: str, page: ShownPage, rotation: int) -> Annotation:
+    """A stamp changed for one of Penfold's, with its word, on a page as it is shown; its PDF turns it by rotation.
+
+    It takes the new stamp's name, colour and drawing; it keeps its centre and its height as seen, and is as wide as the
+    new word needs at that height, moved in from the edges of the page if it needs. Nothing else changes.
+    """
+    left, top, right, bottom = page.from_source(annotation.rectangle)
+    natural_width, natural_height = stamp_size(word)
+    height = bottom - top
+    width = natural_width * height / natural_height
+    corner = ((left + right - width) / 2, (top + bottom - height) / 2)
+    shown = placed(corner, (width, height), page.size)
+    drawing, _size = stamp_drawing(word, stamp.color, rotation, page.rotation)
+    return replace(
+        annotation,
+        stamp=stamp.name,
+        color=stamp.color,
+        drawing=drawing,
+        rectangle=page.to_source_rectangle(shown),
+    )
 
 
 def paint_stamp(context: cairo.Context, word: str, color: Color, size: Size) -> None:

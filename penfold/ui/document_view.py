@@ -617,10 +617,11 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.queue_allocate()
 
     def do_size_allocate(self, width: int, height: int, _baseline: int) -> None:
-        """Fit the zoom again when the width of the viewer changes, then place the pages and the form fields."""
+        """Fit the zoom again when the width of the viewer changes, then place the pages, the form fields and menus."""
         fields_moved, self._fields_moved = self._fields_moved, False
         if fields_moved and (width, height) == (self._allocated_width, self._allocated_height):
             self._allocate_fields()
+            self._present_popovers()
             return
         self._allocated_height = height
         width_changed = width != self._allocated_width
@@ -638,6 +639,18 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self._start_pending = False
             self._show_start()
         self._allocate_fields()
+        self._present_popovers()
+
+    def _present_popovers(self) -> None:
+        """Place and size again the menus and popovers open on the view, as GTK asks of the widgets that have them.
+
+        Otherwise one does not follow its content: a menu would stay as big as it opened when its submenu is shown.
+        """
+        child = self.get_first_child()
+        while child is not None:
+            if isinstance(child, Gtk.Popover) and child.get_visible():
+                child.present()
+            child = child.get_next_sibling()
 
     def _show_start(self) -> None:
         """Show the first page, or the place where the document was left."""
