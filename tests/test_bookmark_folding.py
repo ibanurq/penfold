@@ -167,8 +167,13 @@ def test_folding_every_branch_shows_the_outline_from_the_beginning(window: "Penf
     tree_row(view, "Part 2").set_expanded(True)
     process_pending_events()
     scrolling = view.scrolled.get_vadjustment()
-    scrolling.set_value(scrolling.get_upper())
-    wait_until(lambda: scrolling.get_value() > 0)
+
+    def scrolled_to_the_end() -> bool:
+        # Until the list is laid out, there is nowhere to scroll to: on a slow machine, try again until there is.
+        scrolling.set_value(scrolling.get_upper())
+        return scrolling.get_value() > 0
+
+    wait_until(scrolled_to_the_end)
     view.expand_all()
     # The list goes back to its beginning once it is laid out again: a slow machine takes longer.
     wait_until(lambda: scrolling.get_value() == 0)
