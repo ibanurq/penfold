@@ -9,7 +9,7 @@ circles and arrows are drawn by dragging, from where the drag starts to where it
 drag, and is smoothed a little when the mouse is released (document/freehand.py). A click places a comment, whose
 text is written in a popover. A drag sets the width of a text box (a click gives it a usual width), whose text is
 written on the page. The image tool first asks for the image's file; then a frame of its size follows the pointer, and
-a click or a drag puts it on the page (ui/image_placing.py). Once it is put, or if the file is not chosen or cannot be
+a click puts it on the page (ui/image_placing.py). Once it is put, or if the file is not chosen or cannot be
 read, or with Esc, the tool chosen before comes back.
 """
 
@@ -208,7 +208,7 @@ class Annotating:
         self.place_image(Path(path))
 
     def place_image(self, path: Path) -> None:
-        """Show where the image of a file goes, following the pointer, until a click or a drag puts it on a page."""
+        """Show where the image of a file goes, following the pointer, until a click puts it on a page."""
         try:
             drawing, size = image_from_file(path)
         except ImageOpenError:

@@ -1,4 +1,4 @@
-"""The Image tool: choosing the file, the frame that follows the pointer, a click or a drag, and the tool before."""
+"""The Image tool: choosing the file, the frame that follows the pointer, a click that puts it, and the tool before."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -8,7 +8,7 @@ from gi.repository import Gio, GLib, Gtk
 from PIL import Image
 
 from penfold.document.annotations import Annotation, Kind
-from penfold.document.reshaping import SMALLEST_SIZE, dragged, placed
+from penfold.document.reshaping import placed
 from penfold.ui.annotation_toolbar import TOOL_GROUPS, Tool
 from tests.gtk_helpers import process_pending_events
 from tests.sample_pdfs import make_pdf
@@ -138,13 +138,29 @@ def test_a_frame_of_its_size_follows_the_pointer_and_a_click_puts_it_there(
     assert images(window) == []
 
 
-def test_a_drag_frames_it_keeping_its_proportion(image_window: "PenfoldWindow", tmp_path: Path) -> None:
+def test_pressing_puts_it_as_it_is_and_the_rest_of_the_press_does_nothing(
+    image_window: "PenfoldWindow", tmp_path: Path
+) -> None:
     window = image_window
+    view = window.document_view
+    click(window, 0, (300, 500))  # A click with Select Text first: the view remembers where it was pressed.
     start(window, picture(tmp_path), before=Tool.SELECT)
-    click(window, 0, (100, 100), (340, 120))  # Taken furthest across: twice as wide.
-    (image,) = images(window)
-    assert image.rectangle == pytest.approx((100, 100, 340, 260), abs=0.1)
-    assert window.annotating.tool is Tool.SELECT
+    x, y = widget_point(window, 0, 100, 100)
+    end_x, end_y = widget_point(window, 0, 340, 400)
+    gesture = FakeDrag(x, y)
+    view._on_motion(None, x, y)  # type: ignore[arg-type]
+    view._on_pressed(None, 1, x, y)  # type: ignore[arg-type]
+    (image,) = images(window)  # Put before the button is released.
+    assert image.rectangle == pytest.approx((100, 100, 220, 180), abs=0.1)
+    assert (tool_of(window), view.image_placer) == (Tool.SELECT, None)
+    # Dragging and releasing neither change its size nor select text with the tool that came back.
+    view._on_drag_update(gesture, end_x - x, end_y - y)  # type: ignore[arg-type]
+    view._on_drag_end(gesture, end_x - x, end_y - y)  # type: ignore[arg-type]
+    process_pending_events()
+    assert images(window) == [image]
+    assert view.selection is None
+    click(window, 0, (100, 300), (300, 320))  # The next drag selects text again.
+    assert view.selection is not None
 
 
 def test_at_the_edge_it_moves_in_and_bigger_than_the_page_it_shrinks(
@@ -208,15 +224,9 @@ def test_on_a_page_turned_in_penfold_it_is_put_as_seen(image_window: "PenfoldWin
     assert page.from_source(image.rectangle) == pytest.approx((100, 100, 220, 180), abs=0.1)  # 120 wide as seen.
 
 
-def test_where_a_click_and_a_drag_put_it() -> None:
+def test_where_a_click_puts_it() -> None:
     assert placed((10, 20), (100, 50), A4) == (10, 20, 110, 70)
     assert placed((-5, 820), (100, 50), A4) == (0, 792, 100, 842)  # Fitting in the page, it goes up to its edges.
     assert placed((0, 0), (1000, 500), A4) == pytest.approx((72, 72, 523, 72 + 225.5))  # Bigger: inside the margins.
     assert placed((300, 800), (300, 2000), A4) == pytest.approx((300, 72, 404.7, 770), abs=0.1)
     assert placed((0, 0), (100, 100), (100.0, 60.0)) == pytest.approx((15, 15, 45, 45))  # A tiny page: smaller ones.
-    assert dragged((10, 20), (11, 21), (100, 50), A4) is None  # A click.
-    assert dragged((10, 20), (60, 30), (100, 50), A4) == pytest.approx((10, 20, 60, 45))
-    assert dragged((10, 20), (0, 0), (100, 50), A4) == pytest.approx(
-        (10, 20, 10 + 2 * SMALLEST_SIZE, 20 + SMALLEST_SIZE)
-    )
-    assert dragged((500, 20), (2000, 30), (100, 50), A4) == pytest.approx((500, 20, 595, 67.5))  # As far as fits.

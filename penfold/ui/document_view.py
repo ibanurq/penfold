@@ -237,7 +237,10 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self.text_editor: TextBoxEditor | None = None
         # An annotation being moved or resized with handles.
         self.handle_editor: HandleEditor | None = None
+        # An image being put on a page; and whether the press now going on was for it: the rest of that press (its
+        # drag and its release) does nothing, nor reaches the tool that comes back once the image is put.
         self.image_placer: ImagePlacer | None = None
+        self._image_press = False
         self._form_layer = FormLayer(self)
         # Set when the pages moved (scroll, zoom, layout) but the view kept its size: the next allocation only places
         # the form fields again (GTK places child widgets only while allocating).
@@ -245,9 +248,6 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         self._allocated_height = 0
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.set_focusable(True)
-        # The text of a comment, when the pointer is over it.
-        self.set_has_tooltip(True)
-        self.connect("query-tooltip", self._on_query_tooltip)
         self._add_controllers()
 
     # Scrollable interface: the scrolled window gives the view its adjustments.
@@ -1005,7 +1005,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         return self.handle_editor
 
     def place_image(self, size: Size, on_placed: Callable[[ShownPage, Rectangle], None]) -> ImagePlacer:
-        """Show where an image of a size (points as seen) goes, following the pointer, until a click or a drag puts it.
+        """Show where an image of a size (points as seen) goes, following the pointer, until a click puts it.
 
         on_placed receives the page and the rectangle, in points of the page as shown; stop_placing_image ends it.
         """
@@ -1112,6 +1112,9 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self._on_key_pressed)
         self.add_controller(keys)
+        # The text of a comment, when the pointer is over it.
+        self.set_has_tooltip(True)
+        self.connect("query-tooltip", self._on_query_tooltip)
 
     def page_point(self, x: float, y: float, clamp: bool = False) -> PagePoint | None:
         """Convert a point of the widget to a point of a page; with clamp, the nearest page if it falls between."""
@@ -1258,6 +1261,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.text_editor.finish(apply=True)
             return
         self.grab_focus()
+        self._image_press = self.image_placer is not None
         if self.handle_editor is not None:
             self.handle_editor.press(x, y)
             return
@@ -1285,9 +1289,7 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             _found, start_x, start_y = gesture.get_start_point()
             self.handle_editor.drag(start_x + offset_x, start_y + offset_y)
             return
-        if self.image_placer is not None:
-            _found, start_x, start_y = gesture.get_start_point()
-            self.image_placer.drag(start_x + offset_x, start_y + offset_y)
+        if self._image_press:
             return
         if self._shape_start is not None:
             self._draw_shape(gesture, offset_x, offset_y)
@@ -1351,15 +1353,14 @@ class DocumentView(Gtk.Widget, Gtk.Scrollable):
             self.follow_link(link)
 
     def _end_editing_drag(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> bool:
-        """The end of a drag of handles, or of one putting an image; return whether it was one."""
+        """The end of a drag of handles, or of a press that put an image; return whether it was one."""
+        if self._image_press:
+            self._image_press = False
+            return True
         if self.handle_editor is not None:
             self._on_drag_update(gesture, offset_x, offset_y)
             if self.handle_editor is not None:
                 self.handle_editor.release()
-            return True
-        if self.image_placer is not None:
-            _found, start_x, start_y = gesture.get_start_point()
-            self.image_placer.release(start_x + offset_x, start_y + offset_y)
             return True
         return False
 

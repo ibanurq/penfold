@@ -5,6 +5,12 @@ All notable changes to Penfold are listed here. The format follows [Keep a Chang
 Version numbers: the second number goes up when features are added (0.5 → 0.6); the third one (0.6.1, 0.6.2…) only
 for visual polish, translations and bug fixes.
 
+## Unreleased
+
+### Changed
+- Image: a click puts the image as big as the frame shows it, as soon as the button is pressed; dragging no longer
+  changes its size (Move and Resize does, once it is put).
+
 ## 1.1.0-alpha.3 — 2026-11-27
 
 Third alpha of Penfold 1.1: images.

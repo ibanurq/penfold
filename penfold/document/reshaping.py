@@ -4,8 +4,8 @@ Rectangles, circles, freehand drawings and images have a handle at each corner (
 one at each end; text boxes have one at each side, which change only their width (rendering/text_box.py: their height
 follows the text). Comments are only moved. Marks on text (highlights, underlines, strikethroughs) have one where they
 start and one where they end, and they cover the text from one to the other (the interface asks Poppler for it); they do
-not move. Everything stays inside the annotation's page. An image being put on a page goes where placed or dragged
-say. Images also turn a quarter at a time (turned).
+not move. Everything stays inside the annotation's page. An image being put on a page goes where placed says. Images
+also turn a quarter at a time (turned).
 
 Points and rectangles are those of the annotations: in points of the unturned page, from its top left corner.
 """
@@ -272,23 +272,6 @@ def placed(corner: Point, size: Size, page_size: Size) -> Rectangle:
     left = min(max(corner[0], margin), page_width - margin - width)
     top = min(max(corner[1], margin), page_height - margin - height)
     return left, top, left + width, top + height
-
-
-def dragged(start: Point, point: Point, size: Size, page_size: Size) -> Rectangle | None:
-    """The rectangle a drag frames for an image of a size: from where it started, keeping the image's proportion.
-
-    Its top left corner is where the drag started and its bottom right corner follows the pointer, along the side it is
-    taken furthest by: further right or down, bigger; back left or up, smaller, never smaller than SMALLEST_SIZE nor
-    out of the page. A drag shorter than SMALLEST_SIZE is a click: None.
-    """
-    if max(abs(point[0] - start[0]), abs(point[1] - start[1])) < SMALLEST_SIZE:
-        return None
-    width, height = max(size[0], FLAT), max(size[1], FLAT)
-    page_width, page_height = page_size
-    scale = max((point[0] - start[0]) / width, (point[1] - start[1]) / height)
-    scale = min(scale, (page_width - start[0]) / width, (page_height - start[1]) / height)
-    scale = max(scale, SMALLEST_SIZE / min(width, height))
-    return start[0], start[1], start[0] + width * scale, start[1] + height * scale
 
 
 def turned(annotation: Annotation, clockwise: bool, page_size: Size) -> Annotation:

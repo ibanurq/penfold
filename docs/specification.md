@@ -204,9 +204,9 @@ border and a soft shadow, so it stands out from white paper. While it is shown, 
 - **Image** first opens the file chooser, “Insert Image”, with the images that can be inserted; its button stays
   pressed. Back on the document, with the crosshair cursor, a thin frame in the accent color, as big as the image,
   follows the pointer with its top left corner, all inside the page; an image bigger than the page is shrunk to fit
-  inside its margins, an inch (about 2.5 cm) from each edge, and stays inside them. A **click** puts the image there; pressing and
-  **dragging** frames it from where the press was to the pointer, keeping its proportion (further right or down,
-  bigger; back, smaller); a drag shorter than 3 pt is a click. Then the tool chosen before comes back. Cancelling the
+  inside its margins, an inch (about 2.5 cm) from each edge, and stays inside them. A **click** puts the image there,
+  as the frame shows it, as soon as the button is pressed: holding it down and moving changes nothing (its size is
+  changed afterwards, with Move and Resize). Then the tool chosen before comes back. Cancelling the
   file chooser, or Esc, puts nothing and brings it back too; a file that cannot be read says so in a toast (“The image
   could not be opened”).
 - **Color:** a button with the current color opens upwards a row of six color circles, with a ring around the one
@@ -372,7 +372,7 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 | Freehand | `/Ink` | Dragging; each stroke is one annotation | A 2 pt line through the points of the stroke (`/InkList`), drawn as a smooth curve (Catmull-Rom, as Bézier curves), with round ends and corners |
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
-| Image | `/Stamp`, `/IT /StampImage` | Choosing its file, then clicking or dragging | The image, as big as it is printed (see “Images from files”); if bigger than the page, shrunk to fit an inch inside its edges |
+| Image | `/Stamp`, `/IT /StampImage` | Choosing its file, then clicking | The image, as big as it is printed (see “Images from files”); if bigger than the page, shrunk to fit an inch inside its edges |
 
 - **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
