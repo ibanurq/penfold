@@ -40,6 +40,8 @@ BLACK_TEXT = re.compile(r"(?:^|\s)(?:0(?:\.0*)?\s+g|0(?:\.0*)?\s+0(?:\.0*)?\s+0(
 NOT_LISTED = frozenset({"/Link", "/Widget", "/Popup"})
 # The name of a stamp that has none (/Name, ISO 32000-1, table 181).
 DEFAULT_STAMP = "Draft"
+# A polyline has at least two vertices: one straight stretch.
+FEWEST_VERTICES = 2
 
 Point = tuple[float, float]
 
@@ -56,6 +58,7 @@ class Kind(enum.Enum):
     RECTANGLE = "Square"
     CIRCLE = "Circle"
     ARROW = "Line"
+    POLYLINE = "PolyLine"
     FREEHAND = "Ink"
     IMAGE = "StampImage"
     STAMP = "Stamp"
@@ -99,7 +102,7 @@ def group_of(annotation: pikepdf.Dictionary) -> AnnotationGroup | None:
 
 
 class LineEnds(enum.Enum):
-    """Where an arrow has arrowheads: at its end, at both ends, or none (a straight line)."""
+    """Where an arrow or a polyline has arrowheads: at its end, at both ends, or none."""
 
     END = "end"
     BOTH = "both"
@@ -111,8 +114,8 @@ class Style:
     """How an annotation looks, as its Format panel changes it, and as the standard keeps it.
 
     Each type uses only some of it: the opacity (/CA) all but comments; the line width, the dashes (/BS) and the fill
-    (/IC, a soft tint of the colour) rectangles, circles and arrows, which also have their arrowheads (/LE); the font
-    size (/DA), the background and the border text boxes.
+    (/IC, a soft tint of the colour) rectangles, circles and arrows, which also have their arrowheads (/LE), as
+    polylines do; the font size (/DA), the background and the border text boxes.
     """
 
     opacity: float = 1.0
@@ -131,6 +134,8 @@ def default_style(kind: Kind) -> Style:
         return Style(opacity=HIGHLIGHT_OPACITY)
     if kind is Kind.FREEHAND:
         return Style(line_width=FREEHAND_LINE_WIDTH)
+    if kind is Kind.POLYLINE:
+        return Style(line_ends=LineEnds.NONE)
     return Style()
 
 
@@ -147,8 +152,9 @@ class Annotation:
 
     The rectangle is in PDF points from the top left corner of the page as shown (page_frame.py): left, top, right,
     bottom. The quads are the areas of the text it marks, in the same units, for highlights, underlines (also
-    squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows; the strokes are the
-    paths of a freehand drawing, each the points it goes through in order (one alone is a dot). An image has no colour.
+    squiggly) and strikethroughs; the line goes from its start to its end (x, y, x, y) for arrows; the vertices of a
+    polyline are its points, from its start to its end, joined by straight lines; the strokes are the paths of a
+    freehand drawing, each the points it goes through in order (one alone is a dot). An image has no colour.
     A stamp has its name (/Name: "Approved", "Draft"…).
 
     A managed annotation is drawn and written by Penfold, with a unique name (/NM), its creation date and, once changed,
@@ -176,6 +182,7 @@ class Annotation:
     color: tuple[float, float, float] | None = None
     quads: tuple[tuple[float, float, float, float], ...] = ()
     line: tuple[float, float, float, float] | None = None
+    vertices: tuple[Point, ...] = ()
     strokes: tuple[tuple[Point, ...], ...] = ()
     name: str = ""
     created: datetime | None = None
@@ -216,6 +223,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
     text: str = "",
     quads: tuple[tuple[float, float, float, float], ...] = (),
     line: tuple[float, float, float, float] | None = None,
+    vertices: tuple[Point, ...] = (),
     strokes: tuple[tuple[Point, ...], ...] = (),
     text_turn: int = 0,
     drawing: bytes = b"",
@@ -243,6 +251,7 @@ def new_annotation(  # noqa: PLR0913 (what an annotation is made of)
         color=None if kind is Kind.IMAGE else color,
         quads=quads,
         line=line,
+        vertices=vertices,
         strokes=strokes,
         text_turn=text_turn,
         drawing=drawing,
@@ -303,6 +312,9 @@ def hit(annotation: Annotation, x: float, y: float, reach: float) -> Hit:
     if annotation.kind is Kind.ARROW and annotation.line is not None:
         width = annotation.style.line_width / 2 + reach
         return Hit.ON if _distance_to_line(annotation.line, x, y) <= width else Hit.NONE
+    if annotation.kind is Kind.POLYLINE and annotation.vertices:
+        width = annotation.style.line_width / 2 + reach
+        return Hit.ON if _distance_to_strokes((annotation.vertices,), x, y) <= width else Hit.NONE
     if annotation.kind is Kind.FREEHAND and annotation.strokes:
         width = annotation.style.line_width / 2 + reach
         return Hit.ON if _distance_to_strokes(annotation.strokes, x, y) <= width else Hit.NONE
@@ -346,7 +358,7 @@ def _distance_to_line(line: tuple[float, float, float, float], x: float, y: floa
 
 
 def _distance_to_strokes(strokes: tuple[tuple[Point, ...], ...], x: float, y: float) -> float:
-    """The distance from a point to the nearest part of a freehand drawing's strokes."""
+    """The distance from a point to the nearest part of a freehand drawing's strokes (or of a polyline's line)."""
     return min(
         _distance_to_line((*first, *second), x, y)
         for stroke in strokes
@@ -402,6 +414,9 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
     strokes = _strokes(annotation.get("/InkList"), frame) if kind is Kind.FREEHAND else ()
     if kind is Kind.FREEHAND and not strokes:
         kind = Kind.OTHER  # Without its strokes, Penfold cannot draw it.
+    vertices = _vertices(annotation.get("/Vertices"), frame) if kind is Kind.POLYLINE else ()
+    if kind is Kind.POLYLINE and len(vertices) < FEWEST_VERTICES:
+        kind, vertices = Kind.OTHER, ()  # Without a stretch of line, there is nothing to draw.
     drawing = None
     if kind is Kind.STAMP:
         drawing = image_drawing(annotation, frame.rotation)
@@ -421,6 +436,7 @@ def _read_annotation(annotation: pikepdf.Dictionary, page: int, origin: int, fra
         color=color,
         quads=_quads(annotation.get("/QuadPoints"), frame),
         line=look.line(frame) if kind is Kind.ARROW else None,
+        vertices=look.in_order(vertices),
         strokes=strokes,
         name=text(annotation.get("/NM")),
         created=date(annotation.get("/CreationDate")),
@@ -443,12 +459,14 @@ class _Look:
         width, dashed = self._border()
         filled = self._fill(kind, color)
         self._reversed = False
-        line_ends = self._line_ends() if kind is Kind.ARROW else LineEnds.END
+        line_ends = self._line_ends() if kind in {Kind.ARROW, Kind.POLYLINE} else LineEnds.END
         font_size = self._font_size() if kind is Kind.TEXT_BOX else TEXT_BOX_FONT_SIZE
         if kind is Kind.COMMENT and name(annotation.get("/Name")) not in {"", "Comment", "Note"}:
             self.foreign.append("icon")
         if "/RD" in annotation and kind in {Kind.RECTANGLE, Kind.CIRCLE, Kind.TEXT_BOX}:
             self.foreign.append("inner margins")
+        if kind is Kind.POLYLINE and ("/IT" in annotation or "/Measure" in annotation):
+            self.foreign.append("measurement")  # A dimension line (/IT /PolyLineDimension), with its measure.
         self.style = Style(
             opacity=min(1.0, max(0.0, opacity)) if opacity is not None else 1.0,
             line_width=width,
@@ -469,6 +487,10 @@ class _Look:
         if self._reversed:
             start, end = end, start
         return (*start, *end)
+
+    def in_order(self, vertices: tuple[Point, ...]) -> tuple[Point, ...]:
+        """A polyline's vertices from its start to its end (turned round if its only arrowhead was at its start)."""
+        return vertices[::-1] if self._reversed else vertices
 
     def _border(self) -> tuple[float, bool]:
         """The width of the line and whether it is dashed (/BS; else the older /Border); 1 point, solid, if none."""
@@ -561,6 +583,12 @@ def _strokes(value: object, frame: PageFrame) -> tuple[tuple[Point, ...], ...]:
         if points:
             strokes.append(points)
     return tuple(strokes)
+
+
+def _vertices(value: object, frame: PageFrame) -> tuple[Point, ...]:
+    """Turn /Vertices (x, y, x, y…) into points on the page as shown."""
+    coordinates = numbers(value) or []
+    return tuple(frame.point(x, y) for x, y in zip(coordinates[::2], coordinates[1::2], strict=False))
 
 
 def _color(value: object) -> tuple[float, float, float] | None:

@@ -111,6 +111,7 @@ def test_new_annotations_look_as_in_0_6() -> None:
     assert default_style(Kind.HIGHLIGHT) == Style(opacity=0.75)
     assert default_style(Kind.RECTANGLE) == Style(opacity=1.0, line_width=1.0, filled=False, dashed=False)
     assert default_style(Kind.FREEHAND) == Style(line_width=2.0)  # By hand, 1 point looks faint and shaky.
+    assert default_style(Kind.POLYLINE) == Style(line_ends=LineEnds.NONE)  # No arrowheads until they are chosen.
     assert new_annotation(Kind.HIGHLIGHT, 0, (0, 0, 9, 9), (1.0, 1.0, 0.0), "").style.opacity == 0.75
     bold = Style(line_width=4.0)
     assert new_annotation(Kind.CIRCLE, 0, (0, 0, 9, 9), (1.0, 1.0, 0.0), "", style=bold).style is bold
@@ -237,6 +238,28 @@ def test_freehand_drawings_of_other_programs_can_be_changed(tmp_path: Path) -> N
     assert (broken.kind, broken.subtype) == (Kind.OTHER, "Ink")
 
 
+def test_polylines_of_other_programs_can_be_changed(tmp_path: Path) -> None:
+    vertices = pikepdf.Array([110, 190, 150, 150, 190, 170])
+    polyline = read_one(tmp_path, "/PolyLine", Vertices=vertices, BS=pikepdf.Dictionary(W=2, S=pikepdf.Name.D), CA=0.5)
+    assert (polyline.kind, polyline.group, polyline.foreign_look) == (Kind.POLYLINE, AnnotationGroup.SHAPES, ())
+    assert polyline.vertices == ((110.0, 652.0), (150.0, 692.0), (190.0, 672.0))
+    assert polyline.style == Style(opacity=0.5, line_width=2, dashed=True, line_ends=LineEnds.NONE)
+    assert managed_copy(polyline).managed
+    head_first = read_one(tmp_path, "/PolyLine", Vertices=vertices, LE=pikepdf.Array([pikepdf.Name.OpenArrow]))
+    assert head_first.style.line_ends is LineEnds.END  # The same polyline, from its end.
+    assert head_first.vertices == ((190.0, 672.0), (150.0, 692.0), (110.0, 652.0))
+    for broken in (read_one(tmp_path, "/PolyLine"), read_one(tmp_path, "/PolyLine", Vertices=pikepdf.Array([1, 2]))):
+        assert (broken.kind, broken.subtype, broken.vertices) == (Kind.OTHER, "PolyLine", ())  # No line to draw.
+
+
+def test_a_polyline_that_measures_is_noted(tmp_path: Path) -> None:
+    vertices = pikepdf.Array([110, 190, 150, 150, 190, 170])
+    dimension = read_one(tmp_path, "/PolyLine", Vertices=vertices, IT=pikepdf.Name("/PolyLineDimension"))
+    assert dimension.foreign_look == ("measurement",)
+    measured = read_one(tmp_path, "/PolyLine", Vertices=vertices, Measure=pikepdf.Dictionary(Type=pikepdf.Name.Measure))
+    assert measured.foreign_look == ("measurement",)
+
+
 def test_pdf_dates() -> None:
     assert date(pikepdf.String("D:20261122103015Z")) == datetime(2026, 11, 22, 10, 30, 15, tzinfo=UTC)
     assert date(pikepdf.String("D:19990101120000-05'30'")) == datetime(
@@ -257,12 +280,15 @@ def test_what_a_point_is_on() -> None:
     drawn = new_annotation(
         Kind.FREEHAND, 0, (0, 0, 100, 100), red, "", strokes=(((0, 0), (100, 0), (100, 100)), ((50, 50),))
     )
+    polyline = new_annotation(Kind.POLYLINE, 0, (0, 0, 100, 100), red, "", vertices=((0, 0), (100, 0), (100, 100)))
     assert [hit(square, x, 150, 2) for x in (99, 101, 150, 250)] == [Hit.ON, Hit.ON, Hit.INSIDE, Hit.NONE]
     assert (hit(filled, 150, 150, 2), hit(filled, 100, 150, 2), hit(filled, 105, 105, 2)) == (Hit.ON, Hit.ON, Hit.NONE)
     assert (hit(arrow, 52, 50, 2), hit(arrow, 60, 50, 2), hit(arrow, 104, 104, 2)) == (Hit.ON, Hit.NONE, Hit.NONE)
     assert (hit(marked, 40, 5, 2), hit(marked, 40, 15, 2)) == (Hit.ON, Hit.NONE)  # Between its lines, nothing.
     on_strokes = [hit(drawn, x, y, 2) for x, y in ((50, 2), (102, 50), (51, 52), (30, 70), (70, 30))]
     assert on_strokes == [Hit.ON, Hit.ON, Hit.ON, Hit.NONE, Hit.NONE]  # Its lines and its dot, not its inside.
+    on_line = [hit(polyline, x, y, 2) for x, y in ((50, 2), (102, 50), (70, 30), (50, 50))]
+    assert on_line == [Hit.ON, Hit.ON, Hit.NONE, Hit.NONE]  # Open: nothing from its end back to its start.
 
 
 def test_the_one_most_hit_and_on_top_is_chosen(tmp_path: Path) -> None:

@@ -30,6 +30,7 @@ from penfold.rendering.layout import ShownPage
 from penfold.rendering.text_box import paint_text_box
 
 BLACK = (0.0, 0.0, 0.0)
+Point = tuple[float, float]
 
 
 def paint_annotations(
@@ -96,7 +97,10 @@ def _paint_on_unturned_page(context: cairo.Context, annotation: Annotation) -> N
         case Kind.RECTANGLE | Kind.CIRCLE:
             _paint_shape(context, annotation)
         case Kind.ARROW:
-            _paint_arrow(context, annotation)
+            if annotation.line is not None:
+                _paint_open_line(context, annotation, [annotation.line[:2], annotation.line[2:]])
+        case Kind.POLYLINE:
+            _paint_open_line(context, annotation, list(annotation.vertices), round_corners=True)
         case Kind.FREEHAND:
             _paint_freehand(context, annotation)
 
@@ -158,19 +162,27 @@ def _paint_shape(context: cairo.Context, annotation: Annotation) -> None:
     context.stroke()
 
 
-def _paint_arrow(context: cairo.Context, annotation: Annotation) -> None:
-    """The line, then its open arrowheads, solid and with round ends."""
-    if annotation.line is None:
+def _paint_open_line(
+    context: cairo.Context, annotation: Annotation, points: list[Point], *, round_corners: bool = False
+) -> None:
+    """The line of an arrow or a polyline through its points, then its open arrowheads, solid and with round ends.
+
+    Its corners are round if asked, as in the PDF (document/appearance.py).
+    """
+    if not points:
         return
-    start, end = annotation.line[:2], annotation.line[2:]
     context.set_dash(dashes(annotation.style))
+    if round_corners:
+        context.set_line_join(cairo.LINE_JOIN_ROUND)
+    start, *others = points
     context.move_to(*start)
-    context.line_to(*end)
+    for point in others:
+        context.line_to(*point)
     context.stroke()
     context.set_dash([])
     context.set_line_cap(cairo.LINE_CAP_ROUND)
     context.set_line_join(cairo.LINE_JOIN_ROUND)
-    for tip, tail in arrowheads(start, end, annotation.style.line_ends):
+    for tip, tail in arrowheads(points, annotation.style.line_ends):
         first, second = arrowhead_wings(tip, tail, annotation.style.line_width)
         context.move_to(*first)
         context.line_to(*tip)

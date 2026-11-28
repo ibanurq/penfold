@@ -13,7 +13,13 @@ from penfold.document.reshaping import Handle
 from penfold.rendering.text_box import text_box_pdf, text_height, written_frame
 from penfold.ui.annotation_toolbar import Tool
 from tests.gtk_helpers import process_pending_events, wait_until
-from tests.test_annotation_menu import annotated_window, freehand_window, make_annotated_pdf, panel_window
+from tests.test_annotation_menu import (
+    annotated_window,
+    freehand_window,
+    make_annotated_pdf,
+    panel_window,
+    polyline_window,
+)
 from tests.test_document_window import open_and_wait, window
 from tests.test_shape_drawing import drag, widget_point
 
@@ -21,7 +27,7 @@ if TYPE_CHECKING:
     from penfold.ui.handle_editor import HandleEditor
     from penfold.ui.window import PenfoldWindow
 
-__all__ = ["annotated_window", "freehand_window", "panel_window", "window"]
+__all__ = ["annotated_window", "freehand_window", "panel_window", "polyline_window", "window"]
 RED = (0.965, 0.38, 0.318)
 SQUARE = (100.0, 100.0, 300.0, 200.0)
 
@@ -185,6 +191,32 @@ def test_one_penfold_cannot_draw_again_only_moves_without_a_warning(annotated_wi
     moved = the_square(window)
     assert (moved.moved_as_is, moved.foreign_look) == (True, original.foreign_look)
     assert moved.moved_by == pytest.approx((-10, -5))
+
+
+def test_a_polyline_moves_when_its_line_is_dragged(polyline_window: "PenfoldWindow") -> None:
+    from penfold.ui.annotation_editing import _reshape_label
+
+    window = polyline_window
+    assert window.document is not None
+    original = annotation_of(window, Kind.POLYLINE)
+    editor = start_editing(window, (150, 842 - 770))
+    assert _reshape_label(original) == "_Move"
+    assert editor.handle_at(*widget_point(window, 0, 100, 842 - 750)) is None  # No handles yet.
+    drag(window, 0, (200, 842 - 760), (230, 842 - 700))  # Under its corner: not on it, so the change is accepted.
+    assert window.document_view.handle_editor is None
+    assert annotation_of(window, Kind.POLYLINE) is original
+    start_editing(window, (150, 842 - 770))
+    drag(window, 0, (250, 842 - 770), (260, 842 - 750))  # On its second stretch.
+    press_key(window, Gdk.KEY_Return)
+    moved = annotation_of(window, Kind.POLYLINE)
+    assert moved.moved_as_is  # Keeping its own drawing.
+    assert moved.moved_by == pytest.approx((10, 20))
+    assert [value for vertex in moved.vertices for value in vertex] == pytest.approx([110, 112, 210, 72, 310, 112])
+
+
+def annotation_of(window: "PenfoldWindow", kind: Kind) -> Annotation:
+    assert window.document is not None
+    return next(item for item in window.document.annotations if item.kind is kind)
 
 
 def test_a_freehand_drawing_of_another_program_moves_and_is_stretched(freehand_window: "PenfoldWindow") -> None:

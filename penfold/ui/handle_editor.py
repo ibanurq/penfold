@@ -7,10 +7,11 @@ outside it accept the change; Esc cancels it. The document view owns the editor 
 Rectangles, circles, freehand drawings and images have a handle at each corner (document/reshaping.py; images keep their
 proportion); text boxes one at each side, which change only their width: the text is laid out again as it is dragged,
 and the box is as tall as it needs (text_box.py); arrows one at each end, and they move when their line is dragged
-(anywhere else, a press accepts the change). Comments have no handles: they keep their size, and are only moved. Marks
-on text have a handle where they start and one where they end: each covers the text up to the other, letter by letter,
-as a selection does; they do not move. Theirs are drops, as the touch selection handles of GNOME: the start one above
-the first letter, the end one below the last.
+(anywhere else, a press accepts the change). Comments have no handles: they keep their size, and are only moved;
+polylines have none either, and move when their line is dragged, as arrows do. Marks on text have a handle where they
+start and one where they end: each covers the text up to the other, letter by letter, as a selection does; they do not
+move. Theirs are drops, as the touch selection handles of GNOME: the start one above the first letter, the end one
+below the last.
 """
 
 import math
@@ -49,6 +50,8 @@ WHITE = (1.0, 1.0, 1.0, 1.0)
 CORNER_KINDS = frozenset({Kind.RECTANGLE, Kind.CIRCLE, Kind.FREEHAND, Kind.IMAGE, Kind.STAMP})
 SIDE_KINDS = frozenset({Kind.TEXT_BOX})
 END_KINDS = frozenset({Kind.ARROW})
+# Those moved only by dragging their line: elsewhere in their frame, a press accepts the change.
+LINE_KINDS = END_KINDS | {Kind.POLYLINE}
 # The frame is left out where the handles show the annotation well enough, or it would be an empty box around it.
 UNFRAMED_KINDS = END_KINDS | TEXT_MARKUPS
 # The drop handles of marks on text: Adwaita's icons, drawn this big in pixels; where their tip is, and the part of them
@@ -277,8 +280,8 @@ class HandleEditor:
         return {handle: self._view.point_in_view(page, point) for handle, point in self._shown_handles(page).items()}
 
     def _is_on_annotation(self, page: ShownPage, point: Point) -> bool:
-        """Whether a point of the page as shown is on the annotation: on an arrow's line, or anywhere in its frame."""
-        if self.annotation.kind in END_KINDS:
+        """Whether a point of the page as shown is on the annotation: on its line (arrows, polylines), or in its box."""
+        if self.annotation.kind in LINE_KINDS:
             reach = HANDLE_REACH / self._view.zoom
             return hit(self.annotation, *page.to_source(*point), reach) is not Hit.NONE
         bounds = self._view.annotation_bounds(page, self.annotation)
@@ -305,7 +308,7 @@ class HandleEditor:
 
 def _place(annotation: Annotation) -> tuple[object, ...]:
     """Where an annotation is and how big: what moving it or its handles changes."""
-    return annotation.rectangle, annotation.line, annotation.quads, annotation.strokes
+    return annotation.rectangle, annotation.line, annotation.quads, annotation.vertices, annotation.strokes
 
 
 def _handles(page: ShownPage, annotation: Annotation) -> dict[Handle, Point]:

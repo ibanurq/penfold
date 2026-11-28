@@ -43,6 +43,8 @@ def test_which_types_move_and_which_change_their_size() -> None:
     assert [can_move(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, True, False, True]
     assert [can_resize(item) for item in (shape(), arrow(), comment, marks, drawn)] == [True, True, False, True, True]
     assert (can_move(image()), can_resize(image())) == (True, True)
+    polyline = new_annotation(Kind.POLYLINE, 0, (10, 10, 30, 30), RED, "Iban", vertices=((10, 10), (30, 30)))
+    assert (can_move(polyline), can_resize(polyline)) == (True, False)
 
 
 def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
@@ -55,6 +57,8 @@ def test_moving_takes_everything_along_and_keeps_the_rest() -> None:
     assert (pointing.name, pointing.color, pointing.style) == (original.name, original.color, original.style)
     drawn = new_annotation(Kind.FREEHAND, 0, (10, 10, 40, 30), RED, "Iban", strokes=(((10, 10), (40, 30)), ((20, 20),)))
     assert moved(drawn, (5, 7), PAGE).strokes == (((15, 17), (45, 37)), ((25, 27),))
+    polyline = new_annotation(Kind.POLYLINE, 0, (10, 10, 40, 30), RED, "Iban", vertices=((10, 10), (40, 30), (20, 20)))
+    assert moved(polyline, (5, 7), PAGE).vertices == ((15, 17), (45, 37), (25, 27))
 
 
 def test_moving_stops_at_the_edges_of_the_page() -> None:

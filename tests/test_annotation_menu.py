@@ -379,6 +379,58 @@ def test_a_freehand_drawing_has_its_width_and_opacity(freehand_window: "PenfoldW
 
 
 @pytest.fixture
+def polyline_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
+    """A page with a polyline of another program near its top: two stretches, up and down, with an arrowhead.
+
+    It is 2 points wide and dashed, and its arrowhead is at its end.
+    """
+    path = make_pdf(tmp_path / "polyline.pdf", page_count=1)
+    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+        drawn = entry(
+            "/PolyLine",
+            [95, 745, 305, 795],
+            Vertices=pikepdf.Array([100, 750, 200, 790, 300, 750]),
+            BS=pikepdf.Dictionary(W=2, S=pikepdf.Name.D),
+            LE=pikepdf.Array([pikepdf.Name("/None"), pikepdf.Name.OpenArrow]),
+            C=pikepdf.Array([0, 0, 1]),
+        )
+        pdf.pages[0].obj.Annots = pdf.make_indirect(pikepdf.Array([pdf.make_indirect(drawn)]))
+        pdf.save(path)
+    assert open_and_wait(window, path)
+    return window
+
+
+def test_a_polyline_has_the_format_of_an_arrow(polyline_window: "PenfoldWindow") -> None:
+    window = polyline_window
+    assert window.document is not None
+    popover = open_format(window, 150, 770)  # On its first stretch.
+    rows = rows_of(popover)
+    assert list(rows) == ["Line Width", "Line", "Arrowheads", "Opacity"]  # No fill: it is open.
+    width, line, heads = rows["Line Width"], rows["Line"], rows["Arrowheads"]
+    assert isinstance(width, Adw.ComboRow)
+    assert isinstance(line, Adw.ComboRow)
+    assert isinstance(heads, Adw.ComboRow)
+    assert (width.get_selected(), line.get_selected(), heads.get_selected()) == (1, 1, 0)  # 2 pt, dashed, at the end.
+    width.set_selected(2)
+    heads.set_selected(2)
+    popover.activate_action("format.color", GLib.Variant.new_string(GREEN))
+    drawn = annotation(window, Kind.POLYLINE)
+    assert (drawn.managed, color_to_hex(drawn.color or (0, 0, 0))) == (True, GREEN)
+    assert (drawn.style.line_width, drawn.style.dashed, drawn.style.line_ends) == (4.0, True, LineEnds.NONE)
+    assert [item.kind for item in window.document.replaced_annotations] == [Kind.POLYLINE]  # Penfold draws it.
+    popover.popdown()
+    process_pending_events()
+    right_click(window, 250, 770)  # On its second stretch.
+    menu = window.annotation_editing.menu
+    assert menu is not None
+    assert window.annotation_editing.annotation == drawn
+    menu.popdown()
+    process_pending_events()
+    right_click(window, 200, 760)  # Under its corner, inside its rectangle: nothing.
+    assert window.annotation_editing.menu is None
+
+
+@pytest.fixture
 def image_window(window: "PenfoldWindow", tmp_path: Path) -> "PenfoldWindow":
     """A page with an image of another program near its top (a stamp whose drawing is an image)."""
     from tests.test_images import stamp, with_stamps

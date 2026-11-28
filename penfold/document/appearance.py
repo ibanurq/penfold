@@ -11,13 +11,21 @@ is written with the drawing it keeps (images.py), stretched to its rectangle, an
 
 import io
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pikepdf
 
-from penfold.document.annotations import FILL_STRENGTH, KEPT_DRAWINGS, Annotation, Kind, LineEnds, Style
+from penfold.document.annotations import (
+    FEWEST_VERTICES,
+    FILL_STRENGTH,
+    KEPT_DRAWINGS,
+    Annotation,
+    Kind,
+    LineEnds,
+    Style,
+)
 from penfold.document.geometry import HALF_TURN, Rectangle
 from penfold.document.images import DRAWING, STAMP_IMAGE
 from penfold.document.page_frame import PageFrame
@@ -104,6 +112,7 @@ def _drawn(pdf: pikepdf.Pdf, annotation: Annotation, frame: PageFrame) -> tuple[
         Kind.RECTANGLE: _rectangle_or_circle,
         Kind.CIRCLE: _rectangle_or_circle,
         Kind.ARROW: _arrow,
+        Kind.POLYLINE: _polyline,
         Kind.FREEHAND: _freehand,
         Kind.COMMENT: _comment,
     }
@@ -290,19 +299,40 @@ def _arrow(annotation: Annotation, frame: PageFrame) -> _Written:
         raise ValueError(message)
     start = frame.pdf_point(*annotation.line[:2])
     end = frame.pdf_point(*annotation.line[2:])
+    written = _open_line(annotation, [start, end])
+    written.entries["/L"] = pikepdf.Array(_rounded((*start, *end)))
+    return written
+
+
+def _polyline(annotation: Annotation, frame: PageFrame) -> _Written:
+    """Straight lines from vertex to vertex (/Vertices), with round corners and arrowheads as an arrow's (/LE)."""
+    if len(annotation.vertices) < FEWEST_VERTICES:
+        message = "a polyline needs two vertices or more"
+        raise ValueError(message)
+    vertices = [frame.pdf_point(*vertex) for vertex in annotation.vertices]
+    written = _open_line(annotation, vertices, round_corners=True)
+    written.entries["/Vertices"] = pikepdf.Array([value for vertex in vertices for value in _rounded(vertex)])
+    return written
+
+
+def _open_line(annotation: Annotation, points: list[Point], *, round_corners: bool = False) -> _Written:
+    """A line through points, in the PDF's units, then its open arrowheads, solid and round (/LE).
+
+    Its corners are round if asked (a polyline's: sharp ones would stick out past its line, and out of its /Rect).
+    """
     style = annotation.style
-    drawing = [_line_style(annotation), f"{_path([start, end])} S", "[] 0 d 1 J 1 j"]  # Solid, round arrowheads.
-    points = [start, end]
-    for tip, tail in arrowheads(start, end, style.line_ends):
+    drawing = [_line_style(annotation), *(["1 j"] if round_corners else []), f"{_path(points)} S"]
+    drawing.append("[] 0 d 1 J 1 j")  # Solid, round arrowheads.
+    reached = list(points)
+    for tip, tail in arrowheads(points, style.line_ends):
         wings = arrowhead_wings(tip, tail, style.line_width)
         drawing.append(f"{_path([wings[0], tip, wings[1]])} S")
-        points += wings
+        reached += wings
     margin = style.line_width
-    xs, ys = [x for x, _y in points], [y for _x, y in points]
+    xs, ys = [x for x, _y in reached], [y for _x, y in reached]
     ends = {LineEnds.END: ("/None", "/OpenArrow"), LineEnds.BOTH: ("/OpenArrow",) * 2, LineEnds.NONE: ("/None",) * 2}
     entries: dict[str, object] = {
         "/Rect": pikepdf.Array(_rounded((min(xs) - margin, min(ys) - margin, max(xs) + margin, max(ys) + margin))),
-        "/L": pikepdf.Array(_rounded((*start, *end))),
         "/LE": pikepdf.Array([pikepdf.Name(name) for name in ends[style.line_ends]]),
         "/BS": _border(style.line_width, dashed=style.dashed),
     }
@@ -353,9 +383,22 @@ def stroke_curves(points: list[Point]) -> list[tuple[Point, Point, Point]]:
     return curves
 
 
-def arrowheads(start: Point, end: Point, line_ends: LineEnds) -> list[tuple[Point, Point]]:
-    """The arrowheads of an arrow: the point of each, and the other end of the line, which it points away from."""
-    return {LineEnds.END: [(end, start)], LineEnds.BOTH: [(end, start), (start, end)], LineEnds.NONE: []}[line_ends]
+def arrowheads(points: Sequence[Point], line_ends: LineEnds) -> list[tuple[Point, Point]]:
+    """The arrowheads of a line through points (an arrow, a polyline): the tip of each, and the point it points from.
+
+    That is the nearest other point of the line, so that each arrowhead follows the stretch of line it ends.
+    """
+    if line_ends is LineEnds.NONE or len(points) < FEWEST_VERTICES:
+        return []
+    heads = [(points[-1], _nearest_other(points[-1], points[-2::-1]))]
+    if line_ends is LineEnds.BOTH:
+        heads.append((points[0], _nearest_other(points[0], points[1:])))
+    return heads
+
+
+def _nearest_other(tip: Point, others: Sequence[Point]) -> Point:
+    """The first of some points that is not the tip (a vertex put twice makes no stretch to point from)."""
+    return next((point for point in others if point != tip), others[0])
 
 
 def arrowhead_wings(tip: Point, tail: Point, line_width: float) -> tuple[Point, Point]:

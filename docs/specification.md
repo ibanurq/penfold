@@ -319,8 +319,8 @@ Enter confirms and Esc cancels.
 ### Icons
 
 Adwaita’s symbolic icons; where there is no suitable one, an icon from the GNOME design team’s icon-development-kit,
-included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline, freehand, text box and
-stamp types, Collapse All and Expand All). Images have Adwaita’s `image-x-generic`. See `THIRD-PARTY-NOTICES.md`. Each
+included in the app; where neither has one, an icon drawn for Penfold (the squiggly underline, polyline, freehand,
+text box and stamp types, Collapse All and Expand All). Images have Adwaita’s `image-x-generic`. See `THIRD-PARTY-NOTICES.md`. Each
 annotation type has the same icon in the
 annotation bar and in the panel. Right-click menus have text, no icons.
 
@@ -363,7 +363,7 @@ System, Light or Dark; the choice is saved and applied at once to every window. 
 
 ### Annotation types and how they are saved
 
-Penfold makes eleven types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`),
+Penfold makes thirteen types. Each is saved with its own `/AP` (a Form XObject in `/AP /N`),
 the entries the standard asks for (`/NM`, dates, `/F` with the print flag, color, border style…) and the author of
 Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 
@@ -376,11 +376,15 @@ Preferences as `/T` (`Penfold` if it is empty). Text in `/Contents` is UTF-16.
 | Rectangle | `/Square` | Dragging | A 1 pt line, hollow |
 | Circle | `/Circle` | Dragging (four Bézier curves) | A 1 pt line, hollow |
 | Arrow | `/Line` | Dragging from its start to its end | A 1 pt line with an open arrowhead at the end (`/LE`) |
+| Polyline | `/PolyLine` | Clicking at each of its vertices | A 1 pt line from vertex to vertex (`/Vertices`), with round corners; no arrowheads (`/LE`), which can be chosen as an arrow’s |
 | Freehand | `/Ink` | Dragging; each stroke is one annotation | A 2 pt line through the points of the stroke (`/InkList`), drawn as a smooth curve (Catmull-Rom, as Bézier curves), with round ends and corners |
 | Comment | `/Text` | Clicking, then writing its text | GNOME’s comment bubble, filled with the color |
 | Text box | `/FreeText` | Dragging to set its width, then writing on the page | A faint background (14 %) and a 1 pt border in the color; black Liberation Sans 11 pt |
 | Image | `/Stamp`, `/IT /StampImage` | Choosing its file, then clicking | The image, as big as it is printed (see “Images from files”); if bigger than the page, shrunk to fit an inch inside its edges |
 | Stamp | `/Stamp`, `/IT /Stamp`, `/Name` | Choosing it in the menu, then clicking | A word in a double rounded border, in its color (see “Penfold’s stamps”) |
+
+*(In progress: the annotation bar does not have the Polyline tool yet, so the polylines of other programs can be
+edited, but none can be made; their handles come later, so for now they only move, when their line is dragged.)*
 
 - **Images.** The standard has no image type: an image is a stamp (`/Stamp`) whose drawing is an image. A stamp counts
   as one when it says so (`/IT /StampImage`, PDF 2.0) or when its drawing does nothing but paint one image (clipping,
@@ -440,7 +444,7 @@ A right click elsewhere does nothing. When the PDF does not allow annotating, ev
 Edit Text…                              comments and text boxes
 Format…                                 every type but comments (grayed out for stamps without a drawing)
 Change Stamp ▸                          stamps: Penfold’s eight, the stamp’s own marked
-Move and Resize                         “Move” for comments and stamps without a drawing; “Adjust Ends” for text markups
+Move and Resize                         “Move” for comments, polylines and stamps without a drawing; “Adjust Ends” for text markups
 Rotate Left                             images
 Rotate Right                            images
 Delete
@@ -454,7 +458,7 @@ Delete
   |---|---|
   | Highlight, underline, squiggly underline, strikethrough | Opacity |
   | Rectangle, circle | Line Width (Thin 1 pt · Medium 2 pt · Thick 4 pt) · Line (Solid · Dashed) · Fill (a soft tint of the color) · Opacity (10–100 %) |
-  | Arrow | Line Width · Line · Arrowheads (At the End · At Both Ends · None) · Opacity |
+  | Arrow, polyline | Line Width · Line · Arrowheads (At the End · At Both Ends · None) · Opacity |
   | Freehand | Line Width · Opacity |
   | Image | Opacity; it has no color, so the six colors are grayed out (also in the right-click menu) |
   | Stamp | Opacity; its color goes with the stamp, so the six colors are grayed out (also in the right-click menu) |
@@ -476,9 +480,10 @@ Delete
   seen; its width and height swap. If it no longer fits in the page, it is shrunk to fit, keeping its proportion, and
   it is moved in from the edges as far as it needs. Its drawing is kept, turned. One undo step.
 - **Delete:** no question; a toast “Annotation deleted” with “Undo”.
-- **Annotations from other programs** of the twelve types are edited like Penfold’s (a freehand drawing without
-  strokes, `/InkList`, counts as another type; a stamp without its drawing is only moved or changed for one of
-  Penfold’s). What is not touched does not change: a color outside the palette has no circle marked; a value outside
+- **Annotations from other programs** of the thirteen types are edited like Penfold’s (a freehand drawing without
+  strokes, `/InkList`, or a polyline without two vertices, `/Vertices`, counts as another type; a stamp without its
+  drawing is only moved or changed for one of Penfold’s; a polyline that measures, `/IT /PolyLineDimension` or
+  `/Measure`, is warned of before Penfold draws it, without its measure). What is not touched does not change: a color outside the palette has no circle marked; a value outside
   the options appears as one more option.
   They are moved **keeping their own drawing**; resizing them draws them again, so it is only offered when Penfold can
   draw them the same way (otherwise the menu says “Move”). If Penfold cannot redraw something of theirs, it warns

@@ -20,7 +20,7 @@ from penfold.document.annotations import (  # noqa: E402
     new_annotation,
     read_annotations,
 )
-from penfold.document.appearance import SQUIGGLE_MINIMUM, squiggle, stroke_curves  # noqa: E402
+from penfold.document.appearance import SQUIGGLE_MINIMUM, arrowheads, squiggle, stroke_curves  # noqa: E402
 from penfold.document.commands.annotations import AddAnnotations  # noqa: E402
 from penfold.document.commands.pages import DeletePages, RotatePages  # noqa: E402
 from penfold.document.document import OpenDocument  # noqa: E402
@@ -33,6 +33,8 @@ RED = (0.965, 0.38, 0.318)
 A4 = (595.0, 842.0)
 # A freehand drawing: a wave and a dot.
 FREEHAND_STROKES = (((350, 380), (380, 330), (410, 390), (440, 325), (470, 395), (500, 340)), ((420, 360),))
+# A polyline: three stretches, up, down and up again, with a sharp corner.
+POLYLINE_VERTICES = ((72.0, 500.0), (150.0, 420.0), (170.0, 490.0), (300.0, 430.0))
 
 
 def every_kind(page: int) -> list[Annotation]:
@@ -44,6 +46,7 @@ def every_kind(page: int) -> list[Annotation]:
         new_annotation(Kind.RECTANGLE, page, (72, 200, 200, 280), RED, "Iban"),
         new_annotation(Kind.CIRCLE, page, (250, 200, 400, 280), RED, "Iban"),
         new_annotation(Kind.ARROW, page, (72, 320, 300, 400), RED, "Iban", line=(72, 400, 300, 320)),
+        new_annotation(Kind.POLYLINE, page, (72, 420, 300, 500), RED, "Iban", vertices=POLYLINE_VERTICES),
         new_annotation(Kind.FREEHAND, page, (350, 320, 500, 400), RED, "Iban", strokes=FREEHAND_STROKES),
         new_annotation(Kind.COMMENT, page, (400, 72, 420, 92), YELLOW, "Iban", text="Ñandú → ✓ (a) \\ 😀"),
     ]
@@ -56,6 +59,7 @@ def restyled(annotations: list[Annotation]) -> list[Annotation]:
         Kind.RECTANGLE: shape,
         Kind.CIRCLE: shape,
         Kind.ARROW: replace(shape, filled=False, line_ends=LineEnds.BOTH),
+        Kind.POLYLINE: replace(shape, filled=False, line_ends=LineEnds.BOTH),
         Kind.FREEHAND: Style(opacity=0.5, line_width=4.0),
         Kind.COMMENT: Style(),
     }
@@ -111,8 +115,8 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
             assert str(entry.M).endswith("Z")
             assert entry.P.objgen == pdf.pages[1].obj.objgen
             assert entry.AP.N.Subtype == pikepdf.Name.Form
-        highlight, underline, squiggly, _strike, rectangle, _circle, arrow, freehand, comment = (
-            written[index] for index in range(9)
+        highlight, underline, squiggly, _strike, rectangle, _circle, arrow, polyline, freehand, comment = (
+            written[index] for index in range(10)
         )
         assert float(highlight.CA) == 0.75
         assert floats(highlight.QuadPoints) == [72, 770, 300, 770, 72, 752, 300, 752]
@@ -121,6 +125,11 @@ def test_every_type_is_written_with_the_standards_entries(document: OpenDocument
         assert "/IC" not in rectangle  # nothing inside
         assert floats(arrow.L) == [72, 442, 300, 522]
         assert [str(arrow.LE[index]) for index in range(len(arrow.LE))] == ["/None", "/OpenArrow"]
+        assert floats(polyline.Vertices) == [72, 342, 150, 422, 170, 352, 300, 412]
+        assert [str(polyline.LE[index]) for index in range(len(polyline.LE))] == ["/None", "/None"]  # As drawn.
+        assert (float(polyline.BS.W), str(polyline.BS.S)) == (1.0, "/S")
+        assert floats(polyline.Rect) == [71, 341, 301, 423]  # Its vertices, and its line around.
+        assert "/L" not in polyline
         assert (str(comment.Name), str(comment.Contents)) == ("/Comment", "Ñandú → ✓ (a) \\ 😀")
         assert [floats(freehand.InkList[index]) for index in range(len(freehand.InkList))] == [
             [350, 462, 380, 512, 410, 452, 440, 517, 470, 447, 500, 502],
@@ -154,6 +163,15 @@ def test_a_squiggly_underline_zigzags_along_the_bottom_of_the_text() -> None:
     assert max(y for _x, y in tiny) == pytest.approx(0.5 + SQUIGGLE_MINIMUM)
 
 
+def test_arrowheads_follow_the_stretch_of_line_they_end() -> None:
+    arrow = [(0.0, 0.0), (10.0, 0.0)]
+    assert arrowheads(arrow, LineEnds.END) == [((10, 0), (0, 0))]
+    assert arrowheads(arrow, LineEnds.BOTH) == [((10, 0), (0, 0)), ((0, 0), (10, 0))]
+    assert arrowheads(arrow, LineEnds.NONE) == []
+    polyline = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (20.0, 10.0), (20.0, 10.0)]  # Its last vertex, twice.
+    assert arrowheads(polyline, LineEnds.BOTH) == [((20, 10), (10, 10)), ((0, 0), (10, 0))]
+
+
 def test_a_freehand_stroke_is_a_smooth_curve_through_its_points() -> None:
     points = [(0.0, 0.0), (10.0, 10.0), (20.0, 0.0), (30.0, 10.0)]
     curves = stroke_curves(points)
@@ -170,7 +188,7 @@ def test_poppler_reads_them_with_their_author_and_text(document: OpenDocument, t
     save(document.save_plan(target))
     page = Poppler.Document.new_from_file(target.as_uri(), None).get_page(0)
     read = {mapping.annot.get_annot_type().value_nick: mapping.annot for mapping in page.get_annot_mapping()}
-    kinds = {"highlight", "underline", "squiggly", "strike-out", "square", "circle", "line", "ink", "text"}
+    kinds = {"highlight", "underline", "squiggly", "strike-out", "square", "circle", "line", "poly-line", "ink", "text"}
     assert set(read) == kinds
     assert read["text"].get_contents() == "Ñandú → ✓ (a) \\ 😀"
     square = read["square"]
@@ -187,8 +205,9 @@ def test_they_are_read_back_where_they_were_made(document: OpenDocument, tmp_pat
         read = read_annotations(pdf)
     by_name = {annotation.kind: annotation for annotation in read}
     for annotation in annotations:
-        if annotation.kind not in {Kind.ARROW, Kind.FREEHAND}:  # Their rectangle holds arrowheads, curves and lines.
+        if annotation.kind not in {Kind.ARROW, Kind.POLYLINE, Kind.FREEHAND}:  # Theirs hold arrowheads, curves, lines.
             assert by_name[annotation.kind].rectangle == pytest.approx(annotation.rectangle)
+    assert by_name[Kind.POLYLINE].vertices == POLYLINE_VERTICES  # Whole points: nothing is lost in rounding.
     freehand = by_name[Kind.FREEHAND]
     assert [value for stroke in freehand.strokes for point in stroke for value in point] == pytest.approx(
         [value for stroke in FREEHAND_STROKES for point in stroke for value in point]
@@ -238,18 +257,20 @@ def test_their_format_is_written_as_the_standard_keeps_it(document: OpenDocument
     save(document.save_plan(target))
     with pikepdf.open(target) as pdf:
         written = pdf.pages[0].Annots
-        highlight, _underline, _squiggly, _strike, rectangle, circle, arrow, freehand, comment, line = (
-            written[index] for index in range(10)
+        highlight, _underline, _squiggly, _strike, rectangle, circle, arrow, polyline, freehand, comment, line = (
+            written[index] for index in range(11)
         )
         assert float(highlight.CA) == 0.5
         assert str(highlight.AP.N.Resources.ExtGState.Look.BM) == "/Multiply"
-        for shape in (rectangle, circle, arrow):
+        for shape in (rectangle, circle, arrow, polyline):
             assert (float(shape.BS.W), str(shape.BS.S), floats(shape.BS.D)) == (4.0, "/D", [16.0, 12.0])
             assert float(shape.CA) == 0.5
             assert float(shape.AP.N.Resources.ExtGState.Look.ca) == 0.5
         assert floats(rectangle.IC) == [0.991, 0.845, 0.83]  # a soft red inside
         assert [str(arrow.LE[index]) for index in range(2)] == ["/OpenArrow", "/OpenArrow"]
         assert [str(line.LE[index]) for index in range(2)] == ["/None", "/None"]
+        assert [str(polyline.LE[index]) for index in range(2)] == ["/OpenArrow", "/OpenArrow"]
+        assert "1 j" in polyline.AP.N.read_bytes().decode()  # Round corners: a sharp one would stick out.
         assert (float(freehand.BS.W), str(freehand.BS.S), float(freehand.CA)) == (4.0, "/S", 0.5)
         assert "/CA" not in line  # opaque
         assert "/CA" not in comment

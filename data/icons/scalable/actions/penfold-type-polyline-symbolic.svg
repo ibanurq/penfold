@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polyline: straight stretches of line, with a square or a circle at each vertex. Drawn for Penfold. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <path d="M 2.894 10.990 L 5.106 6.010 M 7.092 5.910 L 8.908 9.090 M 10.984 9.032 L 13.016 4.968" stroke-width="2" stroke="rgb(0,0,0)" fill="none" class="foreground-stroke transparent-fill"/>
+  <path d="M 0.5 11.5 h 3 v 3 h -3 z M 7.5 4 A 1.5 1.5 0 1 1 4.5 4 A 1.5 1.5 0 1 1 7.5 4 Z M 8.5 9.5 h 3 v 3 h -3 z M 15.5 3 A 1.5 1.5 0 1 1 12.5 3 A 1.5 1.5 0 1 1 15.5 3 Z" stroke-width="1" stroke="rgb(0,0,0)" fill="none" class="foreground-stroke transparent-fill"/>
+</svg>
